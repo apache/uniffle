@@ -23,6 +23,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.apache.spark.shuffle.handle.split.PartitionSplitInfo;
+
 import org.apache.uniffle.client.PartitionDataReplicaRequirementTracking;
 import org.apache.uniffle.common.RemoteStorageInfo;
 import org.apache.uniffle.common.ShuffleServerInfo;
@@ -68,6 +70,11 @@ public class SimpleShuffleHandleInfo extends ShuffleHandleInfoBase implements Se
 
   public RemoteStorageInfo getRemoteStorage() {
     return remoteStorage;
+  }
+
+  @Override
+  public PartitionSplitInfo getPartitionSplitInfo(int partitionId) {
+    return null;
   }
 
   public int getShuffleId() {

@@ -179,13 +179,15 @@ public class RssShuffleManager extends RssShuffleManagerBase {
     shuffleIdToNumMapTasks.putIfAbsent(shuffleId, dependency.rdd().partitions().length);
     if (shuffleManagerRpcServiceEnabled && rssStageRetryForWriteFailureEnabled) {
       ShuffleHandleInfo shuffleHandleInfo =
-          new MutableShuffleHandleInfo(shuffleId, partitionToServers, remoteStorage);
+          new MutableShuffleHandleInfo(
+              shuffleId, partitionToServers, remoteStorage, partitionSplitMode);
       StageAttemptShuffleHandleInfo handleInfo =
           new StageAttemptShuffleHandleInfo(shuffleId, remoteStorage, shuffleHandleInfo);
       shuffleHandleInfoManager.register(shuffleId, handleInfo);
     } else if (shuffleManagerRpcServiceEnabled && partitionReassignEnabled) {
       ShuffleHandleInfo shuffleHandleInfo =
-          new MutableShuffleHandleInfo(shuffleId, partitionToServers, remoteStorage);
+          new MutableShuffleHandleInfo(
+              shuffleId, partitionToServers, remoteStorage, partitionSplitMode);
       shuffleHandleInfoManager.register(shuffleId, shuffleHandleInfo);
     }
     Broadcast<SimpleShuffleHandleInfo> hdlInfoBd =

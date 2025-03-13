@@ -20,6 +20,7 @@ package org.apache.uniffle.common.config;
 import java.util.List;
 
 import org.apache.uniffle.common.ClientType;
+import org.apache.uniffle.common.PartitionSplitMode;
 import org.apache.uniffle.common.ShuffleDataDistributionType;
 import org.apache.uniffle.common.compression.Codec;
 import org.apache.uniffle.common.netty.IOMode;
@@ -270,6 +271,19 @@ public class RssClientConf {
           .defaultValue(false)
           .withDescription(
               "Whether to support rss client block send failure retry, default value is false.");
+
+  public static final ConfigOption<PartitionSplitMode> RSS_CLIENT_PARTITION_SPLIT_MODE =
+      ConfigOptions.key("rss.client.reassign.partitionSplitMode")
+          .enumType(PartitionSplitMode.class)
+          .defaultValue(PartitionSplitMode.PIPELINE)
+          .withDescription("The partition split mode. default is PIPELINE.");
+
+  public static final ConfigOption<Integer> RSS_CLIENT_PARTITION_SPLIT_LOAD_BALANCE_SERVER_NUMBER =
+      ConfigOptions.key("rss.client.reassign.partitionSplitLoadBalanceServerNumber")
+          .intType()
+          .defaultValue(10)
+          .withDescription(
+              "The partition split load balance server number. Only valid for load balance split mode.");
 
   public static final ConfigOption<Integer> RSS_CLIENT_REMOTE_MERGE_FETCH_INIT_SLEEP_MS =
       ConfigOptions.key("rss.client.remote.merge.fetch.initSleepMs")
