@@ -25,6 +25,7 @@ import java.util.Map;
 import com.google.common.collect.Maps;
 import org.apache.spark.SparkConf;
 import org.apache.spark.shuffle.RssSparkConfig;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,7 +43,6 @@ import static org.apache.uniffle.client.util.RssClientConfig.RSS_CLIENT_RETRY_MA
 import static org.apache.uniffle.common.config.RssClientConf.RSS_CLIENT_PARTITION_SPLIT_LOAD_BALANCE_SERVER_NUMBER;
 import static org.apache.uniffle.common.config.RssClientConf.RSS_CLIENT_PARTITION_SPLIT_MODE;
 import static org.apache.uniffle.common.config.RssClientConf.RSS_CLIENT_REASSIGN_ENABLED;
-import static org.junit.Assert.assertEquals;
 
 /** This class is to simulate test partition split on load balance mode. */
 public class PartitionSplitOfLoadBalanceModeTest extends SparkSQLTest {
@@ -107,11 +107,11 @@ public class PartitionSplitOfLoadBalanceModeTest extends SparkSQLTest {
       // All servers will be assigned for one app due to the partition split
       if (sparkConf.get(RSS_CLIENT_TYPE).equals("GRPC")) {
         for (ShuffleServer shuffleServer : grpcShuffleServers) {
-          assertEquals(1, shuffleServer.getAppInfos().size());
+          Assertions.assertEquals(1, shuffleServer.getAppInfos().size());
         }
       } else {
         for (ShuffleServer shuffleServer : nettyShuffleServers) {
-          assertEquals(1, shuffleServer.getAppInfos().size());
+          Assertions.assertEquals(1, shuffleServer.getAppInfos().size());
         }
       }
     }
