@@ -58,40 +58,42 @@ import org.apache.uniffle.common.util.ChecksumUtils;
 public class WriteBufferManager extends MemoryConsumer {
 
   private static final Logger LOG = LoggerFactory.getLogger(WriteBufferManager.class);
-  private int bufferSize;
-  private long spillSize;
+  protected int bufferSize;
+  protected long spillSize;
   // allocated bytes from executor memory
   private AtomicLong allocatedBytes = new AtomicLong(0);
   // bytes of shuffle data in memory
-  private AtomicLong usedBytes = new AtomicLong(0);
+  protected final AtomicLong usedBytes = new AtomicLong(0);
   // bytes of shuffle data which is in send list
-  private AtomicLong inSendListBytes = new AtomicLong(0);
+  protected final AtomicLong inSendListBytes = new AtomicLong(0);
   /** An atomic counter used to keep track of the number of records */
-  private AtomicLong recordCounter = new AtomicLong(0);
+  protected final AtomicLong recordCounter = new AtomicLong(0);
   /** An atomic counter used to keep track of the number of blocks */
-  private AtomicLong blockCounter = new AtomicLong(0);
+  protected AtomicLong blockCounter = new AtomicLong(0);
   // it's part of blockId
   private Map<Integer, AtomicInteger> partitionToSeqNo = Maps.newHashMap();
   private long askExecutorMemory;
-  private int shuffleId;
+  protected final int shuffleId;
   private String taskId;
-  private long taskAttemptId;
+  protected final long taskAttemptId;
   private SerializerInstance instance;
-  private ShuffleWriteMetrics shuffleWriteMetrics;
+  protected ShuffleWriteMetrics shuffleWriteMetrics;
+  protected final RssConf rssConf;
   // cache partition -> records
-  private Map<Integer, WriterBuffer> buffers;
+  protected final Map<Integer, WriterBuffer> buffers;
   private int serializerBufferSize;
-  private int bufferSegmentSize;
-  private long copyTime = 0;
-  private long serializeTime = 0;
+  protected final int bufferSegmentSize;
+  protected long copyTime = 0;
+  protected long sortRecordTime = 0;
+  protected long serializeTime = 0;
   private long compressTime = 0;
   private long sortTime = 0;
-  private long writeTime = 0;
+  protected long writeTime = 0;
   private long estimateTime = 0;
   private long requireMemoryTime = 0;
   private SerializationStream serializeStream;
-  private WrappedByteArrayOutputStream arrayOutputStream;
-  private long uncompressedDataLen = 0;
+  protected final WrappedByteArrayOutputStream arrayOutputStream;
+  protected long uncompressedDataLen = 0;
   private long compressedDataLen = 0;
   private long requireMemoryInterval;
   private int requireMemoryRetryMax;
@@ -100,10 +102,10 @@ public class WriteBufferManager extends MemoryConsumer {
   private long sendSizeLimit;
   private boolean memorySpillEnabled;
   private int memorySpillTimeoutSec;
-  private boolean isRowBased;
-  private BlockIdLayout blockIdLayout;
-  private double bufferSpillRatio;
-  private Function<Integer, List<ShuffleServerInfo>> partitionAssignmentRetrieveFunc;
+  protected boolean isRowBased;
+  protected BlockIdLayout blockIdLayout;
+  protected double bufferSpillRatio;
+  protected Function<Integer, List<ShuffleServerInfo>> partitionAssignmentRetrieveFunc;
   private int stageAttemptNumber;
 
   public WriteBufferManager(
@@ -174,6 +176,7 @@ public class WriteBufferManager extends MemoryConsumer {
     this.taskId = taskId;
     this.taskAttemptId = taskAttemptId;
     this.shuffleWriteMetrics = shuffleWriteMetrics;
+    this.rssConf = rssConf;
     this.serializerBufferSize = bufferManagerOptions.getSerializerBufferSize();
     this.bufferSegmentSize = bufferManagerOptions.getBufferSegmentSize();
     this.askExecutorMemory = bufferManagerOptions.getPreAllocatedBufferSize();
@@ -310,6 +313,7 @@ public class WriteBufferManager extends MemoryConsumer {
       sentBlocks.add(createShuffleBlock(partitionId, wb));
       recordCounter.addAndGet(wb.getRecordCount());
       copyTime += wb.getCopyTime();
+      sortRecordTime += wb.getSortTime();
       buffers.remove(partitionId);
       if (LOG.isDebugEnabled()) {
         LOG.debug(
@@ -449,13 +453,13 @@ public class WriteBufferManager extends MemoryConsumer {
   }
 
   // it's run in single thread, and is not thread safe
-  private int getNextSeqNo(int partitionId) {
+  protected int getNextSeqNo(int partitionId) {
     return partitionToSeqNo
         .computeIfAbsent(partitionId, k -> new AtomicInteger(0))
         .getAndIncrement();
   }
 
-  private void requestMemory(long requiredMem) {
+  protected void requestMemory(long requiredMem) {
     final long start = System.currentTimeMillis();
     if (allocatedBytes.get() - usedBytes.get() < requiredMem) {
       requestExecutorMemory(requiredMem);
@@ -644,6 +648,8 @@ public class WriteBufferManager extends MemoryConsumer {
   public String getManagerCostInfo() {
     return "WriteBufferManager cost copyTime["
         + copyTime
+        + "], sortRecordTime["
+        + sortRecordTime
         + "], writeTime["
         + writeTime
         + "], serializeTime["

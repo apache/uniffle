@@ -20,7 +20,10 @@ package org.apache.spark.shuffle.writer;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -28,6 +31,8 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 
 import com.google.common.collect.Maps;
+import io.netty.buffer.ByteBuf;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.apache.spark.SparkConf;
 import org.apache.spark.executor.ShuffleWriteMetrics;
@@ -47,13 +52,19 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.uniffle.common.ShuffleBlockInfo;
+import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.compression.Codec;
 import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.common.config.RssConf;
+import org.apache.uniffle.common.records.RecordsReader;
+import org.apache.uniffle.common.serializer.SerInputStream;
+import org.apache.uniffle.common.serializer.SerializerUtils;
 import org.apache.uniffle.common.util.BlockIdLayout;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -61,6 +72,8 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 public class WriteBufferManagerTest {
+
+  private static final int RECORD_NUM = 1009;
 
   private WriteBufferManager createManager(SparkConf conf) {
     Serializer kryoSerializer = new KryoSerializer(conf);
@@ -621,5 +634,69 @@ public class WriteBufferManagerTest {
     String testValue2 = "This is a short text";
     List<ShuffleBlockInfo> shuffleBlockInfos2 = wbm.addRecord(1, testKey, testValue2);
     assertEquals(0, shuffleBlockInfos2.size());
+  }
+
+  @Test
+  public void testWriteRemoteMerge() throws Exception {
+    final SparkConf conf = new SparkConf();
+    final RssConf rssConf = RssSparkConfig.toRssConf(conf);
+    BufferManagerOptions bufferOptions = new BufferManagerOptions(conf);
+    TaskMemoryManager mockTaskMemoryManager = mock(TaskMemoryManager.class);
+    doReturn(16L * 1024L * 1024L)
+        .when(mockTaskMemoryManager)
+        .acquireExecutionMemory(anyLong(), any());
+
+    Map<Integer, List<ShuffleServerInfo>> partitionToServers = new HashMap<>();
+    WriteBufferManager manager =
+        new RMWriteBufferManager(
+            0,
+            "",
+            0,
+            bufferOptions,
+            new KryoSerializer(conf),
+            mockTaskMemoryManager,
+            new ShuffleWriteMetrics(),
+            RssSparkConfig.toRssConf(conf),
+            null,
+            pid -> partitionToServers.get(pid),
+            0,
+            SerializerUtils.getComparator(String.class));
+    List<ShuffleBlockInfo> shuffleBlockInfos;
+    List<Integer> indexes = new ArrayList<>();
+    for (int i = 0; i < RECORD_NUM; i++) {
+      indexes.add(i);
+    }
+    Collections.shuffle(indexes);
+    for (Integer index : indexes) {
+      shuffleBlockInfos =
+          manager.addRecord(
+              0,
+              SerializerUtils.genData(String.class, index),
+              SerializerUtils.genData(Integer.class, index));
+      assertTrue(CollectionUtils.isEmpty(shuffleBlockInfos));
+    }
+
+    shuffleBlockInfos = manager.clear();
+    assertFalse(CollectionUtils.isEmpty(shuffleBlockInfos));
+
+    // check blocks
+    List<AddBlockEvent> events = manager.buildBlockEvents(shuffleBlockInfos);
+    assertEquals(1, events.size());
+    List<ShuffleBlockInfo> blocks = events.get(0).getShuffleDataInfoList();
+    assertEquals(1, blocks.size());
+
+    ByteBuf buf = blocks.get(0).getData();
+    RecordsReader<String, Integer> reader =
+        new RecordsReader<>(
+            rssConf, SerInputStream.newInputStream(buf), String.class, Integer.class, false, false);
+    reader.init();
+    int index = 0;
+    while (reader.next()) {
+      assertEquals(SerializerUtils.genData(String.class, index), reader.getCurrentKey());
+      assertEquals(SerializerUtils.genData(Integer.class, index), reader.getCurrentValue());
+      index++;
+    }
+    reader.close();
+    assertEquals(RECORD_NUM, index);
   }
 }

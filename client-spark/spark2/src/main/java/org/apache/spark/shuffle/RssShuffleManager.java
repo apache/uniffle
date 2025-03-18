@@ -154,7 +154,10 @@ public class RssShuffleManager extends RssShuffleManagerBase {
             requiredShuffleServerNumber,
             estimateTaskConcurrency,
             rssStageResubmitManager.getServerIdBlackList(),
-            0);
+            -1,
+            0,
+            false,
+            null);
 
     startHeartbeat();
 
@@ -377,17 +380,6 @@ public class RssShuffleManager extends RssShuffleManagerBase {
           stageAttemptId,
           Sets.newHashSet(partitionId));
     }
-  }
-
-  private ShuffleServerInfo assignShuffleServer(int shuffleId, String faultyShuffleServerId) {
-    Set<String> faultyServerIds = Sets.newHashSet(faultyShuffleServerId);
-    faultyServerIds.addAll(rssStageResubmitManager.getServerIdBlackList());
-    Map<Integer, List<ShuffleServerInfo>> partitionToServers =
-        requestShuffleAssignment(shuffleId, 1, 1, 1, 1, faultyServerIds, 0);
-    if (partitionToServers.get(0) != null && partitionToServers.get(0).size() == 1) {
-      return partitionToServers.get(0).get(0);
-    }
-    return null;
   }
 
   @Override

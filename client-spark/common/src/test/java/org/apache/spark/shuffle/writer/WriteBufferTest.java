@@ -17,17 +17,37 @@
 
 package org.apache.spark.shuffle.writer;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 import scala.reflect.ClassTag$;
 
+import com.esotericsoftware.kryo.Kryo;
+import com.esotericsoftware.kryo.io.Output;
+import com.esotericsoftware.kryo.io.UnsafeOutput;
+import io.netty.buffer.Unpooled;
 import org.apache.spark.SparkConf;
 import org.apache.spark.serializer.KryoSerializer;
 import org.apache.spark.serializer.SerializationStream;
 import org.apache.spark.serializer.Serializer;
 import org.junit.jupiter.api.Test;
 
+import org.apache.uniffle.common.config.RssConf;
+import org.apache.uniffle.common.serializer.DeserializationStream;
+import org.apache.uniffle.common.serializer.SerInputStream;
+import org.apache.uniffle.common.serializer.SerializerUtils;
+import org.apache.uniffle.common.serializer.kryo.KryoSerializerInstance;
+
+import static org.apache.uniffle.common.serializer.SerializerUtils.genData;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class WriteBufferTest {
+
+  private static final int RECORDS_NUM = 200;
 
   private SparkConf conf = new SparkConf(false);
   private Serializer kryoSerializer = new KryoSerializer(conf);
@@ -36,6 +56,10 @@ public class WriteBufferTest {
       kryoSerializer.newInstance().serializeStream(arrayOutputStream);
   private byte[] serializedData;
   private int serializedDataLength;
+
+  private int keyLength;
+  private int valueLength;
+  private byte[] sortSerializedData;
 
   @Test
   public void test() {
@@ -83,6 +107,50 @@ public class WriteBufferTest {
     assertEquals(91, wb.getData().length);
   }
 
+  @Test
+  public void testSortRecords() throws IOException {
+    arrayOutputStream.reset();
+    KryoSerializerInstance instance = new KryoSerializerInstance(new RssConf());
+    Kryo serKryo = instance.borrowKryo();
+    Output serOutput = new UnsafeOutput(this.arrayOutputStream);
+
+    WriterBuffer wb = new WriterBuffer(1024);
+    assertEquals(0, wb.getMemoryUsed());
+    assertEquals(0, wb.getDataLength());
+
+    List<Integer> arrays = new ArrayList<>();
+    for (int i = 0; i < RECORDS_NUM; i++) {
+      arrays.add(i);
+    }
+    Collections.shuffle(arrays);
+    for (int i : arrays) {
+      String key = (String) SerializerUtils.genData(String.class, i);
+      int value = (int) SerializerUtils.genData(int.class, i);
+      serializeData(key, value, serKryo, serOutput);
+      wb.addRecord(sortSerializedData, keyLength, valueLength);
+    }
+    assertEquals(RECORDS_NUM, wb.getRecordCount());
+    assertEquals(15 * RECORDS_NUM, wb.getDataLength());
+
+    byte[] data = wb.getData(instance, SerializerUtils.getComparator(String.class));
+    assertEquals(15 * RECORDS_NUM, data.length);
+    // deserialized
+    DeserializationStream dStream =
+        instance.deserializeStream(
+            SerInputStream.newInputStream(Unpooled.wrappedBuffer(data)),
+            String.class,
+            int.class,
+            false,
+            false);
+    dStream.init();
+    for (int i = 0; i < RECORDS_NUM; i++) {
+      assertTrue(dStream.nextRecord());
+      assertEquals(genData(String.class, i), dStream.getCurrentKey());
+      assertEquals(i, dStream.getCurrentValue());
+    }
+    assertFalse(dStream.nextRecord());
+  }
+
   private void serializeData(Object key, Object value) {
     arrayOutputStream.reset();
     serializeStream.writeKey(key, ClassTag$.MODULE$.apply(key.getClass()));
@@ -90,5 +158,16 @@ public class WriteBufferTest {
     serializeStream.flush();
     serializedData = arrayOutputStream.getBuf();
     serializedDataLength = arrayOutputStream.size();
+  }
+
+  private void serializeData(Object key, Object value, Kryo serKryo, Output serOutput) {
+    arrayOutputStream.reset();
+    serKryo.writeClassAndObject(serOutput, key);
+    serOutput.flush();
+    keyLength = arrayOutputStream.size();
+    serKryo.writeClassAndObject(serOutput, value);
+    serOutput.flush();
+    valueLength = arrayOutputStream.size() - keyLength;
+    sortSerializedData = arrayOutputStream.getBuf();
   }
 }

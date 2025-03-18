@@ -17,15 +17,18 @@
 
 package org.apache.uniffle.server.merge;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectStreamClass;
 import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.security.AccessController;
 import java.security.PrivilegedExceptionAction;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -40,6 +43,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.uniffle.common.ShuffleDataResult;
+import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.merger.Segment;
 import org.apache.uniffle.common.rpc.StatusCode;
 import org.apache.uniffle.common.serializer.SerOutputStream;
@@ -148,6 +152,28 @@ public class ShuffleMergeManager {
     return cachedClassLoader.getOrDefault(label, cachedClassLoader.get(""));
   }
 
+  private Object decode(String encodeString, ClassLoader classLoader) {
+    try {
+      byte[] bytes = Base64.getDecoder().decode(encodeString.substring(1));
+      ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
+      ObjectInputStream ois =
+          new ObjectInputStream(bais) {
+            @Override
+            protected Class<?> resolveClass(ObjectStreamClass desc)
+                throws IOException, ClassNotFoundException {
+              try {
+                return Class.forName(desc.getName(), false, classLoader);
+              } catch (ClassNotFoundException e) {
+                return super.resolveClass(desc);
+              }
+            }
+          };
+      return ois.readObject();
+    } catch (Exception e) {
+      throw new RssException(e);
+    }
+  }
+
   public StatusCode registerShuffle(String appId, int shuffleId, MergeContext mergeContext) {
     try {
       ClassLoader classLoader = getClassLoader(mergeContext.getMergeClassLoader());
@@ -155,11 +181,15 @@ public class ShuffleMergeManager {
       Class vClass = ClassUtils.getClass(classLoader, mergeContext.getValueClass());
       Comparator comparator;
       if (StringUtils.isNotBlank(mergeContext.getComparatorClass())) {
-        Constructor constructor =
-            ClassUtils.getClass(classLoader, mergeContext.getComparatorClass())
-                .getDeclaredConstructor();
-        constructor.setAccessible(true);
-        comparator = (Comparator) constructor.newInstance();
+        if (mergeContext.getComparatorClass().startsWith("#")) {
+          comparator = (Comparator) decode(mergeContext.getComparatorClass(), classLoader);
+        } else {
+          Constructor constructor =
+              ClassUtils.getClass(classLoader, mergeContext.getComparatorClass())
+                  .getDeclaredConstructor();
+          constructor.setAccessible(true);
+          comparator = (Comparator) constructor.newInstance();
+        }
       } else {
         comparator = defaultComparator;
       }
@@ -179,12 +209,8 @@ public class ShuffleMergeManager {
                   comparator,
                   mergeContext.getMergedBlockSize(),
                   classLoader));
-    } catch (ClassNotFoundException
-        | InstantiationException
-        | IllegalAccessException
-        | NoSuchMethodException
-        | InvocationTargetException e) {
-      LOG.info("Cant register shuffle, caused by ", e);
+    } catch (Throwable e) {
+      LOG.info("Cannot register shuffle, caused by ", e);
       removeBuffer(appId, shuffleId);
       return StatusCode.INTERNAL_ERROR;
     }
