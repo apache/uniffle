@@ -69,7 +69,9 @@ public class RecordBuffer<K, V> implements RecordCollection<K, V, V> {
         new Comparator<Record>() {
           @Override
           public int compare(Record o1, Record o2) {
-            return comparator.compare(o1.getKey(), o2.getKey());
+            int h1 = (o1 == null) ? 0 : o1.hashCode();
+            int h2 = (o2 == null) ? 0 : o2.hashCode();
+            return Integer.compare(h1, h2);
           }
         });
   }
