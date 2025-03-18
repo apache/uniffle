@@ -55,7 +55,7 @@ public class Merger {
         List<Segment> segments,
         Class<K> keyClass,
         Class<V> valueClass,
-        Comparator comparator,
+        Comparator<K> comparator,
         boolean raw,
         boolean buffered) {
       this.rssConf = rssConf;
@@ -84,7 +84,7 @@ public class Merger {
           ByteBuf key2 = (ByteBuf) s2.getCurrentKey();
           // make sure key buffer is in heap, avoid byte array copy
           int c =
-              ((RawComparator) comparator)
+              ((RawComparator<?>) comparator)
                   .compare(
                       key1.array(),
                       key1.arrayOffset() + key1.readerIndex(),
@@ -97,15 +97,28 @@ public class Merger {
           DataOutputBuffer key1 = (DataOutputBuffer) s1.getCurrentKey();
           DataOutputBuffer key2 = (DataOutputBuffer) s2.getCurrentKey();
           int c =
-              ((RawComparator) comparator)
+              ((RawComparator<?>) comparator)
                   .compare(
                       key1.getData(), 0, key1.getLength(), key2.getData(), 0, key2.getLength());
           return c < 0 || ((c == 0) && s1.getId() < s2.getId());
         }
       } else {
+        Comparator<Object> cpt =
+            (object1, object2) -> {
+              if (object1 == null && object2 == null) {
+                return 0;
+              }
+              if (object1 == null) {
+                return -1;
+              }
+              if (object2 == null) {
+                return 1;
+              }
+              return Integer.compare(object1.hashCode(), object2.hashCode());
+            };
         Object key1 = s1.getCurrentKey();
         Object key2 = s2.getCurrentKey();
-        int c = comparator.compare(key1, key2);
+        int c = cpt.compare(key1, key2);
         return c < 0 || ((c == 0) && s1.getId() < s2.getId());
       }
     }
