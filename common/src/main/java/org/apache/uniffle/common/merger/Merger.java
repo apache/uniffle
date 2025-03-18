@@ -55,7 +55,7 @@ public class Merger {
         List<Segment> segments,
         Class<K> keyClass,
         Class<V> valueClass,
-        Comparator<K> comparator,
+        Comparator comparator,
         boolean raw,
         boolean buffered) {
       this.rssConf = rssConf;
@@ -76,10 +76,10 @@ public class Merger {
 
     @Override
     protected boolean lessThan(Object o1, Object o2) {
+      Segment s1 = (Segment) o1;
+      Segment s2 = (Segment) o2;
       if (raw) {
         if (buffered) {
-          Segment s1 = (Segment) o1;
-          Segment s2 = (Segment) o2;
           ByteBuf key1 = (ByteBuf) s1.getCurrentKey();
           ByteBuf key2 = (ByteBuf) s2.getCurrentKey();
           // make sure key buffer is in heap, avoid byte array copy
@@ -94,8 +94,6 @@ public class Merger {
                       key2.readableBytes());
           return c < 0 || ((c == 0) && s1.getId() < s2.getId());
         } else {
-          Segment s1 = (Segment) o1;
-          Segment s2 = (Segment) o2;
           DataOutputBuffer key1 = (DataOutputBuffer) s1.getCurrentKey();
           DataOutputBuffer key2 = (DataOutputBuffer) s2.getCurrentKey();
           int c =
@@ -105,8 +103,6 @@ public class Merger {
           return c < 0 || ((c == 0) && s1.getId() < s2.getId());
         }
       } else {
-        Segment s1 = (Segment) o1;
-        Segment s2 = (Segment) o2;
         Object key1 = s1.getCurrentKey();
         Object key2 = s2.getCurrentKey();
         int c = comparator.compare(key1, key2);
@@ -115,7 +111,7 @@ public class Merger {
     }
 
     public void init() throws IOException {
-      List<Segment> segmentsToMerge = new ArrayList();
+      List<Segment> segmentsToMerge = new ArrayList<>();
       for (Segment segment : segments) {
         boolean hasNext = segment.next();
         if (hasNext) {
@@ -189,7 +185,7 @@ public class Merger {
 
     public void merge(SerOutputStream output) throws IOException {
       RecordsWriter<K, V> writer =
-          new RecordsWriter<K, V>(rssConf, output, keyClass, valueClass, raw, buffered);
+          new RecordsWriter<>(rssConf, output, keyClass, valueClass, raw, buffered);
       try {
         writer.init();
         while (this.next()) {
@@ -202,7 +198,9 @@ public class Merger {
     }
 
     @Override
-    public void close() throws IOException {}
+    public void close() throws IOException {
+      // ignore
+    }
   }
 
   public static void merge(
