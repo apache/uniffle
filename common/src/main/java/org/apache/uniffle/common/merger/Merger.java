@@ -105,16 +105,9 @@ public class Merger {
       } else {
         Comparator<Object> cpt =
             (object1, object2) -> {
-              if (object1 == null && object2 == null) {
-                return 0;
-              }
-              if (object1 == null) {
-                return -1;
-              }
-              if (object2 == null) {
-                return 1;
-              }
-              return Integer.compare(object1.hashCode(), object2.hashCode());
+              int h1 = (object1 == null) ? 0 : object1.hashCode();
+              int h2 = (object2 == null) ? 0 : object2.hashCode();
+              return Integer.compare(h1, h2);
             };
         Object key1 = s1.getCurrentKey();
         Object key2 = s2.getCurrentKey();
