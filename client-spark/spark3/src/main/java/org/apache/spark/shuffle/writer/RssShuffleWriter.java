@@ -632,22 +632,69 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
     failedTracker
         .removeAllTrackedPartitions()
         .forEach(
-            partitionStatus ->
-                failurePartitionToServers
-                    .computeIfAbsent(partitionStatus.getPartitionId(), x -> new ArrayList<>())
-                    .add(
-                        new ReceivingFailureServer(
-                            partitionStatus.getShuffleServerInfo().getId(), StatusCode.SUCCESS)));
-    if (!failurePartitionToServers.isEmpty()) {
-      doReassignOnBlockSendFailure(failurePartitionToServers, true);
+            partitionStatus -> {
+              List<ReceivingFailureServer> servers =
+                  failurePartitionToServers.computeIfAbsent(
+                      partitionStatus.getPartitionId(), x -> new ArrayList<>());
+              String serverId = partitionStatus.getShuffleServerInfo().getId();
+              // todo: use better data structure to filter
+              if (!servers.stream()
+                  .map(x -> x.getServerId())
+                  .collect(Collectors.toSet())
+                  .contains(serverId)) {
+                servers.add(new ReceivingFailureServer(serverId, StatusCode.SUCCESS));
+              }
+            });
+
+    if (failurePartitionToServers.isEmpty()) {
+      return;
     }
+
+    //
+    // For the [load balance] mode
+    // Once partition has been split, the following split trigger will be ignored.
+    //
+    // For the [pipeline] mode
+    // The split request will be always response
+    //
+    Map<Integer, List<ReceivingFailureServer>> partitionToServersReassignList = new HashMap<>();
+    for (Map.Entry<Integer, List<ReceivingFailureServer>> entry :
+        failurePartitionToServers.entrySet()) {
+      int partitionId = entry.getKey();
+      boolean isSkip = taskAttemptAssignment.isSkipPartitionSplit(partitionId);
+      if (!isSkip) {
+        partitionToServersReassignList.put(partitionId, entry.getValue());
+      }
+    }
+
+    if (partitionToServersReassignList.isEmpty()) {
+      LOG.info(
+          "[Partition split] Skip the following partition split request (maybe has been load balanced). partitionIds: {}",
+          failurePartitionToServers.keySet());
+      return;
+    }
+
+    doReassignOnBlockSendFailure(partitionToServersReassignList, true);
+
+    LOG.info("========================= Partition Split Result =========================");
+    for (Map.Entry<Integer, List<ReceivingFailureServer>> entry :
+        partitionToServersReassignList.entrySet()) {
+      LOG.info(
+          "partitionId:{}. {} -> {}",
+          entry.getKey(),
+          entry.getValue().stream().map(x -> x.getServerId()).collect(Collectors.toList()),
+          taskAttemptAssignment.retrieve(entry.getKey()));
+    }
+    LOG.info("==========================================================================");
   }
 
   private void doReassignOnBlockSendFailure(
       Map<Integer, List<ReceivingFailureServer>> failurePartitionToServers,
       boolean partitionSplit) {
     LOG.info(
-        "Initiate reassignOnBlockSendFailure. failure partition servers: {}",
+        "Initiate reassignOnBlockSendFailure of taskId[{}]. partition split: {}. failure partition servers: {}. ",
+        taskAttemptId,
+        partitionSplit,
         failurePartitionToServers);
     String executorId = SparkEnv.get().executorId();
     long taskAttemptId = taskContext.taskAttemptId();

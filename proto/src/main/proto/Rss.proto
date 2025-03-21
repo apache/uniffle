@@ -626,6 +626,19 @@ message MutableShuffleHandleInfo {
   int32 shuffleId = 1;
   map<int32, PartitionReplicaServers> partitionToServers = 2;
   RemoteStorageInfo remoteStorageInfo = 3;
+
+  map<string, ReplacementServers> excludedServerToReplacements = 4;
+  repeated int32 splitPartitionId = 5;
+  PartitionSplitMode partitionSplitMode = 6;
+}
+
+enum PartitionSplitMode {
+  PIPELINE = 0;
+  LOAD_BALANCE = 1;
+}
+
+message ReplacementServers {
+  repeated ShuffleServerId serverId = 1;
 }
 
 message PartitionReplicaServers {

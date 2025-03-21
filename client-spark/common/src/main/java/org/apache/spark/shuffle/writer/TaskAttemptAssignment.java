@@ -21,16 +21,26 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.spark.shuffle.handle.ShuffleHandleInfo;
+import org.apache.spark.shuffle.handle.split.PartitionSplitInfo;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import org.apache.uniffle.common.PartitionSplitMode;
 import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.exception.RssException;
 
 /** This class is to get the partition assignment for ShuffleWriter. */
 public class TaskAttemptAssignment {
+  private static final Logger LOGGER = LoggerFactory.getLogger(TaskAttemptAssignment.class);
+
   private Map<Integer, List<ShuffleServerInfo>> assignment;
+  private ShuffleHandleInfo handle;
+  private final long taskAttemptId;
 
   public TaskAttemptAssignment(long taskAttemptId, ShuffleHandleInfo shuffleHandleInfo) {
     this.update(shuffleHandleInfo);
+    this.handle = shuffleHandleInfo;
+    this.taskAttemptId = taskAttemptId;
   }
 
   /**
@@ -48,5 +58,12 @@ public class TaskAttemptAssignment {
       throw new RssException("Errors on updating shuffle handle by the empty handleInfo.");
     }
     this.assignment = handle.getAvailablePartitionServersForWriter();
+    this.handle = handle;
+  }
+
+  public boolean isSkipPartitionSplit(int partitionId) {
+    // for those load balance partition split, once split, skip the following split.
+    PartitionSplitInfo splitInfo = this.handle.getPartitionSplitInfo(partitionId);
+    return splitInfo.isSplit() && splitInfo.getMode() == PartitionSplitMode.LOAD_BALANCE;
   }
 }

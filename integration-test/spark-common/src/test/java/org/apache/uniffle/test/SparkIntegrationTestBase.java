@@ -101,8 +101,13 @@ public abstract class SparkIntegrationTestBase extends IntegrationTestBase {
     }
     spark = SparkSession.builder().config(sparkConf).getOrCreate();
     Map result = runTest(spark, testFileName);
+    checkRunState(sparkConf);
     spark.stop();
     return result;
+  }
+
+  protected void checkRunState(SparkConf sparkConf) {
+    // ignore
   }
 
   protected SparkConf createSparkConf() {

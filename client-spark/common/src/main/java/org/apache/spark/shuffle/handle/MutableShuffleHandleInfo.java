@@ -23,16 +23,20 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.spark.TaskContext;
+import org.apache.spark.shuffle.handle.split.PartitionSplitInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.uniffle.client.PartitionDataReplicaRequirementTracking;
+import org.apache.uniffle.common.PartitionSplitMode;
 import org.apache.uniffle.common.RemoteStorageInfo;
 import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.exception.RssException;
@@ -60,11 +64,22 @@ public class MutableShuffleHandleInfo extends ShuffleHandleInfoBase {
   private Map<Integer, Map<String, Set<ShuffleServerInfo>>>
       excludedServerForPartitionToReplacements;
 
+  private PartitionSplitMode partitionSplitMode = PartitionSplitMode.PIPELINE;
+
   public MutableShuffleHandleInfo(
       int shuffleId,
       Map<Integer, List<ShuffleServerInfo>> partitionToServers,
       RemoteStorageInfo storageInfo) {
     this(shuffleId, storageInfo, toPartitionReplicaMapping(partitionToServers));
+  }
+
+  public MutableShuffleHandleInfo(
+      int shuffleId,
+      Map<Integer, List<ShuffleServerInfo>> partitionToServers,
+      RemoteStorageInfo storageInfo,
+      PartitionSplitMode partitionSplitMode) {
+    this(shuffleId, storageInfo, toPartitionReplicaMapping(partitionToServers));
+    this.partitionSplitMode = partitionSplitMode;
   }
 
   @VisibleForTesting
@@ -190,12 +205,34 @@ public class MutableShuffleHandleInfo extends ShuffleHandleInfoBase {
         partitionReplicaAssignedServers.entrySet()) {
       int partitionId = entry.getKey();
       Map<Integer, List<ShuffleServerInfo>> replicaServers = entry.getValue();
+      PartitionSplitInfo splitInfo = this.getPartitionSplitInfo(partitionId);
       for (Map.Entry<Integer, List<ShuffleServerInfo>> replicaServerEntry :
           replicaServers.entrySet()) {
         ShuffleServerInfo candidate;
         int candidateSize = replicaServerEntry.getValue().size();
         // Use the last one for each replica writing
         candidate = replicaServerEntry.getValue().get(candidateSize - 1);
+
+        long taskAttemptId =
+            Optional.ofNullable(TaskContext.get()).map(x -> x.taskAttemptId()).orElse(-1L);
+        if (taskAttemptId != -1
+            && splitInfo.isSplit()
+            && splitInfo.getMode() == PartitionSplitMode.LOAD_BALANCE) {
+          // 1. exclude the problem nodes to pick up
+          List<ShuffleServerInfo> servers =
+              replicaServerEntry.getValue().stream()
+                  .filter(x -> !excludedServerToReplacements.containsKey(x.getId()))
+                  .collect(Collectors.toList());
+
+          // 2. exclude the first partition split triggered node.
+          int serverSize = servers.size();
+          if (serverSize > 1) {
+            // 0, 1, 2
+            int idx = (int) (taskAttemptId % (serverSize - 1)) + 1;
+            candidate = servers.get(idx);
+          }
+        }
+
         assignment.computeIfAbsent(partitionId, x -> new ArrayList<>()).add(candidate);
       }
     }
@@ -224,6 +261,16 @@ public class MutableShuffleHandleInfo extends ShuffleHandleInfoBase {
     PartitionDataReplicaRequirementTracking replicaRequirement =
         new PartitionDataReplicaRequirementTracking(shuffleId, partitionReplicaAssignedServers);
     return replicaRequirement;
+  }
+
+  @Override
+  public PartitionSplitInfo getPartitionSplitInfo(int partitionId) {
+    boolean isSplit = excludedServerForPartitionToReplacements.containsKey(partitionId);
+    return new PartitionSplitInfo(
+        partitionId,
+        isSplit,
+        partitionSplitMode,
+        new ArrayList<>(partitionReplicaAssignedServers.get(partitionId).values()));
   }
 
   public Set<String> listExcludedServers() {
@@ -272,6 +319,21 @@ public class MutableShuffleHandleInfo extends ShuffleHandleInfoBase {
         partitionToServers.put(partitionId, partitionReplicaServerProto);
       }
 
+      Map<String, RssProtos.ReplacementServers> excludeToReplacements = new HashMap<>();
+      for (Map.Entry<String, Set<ShuffleServerInfo>> entry :
+          handleInfo.excludedServerToReplacements.entrySet()) {
+        RssProtos.ReplacementServers replacementServers =
+            RssProtos.ReplacementServers.newBuilder()
+                .addAllServerId(ShuffleServerInfo.toProto(new ArrayList<>(entry.getValue())))
+                .build();
+        excludeToReplacements.put(entry.getKey(), replacementServers);
+      }
+
+      RssProtos.PartitionSplitMode mode = RssProtos.PartitionSplitMode.PIPELINE;
+      if (handleInfo.partitionSplitMode == PartitionSplitMode.LOAD_BALANCE) {
+        mode = RssProtos.PartitionSplitMode.LOAD_BALANCE;
+      }
+
       RssProtos.MutableShuffleHandleInfo handleProto =
           RssProtos.MutableShuffleHandleInfo.newBuilder()
               .setShuffleId(handleInfo.shuffleId)
@@ -281,6 +343,9 @@ public class MutableShuffleHandleInfo extends ShuffleHandleInfoBase {
                       .putAllConfItems(handleInfo.remoteStorage.getConfItems())
                       .build())
               .putAllPartitionToServers(partitionToServers)
+              .putAllExcludedServerToReplacements(excludeToReplacements)
+              .setPartitionSplitMode(mode)
+              .addAllSplitPartitionId(handleInfo.excludedServerForPartitionToReplacements.keySet())
               .build();
       return handleProto;
     }
@@ -303,6 +368,20 @@ public class MutableShuffleHandleInfo extends ShuffleHandleInfoBase {
         replicaServers.put(replicaIdx, shuffleServerInfos);
       }
     }
+
+    Map<String, Set<ShuffleServerInfo>> excludeToReplacements = new HashMap<>();
+    for (Map.Entry<String, RssProtos.ReplacementServers> entry :
+        handleProto.getExcludedServerToReplacementsMap().entrySet()) {
+      excludeToReplacements.put(
+          entry.getKey(),
+          new HashSet<>(ShuffleServerInfo.fromProto(entry.getValue().getServerIdList())));
+    }
+
+    Map<Integer, Map<String, Set<ShuffleServerInfo>>> partitionSplitToServers = new HashMap<>();
+    for (int partitionId : handleProto.getSplitPartitionIdList()) {
+      partitionSplitToServers.computeIfAbsent(partitionId, x -> new HashMap<>());
+    }
+
     RemoteStorageInfo remoteStorageInfo =
         new RemoteStorageInfo(
             handleProto.getRemoteStorageInfo().getPath(),
@@ -310,6 +389,12 @@ public class MutableShuffleHandleInfo extends ShuffleHandleInfoBase {
     MutableShuffleHandleInfo handle =
         new MutableShuffleHandleInfo(handleProto.getShuffleId(), remoteStorageInfo);
     handle.partitionReplicaAssignedServers = partitionToServers;
+    handle.partitionSplitMode =
+        handleProto.getPartitionSplitMode() == RssProtos.PartitionSplitMode.LOAD_BALANCE
+            ? PartitionSplitMode.LOAD_BALANCE
+            : PartitionSplitMode.PIPELINE;
+    handle.excludedServerForPartitionToReplacements = partitionSplitToServers;
+    handle.excludedServerToReplacements = excludeToReplacements;
     return handle;
   }
 

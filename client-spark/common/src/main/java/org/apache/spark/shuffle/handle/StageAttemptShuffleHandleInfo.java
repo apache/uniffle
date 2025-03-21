@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Set;
 
 import com.google.common.collect.Lists;
+import org.apache.spark.shuffle.handle.split.PartitionSplitInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -74,6 +75,11 @@ public class StageAttemptShuffleHandleInfo extends ShuffleHandleInfoBase {
   @Override
   public PartitionDataReplicaRequirementTracking createPartitionReplicaTracking() {
     return current.createPartitionReplicaTracking();
+  }
+
+  @Override
+  public PartitionSplitInfo getPartitionSplitInfo(int partitionId) {
+    return current.getPartitionSplitInfo(partitionId);
   }
 
   /**
