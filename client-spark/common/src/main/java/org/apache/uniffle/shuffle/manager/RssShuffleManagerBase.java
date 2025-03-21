@@ -1020,8 +1020,6 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
           StatusCode code = receivingFailureServer.getStatusCode();
           String serverId = receivingFailureServer.getServerId();
 
-          boolean serverHasReplaced = false;
-
           Set<ShuffleServerInfo> updatedReassignServers;
           if (!partitionSplit) {
             Set<ShuffleServerInfo> replacements = internalHandle.getReplacements(serverId);
@@ -1034,8 +1032,6 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
                       internalHandle,
                       partitionId,
                       serverId);
-            } else {
-              serverHasReplaced = true;
             }
             updatedReassignServers =
                 internalHandle.updateAssignment(partitionId, serverId, replacements);
@@ -1051,8 +1047,6 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
                       internalHandle,
                       partitionId,
                       serverId);
-            } else {
-              serverHasReplaced = true;
             }
             updatedReassignServers =
                 internalHandle.updateAssignmentOnPartitionSplit(
@@ -1067,23 +1061,8 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
                     updatedReassignServers.stream()
                         .map(x -> x.getId())
                         .collect(Collectors.toSet()));
-
-            if (serverHasReplaced) {
-              for (ShuffleServerInfo serverInfo : updatedReassignServers) {
-                newServerToPartitions
-                    .computeIfAbsent(serverInfo, x -> new ArrayList<>())
-                    .add(new PartitionRange(partitionId, partitionId));
-              }
-            }
           }
         }
-      }
-      if (!newServerToPartitions.isEmpty()) {
-        LOG.info(
-            "Register the new partition->servers assignment on reassign. {}",
-            newServerToPartitions);
-        registerShuffleServers(
-            getAppId(), shuffleId, newServerToPartitions, getRemoteStorageInfo());
       }
 
       LOG.info(
