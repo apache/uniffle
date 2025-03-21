@@ -52,6 +52,7 @@ public class DefaultStorageMediaProviderTest {
     assertEquals("rootfs", DefaultStorageMediaProvider.getDeviceName("rootfs"));
     assertEquals("sda", DefaultStorageMediaProvider.getDeviceName("/dev/sda1"));
     assertEquals("cl-home", DefaultStorageMediaProvider.getDeviceName("/dev/mapper/cl-home"));
+    assertEquals("nvme0n1", DefaultStorageMediaProvider.getDeviceName("/dev/nvme0n1p6"));
   }
 
   @Test

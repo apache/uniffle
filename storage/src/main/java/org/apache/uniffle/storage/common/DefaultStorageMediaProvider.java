@@ -102,9 +102,12 @@ public class DefaultStorageMediaProvider implements StorageMediaProvider {
 
   @VisibleForTesting
   static String getDeviceName(String mountPoint) {
-    // mountPoint would be /dev/sda1, /dev/vda1, rootfs, etc.
+    // mountPoint would be /dev/sda1, /dev/vda1, /dev/nvme0n1p6, rootfs, etc.
     int separatorIndex = mountPoint.lastIndexOf(File.separator);
     String deviceName = separatorIndex > -1 ? mountPoint.substring(separatorIndex + 1) : mountPoint;
+    if (deviceName.startsWith("nvme") && deviceName.contains("p")) {
+      return deviceName.substring(0, deviceName.lastIndexOf("p"));
+    }
     return StringUtils.stripEnd(deviceName, NUMBERIC_STRING);
   }
 }
