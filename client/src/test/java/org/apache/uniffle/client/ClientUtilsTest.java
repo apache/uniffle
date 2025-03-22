@@ -19,9 +19,10 @@ package org.apache.uniffle.client;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 
 import org.awaitility.Awaitility;
@@ -70,12 +71,12 @@ public class ClientUtilsTest {
     }
   }
 
-  private List<CompletableFuture<Boolean>> getFutures(boolean fail) {
-    List<CompletableFuture<Boolean>> futures = new ArrayList<>();
+  private List<Future<Boolean>> getFutures(boolean fail) {
+    List<Future<Boolean>> futures = new ArrayList<>();
     for (int i = 0; i < 3; i++) {
       final int index = i;
-      CompletableFuture<Boolean> future =
-          CompletableFuture.supplyAsync(
+      FutureTask<Boolean> future =
+          new FutureTask(
               () -> {
                 if (index == 2) {
                   try {
@@ -88,8 +89,8 @@ public class ClientUtilsTest {
                   return true;
                 }
                 return !fail || index != 1;
-              },
-              executorService);
+              });
+      executorService.submit(future);
       futures.add(future);
     }
     return futures;
@@ -98,13 +99,13 @@ public class ClientUtilsTest {
   @Test
   public void testWaitUntilDoneOrFail() {
     // case1: enable fail fast
-    List<CompletableFuture<Boolean>> futures1 = getFutures(true);
+    List<Future<Boolean>> futures1 = getFutures(true);
     Awaitility.await()
         .timeout(2, TimeUnit.SECONDS)
         .until(() -> !waitUntilDoneOrFail(futures1, true));
 
     // case2: disable fail fast
-    List<CompletableFuture<Boolean>> futures2 = getFutures(true);
+    List<Future<Boolean>> futures2 = getFutures(true);
     try {
       Awaitility.await()
           .timeout(2, TimeUnit.SECONDS)
@@ -115,7 +116,7 @@ public class ClientUtilsTest {
     }
 
     // case3: all succeed
-    List<CompletableFuture<Boolean>> futures3 = getFutures(false);
+    List<Future<Boolean>> futures3 = getFutures(false);
     Awaitility.await()
         .timeout(4, TimeUnit.SECONDS)
         .until(() -> waitUntilDoneOrFail(futures3, true));
