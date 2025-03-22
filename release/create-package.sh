@@ -53,7 +53,7 @@ if [ "$(uname)" == "Darwin" ]; then
 fi
 
 package_source() {
-  SRC_TGZ_FILE="apache-uniffle-${RELEASE_VERSION}-incubating-src.tar.gz"
+  SRC_TGZ_FILE="apache-uniffle-${RELEASE_VERSION}-src.tar.gz"
   SRC_TGZ="${RELEASE_DIR}/${SRC_TGZ_FILE}"
 
   mkdir -p "${RELEASE_DIR}"
@@ -61,7 +61,7 @@ package_source() {
 
   echo "Creating source release tarball ${SRC_TGZ_FILE}"
 
-  git archive --prefix="apache-uniffle-${RELEASE_VERSION}-incubating-src/" -o "${SRC_TGZ}" HEAD
+  git archive --prefix="apache-uniffle-${RELEASE_VERSION}-src/" -o "${SRC_TGZ}" HEAD
 
   if [ "$SKIP_GPG" == "false" ] ; then
     gpg --armor --detach-sig "${SRC_TGZ}"
@@ -70,7 +70,7 @@ package_source() {
 }
 
 package_binary() {
-  BIN_TGZ_FILE="apache-uniffle-${RELEASE_VERSION}-incubating-bin.tar.gz"
+  BIN_TGZ_FILE="apache-uniffle-${RELEASE_VERSION}-bin.tar.gz"
   BIN_TGZ="${RELEASE_DIR}/${BIN_TGZ_FILE}"
 
   mkdir -p "${RELEASE_DIR}"
@@ -80,8 +80,8 @@ package_binary() {
 
   ${PROJECT_DIR}/build_distribution.sh
 
-  BIN_ORIGIN_NAME="apache-uniffle-${RELEASE_VERSION}-incubating-hadoop2.8.tgz"
-  BIN_DIR_NAME="apache-uniffle-${RELEASE_VERSION}-incubating-hadoop2.8"
+  BIN_ORIGIN_NAME="apache-uniffle-${RELEASE_VERSION}-hadoop2.8.tgz"
+  BIN_DIR_NAME="apache-uniffle-${RELEASE_VERSION}-hadoop2.8"
   tar -zxf $BIN_ORIGIN_NAME
   cp "${PROJECT_DIR}/LICENSE-binary" "${BIN_DIR_NAME}/LICENSE"
   cp "${PROJECT_DIR}/NOTICE-binary" "${BIN_DIR_NAME}/NOTICE"
