@@ -39,9 +39,9 @@ public class RssBaseConf extends RssConf {
   public static final ConfigOption<ServerType> RPC_SERVER_TYPE =
       ConfigOptions.key("rss.rpc.server.type")
           .enumType(ServerType.class)
-          .defaultValue(ServerType.GRPC)
+          .defaultValue(ServerType.GRPC_NETTY)
           .withDescription(
-              "Shuffle server type, supports GRPC_NETTY, GRPC. The default value is GRPC for now. But we recommend using GRPC_NETTY to enable Netty on the server side for better stability and performance.");
+              "Shuffle server type, supports GRPC_NETTY, GRPC. The default value is GRPC_NETTY. We recommend using GRPC_NETTY to enable Netty on the server side for better stability and performance.");
 
   public static final ConfigOption<Integer> RPC_SERVER_PORT =
       ConfigOptions.key("rss.rpc.server.port")
