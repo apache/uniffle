@@ -17,8 +17,11 @@
 
 package org.apache.uniffle.test;
 
+import java.io.File;
+
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import org.apache.uniffle.common.config.RssBaseConf;
 import org.apache.uniffle.common.rpc.ServerType;
@@ -30,31 +33,26 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ShuffleServerOnRandomPortTest extends CoordinatorTestBase {
   @BeforeAll
-  public static void setupServers() throws Exception {
-    CoordinatorConf coordinatorConf = getCoordinatorConf();
+  public static void setupServers(@TempDir File tmpDir) throws Exception {
+    CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
     coordinatorConf.set(RssBaseConf.RPC_METRICS_ENABLED, true);
     coordinatorConf.setString(CoordinatorConf.COORDINATOR_ASSIGNMENT_STRATEGY.key(), "BASIC");
     coordinatorConf.setLong("rss.coordinator.app.expired", 2000);
     coordinatorConf.setLong("rss.coordinator.server.heartbeat.timeout", 3000);
-    createCoordinatorServer(coordinatorConf);
+    storeCoordinatorConf(coordinatorConf);
 
-    ShuffleServerConf grpcShuffleServerConf1 = buildShuffleServerConf(ServerType.GRPC);
-    createShuffleServer(grpcShuffleServerConf1);
+    storeShuffleServerConf(buildShuffleServerConf(0, tmpDir, ServerType.GRPC));
+    storeShuffleServerConf(buildShuffleServerConf(1, tmpDir, ServerType.GRPC));
+    storeShuffleServerConf(buildShuffleServerConf(2, tmpDir, ServerType.GRPC_NETTY));
+    storeShuffleServerConf(buildShuffleServerConf(3, tmpDir, ServerType.GRPC_NETTY));
 
-    ShuffleServerConf grpcShuffleServerConf2 = buildShuffleServerConf(ServerType.GRPC);
-    createShuffleServer(grpcShuffleServerConf2);
-
-    ShuffleServerConf nettyShuffleServerConf1 = buildShuffleServerConf(ServerType.GRPC_NETTY);
-    createShuffleServer(nettyShuffleServerConf1);
-
-    ShuffleServerConf nettyShuffleServerConf2 = buildShuffleServerConf(ServerType.GRPC_NETTY);
-    createShuffleServer(nettyShuffleServerConf2);
-
-    startServers();
+    startServersWithRandomPorts();
   }
 
-  private static ShuffleServerConf buildShuffleServerConf(ServerType serverType) throws Exception {
-    ShuffleServerConf shuffleServerConf = getShuffleServerConf(serverType);
+  private static ShuffleServerConf buildShuffleServerConf(
+      int subDirIndex, File tempDir, ServerType serverType) {
+    ShuffleServerConf shuffleServerConf =
+        shuffleServerConfWithoutPort(subDirIndex, tempDir, serverType);
     shuffleServerConf.setInteger("rss.server.netty.port", 0);
     shuffleServerConf.setInteger("rss.rpc.server.port", 0);
     shuffleServerConf.setInteger("rss.random.port.min", 30000);
@@ -63,19 +61,21 @@ public class ShuffleServerOnRandomPortTest extends CoordinatorTestBase {
   }
 
   @Test
-  public void startStreamServerOnRandomPort() throws Exception {
-    CoordinatorTestUtils.waitForRegister(coordinatorClient, 2);
+  public void startStreamServerOnRandomPort(@TempDir File tmpDir) throws Exception {
+    CoordinatorTestUtils.waitForRegister(coordinatorClient, 4);
     Thread.sleep(5000);
     int actualPort = nettyShuffleServers.get(0).getNettyPort();
-    assertTrue(actualPort >= 30000 && actualPort < 40000);
+    assertTrue(actualPort >= 30000 && actualPort <= 40000);
     actualPort = nettyShuffleServers.get(1).getNettyPort();
     assertTrue(actualPort >= 30000 && actualPort <= 40000);
 
     int maxRetries = 100;
-    ShuffleServerConf shuffleServerConf = buildShuffleServerConf(ServerType.GRPC_NETTY);
+    ShuffleServerConf shuffleServerConf =
+        shuffleServerConfWithoutPort(0, tmpDir, ServerType.GRPC_NETTY);
     // start netty server with already bind port
     shuffleServerConf.setInteger("rss.server.netty.port", actualPort);
     shuffleServerConf.setInteger("rss.port.max.retry", maxRetries);
+    shuffleServerConf.setString("rss.coordinator.quorum", getQuorum());
     ShuffleServer ss = new ShuffleServer(shuffleServerConf);
     ss.start();
     assertTrue(ss.getNettyPort() > actualPort && actualPort <= actualPort + maxRetries);
@@ -83,19 +83,21 @@ public class ShuffleServerOnRandomPortTest extends CoordinatorTestBase {
   }
 
   @Test
-  public void startGrpcServerOnRandomPort() throws Exception {
-    CoordinatorTestUtils.waitForRegister(coordinatorClient, 2);
+  public void startGrpcServerOnRandomPort(@TempDir File tmpDir) throws Exception {
+    CoordinatorTestUtils.waitForRegister(coordinatorClient, 4);
     Thread.sleep(5000);
     int actualPort = grpcShuffleServers.get(0).getGrpcPort();
-    assertTrue(actualPort >= 30000 && actualPort < 40000);
+    assertTrue(actualPort >= 30000 && actualPort <= 40000);
     actualPort = grpcShuffleServers.get(1).getGrpcPort();
     assertTrue(actualPort >= 30000 && actualPort <= 40000);
 
     int maxRetries = 100;
-    ShuffleServerConf shuffleServerConf = buildShuffleServerConf(ServerType.GRPC);
+    ShuffleServerConf shuffleServerConf =
+        shuffleServerConfWithoutPort(0, tmpDir, ServerType.GRPC_NETTY);
     // start grpc server with already bind port
     shuffleServerConf.setInteger("rss.rpc.server.port", actualPort);
     shuffleServerConf.setInteger("rss.port.max.retry", maxRetries);
+    shuffleServerConf.setString("rss.coordinator.quorum", getQuorum());
     ShuffleServer ss = new ShuffleServer(shuffleServerConf);
     ss.start();
     assertTrue(ss.getGrpcPort() > actualPort && actualPort <= actualPort + maxRetries);

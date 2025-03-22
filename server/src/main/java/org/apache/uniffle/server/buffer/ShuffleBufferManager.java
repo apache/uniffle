@@ -40,6 +40,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.uniffle.common.ReconfigurableConfManager;
+import org.apache.uniffle.common.ReconfigurableRegistry;
 import org.apache.uniffle.common.ShuffleDataResult;
 import org.apache.uniffle.common.ShufflePartitionedData;
 import org.apache.uniffle.common.rpc.StatusCode;
@@ -47,11 +48,17 @@ import org.apache.uniffle.common.util.Constants;
 import org.apache.uniffle.common.util.JavaUtils;
 import org.apache.uniffle.common.util.NettyUtils;
 import org.apache.uniffle.common.util.RssUtils;
+import org.apache.uniffle.server.HugePartitionUtils;
 import org.apache.uniffle.server.ShuffleDataFlushEvent;
 import org.apache.uniffle.server.ShuffleFlushManager;
 import org.apache.uniffle.server.ShuffleServerConf;
 import org.apache.uniffle.server.ShuffleServerMetrics;
 import org.apache.uniffle.server.ShuffleTaskManager;
+
+import static org.apache.uniffle.server.ShuffleServerMetrics.BLOCK_COUNT_IN_BUFFER_POOL;
+import static org.apache.uniffle.server.ShuffleServerMetrics.BUFFER_COUNT_IN_BUFFER_POOL;
+import static org.apache.uniffle.server.ShuffleServerMetrics.IN_FLUSH_BLOCK_COUNT_IN_BUFFER_POOL;
+import static org.apache.uniffle.server.ShuffleServerMetrics.SHUFFLE_COUNT_IN_BUFFER_POOL;
 
 public class ShuffleBufferManager {
 
@@ -73,6 +80,8 @@ public class ShuffleBufferManager {
   private long shuffleFlushThreshold;
   // Huge partition vars
   private ReconfigurableConfManager.Reconfigurable<Long> hugePartitionSizeThresholdRef;
+  private ReconfigurableConfManager.Reconfigurable<Long> hugePartitionSizeHardLimitRef;
+  private ReconfigurableConfManager.Reconfigurable<Long> hugePartitionSplitLimitRef;
   private long hugePartitionMemoryLimitSize;
   protected AtomicLong preAllocatedSize = new AtomicLong(0L);
   protected AtomicLong inFlushSize = new AtomicLong(0L);
@@ -131,12 +140,73 @@ public class ShuffleBufferManager {
         conf.getSizeAsBytes(ShuffleServerConf.SERVER_SHUFFLE_FLUSH_THRESHOLD);
     this.hugePartitionSizeThresholdRef =
         conf.getReconfigurableConf(ShuffleServerConf.HUGE_PARTITION_SIZE_THRESHOLD);
+    this.hugePartitionSizeHardLimitRef =
+        conf.getReconfigurableConf(ShuffleServerConf.HUGE_PARTITION_SIZE_HARD_LIMIT);
+    this.hugePartitionSplitLimitRef =
+        conf.getReconfigurableConf(ShuffleServerConf.HUGE_PARTITION_SPLIT_LIMIT);
     this.hugePartitionMemoryLimitSize =
         Math.round(
             capacity * conf.get(ShuffleServerConf.HUGE_PARTITION_MEMORY_USAGE_LIMITATION_RATIO));
     appBlockSizeMetricEnabled =
         conf.getBoolean(ShuffleServerConf.APP_LEVEL_SHUFFLE_BLOCK_SIZE_METRIC_ENABLED);
     shuffleBufferType = conf.get(ShuffleServerConf.SERVER_SHUFFLE_BUFFER_TYPE);
+
+    ShuffleServerMetrics.addLabeledCacheGauge(
+        BLOCK_COUNT_IN_BUFFER_POOL,
+        () ->
+            bufferPool.values().stream()
+                .flatMap(innerMap -> innerMap.values().stream())
+                .flatMap(rangeMap -> rangeMap.asMapOfRanges().values().stream())
+                .mapToLong(shuffleBuffer -> shuffleBuffer.getBlockCount())
+                .sum(),
+        2 * 60 * 1000L /* 2 minutes */);
+    ShuffleServerMetrics.addLabeledCacheGauge(
+        IN_FLUSH_BLOCK_COUNT_IN_BUFFER_POOL,
+        () ->
+            bufferPool.values().stream()
+                .flatMap(innerMap -> innerMap.values().stream())
+                .flatMap(rangeMap -> rangeMap.asMapOfRanges().values().stream())
+                .mapToLong(shuffleBuffer -> shuffleBuffer.getInFlushBlockCount())
+                .sum(),
+        2 * 60 * 1000L /* 2 minutes */);
+    ShuffleServerMetrics.addLabeledCacheGauge(
+        BUFFER_COUNT_IN_BUFFER_POOL,
+        () ->
+            bufferPool.values().stream()
+                .flatMap(innerMap -> innerMap.values().stream())
+                .mapToLong(rangeMap -> rangeMap.asMapOfRanges().size())
+                .sum(),
+        2 * 60 * 1000L /* 2 minutes */);
+    ShuffleServerMetrics.addLabeledGauge(
+        SHUFFLE_COUNT_IN_BUFFER_POOL,
+        () -> bufferPool.values().stream().mapToLong(innerMap -> innerMap.size()).sum());
+    ReconfigurableRegistry.register(
+        Sets.newHashSet(
+            ShuffleServerConf.SERVER_MEMORY_SHUFFLE_HIGHWATERMARK_PERCENTAGE.key(),
+            ShuffleServerConf.SERVER_MEMORY_SHUFFLE_LOWWATERMARK_PERCENTAGE.key()),
+        (theConf, changedProperties) -> {
+          if (changedProperties == null) {
+            return;
+          }
+          if (changedProperties.contains(
+              ShuffleServerConf.SERVER_MEMORY_SHUFFLE_HIGHWATERMARK_PERCENTAGE.key())) {
+            this.highWaterMark =
+                (long)
+                    (capacity
+                        / 100.0
+                        * conf.get(
+                            ShuffleServerConf.SERVER_MEMORY_SHUFFLE_HIGHWATERMARK_PERCENTAGE));
+          }
+          if (changedProperties.contains(
+              ShuffleServerConf.SERVER_MEMORY_SHUFFLE_LOWWATERMARK_PERCENTAGE.key())) {
+            this.lowWaterMark =
+                (long)
+                    (capacity
+                        / 100.0
+                        * conf.get(
+                            ShuffleServerConf.SERVER_MEMORY_SHUFFLE_LOWWATERMARK_PERCENTAGE));
+          }
+        });
   }
 
   public void setShuffleTaskManager(ShuffleTaskManager taskManager) {
@@ -190,6 +260,9 @@ public class ShuffleBufferManager {
 
     ShuffleBuffer buffer = entry.getValue();
     long size = buffer.append(spd);
+    if (size == AbstractShuffleBuffer.BUFFER_EVICTED) {
+      return StatusCode.NO_REGISTER;
+    }
     if (!isPreAllocated) {
       updateUsedMemory(size);
     }
@@ -197,10 +270,17 @@ public class ShuffleBufferManager {
       Arrays.stream(spd.getBlockList())
           .forEach(
               b -> {
-                int blockSize = b.getLength();
+                int blockSize = b.getDataLength();
                 ShuffleServerMetrics.appHistogramWriteBlockSize.labels(appId).observe(blockSize);
               });
     }
+    LOG.debug(
+        "cache shuffle data, size: {}, blockCount: {}, appId: {}, shuffleId: {}, partitionId: {}",
+        spd.getTotalBlockDataLength(),
+        spd.getBlockList().length,
+        appId,
+        shuffleId,
+        spd.getPartitionId());
     updateShuffleSize(appId, shuffleId, size);
     synchronized (this) {
       flushSingleBufferIfNecessary(
@@ -271,11 +351,12 @@ public class ShuffleBufferManager {
       int partitionId,
       int startPartition,
       int endPartition) {
-    boolean isHugePartition = isHugePartition(appId, shuffleId, partitionId);
+    boolean isHugePartition =
+        HugePartitionUtils.isHugePartition(shuffleTaskManager, appId, shuffleId, partitionId);
     // When we use multi storage and trigger single buffer flush, the buffer size should be bigger
     // than rss.server.flush.cold.storage.threshold.size, otherwise cold storage will be useless.
     if ((isHugePartition || this.bufferFlushEnabled)
-        && (buffer.getSize() > this.bufferFlushThreshold
+        && (buffer.getEncodedLength() > this.bufferFlushThreshold
             || buffer.getBlockCount() > bufferFlushBlocksNumThreshold)) {
       if (LOG.isDebugEnabled()) {
         LOG.debug(
@@ -284,7 +365,7 @@ public class ShuffleBufferManager {
             startPartition,
             endPartition,
             isHugePartition,
-            buffer.getSize(),
+            buffer.getEncodedLength(),
             buffer.getBlockCount());
       }
       flushBuffer(buffer, appId, shuffleId, startPartition, endPartition, isHugePartition);
@@ -316,7 +397,8 @@ public class ShuffleBufferManager {
           shuffleId,
           range.lowerEndpoint(),
           range.upperEndpoint(),
-          isHugePartition(appId, shuffleId, range.lowerEndpoint()));
+          HugePartitionUtils.isHugePartition(
+              shuffleTaskManager, appId, shuffleId, range.lowerEndpoint()));
     }
   }
 
@@ -346,9 +428,9 @@ public class ShuffleBufferManager {
               () -> bufferPool.getOrDefault(appId, new HashMap<>()).containsKey(shuffleId),
               shuffleFlushManager.getDataDistributionType(appId));
       if (event != null) {
-        event.addCleanupCallback(() -> releaseMemory(event.getSize(), true, false));
-        updateShuffleSize(appId, shuffleId, -event.getSize());
-        inFlushSize.addAndGet(event.getSize());
+        event.addCleanupCallback(() -> releaseMemory(event.getEncodedLength(), true, false));
+        updateShuffleSize(appId, shuffleId, -event.getEncodedLength());
+        inFlushSize.addAndGet(event.getEncodedLength());
         if (isHugePartition) {
           event.markOwnedByHugePartition();
         }
@@ -524,14 +606,15 @@ public class ShuffleBufferManager {
                 shuffleIdToBuffers.getValue().asMapOfRanges().entrySet()) {
               Range<Integer> range = rangeEntry.getKey();
               ShuffleBuffer shuffleBuffer = rangeEntry.getValue();
-              pickedFlushSize += shuffleBuffer.getSize();
+              pickedFlushSize += shuffleBuffer.getEncodedLength();
               flushBuffer(
                   shuffleBuffer,
                   appId,
                   shuffleId,
                   range.lowerEndpoint(),
                   range.upperEndpoint(),
-                  isHugePartition(appId, shuffleId, range.lowerEndpoint()));
+                  HugePartitionUtils.isHugePartition(
+                      shuffleTaskManager, appId, shuffleId, range.lowerEndpoint()));
               if (pickedFlushSize > expectedFlushSize) {
                 LOG.info("Already picked enough buffers to flush {} bytes", pickedFlushSize);
                 return;
@@ -715,9 +798,18 @@ public class ShuffleBufferManager {
       Collection<ShuffleBuffer> buffers = bufferRangeMap.asMapOfRanges().values();
       if (buffers != null) {
         for (ShuffleBuffer buffer : buffers) {
-          buffer.release();
+          // the actual released size by this thread
+          long releasedSize = buffer.release();
           ShuffleServerMetrics.gaugeTotalPartitionNum.dec();
-          releaseMemory(buffer.getSize(), false, false);
+          if (releasedSize != buffer.getEncodedLength()) {
+            LOG.warn(
+                "Release shuffle buffer size {} is not equal to buffer size {}, appId: {}, shuffleId: {}",
+                releasedSize,
+                buffer.getEncodedLength(),
+                appId,
+                shuffleId);
+          }
+          releaseMemory(releasedSize, false, false);
         }
       }
       if (shuffleIdToSizeMap != null) {
@@ -726,35 +818,32 @@ public class ShuffleBufferManager {
     }
   }
 
-  boolean isHugePartition(String appId, int shuffleId, int partitionId) {
-    return shuffleTaskManager != null
-        && shuffleTaskManager.getShuffleTaskInfo(appId) != null
-        && shuffleTaskManager.getShuffleTaskInfo(appId).isHugePartition(shuffleId, partitionId);
+  public long getHugePartitionSizeHardLimit() {
+    return hugePartitionSizeHardLimitRef.getSizeAsBytes();
   }
 
-  public boolean isHugePartition(long usedPartitionDataSize) {
-    return usedPartitionDataSize > hugePartitionSizeThresholdRef.getSizeAsBytes();
+  public long getHugePartitionSizeThreshold() {
+    return hugePartitionSizeThresholdRef.getSizeAsBytes();
   }
 
-  public boolean limitHugePartition(
-      String appId, int shuffleId, int partitionId, long usedPartitionDataSize) {
-    if (usedPartitionDataSize > hugePartitionSizeThresholdRef.getSizeAsBytes()) {
-      long memoryUsed = getShuffleBufferEntry(appId, shuffleId, partitionId).getValue().getSize();
-      if (memoryUsed > hugePartitionMemoryLimitSize) {
-        LOG.warn(
-            "AppId: {}, shuffleId: {}, partitionId: {}, memory used: {}, "
-                + "huge partition triggered memory limitation.",
-            appId,
-            shuffleId,
-            partitionId,
-            memoryUsed);
-        return true;
-      }
-    }
-    return false;
+  public long getHugePartitionMemoryLimitSize() {
+    return hugePartitionMemoryLimitSize;
   }
 
   public void setUsedMemory(long usedMemory) {
     this.usedMemory.set(usedMemory);
+  }
+
+  @VisibleForTesting
+  public void setBufferFlushThreshold(long bufferFlushThreshold) {
+    this.bufferFlushThreshold = bufferFlushThreshold;
+  }
+
+  public ShuffleBufferType getShuffleBufferType() {
+    return shuffleBufferType;
+  }
+
+  public long getHugePartitionSplitLimit() {
+    return hugePartitionSplitLimitRef.getSizeAsBytes();
   }
 }

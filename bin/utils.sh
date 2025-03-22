@@ -159,6 +159,12 @@ function load_rss_env {
 
   # find rss-env.sh
   set +o nounset
+  if [ -z "$RSS_HOME" ]; then
+    RSS_HOME="$(cd "$(dirname "$0")/.."; pwd)"
+  fi
+  if [ -z "$RSS_CONF_DIR" ]; then
+    RSS_CONF_DIR="${RSS_HOME}/conf"
+  fi
   if [ -f "${RSS_CONF_DIR}/rss-env.sh" ]; then
      RSS_ENV_SH="${RSS_CONF_DIR}/rss-env.sh"
   elif [ -f "${RSS_HOME}/bin/rss-env.sh" ]; then
@@ -180,12 +186,6 @@ function load_rss_env {
 
   # export default value
   set +o nounset
-  if [ -z "$RSS_HOME" ]; then
-    RSS_HOME="$(cd "$(dirname "$0")/.."; pwd)"
-  fi
-  if [ -z "$RSS_CONF_DIR" ]; then
-    RSS_CONF_DIR="${RSS_HOME}/conf"
-  fi
   if [ -z "$HADOOP_CONF_DIR" ] && [ "$HADOOP_HOME" ]; then
     HADOOP_CONF_DIR="${HADOOP_HOME}/etc/hadoop"
   fi

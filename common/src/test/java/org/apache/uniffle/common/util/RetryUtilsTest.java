@@ -17,9 +17,11 @@
 
 package org.apache.uniffle.common.util;
 
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-import com.google.common.collect.Sets;
 import org.junit.jupiter.api.Test;
 
 import org.apache.uniffle.common.exception.NotRetryException;
@@ -27,10 +29,10 @@ import org.apache.uniffle.common.exception.RssException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class RetryUtilsTest {
+class RetryUtilsTest {
 
   @Test
-  public void testRetryWithCondition() {
+  void testRetryWithCondition() {
     AtomicInteger tryTimes = new AtomicInteger();
     AtomicInteger callbackTime = new AtomicInteger();
     try {
@@ -54,11 +56,13 @@ public class RetryUtilsTest {
   }
 
   @Test
-  public void testRetry() {
+  void testRetry() {
     AtomicInteger tryTimes = new AtomicInteger();
     AtomicInteger callbackTime = new AtomicInteger();
     int maxTryTime = 3;
     try {
+      Set<Class<? extends Throwable>> retrySet =
+          Stream.of(RssException.class).collect(Collectors.toSet());
       RetryUtils.retry(
           () -> {
             tryTimes.incrementAndGet();
@@ -69,7 +73,7 @@ public class RetryUtilsTest {
           },
           10,
           maxTryTime,
-          Sets.newHashSet(RssException.class));
+          retrySet);
     } catch (Throwable throwable) {
       // ignore
     }

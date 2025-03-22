@@ -17,10 +17,14 @@
 
 package org.apache.uniffle.common.util;
 
+import io.grpc.netty.shaded.io.netty.buffer.ByteBufAllocator;
 import io.grpc.netty.shaded.io.netty.buffer.PooledByteBufAllocator;
 import io.grpc.netty.shaded.io.netty.util.internal.PlatformDependent;
 
 public class GrpcNettyUtils {
+
+  private static volatile PooledByteBufAllocator allocator;
+
   public static PooledByteBufAllocator createPooledByteBufAllocator(
       boolean preferDirect, int numCores, int pageSize, int maxOrder, int smallCacheSize) {
     return createPooledByteBufAllocator(
@@ -63,5 +67,13 @@ public class GrpcNettyUtils {
       boolean preferDirect, int numCores, int pageSize, int maxOrder, int smallCacheSize) {
     return createPooledByteBufAllocator(
         preferDirect, true, numCores, pageSize, maxOrder, smallCacheSize, -1);
+  }
+
+  public static synchronized ByteBufAllocator getSharedPooledByteBufAllocator(
+      int pageSize, int maxOrder, int smallCacheSize) {
+    if (allocator == null) {
+      allocator = createPooledByteBufAllocator(true, 0, pageSize, maxOrder, smallCacheSize);
+    }
+    return allocator;
   }
 }

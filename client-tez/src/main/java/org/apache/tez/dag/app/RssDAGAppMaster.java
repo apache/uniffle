@@ -457,7 +457,7 @@ public class RssDAGAppMaster extends DAGAppMaster {
               TEZ_AM_NODE_UNHEALTHY_RESCHEDULE_TASKS,
               TEZ_AM_NODE_UNHEALTHY_RESCHEDULE_TASKS_DEFAULT)) {
         LOG.info(
-            "When rss.avoid.recompute.succeeded.task is enable, "
+            "When rss.avoid.recompute.succeeded.task is enabled, "
                 + "we can not rescheduler succeeded task on unhealthy node");
         conf.setBoolean(TEZ_AM_NODE_UNHEALTHY_RESCHEDULE_TASKS, false);
       }
@@ -608,7 +608,14 @@ public class RssDAGAppMaster extends DAGAppMaster {
               outputDescriptor.getClass().getSuperclass().getDeclaredField("className");
           inputClassNameField.setAccessible(true);
           String inputClassName = (String) outputClassNameField.get(inputDescriptor);
-          String rssInputClassName = RssTezUtils.replaceRssInputClassName(inputClassName);
+          String rssInputClassName =
+              RssTezUtils.replaceRssInputClassName(
+                  inputClassName,
+                  appMaster
+                      .getConfig()
+                      .getBoolean(
+                          RssTezConfig.RSS_REMOTE_MERGE_ENABLE,
+                          RssTezConfig.RSS_REMOTE_MERGE_ENABLE_DEFAULT));
           outputClassNameField.set(inputDescriptor, rssInputClassName);
         }
       } catch (IOException | IllegalAccessException | NoSuchFieldException e) {

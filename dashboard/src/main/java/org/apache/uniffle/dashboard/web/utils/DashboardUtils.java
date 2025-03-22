@@ -24,6 +24,7 @@ import java.util.Map;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,11 +38,21 @@ public class DashboardUtils {
     for (String coordinator : coordinators) {
       try {
         URL coordinatorURL = new URL(coordinator);
-        coordinatorAddressMap.put(coordinatorURL.getHost(), coordinator);
+        coordinatorAddressMap.put(coordinatorURL.getHost(), removeBackslash(coordinator));
       } catch (MalformedURLException e) {
         LOG.error("The coordinator address is abnormal.", e);
       }
     }
+    LOG.info("Monitored the Coordinator of {}.", String.join(",", coordinatorAddressMap.values()));
     return coordinatorAddressMap;
+  }
+
+  /** Remove the trailing backslash. */
+  public static String removeBackslash(String addressStr) {
+    if (StringUtils.isNotEmpty(addressStr) && addressStr.endsWith("/")) {
+      return addressStr.substring(0, addressStr.length() - 1);
+    } else {
+      return addressStr;
+    }
   }
 }

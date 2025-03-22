@@ -69,8 +69,11 @@ func newAdmissionManager(cfg *config.Config) *admissionManager {
 	} else {
 		am.loadCertsFromSecret()
 	}
+
+	klog.Infof("leader election enabled?: %v", cfg.LeaderElection)
+
 	mgr, err := ctrl.NewManager(cfg.RESTConfig, ctrl.Options{
-		LeaderElection:          true,
+		LeaderElection:          cfg.LeaderElection,
 		LeaderElectionID:        cfg.LeaderElectionID(),
 		LeaderElectionNamespace: utils.GetCurrentNamespace(),
 	})

@@ -246,10 +246,7 @@ public class StorageCheckerTest {
             throw new IOException("mock");
           }
         } catch (Exception e) {
-          if (e.getMessage() != null && DEVICE_NO_SPACE_ERROR_MESSAGE.equals(e.getMessage())) {
-            return true;
-          }
-          return false;
+          return e.getMessage() != null && DEVICE_NO_SPACE_ERROR_MESSAGE.equals(e.getMessage());
         } finally {
           try {
             FileUtils.deleteDirectory(checkDir);

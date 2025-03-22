@@ -40,6 +40,7 @@ import org.apache.uniffle.proto.RssProtos;
 
 /** This class holds the dynamic partition assignment for partition reassign mechanism. */
 public class MutableShuffleHandleInfo extends ShuffleHandleInfoBase {
+  private static final long serialVersionUID = 0L;
   private static final Logger LOGGER = LoggerFactory.getLogger(MutableShuffleHandleInfo.class);
 
   /**
@@ -52,14 +53,18 @@ public class MutableShuffleHandleInfo extends ShuffleHandleInfoBase {
   private Map<Integer, Map<Integer, List<ShuffleServerInfo>>> partitionReplicaAssignedServers;
 
   private Map<String, Set<ShuffleServerInfo>> excludedServerToReplacements;
+  /**
+   * partitionId -> excluded server -> replacement servers. The replacement servers for exclude
+   * server of specific partition.
+   */
+  private Map<Integer, Map<String, Set<ShuffleServerInfo>>>
+      excludedServerForPartitionToReplacements;
 
   public MutableShuffleHandleInfo(
       int shuffleId,
       Map<Integer, List<ShuffleServerInfo>> partitionToServers,
       RemoteStorageInfo storageInfo) {
-    super(shuffleId, storageInfo);
-    this.excludedServerToReplacements = new HashMap<>();
-    this.partitionReplicaAssignedServers = toPartitionReplicaMapping(partitionToServers);
+    this(shuffleId, storageInfo, toPartitionReplicaMapping(partitionToServers));
   }
 
   @VisibleForTesting
@@ -69,6 +74,7 @@ public class MutableShuffleHandleInfo extends ShuffleHandleInfoBase {
       Map<Integer, Map<Integer, List<ShuffleServerInfo>>> partitionReplicaAssignedServers) {
     super(shuffleId, storageInfo);
     this.excludedServerToReplacements = new HashMap<>();
+    this.excludedServerForPartitionToReplacements = new HashMap<>();
     this.partitionReplicaAssignedServers = partitionReplicaAssignedServers;
   }
 
@@ -76,7 +82,7 @@ public class MutableShuffleHandleInfo extends ShuffleHandleInfoBase {
     super(shuffleId, storageInfo);
   }
 
-  private Map<Integer, Map<Integer, List<ShuffleServerInfo>>> toPartitionReplicaMapping(
+  private static Map<Integer, Map<Integer, List<ShuffleServerInfo>>> toPartitionReplicaMapping(
       Map<Integer, List<ShuffleServerInfo>> partitionToServers) {
     Map<Integer, Map<Integer, List<ShuffleServerInfo>>> partitionReplicaAssignedServers =
         new HashMap<>();
@@ -101,6 +107,21 @@ public class MutableShuffleHandleInfo extends ShuffleHandleInfoBase {
     return excludedServerToReplacements.get(faultyServerId);
   }
 
+  public Set<ShuffleServerInfo> getReplacementsForPartition(
+      int partitionId, String excludedServerId) {
+    return excludedServerForPartitionToReplacements
+        .getOrDefault(partitionId, Collections.emptyMap())
+        .getOrDefault(excludedServerId, Collections.emptySet());
+  }
+
+  /**
+   * Update the assignment for the receiving failure server of the given partition.
+   *
+   * @param partitionId the partition id
+   * @param receivingFailureServerId the id of the receiving failure server
+   * @param replacements the new assigned servers for replacing the receiving failure server
+   * @return the updated server list for receiving data
+   */
   public Set<ShuffleServerInfo> updateAssignment(
       int partitionId, String receivingFailureServerId, Set<ShuffleServerInfo> replacements) {
     if (replacements == null || StringUtils.isEmpty(receivingFailureServerId)) {
@@ -108,6 +129,11 @@ public class MutableShuffleHandleInfo extends ShuffleHandleInfoBase {
     }
     excludedServerToReplacements.put(receivingFailureServerId, replacements);
 
+    return updateAssignmentInternal(partitionId, receivingFailureServerId, replacements);
+  }
+
+  private Set<ShuffleServerInfo> updateAssignmentInternal(
+      int partitionId, String receivingFailureServerId, Set<ShuffleServerInfo> replacements) {
     Set<ShuffleServerInfo> updatedServers = new HashSet<>();
     Map<Integer, List<ShuffleServerInfo>> replicaServers =
         partitionReplicaAssignedServers.get(partitionId);
@@ -130,6 +156,26 @@ public class MutableShuffleHandleInfo extends ShuffleHandleInfoBase {
     return updatedServers;
   }
 
+  /**
+   * Update the assignment for the receiving failure server of the need split partition.
+   *
+   * @param partitionId the partition id
+   * @param receivingFailureServerId the id of the receiving failure server
+   * @param replacements the new assigned servers for replacing the receiving failure server
+   * @return the updated server list for receiving data
+   */
+  public Set<ShuffleServerInfo> updateAssignmentOnPartitionSplit(
+      int partitionId, String receivingFailureServerId, Set<ShuffleServerInfo> replacements) {
+    if (replacements == null || StringUtils.isEmpty(receivingFailureServerId)) {
+      return Collections.emptySet();
+    }
+    excludedServerForPartitionToReplacements
+        .computeIfAbsent(partitionId, x -> new HashMap<>())
+        .put(receivingFailureServerId, replacements);
+
+    return updateAssignmentInternal(partitionId, receivingFailureServerId, replacements);
+  }
+
   @Override
   public Set<ShuffleServerInfo> getServers() {
     return partitionReplicaAssignedServers.values().stream()
@@ -148,6 +194,7 @@ public class MutableShuffleHandleInfo extends ShuffleHandleInfoBase {
           replicaServers.entrySet()) {
         ShuffleServerInfo candidate;
         int candidateSize = replicaServerEntry.getValue().size();
+        // Use the last one for each replica writing
         candidate = replicaServerEntry.getValue().get(candidateSize - 1);
         assignment.computeIfAbsent(partitionId, x -> new ArrayList<>()).add(candidate);
       }
@@ -264,5 +311,11 @@ public class MutableShuffleHandleInfo extends ShuffleHandleInfoBase {
         new MutableShuffleHandleInfo(handleProto.getShuffleId(), remoteStorageInfo);
     handle.partitionReplicaAssignedServers = partitionToServers;
     return handle;
+  }
+
+  public Set<String> listExcludedServersForPartition(int partitionId) {
+    return excludedServerForPartitionToReplacements
+        .getOrDefault(partitionId, Collections.emptyMap())
+        .keySet();
   }
 }

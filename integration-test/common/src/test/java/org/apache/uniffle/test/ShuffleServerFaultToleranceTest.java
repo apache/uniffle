@@ -49,8 +49,6 @@ import org.apache.uniffle.common.ShuffleDataResult;
 import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.rpc.ServerType;
 import org.apache.uniffle.common.util.ByteBufUtils;
-import org.apache.uniffle.coordinator.CoordinatorConf;
-import org.apache.uniffle.server.MockedShuffleServer;
 import org.apache.uniffle.server.ShuffleServer;
 import org.apache.uniffle.server.ShuffleServerConf;
 import org.apache.uniffle.server.buffer.ShuffleBuffer;
@@ -74,15 +72,14 @@ public class ShuffleServerFaultToleranceTest extends ShuffleReadWriteBase {
 
   @BeforeEach
   public void setupServers(@TempDir File tmpDir) throws Exception {
-    CoordinatorConf coordinatorConf = getCoordinatorConf();
-    createCoordinatorServer(coordinatorConf);
-    grpcShuffleServers.add(createServer(0, tmpDir, ServerType.GRPC));
-    grpcShuffleServers.add(createServer(1, tmpDir, ServerType.GRPC));
-    grpcShuffleServers.add(createServer(2, tmpDir, ServerType.GRPC));
-    nettyShuffleServers.add(createServer(0, tmpDir, ServerType.GRPC_NETTY));
-    nettyShuffleServers.add(createServer(1, tmpDir, ServerType.GRPC_NETTY));
-    nettyShuffleServers.add(createServer(2, tmpDir, ServerType.GRPC_NETTY));
-    startServers();
+    storeCoordinatorConf(coordinatorConfWithoutPort());
+    prepareShuffleServerConf(0, tmpDir, ServerType.GRPC);
+    prepareShuffleServerConf(1, tmpDir, ServerType.GRPC);
+    prepareShuffleServerConf(2, tmpDir, ServerType.GRPC);
+    prepareShuffleServerConf(3, tmpDir, ServerType.GRPC_NETTY);
+    prepareShuffleServerConf(4, tmpDir, ServerType.GRPC_NETTY);
+    prepareShuffleServerConf(5, tmpDir, ServerType.GRPC_NETTY);
+    startServersWithRandomPorts();
     grpcShuffleServerClients = new ArrayList<>();
     nettyShuffleServerClients = new ArrayList<>();
     for (ShuffleServer shuffleServer : grpcShuffleServers) {
@@ -286,9 +283,9 @@ public class ShuffleServerFaultToleranceTest extends ShuffleReadWriteBase {
     return new RssSendShuffleDataRequest(appId, 3, 1000, shuffleToBlocks);
   }
 
-  public static MockedShuffleServer createServer(int id, File tmpDir, ServerType serverType)
-      throws Exception {
-    ShuffleServerConf shuffleServerConf = getShuffleServerConf(serverType);
+  public static void prepareShuffleServerConf(int subDirIndex, File tmpDir, ServerType serverType) {
+    ShuffleServerConf shuffleServerConf =
+        shuffleServerConfWithoutPort(subDirIndex, tmpDir, serverType);
     shuffleServerConf.setString(
         ShuffleServerConf.RSS_STORAGE_TYPE.key(), StorageType.LOCALFILE.name());
     shuffleServerConf.set(ShuffleServerConf.SERVER_APP_EXPIRED_WITHOUT_HEARTBEAT, 5000L);
@@ -298,18 +295,10 @@ public class ShuffleServerFaultToleranceTest extends ShuffleReadWriteBase {
     shuffleServerConf.set(ShuffleServerConf.SERVER_APP_EXPIRED_WITHOUT_HEARTBEAT, 5000L);
     shuffleServerConf.set(ShuffleServerConf.DISK_CAPACITY, 1000000L);
     shuffleServerConf.setLong("rss.server.heartbeat.interval", 5000);
-    File dataDir1 = new File(tmpDir, id + "_1");
-    File dataDir2 = new File(tmpDir, id + "_2");
-    String basePath = dataDir1.getAbsolutePath() + "," + dataDir2.getAbsolutePath();
     shuffleServerConf.setString(
         ShuffleServerConf.RSS_STORAGE_TYPE.key(), StorageType.MEMORY_LOCALFILE_HDFS.name());
     shuffleServerConf.setLong(ShuffleServerConf.FLUSH_COLD_STORAGE_THRESHOLD_SIZE, 450L);
-    shuffleServerConf.setInteger(
-        "rss.rpc.server.port",
-        shuffleServerConf.getInteger(ShuffleServerConf.RPC_SERVER_PORT) + 20 + id);
-    shuffleServerConf.setInteger("rss.jetty.http.port", 19081 + id * 100);
-    shuffleServerConf.setString("rss.storage.basePath", basePath);
-    return new MockedShuffleServer(shuffleServerConf);
+    storeShuffleServerConf(shuffleServerConf);
   }
 
   protected void waitFlush(String appId, int shuffleId, boolean isNettyMode)

@@ -32,9 +32,9 @@ import org.apache.uniffle.client.response.RssFetchRemoteStorageResponse;
 import org.apache.uniffle.client.response.RssGetShuffleAssignmentsResponse;
 import org.apache.uniffle.client.response.RssSendHeartBeatResponse;
 
-public interface CoordinatorClient {
+public interface CoordinatorClient extends AutoCloseable {
 
-  RssAppHeartBeatResponse sendAppHeartBeat(RssAppHeartBeatRequest request);
+  RssAppHeartBeatResponse scheduleAtFixedRateToSendAppHeartBeat(RssAppHeartBeatRequest request);
 
   RssApplicationInfoResponse registerApplicationInfo(RssApplicationInfoRequest request);
 

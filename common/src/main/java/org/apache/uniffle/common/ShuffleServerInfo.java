@@ -26,7 +26,7 @@ import com.google.common.annotations.VisibleForTesting;
 import org.apache.uniffle.proto.RssProtos;
 
 public class ShuffleServerInfo implements Serializable {
-
+  private static final long serialVersionUID = 0L;
   private String id;
 
   private String host;

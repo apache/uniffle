@@ -69,38 +69,38 @@ public class HealthCheckCoordinatorGrpcTest extends CoordinatorTestBase {
     long usedSize = serverTmpDir.getTotalSpace() - serverTmpDir.getUsableSpace();
     maxUsage = (writeDataSize * 0.75 + usedSize) * 100.0 / totalSize;
     healthUsage = (writeDataSize * 0.5 + usedSize) * 100.0 / totalSize;
-    CoordinatorConf coordinatorConf = getCoordinatorConf();
+    CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
     coordinatorConf.setLong(CoordinatorConf.COORDINATOR_APP_EXPIRED, 2000);
     coordinatorConf.setLong(CoordinatorConf.COORDINATOR_HEARTBEAT_TIMEOUT, 3000);
-    createCoordinatorServer(coordinatorConf);
-    ShuffleServerConf shuffleServerConf = getShuffleServerConf(ServerType.GRPC);
-    shuffleServerConf.setBoolean(ShuffleServerConf.HEALTH_CHECK_ENABLE, true);
-    shuffleServerConf.setString(
+    storeCoordinatorConf(coordinatorConf);
+
+    ShuffleServerConf shuffleServerConf1 =
+        shuffleServerConfWithoutPort(0, serverTmpDir, ServerType.GRPC);
+    shuffleServerConf1.setBoolean(ShuffleServerConf.HEALTH_CHECK_ENABLE, true);
+    shuffleServerConf1.setString(
         ShuffleServerConf.RSS_STORAGE_TYPE.key(), StorageType.LOCALFILE.name());
-    shuffleServerConf.set(
+    shuffleServerConf1.set(
         ShuffleServerConf.RSS_STORAGE_BASE_PATH, Arrays.asList(data1.getAbsolutePath()));
-    shuffleServerConf.setDouble(
+    shuffleServerConf1.setDouble(
         ShuffleServerConf.HEALTH_STORAGE_RECOVERY_USAGE_PERCENTAGE, healthUsage);
-    shuffleServerConf.setDouble(ShuffleServerConf.HEALTH_STORAGE_MAX_USAGE_PERCENTAGE, maxUsage);
-    shuffleServerConf.setLong(ShuffleServerConf.HEALTH_CHECK_INTERVAL, 1000L);
-    createShuffleServer(shuffleServerConf);
-    shuffleServerConf.setInteger(
-        ShuffleServerConf.RPC_SERVER_PORT,
-        shuffleServerConf.getInteger(ShuffleServerConf.RPC_SERVER_PORT) + 1);
-    shuffleServerConf.setInteger(
-        ShuffleServerConf.JETTY_HTTP_PORT,
-        shuffleServerConf.getInteger(ShuffleServerConf.JETTY_HTTP_PORT) + 1);
-    shuffleServerConf.setString(
+    shuffleServerConf1.setDouble(ShuffleServerConf.HEALTH_STORAGE_MAX_USAGE_PERCENTAGE, maxUsage);
+    shuffleServerConf1.setLong(ShuffleServerConf.HEALTH_CHECK_INTERVAL, 1000L);
+    storeShuffleServerConf(shuffleServerConf1);
+
+    ShuffleServerConf shuffleServerConf2 =
+        shuffleServerConfWithoutPort(1, serverTmpDir, ServerType.GRPC);
+    shuffleServerConf2.setString(
         ShuffleServerConf.RSS_STORAGE_TYPE.key(), StorageType.LOCALFILE.name());
-    shuffleServerConf.set(
+    shuffleServerConf2.set(
         ShuffleServerConf.RSS_STORAGE_BASE_PATH, Arrays.asList(data2.getAbsolutePath()));
-    shuffleServerConf.setDouble(
+    shuffleServerConf2.setDouble(
         ShuffleServerConf.HEALTH_STORAGE_RECOVERY_USAGE_PERCENTAGE, healthUsage);
-    shuffleServerConf.setDouble(ShuffleServerConf.HEALTH_STORAGE_MAX_USAGE_PERCENTAGE, maxUsage);
-    shuffleServerConf.setLong(ShuffleServerConf.HEALTH_CHECK_INTERVAL, 1000L);
-    shuffleServerConf.setBoolean(ShuffleServerConf.HEALTH_CHECK_ENABLE, true);
-    createShuffleServer(shuffleServerConf);
-    startServers();
+    shuffleServerConf2.setDouble(ShuffleServerConf.HEALTH_STORAGE_MAX_USAGE_PERCENTAGE, maxUsage);
+    shuffleServerConf2.setLong(ShuffleServerConf.HEALTH_CHECK_INTERVAL, 1000L);
+    shuffleServerConf2.setBoolean(ShuffleServerConf.HEALTH_CHECK_ENABLE, true);
+    storeShuffleServerConf(shuffleServerConf2);
+
+    startServersWithRandomPorts();
   }
 
   @Test

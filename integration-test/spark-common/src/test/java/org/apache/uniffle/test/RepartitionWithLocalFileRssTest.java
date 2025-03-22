@@ -42,31 +42,33 @@ public class RepartitionWithLocalFileRssTest extends RepartitionTest {
 
   @BeforeAll
   public static void setupServers(@TempDir File tmpDir) throws Exception {
-    CoordinatorConf coordinatorConf = getCoordinatorConf();
+    CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
     Map<String, String> dynamicConf = Maps.newHashMap();
     dynamicConf.put(RssSparkConfig.RSS_STORAGE_TYPE.key(), StorageType.LOCALFILE.name());
     addDynamicConf(coordinatorConf, dynamicConf);
-    createCoordinatorServer(coordinatorConf);
+    storeCoordinatorConf(coordinatorConf);
 
-    ShuffleServerConf grpcShuffleServerConf = getShuffleServerConf(ServerType.GRPC);
+    ShuffleServerConf grpcShuffleServerConf =
+        shuffleServerConfWithoutPort(0, null, ServerType.GRPC);
     File dataDir1 = new File(tmpDir, "data1");
     File dataDir2 = new File(tmpDir, "data2");
     String grpcBasePath = dataDir1.getAbsolutePath() + "," + dataDir2.getAbsolutePath();
     grpcShuffleServerConf.setString("rss.storage.type", StorageType.LOCALFILE.name());
     grpcShuffleServerConf.setBoolean(ShuffleServerConf.RSS_TEST_MODE_ENABLE, true);
     grpcShuffleServerConf.setString("rss.storage.basePath", grpcBasePath);
-    createShuffleServer(grpcShuffleServerConf);
+    storeShuffleServerConf(grpcShuffleServerConf);
 
-    ShuffleServerConf nettyShuffleServerConf = getShuffleServerConf(ServerType.GRPC_NETTY);
+    ShuffleServerConf nettyShuffleServerConf =
+        shuffleServerConfWithoutPort(1, null, ServerType.GRPC_NETTY);
     File dataDir3 = new File(tmpDir, "data3");
     File dataDir4 = new File(tmpDir, "data4");
     String nettyBasePath = dataDir3.getAbsolutePath() + "," + dataDir4.getAbsolutePath();
     nettyShuffleServerConf.setString("rss.storage.type", StorageType.LOCALFILE.name());
     nettyShuffleServerConf.setBoolean(ShuffleServerConf.RSS_TEST_MODE_ENABLE, true);
     nettyShuffleServerConf.setString("rss.storage.basePath", nettyBasePath);
-    createShuffleServer(nettyShuffleServerConf);
+    storeShuffleServerConf(nettyShuffleServerConf);
 
-    startServers();
+    startServersWithRandomPorts();
   }
 
   @Override

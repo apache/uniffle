@@ -65,11 +65,11 @@ public class LocalFileServerReadHandlerTest {
                 new FileBasedShuffleSegment(
                     block.getBlockId(),
                     offset,
-                    block.getLength(),
+                    block.getDataLength(),
                     block.getUncompressLength(),
                     block.getCrc(),
                     block.getTaskAttemptId());
-            offset += block.getLength();
+            offset += block.getDataLength();
             LocalFileHandlerTestBase.writeIndex(byteBuffer, segment);
           }
         },

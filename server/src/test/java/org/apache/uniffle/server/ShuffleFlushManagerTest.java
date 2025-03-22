@@ -19,8 +19,14 @@ package org.apache.uniffle.server;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.nio.file.Files;
+import java.nio.file.attribute.PosixFileAttributeView;
+import java.nio.file.attribute.PosixFilePermission;
+import java.time.Duration;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
@@ -30,6 +36,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -40,6 +47,7 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.log4j.Level;
 import org.apache.log4j.LogManager;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -58,9 +66,11 @@ import org.apache.uniffle.server.buffer.ShuffleBufferManager;
 import org.apache.uniffle.server.event.AppPurgeEvent;
 import org.apache.uniffle.server.event.ShufflePurgeEvent;
 import org.apache.uniffle.server.storage.HadoopStorageManager;
+import org.apache.uniffle.server.storage.HadoopStorageManagerFallbackStrategy;
 import org.apache.uniffle.server.storage.HybridStorageManager;
 import org.apache.uniffle.server.storage.LocalStorageManager;
 import org.apache.uniffle.server.storage.LocalStorageManagerFallbackStrategy;
+import org.apache.uniffle.server.storage.RotateStorageManagerFallbackStrategy;
 import org.apache.uniffle.server.storage.StorageManager;
 import org.apache.uniffle.server.storage.StorageManagerFactory;
 import org.apache.uniffle.storage.HadoopTestBase;
@@ -239,13 +249,13 @@ public class ShuffleFlushManagerTest extends HadoopTestBase {
     ShuffleFlushManager manager =
         new ShuffleFlushManager(shuffleServerConf, mockShuffleServer, storageManager);
     ShuffleDataFlushEvent event1 = createShuffleDataFlushEvent(appId, 1, 1, 1, null);
-    final List<ShufflePartitionedBlock> blocks1 = event1.getShuffleBlocks();
+    final Collection<ShufflePartitionedBlock> blocks1 = event1.getShuffleBlocks();
     manager.addToFlushQueue(event1);
     ShuffleDataFlushEvent event21 = createShuffleDataFlushEvent(appId, 2, 2, 2, null);
-    final List<ShufflePartitionedBlock> blocks21 = event21.getShuffleBlocks();
+    final Collection<ShufflePartitionedBlock> blocks21 = event21.getShuffleBlocks();
     manager.addToFlushQueue(event21);
     ShuffleDataFlushEvent event22 = createShuffleDataFlushEvent(appId, 2, 2, 2, null);
-    final List<ShufflePartitionedBlock> blocks22 = event22.getShuffleBlocks();
+    final Collection<ShufflePartitionedBlock> blocks22 = event22.getShuffleBlocks();
     manager.addToFlushQueue(event22);
     // wait for write data
     waitForFlush(manager, appId, 1, 5);
@@ -278,6 +288,62 @@ public class ShuffleFlushManagerTest extends HadoopTestBase {
     manager.addToFlushQueue(fakeEvent);
     waitForQueueClear(manager);
     waitForMetrics(ShuffleServerMetrics.gaugeWriteHandler, 0, 0.5);
+  }
+
+  @Test
+  public void testCreateWriteHandlerFailed(@TempDir File tmpDir) throws Exception {
+    String appId = "testCreateWriteHandlerFailed_appId";
+    File localStorageDirectory = new File(tmpDir, appId + "_rssdata");
+    localStorageDirectory.mkdirs();
+    EnumSet<PosixFilePermission> perms =
+        EnumSet.of(
+            PosixFilePermission.OWNER_READ,
+            PosixFilePermission.OWNER_EXECUTE,
+            PosixFilePermission.GROUP_EXECUTE,
+            PosixFilePermission.OTHERS_READ,
+            PosixFilePermission.OTHERS_EXECUTE);
+    Files.getFileAttributeView(localStorageDirectory.toPath(), PosixFileAttributeView.class)
+        .setPermissions(perms);
+
+    ShuffleServerConf shuffleServerConf = new ShuffleServerConf();
+    shuffleServerConf.set(
+        ShuffleServerConf.HYBRID_STORAGE_FALLBACK_STRATEGY_CLASS,
+        RotateStorageManagerFallbackStrategy.class.getCanonicalName());
+    shuffleServerConf.set(
+        ShuffleServerConf.RSS_STORAGE_BASE_PATH,
+        Lists.newArrayList(localStorageDirectory.getAbsolutePath()));
+    shuffleServerConf.setString(
+        shuffleServerConf.RSS_STORAGE_TYPE.key(), StorageType.LOCALFILE_HDFS.name());
+    ReentrantReadWriteLock rsLock = new ReentrantReadWriteLock();
+    when(mockShuffleServer.getShuffleTaskManager().getAppReadLock(appId))
+        .thenReturn(rsLock.readLock());
+
+    StorageManager storageManager =
+        StorageManagerFactory.getInstance().createStorageManager(shuffleServerConf);
+    storageManager.registerRemoteStorage(appId, remoteStorage);
+    ShuffleFlushManager manager =
+        new ShuffleFlushManager(shuffleServerConf, mockShuffleServer, storageManager);
+    ShuffleDataFlushEvent event1 = createShuffleDataFlushEvent(appId, 1, 1, 1, null);
+
+    manager.addToFlushQueue(event1);
+    waitForFlush(manager, appId, 1, 5);
+    assertEquals(1, event1.getRetryTimes());
+    Collection<ShufflePartitionedBlock> blocks1 = event1.getShuffleBlocks();
+    assertEquals(blocks1.size(), manager.getCommittedBlockIds(appId, 1).getLongCardinality());
+
+    int maxRetryTimes = 5;
+    shuffleServerConf.set(ShuffleServerConf.SERVER_WRITE_RETRY_MAX, maxRetryTimes);
+    shuffleServerConf.set(
+        ShuffleServerConf.HYBRID_STORAGE_FALLBACK_STRATEGY_CLASS,
+        HadoopStorageManagerFallbackStrategy.class.getCanonicalName());
+    storageManager = StorageManagerFactory.getInstance().createStorageManager(shuffleServerConf);
+    storageManager.registerRemoteStorage(appId, remoteStorage);
+    manager = new ShuffleFlushManager(shuffleServerConf, mockShuffleServer, storageManager);
+    ShuffleDataFlushEvent event2 = createShuffleDataFlushEvent(appId, 1, 1, 1, null);
+    manager.addToFlushQueue(event2);
+    Awaitility.await()
+        .timeout(Duration.ofSeconds(20))
+        .until(() -> event2.getRetryTimes() == maxRetryTimes + 1);
   }
 
   @Test
@@ -543,7 +609,8 @@ public class ShuffleFlushManagerTest extends HadoopTestBase {
 
     ShuffleDataReadEvent shuffle1ReadEvent = new ShuffleDataReadEvent(appId2, 1, 0, 0);
     ShuffleDataReadEvent shuffle11ReadEvent = new ShuffleDataReadEvent(appId2, 11, 0, 0);
-    assertNull(storageManager.selectStorage(shuffle1ReadEvent));
+    // As there are only one storage, it should select the only storage anyway
+    assertNotNull(storageManager.selectStorage(shuffle1ReadEvent));
     assertNotNull(storageManager.selectStorage(shuffle11ReadEvent));
 
     storageManager.removeResources(
@@ -602,6 +669,7 @@ public class ShuffleFlushManagerTest extends HadoopTestBase {
     } while (size < expectedBlockNum);
   }
 
+  @VisibleForTesting
   public static ShuffleDataFlushEvent createShuffleDataFlushEvent(
       String appId,
       int shuffleId,
@@ -626,6 +694,7 @@ public class ShuffleFlushManagerTest extends HadoopTestBase {
         startPartition,
         endPartition,
         size,
+        spbs.stream().mapToInt(ShufflePartitionedBlock::getDataLength).sum(),
         spbs,
         isValid,
         null);
@@ -667,7 +736,7 @@ public class ShuffleFlushManagerTest extends HadoopTestBase {
       String appId,
       int shuffleId,
       int partitionId,
-      List<ShufflePartitionedBlock> blocks,
+      Collection<ShufflePartitionedBlock> blocks,
       int partitionNumPerRange,
       String basePath) {
     Roaring64NavigableMap expectBlockIds = Roaring64NavigableMap.bitmapOf();

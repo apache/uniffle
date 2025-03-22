@@ -19,6 +19,7 @@ package org.apache.tez.runtime.library.common.shuffle.orderedgrouped;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -34,6 +35,7 @@ import org.apache.uniffle.client.response.CompressedShuffleBlock;
 import org.apache.uniffle.common.compression.Codec;
 import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.exception.RssException;
+import org.apache.uniffle.common.util.ByteBufferUtils;
 
 public class RssTezShuffleDataFetcher extends CallableWithNdc<Void> {
   private static final Logger LOG = LoggerFactory.getLogger(RssTezShuffleDataFetcher.class);
@@ -70,7 +72,7 @@ public class RssTezShuffleDataFetcher extends CallableWithNdc<Void> {
   private long startWait;
   private int waitCount = 0;
   private byte[] uncompressedData = null;
-  private final Codec rssCodec;
+  private final Optional<Codec> rssCodec;
   private Integer partitionId;
   private final ExceptionReporter exceptionReporter;
 
@@ -151,14 +153,19 @@ public class RssTezShuffleDataFetcher extends CallableWithNdc<Void> {
 
     // uncompress the block
     if (!hasPendingData && compressedData != null) {
-      final long startDecompress = System.currentTimeMillis();
-      int uncompressedLen = compressedBlock.getUncompressLength();
-      ByteBuffer decompressedBuffer = ByteBuffer.allocate(uncompressedLen);
-      rssCodec.decompress(compressedData, uncompressedLen, decompressedBuffer, 0);
-      uncompressedData = decompressedBuffer.array();
-      unCompressionLength += compressedBlock.getUncompressLength();
-      long decompressDuration = System.currentTimeMillis() - startDecompress;
-      decompressTime += decompressDuration;
+      if (rssCodec.isPresent()) {
+        final long startDecompress = System.currentTimeMillis();
+        int uncompressedLen = compressedBlock.getUncompressLength();
+        ByteBuffer decompressedBuffer = ByteBuffer.allocate(uncompressedLen);
+        rssCodec.get().decompress(compressedData, uncompressedLen, decompressedBuffer, 0);
+        uncompressedData = decompressedBuffer.array();
+        unCompressionLength += compressedBlock.getUncompressLength();
+        long decompressDuration = System.currentTimeMillis() - startDecompress;
+        decompressTime += decompressDuration;
+      } else {
+        uncompressedData = ByteBufferUtils.bufferToArray(compressedData);
+        unCompressionLength += uncompressedData.length;
+      }
     }
 
     if (uncompressedData != null) {

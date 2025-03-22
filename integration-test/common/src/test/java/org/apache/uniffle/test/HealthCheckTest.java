@@ -37,7 +37,7 @@ import org.apache.uniffle.storage.util.StorageType;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class HealthCheckTest extends CoordinatorTestBase {
+public class HealthCheckTest {
   @BeforeAll
   public static void setup() {
     ShuffleServerMetrics.register();

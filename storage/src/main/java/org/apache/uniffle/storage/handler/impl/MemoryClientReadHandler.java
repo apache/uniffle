@@ -18,6 +18,7 @@
 package org.apache.uniffle.storage.handler.impl;
 
 import java.util.List;
+import java.util.Optional;
 
 import com.google.common.annotations.VisibleForTesting;
 import org.roaringbitmap.longlong.Roaring64NavigableMap;
@@ -32,7 +33,7 @@ import org.apache.uniffle.common.ShuffleDataResult;
 import org.apache.uniffle.common.exception.RssFetchFailedException;
 import org.apache.uniffle.common.util.Constants;
 
-public class MemoryClientReadHandler extends AbstractClientReadHandler {
+public class MemoryClientReadHandler extends PrefetchableClientReadHandler {
 
   private static final Logger LOG = LoggerFactory.getLogger(MemoryClientReadHandler.class);
   private long lastBlockId = Constants.INVALID_BLOCK_ID;
@@ -49,7 +50,9 @@ public class MemoryClientReadHandler extends AbstractClientReadHandler {
       ShuffleServerClient shuffleServerClient,
       Roaring64NavigableMap expectTaskIds,
       int retryMax,
-      long retryIntervalMax) {
+      long retryIntervalMax,
+      Optional<PrefetchableClientReadHandler.PrefetchOption> prefetchOption) {
+    super(prefetchOption);
     this.appId = appId;
     this.shuffleId = shuffleId;
     this.partitionId = partitionId;
@@ -68,11 +71,20 @@ public class MemoryClientReadHandler extends AbstractClientReadHandler {
       int readBufferSize,
       ShuffleServerClient shuffleServerClient,
       Roaring64NavigableMap expectTaskIds) {
-    this(appId, shuffleId, partitionId, readBufferSize, shuffleServerClient, expectTaskIds, 1, 0);
+    this(
+        appId,
+        shuffleId,
+        partitionId,
+        readBufferSize,
+        shuffleServerClient,
+        expectTaskIds,
+        1,
+        0,
+        Optional.empty());
   }
 
   @Override
-  public ShuffleDataResult readShuffleData() {
+  public ShuffleDataResult doReadShuffleData() {
     ShuffleDataResult result = null;
 
     RssGetInMemoryShuffleDataRequest request =

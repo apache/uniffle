@@ -22,14 +22,14 @@
   <parent>
     <artifactId>uniffle-parent</artifactId>
     <groupId>org.apache.uniffle</groupId>
-    <version>0.10.0-SNAPSHOT</version>
+    <version>0.11.0-SNAPSHOT</version>
     <relativePath>../../pom.xml</relativePath>
   </parent>
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>org.apache.uniffle</groupId>
   <artifactId>rss-integration-spark-common-test</artifactId>
-  <version>0.10.0-SNAPSHOT</version>
+  <version>0.11.0-SNAPSHOT</version>
   <packaging>jar</packaging>
   <name>Apache Uniffle Integration Test (Spark Common)</name>
 
@@ -186,12 +186,12 @@
           <artifactId>maven-surefire-plugin</artifactId>
           <version>2.22.2</version>
           <configuration>
-            <systemProperties>
+            <systemPropertyVariables>
               <java.awt.headless>true</java.awt.headless>
               <java.io.tmpdir>${project.build.directory}/tmp</java.io.tmpdir>
               <project.version>${project.version}</project.version>
               <test.mode>true</test.mode>
-            </systemProperties>
+            </systemPropertyVariables>
             <redirectTestOutputToFile>${test.redirectToFile}</redirectTestOutputToFile>
             <useFile>${test.redirectToFile}</useFile>
             <argLine>-ea -Xmx5g -Xss4m -XX:MaxMetaspaceSize=2g -XX:ReservedCodeCacheSize=1g</argLine>

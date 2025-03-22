@@ -22,7 +22,7 @@
   <parent>
     <groupId>org.apache.uniffle</groupId>
     <artifactId>uniffle-parent</artifactId>
-    <version>0.10.0-SNAPSHOT</version>
+    <version>0.11.0-SNAPSHOT</version>
     <relativePath>../../pom.xml</relativePath>
   </parent>
 
@@ -90,9 +90,10 @@
             </goals>
             <configuration>
               <artifactSet>
-                <includes>
-                  <include>*:*</include>
-                </includes>
+                <excludes>
+                  <exclude>org.apache.logging.log4j:log4j-slf4j-impl</exclude>
+                  <exclude>org.apache.logging.log4j:log4j-slf4j2-impl</exclude>
+                </excludes>
               </artifactSet>
               <finalName>${project.artifactId}-${project.version}</finalName>
               <transformers>
@@ -107,11 +108,13 @@
                 <filter>
                   <artifact>*:*</artifact>
                   <excludes>
-                    <exclude>LICENSE</exclude>
+                    <exclude>module-info.class</exclude>
                     <exclude>META-INF/*.SF</exclude>
                     <exclude>META-INF/*.DSA</exclude>
                     <exclude>META-INF/*.RSA</exclude>
                     <exclude>**/*.proto</exclude>
+                    <exclude>**/*.css</exclude>
+                    <exclude>**/*.html</exclude>
                   </excludes>
                 </filter>
               </filters>
@@ -156,8 +159,10 @@
                   <pattern>org.apache</pattern>
                   <shadedPattern>${rss.shade.packageName}.org.apache</shadedPattern>
                   <excludes>
+                    <!-- Exclude the provided dependencies -->
                     <!-- Exclude the packages belonging to uniffle -->
                     <exclude>org/apache/uniffle/**/*</exclude>
+                    <!-- Exclude the packages belonging to hadoop -->
                     <exclude>org/apache/hadoop/*</exclude>
                     <exclude>org/apache/hadoop/**/*</exclude>
                     <!-- Exclude the logging packages-->
@@ -166,10 +171,13 @@
                     <exclude>org/apache/commons/logging/**/*</exclude>
                     <exclude>org/apache/log4j/*</exclude>
                     <exclude>org/apache/log4j/**/*</exclude>
+                    <exclude>org/apache/logging/**/*</exclude>
                     <!-- Exclude spark packages -->
                     <exclude>org/apache/spark/**/*</exclude>
                     <!-- Exclude commons-io packages -->
                     <exclude>org/apache/commons/io/**/*</exclude>
+                    <!-- Exclude the packages belonging to collections 3 -->
+                    <exclude>org/apache/commons/collections/**/*</exclude>
                   </excludes>
                 </relocation>
                 <relocation>
@@ -179,18 +187,6 @@
                 <relocation>
                   <pattern>android.annotation</pattern>
                   <shadedPattern>${rss.shade.packageName}.android.annotation</shadedPattern>
-                </relocation>
-                <relocation>
-                  <pattern>javax</pattern>
-                  <shadedPattern>${rss.shade.packageName}.javax</shadedPattern>
-                  <includes>
-                    <include>javax/annotation/**/*</include>
-                    <include>javax/activation/**/*</include>
-                    <include>javax/xml/**/*</include>
-                    <include>javax/inject/**/*</include>
-                    <include>javax/validation/**/*</include>
-                    <include>javax/servlet/**/*</include>
-                  </includes>
                 </relocation>
                 <relocation>
                   <pattern>javassist</pattern>
@@ -215,6 +211,14 @@
                 <relocation>
                   <pattern>picocli</pattern>
                   <shadedPattern>${rss.shade.packageName}.picocli</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>META-INF/license</pattern>
+                  <shadedPattern>META-INF/license-tmp</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>com.esotericsoftware</pattern>
+                  <shadedPattern>${rss.shade.packageName}.com.esotericsoftware</shadedPattern>
                 </relocation>
               </relocations>
             </configuration>
@@ -306,12 +310,31 @@
                           to="lib${rss.shade.native.packageName}_netty_transport_native_kqueue_aarch_64.jnilib"
                           type="glob"></mapper>
                 </move>
+                <!-- Since it may be compiled on case-insensitive operating system, it may be executed multiple times.
+                 Here the license directory, licenses directory, and LICENSE file are processed with aliases. -->
+                <move failonerror="false" quiet="true"
+                      todir="${project.build.directory}/unpacked/META-INF/license-tmps">
+                  <fileset dir="${project.build.directory}/unpacked/META-INF/license-tmp">
+                    <include name="LICENSE*.txt"/>
+                  </fileset>
+                </move>
+                <delete failonerror="false" quiet="true"
+                        dir="${project.build.directory}/unpacked/META-INF/license-tmp"/>
+                <move failonerror="false" quiet="true"
+                      file="${project.build.directory}/unpacked/META-INF/license-tmps"
+                      tofile="${project.build.directory}/unpacked/META-INF/licenses"/>
+                <move failonerror="false" quiet="true"
+                      file="${project.build.directory}/unpacked/META-INF/LICENSE-binary"
+                      tofile="${project.build.directory}/unpacked/META-INF/LICENSE"/>
                 <!-- Delete our NettyUtils to avoid errors like NoSuchMethodError, let Spark use its own NettyUtils -->
                 <!-- See https://github.com/apache/incubator-uniffle/pull/1565 for more details -->
                 <delete dir="${project.build.directory}/unpacked/org/apache/spark/network"/>
                 <echo message="repackaging netty jar"></echo>
                 <jar destfile="${project.build.directory}/${project.artifactId}-${project.version}.jar"
                      basedir="${project.build.directory}/unpacked"/>
+                <exec executable="bash" failonerror="true" dir="${project.build.directory}/">
+                  <arg line="${project.basedir}/../../dev/scripts/checkshade.sh ${project.build.directory}/${project.artifactId}-${project.version}.jar"/>
+                </exec>
               </target>
             </configuration>
           </execution>

@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 import org.apache.hadoop.conf.Configuration;
@@ -38,7 +39,6 @@ import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.Resource;
-import org.apache.hadoop.yarn.event.EventHandler;
 import org.apache.hadoop.yarn.util.SystemClock;
 import org.apache.tez.client.TezApiVersionInfo;
 import org.apache.tez.common.AsyncDispatcher;
@@ -86,9 +86,13 @@ import org.apache.tez.runtime.library.partitioner.HashPartitioner;
 import org.apache.tez.runtime.library.processor.SimpleProcessor;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import org.apache.uniffle.client.factory.ShuffleClientFactory;
 import org.apache.uniffle.client.impl.ShuffleWriteClientImpl;
+import org.apache.uniffle.common.ClientType;
 import org.apache.uniffle.common.RemoteStorageInfo;
 import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.storage.util.StorageType;
@@ -114,6 +118,11 @@ public class RssDAGAppMasterTest {
               System.getProperty("test.build.data", System.getProperty("java.io.tmpdir")),
               RssDAGAppMasterTest.class.getSimpleName())
           .getAbsoluteFile();
+
+  static Stream<Arguments> clientTypeProvider() {
+    return Stream.of(
+        Arguments.of(ClientType.GRPC.name()), Arguments.of(ClientType.GRPC_NETTY.name()));
+  }
 
   @Test
   public void testDagStateChangeCallback() throws Exception {
@@ -142,7 +151,7 @@ public class RssDAGAppMasterTest {
     clientConf.set(RSS_STORAGE_TYPE, StorageType.MEMORY_LOCALFILE_HDFS.name());
     clientConf.set("tez.config1", "value1");
     clientConf.set("config2", "value2");
-    Map<String, String> dynamicConf = new HashMap();
+    Map<String, String> dynamicConf = new HashMap<>();
     dynamicConf.put(RSS_STORAGE_TYPE, StorageType.LOCALFILE.name());
     dynamicConf.put("tez.config3", "value3");
     when(appMaster.getClusterClientConf()).thenReturn(dynamicConf);
@@ -174,14 +183,7 @@ public class RssDAGAppMasterTest {
     RssDAGAppMaster.registerStateEnteredCallback(dagImpl, appMaster);
 
     // 5 register DAGEvent, init and start dispatcher
-    EventHandler<DAGEvent> dagEventDispatcher =
-        new EventHandler<DAGEvent>() {
-          @Override
-          public void handle(DAGEvent event) {
-            dagImpl.handle(event);
-          }
-        };
-    dispatcher.register(DAGEventType.class, dagEventDispatcher);
+    dispatcher.register(DAGEventType.class, dagImpl);
     dispatcher.init(conf);
     dispatcher.start();
 
@@ -209,6 +211,19 @@ public class RssDAGAppMasterTest {
     verify(shuffleManager, times(1)).unregisterShuffleByDagId(dagId);
   }
 
+  private static void verifyCommonAssertions(
+      Configuration conf, int expectedSourceVertexId, int expectedDestinationVertexId) {
+    Assertions.assertEquals("host", conf.get(RSS_AM_SHUFFLE_MANAGER_ADDRESS));
+    Assertions.assertEquals(0, conf.getInt(RSS_AM_SHUFFLE_MANAGER_PORT, -1));
+    Assertions.assertEquals(StorageType.LOCALFILE.name(), conf.get(RSS_STORAGE_TYPE));
+    Assertions.assertEquals("value1", conf.get("tez.config1"));
+    Assertions.assertEquals("value3", conf.get("tez.config3"));
+    Assertions.assertNull(conf.get("tez.config2"));
+    Assertions.assertEquals(expectedSourceVertexId, conf.getInt(RSS_SHUFFLE_SOURCE_VERTEX_ID, -1));
+    Assertions.assertEquals(
+        expectedDestinationVertexId, conf.getInt(RSS_SHUFFLE_DESTINATION_VERTEX_ID, -1));
+  }
+
   public static void verifyInput(
       DAGImpl dag,
       String name,
@@ -216,21 +231,13 @@ public class RssDAGAppMasterTest {
       int expectedSourceVertexId,
       int expectedDestinationVertexId)
       throws Exception {
-    // 1 verfiy rename rss io class name
     List<InputSpec> inputSpecs = dag.getVertex(name).getInputSpecList(0);
     Assertions.assertEquals(1, inputSpecs.size());
     Assertions.assertEquals(
         expectedInputClassName, inputSpecs.get(0).getInputDescriptor().getClassName());
-    // 2 verfiy the address and port of shuffle manager
     UserPayload payload = inputSpecs.get(0).getInputDescriptor().getUserPayload();
     Configuration conf = TezUtils.createConfFromUserPayload(payload);
-    Assertions.assertEquals("host", conf.get(RSS_AM_SHUFFLE_MANAGER_ADDRESS));
-    Assertions.assertEquals(0, conf.getInt(RSS_AM_SHUFFLE_MANAGER_PORT, -1));
-    // 3 verfiy the config
-    Assertions.assertEquals(StorageType.LOCALFILE.name(), conf.get(RSS_STORAGE_TYPE));
-    Assertions.assertEquals("value1", conf.get("tez.config1"));
-    Assertions.assertEquals("value3", conf.get("tez.config3"));
-    Assertions.assertNull(conf.get("tez.config2"));
+    verifyCommonAssertions(conf, expectedSourceVertexId, expectedDestinationVertexId);
     // TEZ_RUNTIME_IFILE_READAHEAD_BYTES is in getConfigurationKeySet, so the config from client
     // should deliver
     // to Input/Output. But tez.config.from.client is not in getConfigurationKeySet, so the config
@@ -238,10 +245,6 @@ public class RssDAGAppMasterTest {
     // should not deliver to Input/Output.
     Assertions.assertEquals(12345, conf.getInt(TEZ_RUNTIME_IFILE_READAHEAD_BYTES, -1));
     Assertions.assertNull(conf.get("tez.config.from.client"));
-    // 4 verfiy vertex id
-    Assertions.assertEquals(expectedSourceVertexId, conf.getInt(RSS_SHUFFLE_SOURCE_VERTEX_ID, -1));
-    Assertions.assertEquals(
-        expectedDestinationVertexId, conf.getInt(RSS_SHUFFLE_DESTINATION_VERTEX_ID, -1));
   }
 
   public static void verifyOutput(
@@ -251,28 +254,16 @@ public class RssDAGAppMasterTest {
       int expectedSourceVertexId,
       int expectedDestinationVertexId)
       throws Exception {
-    // 1 verfiy rename rss io class name
     List<OutputSpec> outputSpecs = dag.getVertex(name).getOutputSpecList(0);
     Assertions.assertEquals(1, outputSpecs.size());
     Assertions.assertEquals(
         expectedOutputClassName, outputSpecs.get(0).getOutputDescriptor().getClassName());
-    // 2 verfiy the address and port of shuffle manager
     UserPayload payload = outputSpecs.get(0).getOutputDescriptor().getUserPayload();
     Configuration conf = TezUtils.createConfFromUserPayload(payload);
-    Assertions.assertEquals("host", conf.get(RSS_AM_SHUFFLE_MANAGER_ADDRESS));
-    Assertions.assertEquals(0, conf.getInt(RSS_AM_SHUFFLE_MANAGER_PORT, -1));
-    // 3 verfiy the config
-    Assertions.assertEquals(StorageType.LOCALFILE.name(), conf.get(RSS_STORAGE_TYPE));
-    Assertions.assertEquals("value1", conf.get("tez.config1"));
-    Assertions.assertEquals("value3", conf.get("tez.config3"));
-    Assertions.assertNull(conf.get("tez.config2"));
-    // 4 verfiy vertex id
-    Assertions.assertEquals(expectedSourceVertexId, conf.getInt(RSS_SHUFFLE_SOURCE_VERTEX_ID, -1));
-    Assertions.assertEquals(
-        expectedDestinationVertexId, conf.getInt(RSS_SHUFFLE_DESTINATION_VERTEX_ID, -1));
+    verifyCommonAssertions(conf, expectedSourceVertexId, expectedDestinationVertexId);
   }
 
-  private static DAG createDAG(String dageName, Configuration conf) {
+  private static DAG createDAG(String dagName, Configuration conf) {
     conf.setInt(TEZ_RUNTIME_IFILE_READAHEAD_BYTES, 12345);
     conf.set("tez.config.from.client", "value.from.client");
 
@@ -308,7 +299,7 @@ public class RssDAGAppMasterTest {
             .setFromConfiguration(conf)
             .build();
 
-    DAG dag = DAG.create(dageName);
+    DAG dag = DAG.create(dagName);
     dag.addVertex(vertex1)
         .addVertex(vertex2)
         .addVertex(vertex3)
@@ -387,8 +378,9 @@ public class RssDAGAppMasterTest {
     }
   }
 
-  @Test
-  public void testFetchRemoteStorageFromDynamicConf() throws Exception {
+  @ParameterizedTest
+  @MethodSource("clientTypeProvider")
+  public void testFetchRemoteStorageFromDynamicConf(String clientType) throws Exception {
     final ApplicationId appId = ApplicationId.newInstance(1, 1);
     final ApplicationAttemptId appAttemptId = ApplicationAttemptId.newInstance(appId, 1);
     TezConfiguration conf = new TezConfiguration();
@@ -396,7 +388,7 @@ public class RssDAGAppMasterTest {
     Credentials amCreds = new Credentials();
     JobTokenSecretManager jtsm = new JobTokenSecretManager();
     JobTokenIdentifier identifier = new JobTokenIdentifier(new Text(appId.toString()));
-    Token<JobTokenIdentifier> sessionToken = new Token<JobTokenIdentifier>(identifier, jtsm);
+    Token<JobTokenIdentifier> sessionToken = new Token<>(identifier, jtsm);
     sessionToken.setService(identifier.getJobId());
     TokenCache.setSessionToken(sessionToken, amCreds);
 
@@ -424,7 +416,7 @@ public class RssDAGAppMasterTest {
             amCreds,
             "someuser",
             null);
-    appMaster.setShuffleWriteClient(new FakedShuffleWriteClient(1));
+    appMaster.setShuffleWriteClient(new FakedShuffleWriteClient(1, clientType));
     appMaster.init(conf);
 
     Configuration mergedConf = new Configuration(false);
@@ -437,8 +429,9 @@ public class RssDAGAppMasterTest {
     Assertions.assertEquals("testvalue", mergedConf.get("tez.rss.test.config"));
   }
 
-  @Test
-  public void testFetchRemoteStorageFromCoordinator() throws Exception {
+  @ParameterizedTest
+  @MethodSource("clientTypeProvider")
+  public void testFetchRemoteStorageFromCoordinator(String clientType) throws Exception {
     final ApplicationId appId = ApplicationId.newInstance(1, 1);
     final ApplicationAttemptId appAttemptId = ApplicationAttemptId.newInstance(appId, 1);
     TezConfiguration conf = new TezConfiguration();
@@ -446,7 +439,7 @@ public class RssDAGAppMasterTest {
     Credentials amCreds = new Credentials();
     JobTokenSecretManager jtsm = new JobTokenSecretManager();
     JobTokenIdentifier identifier = new JobTokenIdentifier(new Text(appId.toString()));
-    Token<JobTokenIdentifier> sessionToken = new Token<JobTokenIdentifier>(identifier, jtsm);
+    Token<JobTokenIdentifier> sessionToken = new Token<>(identifier, jtsm);
     sessionToken.setService(identifier.getJobId());
     TokenCache.setSessionToken(sessionToken, amCreds);
 
@@ -474,7 +467,7 @@ public class RssDAGAppMasterTest {
             amCreds,
             "someuser",
             null);
-    appMaster.setShuffleWriteClient(new FakedShuffleWriteClient(2));
+    appMaster.setShuffleWriteClient(new FakedShuffleWriteClient(2, clientType));
     appMaster.init(conf);
 
     Configuration mergedConf = new Configuration(false);
@@ -495,12 +488,12 @@ public class RssDAGAppMasterTest {
      * Mode 2: rss.remote.storage.path and rss.remote.storage.conf is not set by dynamic config,
      *         appMaster will fetch remote storage conf from coordinator.
      * */
-    private int mode;
+    private final int mode;
 
-    FakedShuffleWriteClient(int mode) {
+    FakedShuffleWriteClient(int mode, String clientType) {
       super(
           ShuffleClientFactory.newWriteBuilder()
-              .clientType("GRPC")
+              .clientType(clientType)
               .retryMax(1)
               .retryIntervalMax(1)
               .heartBeatThreadNum(10)
@@ -521,7 +514,7 @@ public class RssDAGAppMasterTest {
 
     @Override
     public Map<String, String> fetchClientConf(int timeoutMs) {
-      Map<String, String> clientConf = new HashMap();
+      Map<String, String> clientConf = new HashMap<>();
       if (mode == 1) {
         clientConf.put("rss.remote.storage.path", "hdfs://ns1/rss/");
         clientConf.put("rss.remote.storage.conf", "key1=value1,key2=value2");

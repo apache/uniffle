@@ -18,6 +18,7 @@
 package org.apache.uniffle.common.config;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -600,7 +601,7 @@ public class RssConf implements Cloneable {
   /**
    * loadConf
    *
-   * @param properties all config items in configration file
+   * @param properties all config items in configuration file
    * @param configOptions the config items defined in base config class
    * @param includeMissingKey if include the keys which not defined in base config class
    * @return true if load successfully, otherwise false
@@ -681,5 +682,20 @@ public class RssConf implements Cloneable {
   @VisibleForTesting
   public void remove(String key) {
     this.settings.remove(key);
+  }
+
+  public boolean isSet(String key) {
+    return this.settings.containsKey(key);
+  }
+
+  public Map<String, Object> getPropsWithPrefix(String confPrefix) {
+    Map<String, Object> configMap = new HashMap<>();
+    for (Map.Entry<String, Object> entry : settings.entrySet()) {
+      if (entry.getKey().startsWith(confPrefix)) {
+        String keyName = entry.getKey().substring(confPrefix.length());
+        configMap.put(keyName, entry.getValue());
+      }
+    }
+    return configMap;
   }
 }

@@ -30,6 +30,8 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.io.TempDir;
 
+import org.apache.uniffle.common.util.ExitUtils;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class HadoopTestBase implements Serializable {
@@ -42,6 +44,7 @@ public class HadoopTestBase implements Serializable {
 
   @BeforeAll
   public static void setUpHdfs(@TempDir File tempDir) throws Exception {
+    ExitUtils.disableSystemExit();
     conf = new Configuration();
     baseDir = tempDir;
     conf.set(MiniDFSCluster.HDFS_MINIDFS_BASEDIR, baseDir.getAbsolutePath());

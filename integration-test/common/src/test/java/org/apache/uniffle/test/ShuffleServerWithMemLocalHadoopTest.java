@@ -18,7 +18,6 @@
 package org.apache.uniffle.test;
 
 import java.io.File;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -74,47 +73,33 @@ public class ShuffleServerWithMemLocalHadoopTest extends ShuffleReadWriteBase {
   private ShuffleServerGrpcClient grpcShuffleServerClient;
   private ShuffleServerGrpcNettyClient nettyShuffleServerClient;
   private static String REMOTE_STORAGE = HDFS_URI + "rss/test_%s";
-  private static ShuffleServerConf grpcShuffleServerConfig;
-  private static ShuffleServerConf nettyShuffleServerConfig;
 
   @BeforeAll
   public static void setupServers(@TempDir File tmpDir) throws Exception {
-    CoordinatorConf coordinatorConf = getCoordinatorConf();
-    createCoordinatorServer(coordinatorConf);
+    CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
+    storeCoordinatorConf(coordinatorConf);
 
-    File dataDir = new File(tmpDir, "data");
-    String grpcBasePath = dataDir.getAbsolutePath();
-    ShuffleServerConf grpcShuffleServerConf = buildShuffleServerConf(ServerType.GRPC, grpcBasePath);
-    createShuffleServer(grpcShuffleServerConf);
+    storeShuffleServerConf(buildShuffleServerConf(0, tmpDir, ServerType.GRPC));
+    storeShuffleServerConf(buildShuffleServerConf(1, tmpDir, ServerType.GRPC_NETTY));
 
-    File dataDir1 = new File(tmpDir, "data1");
-    String nettyBasePath = dataDir1.getAbsolutePath();
-    ShuffleServerConf nettyShuffleServerConf =
-        buildShuffleServerConf(ServerType.GRPC_NETTY, nettyBasePath);
-    createShuffleServer(nettyShuffleServerConf);
-
-    startServers();
-
-    grpcShuffleServerConfig = grpcShuffleServerConf;
-    nettyShuffleServerConfig = nettyShuffleServerConf;
+    startServersWithRandomPorts();
   }
 
   @BeforeEach
   public void createClient() throws Exception {
     grpcShuffleServerClient =
-        new ShuffleServerGrpcClient(
-            LOCALHOST, grpcShuffleServerConfig.getInteger(ShuffleServerConf.RPC_SERVER_PORT));
+        new ShuffleServerGrpcClient(LOCALHOST, grpcShuffleServers.get(0).getGrpcPort());
     nettyShuffleServerClient =
         new ShuffleServerGrpcNettyClient(
             LOCALHOST,
-            nettyShuffleServerConfig.getInteger(ShuffleServerConf.RPC_SERVER_PORT),
-            nettyShuffleServerConfig.getInteger(ShuffleServerConf.NETTY_SERVER_PORT));
+            nettyShuffleServers.get(0).getGrpcPort(),
+            nettyShuffleServers.get(0).getNettyPort());
   }
 
-  private static ShuffleServerConf buildShuffleServerConf(ServerType serverType, String basePath)
-      throws Exception {
-    ShuffleServerConf shuffleServerConf = getShuffleServerConf(serverType);
-    shuffleServerConf.set(ShuffleServerConf.RSS_STORAGE_BASE_PATH, Arrays.asList(basePath));
+  private static ShuffleServerConf buildShuffleServerConf(
+      int subDirIndex, File tempDir, ServerType serverType) {
+    ShuffleServerConf shuffleServerConf =
+        shuffleServerConfWithoutPort(subDirIndex, tempDir, serverType);
     shuffleServerConf.setString(
         ShuffleServerConf.RSS_STORAGE_TYPE.key(), StorageType.MEMORY_LOCALFILE_HDFS.name());
     shuffleServerConf.setLong(ShuffleServerConf.FLUSH_COLD_STORAGE_THRESHOLD_SIZE, 450L);
@@ -223,10 +208,9 @@ public class ShuffleServerWithMemLocalHadoopTest extends ShuffleReadWriteBase {
         isNettyMode
             ? new ShuffleServerInfo(
                 LOCALHOST,
-                nettyShuffleServerConfig.getInteger(ShuffleServerConf.RPC_SERVER_PORT),
-                nettyShuffleServerConfig.getInteger(ShuffleServerConf.NETTY_SERVER_PORT))
-            : new ShuffleServerInfo(
-                LOCALHOST, grpcShuffleServerConfig.getInteger(ShuffleServerConf.RPC_SERVER_PORT));
+                nettyShuffleServers.get(0).getGrpcPort(),
+                nettyShuffleServers.get(0).getNettyPort())
+            : new ShuffleServerInfo(LOCALHOST, grpcShuffleServers.get(0).getGrpcPort());
     ComposedClientReadHandler composedClientReadHandler =
         new ComposedClientReadHandler(ssi, handlers);
     Map<Long, byte[]> expectedData = Maps.newHashMap();

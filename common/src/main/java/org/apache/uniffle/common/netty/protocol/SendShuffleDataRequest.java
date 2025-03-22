@@ -103,7 +103,21 @@ public class SendShuffleDataRequest extends RequestMessage {
       int lengthOfShuffleBlocks = byteBuf.readInt();
       List<ShuffleBlockInfo> shuffleBlockInfoList = Lists.newArrayList();
       for (int j = 0; j < lengthOfShuffleBlocks; j++) {
-        shuffleBlockInfoList.add(Decoders.decodeShuffleBlockInfo(byteBuf));
+        try {
+          shuffleBlockInfoList.add(Decoders.decodeShuffleBlockInfo(byteBuf));
+        } catch (Throwable t) {
+          // An OutOfDirectMemoryError will be thrown, when the direct memory reaches the limit.
+          // OutOfDirectMemoryError will not cause the JVM to exit, but may lead to direct memory
+          // leaks.
+          // Note: You can refer to docs/server_guide.md to set MAX_DIRECT_MEMORY_SIZE to a
+          // reasonable value.
+          shuffleBlockInfoList.forEach(sbi -> sbi.getData().release());
+          partitionToBlocks.forEach(
+              (integer, shuffleBlockInfos) -> {
+                shuffleBlockInfos.forEach(sbi -> sbi.getData().release());
+              });
+          throw t;
+        }
       }
       partitionToBlocks.put(partitionId, shuffleBlockInfoList);
     }

@@ -83,5 +83,9 @@ public enum ByteUnit {
     return convertTo(d, PiB);
   }
 
+  public long getMultiplier() {
+    return multiplier;
+  }
+
   private final long multiplier;
 }

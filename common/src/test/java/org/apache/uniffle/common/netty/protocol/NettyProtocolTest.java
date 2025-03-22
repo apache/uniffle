@@ -30,7 +30,9 @@ import org.roaringbitmap.longlong.Roaring64NavigableMap;
 
 import org.apache.uniffle.common.BufferSegment;
 import org.apache.uniffle.common.ShuffleBlockInfo;
+import org.apache.uniffle.common.ShufflePartitionedBlock;
 import org.apache.uniffle.common.ShuffleServerInfo;
+import org.apache.uniffle.common.netty.buffer.ManagedBuffer;
 import org.apache.uniffle.common.netty.buffer.NettyManagedBuffer;
 import org.apache.uniffle.common.rpc.StatusCode;
 
@@ -102,17 +104,17 @@ public class NettyProtocolTest {
     ByteBuf byteBuf = Unpooled.buffer(sendShuffleDataRequest.encodedLength());
     sendShuffleDataRequest.encode(byteBuf);
     assertEquals(byteBuf.readableBytes(), encodeLength);
-    SendShuffleDataRequest sendShuffleDataRequest1 = sendShuffleDataRequest.decode(byteBuf);
+    SendShuffleDataRequestV1 sendShuffleDataRequest1 = SendShuffleDataRequestV1.decode(byteBuf);
     assertTrue(
-        NettyProtocolTestUtils.compareSendShuffleDataRequest(
+        NettyProtocolTestUtils.compareSendShuffleDataRequestV1(
             sendShuffleDataRequest, sendShuffleDataRequest1));
-    assertEquals(encodeLength, sendShuffleDataRequest1.encodedLength());
+    assertEquals(encodeLength, sendShuffleDataRequest1.getDecodedLength());
     byteBuf.release();
-    for (ShuffleBlockInfo shuffleBlockInfo :
+    for (ShufflePartitionedBlock shuffleBlockInfo :
         sendShuffleDataRequest1.getPartitionToBlocks().get(1)) {
       shuffleBlockInfo.getData().release();
     }
-    for (ShuffleBlockInfo shuffleBlockInfo :
+    for (ShufflePartitionedBlock shuffleBlockInfo :
         sendShuffleDataRequest1.getPartitionToBlocks().get(2)) {
       shuffleBlockInfo.getData().release();
     }
@@ -294,5 +296,53 @@ public class NettyProtocolTest {
           getMemoryShuffleDataResponse.getBufferSegments().get(i),
           getMemoryShuffleDataResponse1.getBufferSegments().get(i));
     }
+  }
+
+  @Test
+  public void testGetSortedShuffleDataRequest() {
+    GetSortedShuffleDataRequest request =
+        new GetSortedShuffleDataRequest(1, "test_app", 2, 3, 4, 100, System.currentTimeMillis());
+
+    int encodeLength = request.encodedLength();
+    ByteBuf byteBuf = Unpooled.buffer(encodeLength);
+    request.encode(byteBuf);
+
+    assertEquals(byteBuf.readableBytes(), encodeLength);
+
+    GetSortedShuffleDataRequest decodedRequest = GetSortedShuffleDataRequest.decode(byteBuf);
+
+    assertEquals(request.getRequestId(), decodedRequest.getRequestId());
+    assertEquals(request.getAppId(), decodedRequest.getAppId());
+    assertEquals(request.getShuffleId(), decodedRequest.getShuffleId());
+    assertEquals(request.getPartitionId(), decodedRequest.getPartitionId());
+    assertEquals(request.getBlockId(), decodedRequest.getBlockId());
+    assertEquals(request.getLength(), decodedRequest.getLength());
+    assertEquals(request.getTimestamp(), decodedRequest.getTimestamp());
+
+    byteBuf.release();
+  }
+
+  @Test
+  public void testGetSortedShuffleDataResponse() {
+    byte[] data = new byte[] {1, 2, 3, 4, 5};
+    ManagedBuffer managedBuffer = new NettyManagedBuffer(Unpooled.wrappedBuffer(data).retain());
+    GetSortedShuffleDataResponse response =
+        new GetSortedShuffleDataResponse(1, StatusCode.SUCCESS, "OK", -1, 0, managedBuffer);
+
+    int encodeLength = response.encodedLength();
+    ByteBuf byteBuf = Unpooled.buffer(encodeLength);
+    response.encode(byteBuf);
+
+    assertEquals(byteBuf.readableBytes(), encodeLength);
+
+    GetSortedShuffleDataResponse decodedResponse =
+        GetSortedShuffleDataResponse.decode(byteBuf, true);
+
+    assertEquals(response.getRequestId(), decodedResponse.getRequestId());
+    assertEquals(response.getStatusCode(), decodedResponse.getStatusCode());
+    assertEquals(response.getRetMessage(), decodedResponse.getRetMessage());
+    assertEquals(response.getNextBlockId(), decodedResponse.getNextBlockId());
+
+    byteBuf.release();
   }
 }

@@ -36,6 +36,8 @@ public class RssGetShuffleAssignmentsRequest {
   private int stageId = -1;
   private int stageAttemptNumber = 0;
   private boolean reassign = false;
+  private long retryIntervalMs;
+  private int retryTimes;
 
   @VisibleForTesting
   public RssGetShuffleAssignmentsRequest(
@@ -79,7 +81,9 @@ public class RssGetShuffleAssignmentsRequest {
         faultyServerIds,
         -1,
         0,
-        false);
+        false,
+        0,
+        0);
   }
 
   public RssGetShuffleAssignmentsRequest(
@@ -94,7 +98,9 @@ public class RssGetShuffleAssignmentsRequest {
       Set<String> faultyServerIds,
       int stageId,
       int stageAttemptNumber,
-      boolean reassign) {
+      boolean reassign,
+      long retryIntervalMs,
+      int retryTimes) {
     this.appId = appId;
     this.shuffleId = shuffleId;
     this.partitionNum = partitionNum;
@@ -107,6 +113,8 @@ public class RssGetShuffleAssignmentsRequest {
     this.stageId = stageId;
     this.stageAttemptNumber = stageAttemptNumber;
     this.reassign = reassign;
+    this.retryIntervalMs = retryIntervalMs;
+    this.retryTimes = retryTimes;
   }
 
   public String getAppId() {
@@ -155,5 +163,13 @@ public class RssGetShuffleAssignmentsRequest {
 
   public boolean isReassign() {
     return reassign;
+  }
+
+  public long getRetryIntervalMs() {
+    return retryIntervalMs;
+  }
+
+  public int getRetryTimes() {
+    return retryTimes;
   }
 }

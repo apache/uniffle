@@ -18,6 +18,7 @@
 package v1alpha1
 
 import (
+	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -106,6 +107,14 @@ type CoordinatorConfig struct {
 	// HTTPNodePort defines http port of node port service used for coordinators' external access.
 	// +optional
 	HTTPNodePort []int32 `json:"httpNodePort,omitempty"`
+
+	// NodePortServiceAnnotations is a list of annotations for the NodePort service.
+	// +optional
+	NodePortServiceAnnotations []map[string]string `json:"nodePortServiceAnnotations,omitempty"`
+
+	// HeadlessServiceAnnotations is a list of annotations for the headless service.
+	// +optional
+	HeadlessServiceAnnotations []map[string]string `json:"headlessServiceAnnotations,omitempty"`
 }
 
 // ShuffleServerConfig records configuration used to generate workload of shuffle servers.
@@ -142,6 +151,11 @@ type ShuffleServerConfig struct {
 
 	// UpgradeStrategy defines upgrade strategy of shuffle servers.
 	UpgradeStrategy *ShuffleServerUpgradeStrategy `json:"upgradeStrategy"`
+
+	// PodManagementPolicy defines the policy used to manage shuffle servers' pods,
+	// options are OrderedReady and Parallel, default is OrderedReady.
+	// +optional
+	PodManagementPolicy appsv1.PodManagementPolicyType `json:"podManagementPolicy,omitempty"`
 
 	// volumeClaimTemplates is a list of claims that pods are allowed to reference.
 	// The StatefulSet controller is responsible for mapping network identities to

@@ -24,10 +24,13 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import org.apache.commons.collections4.CollectionUtils;
@@ -52,14 +55,14 @@ import org.apache.uniffle.coordinator.web.request.CancelDecommissionRequest;
 import org.apache.uniffle.coordinator.web.request.DecommissionRequest;
 import org.apache.uniffle.server.ShuffleServer;
 import org.apache.uniffle.server.ShuffleServerConf;
-import org.apache.uniffle.storage.util.StorageType;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ServletTest extends IntegrationTestBase {
-  private static final String URL_PREFIX = "http://127.0.0.1:12345/api/";
+  private static int coordinatorHttpPort;
+  private static final String URL_PREFIX = "http://127.0.0.1:%s/api/";
   private static final String SINGLE_NODE_URL = URL_PREFIX + "server/nodes/%s";
   private static final String NODES_URL = URL_PREFIX + "server/nodes";
   private static final String LOSTNODES_URL = URL_PREFIX + "server/nodes?status=LOST";
@@ -71,71 +74,35 @@ public class ServletTest extends IntegrationTestBase {
   private static final String DECOMMISSION_SINGLENODE_URL = URL_PREFIX + "server/%s/decommission";
   private static final String CANCEL_DECOMMISSION_SINGLENODE_URL =
       URL_PREFIX + "server/%s/cancelDecommission";
+  private static final String AUTHORIZATION_CREDENTIALS = "dW5pZmZsZTp1bmlmZmxlMTIz";
+  private static final Map<String, String> authorizationHeader =
+      ImmutableMap.of("Authorization", "Basic " + AUTHORIZATION_CREDENTIALS);
   private static CoordinatorServer coordinatorServer;
   private ObjectMapper objectMapper = new ObjectMapper();
 
-  private static int rpcPort1;
-  private static int rpcPort2;
-  private static int rpcPort3;
-  private static int rpcPort4;
+  private static void prepareShuffleServerConf(int subDirIndex, File tmpDir) throws Exception {
+    ShuffleServerConf shuffleServerConf =
+        shuffleServerConfWithoutPort(subDirIndex, tmpDir, ServerType.GRPC);
+    shuffleServerConf.set(ShuffleServerConf.SERVER_DECOMMISSION_SHUTDOWN, false);
+    storeShuffleServerConf(shuffleServerConf);
+  }
 
   @BeforeAll
   public static void setUp(@TempDir File tmpDir) throws Exception {
-    CoordinatorConf coordinatorConf = new CoordinatorConf();
-    coordinatorConf.set(RssBaseConf.JETTY_HTTP_PORT, 12345);
-    coordinatorConf.set(RssBaseConf.JETTY_CORE_POOL_SIZE, 128);
-    coordinatorConf.set(RssBaseConf.RPC_SERVER_PORT, 12346);
-    createCoordinatorServer(coordinatorConf);
 
-    ShuffleServerConf shuffleServerConf = getShuffleServerConf(ServerType.GRPC);
-    shuffleServerConf.set(RssBaseConf.RSS_COORDINATOR_QUORUM, "127.0.0.1:12346");
-    shuffleServerConf.set(ShuffleServerConf.SERVER_DECOMMISSION_SHUTDOWN, false);
-    File dataDir1 = new File(tmpDir, "data1");
-    File dataDir2 = new File(tmpDir, "data2");
-    List<String> basePath =
-        Lists.newArrayList(dataDir1.getAbsolutePath(), dataDir2.getAbsolutePath());
-    shuffleServerConf.setString(RssBaseConf.RSS_STORAGE_TYPE.key(), StorageType.LOCALFILE.name());
-    shuffleServerConf.set(RssBaseConf.RSS_STORAGE_BASE_PATH, basePath);
-    rpcPort1 = shuffleServerConf.getInteger(ShuffleServerConf.RPC_SERVER_PORT);
-    createShuffleServer(shuffleServerConf);
-    File dataDir3 = new File(tmpDir, "data3");
-    File dataDir4 = new File(tmpDir, "data4");
-    basePath = Lists.newArrayList(dataDir3.getAbsolutePath(), dataDir4.getAbsolutePath());
-    shuffleServerConf.set(RssBaseConf.RSS_STORAGE_BASE_PATH, basePath);
-    shuffleServerConf.set(
-        RssBaseConf.RPC_SERVER_PORT,
-        shuffleServerConf.getInteger(ShuffleServerConf.RPC_SERVER_PORT) + 1);
-    shuffleServerConf.set(
-        RssBaseConf.JETTY_HTTP_PORT,
-        shuffleServerConf.getInteger(ShuffleServerConf.JETTY_HTTP_PORT) + 1);
-    rpcPort2 = shuffleServerConf.getInteger(ShuffleServerConf.RPC_SERVER_PORT);
-    createShuffleServer(shuffleServerConf);
-    File dataDir5 = new File(tmpDir, "data5");
-    File dataDir6 = new File(tmpDir, "data6");
-    basePath = Lists.newArrayList(dataDir5.getAbsolutePath(), dataDir6.getAbsolutePath());
-    shuffleServerConf.set(RssBaseConf.RSS_STORAGE_BASE_PATH, basePath);
-    shuffleServerConf.set(
-        RssBaseConf.RPC_SERVER_PORT,
-        shuffleServerConf.getInteger(ShuffleServerConf.RPC_SERVER_PORT) + 1);
-    shuffleServerConf.set(
-        RssBaseConf.JETTY_HTTP_PORT,
-        shuffleServerConf.getInteger(ShuffleServerConf.JETTY_HTTP_PORT) + 1);
-    rpcPort3 = shuffleServerConf.getInteger(ShuffleServerConf.RPC_SERVER_PORT);
-    createShuffleServer(shuffleServerConf);
-    File dataDir7 = new File(tmpDir, "data7");
-    File dataDir8 = new File(tmpDir, "data8");
-    basePath = Lists.newArrayList(dataDir7.getAbsolutePath(), dataDir8.getAbsolutePath());
-    shuffleServerConf.set(RssBaseConf.RSS_STORAGE_BASE_PATH, basePath);
-    shuffleServerConf.set(
-        RssBaseConf.RPC_SERVER_PORT,
-        shuffleServerConf.getInteger(ShuffleServerConf.RPC_SERVER_PORT) + 1);
-    shuffleServerConf.set(
-        RssBaseConf.JETTY_HTTP_PORT,
-        shuffleServerConf.getInteger(ShuffleServerConf.JETTY_HTTP_PORT) + 1);
-    rpcPort4 = shuffleServerConf.getInteger(ShuffleServerConf.RPC_SERVER_PORT);
-    createShuffleServer(shuffleServerConf);
-    startServers();
+    CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
+    coordinatorConf.set(RssBaseConf.JETTY_CORE_POOL_SIZE, 128);
+    coordinatorConf.set(RssBaseConf.REST_AUTHORIZATION_CREDENTIALS, AUTHORIZATION_CREDENTIALS);
+    storeCoordinatorConf(coordinatorConf);
+
+    prepareShuffleServerConf(0, tmpDir);
+    prepareShuffleServerConf(1, tmpDir);
+    prepareShuffleServerConf(2, tmpDir);
+    prepareShuffleServerConf(3, tmpDir);
+
+    startServersWithRandomPorts();
     coordinatorServer = coordinators.get(0);
+    coordinatorHttpPort = coordinatorServer.getJettyPort();
     Awaitility.await()
         .timeout(30, TimeUnit.SECONDS)
         .until(() -> coordinatorServer.getClusterManager().list().size() == 4);
@@ -144,28 +111,34 @@ public class ServletTest extends IntegrationTestBase {
   @Test
   public void testGetSingleNode() throws Exception {
     ShuffleServer shuffleServer = grpcShuffleServers.get(0);
-    String content = TestUtils.httpGet(String.format(SINGLE_NODE_URL, shuffleServer.getId()));
+    String content =
+        TestUtils.httpGet(
+            String.format(SINGLE_NODE_URL, coordinatorHttpPort, shuffleServer.getId()));
     Response<HashMap<String, Object>> response =
         objectMapper.readValue(content, new TypeReference<Response<HashMap<String, Object>>>() {});
     HashMap<String, Object> server = response.getData();
     assertEquals(0, response.getCode());
-    assertEquals(rpcPort1, Integer.parseInt(server.get("grpcPort").toString()));
+    assertEquals(
+        grpcShuffleServers.get(0).getGrpcPort(),
+        Integer.parseInt(server.get("grpcPort").toString()));
     assertEquals(ServerStatus.ACTIVE.toString(), server.get("status"));
   }
 
   @Test
   public void testNodesServlet() throws Exception {
-    String content = TestUtils.httpGet(NODES_URL);
+    String content = TestUtils.httpGet(String.format(NODES_URL, coordinatorHttpPort));
     Response<List<HashMap<String, Object>>> response =
         objectMapper.readValue(
             content, new TypeReference<Response<List<HashMap<String, Object>>>>() {});
     List<HashMap<String, Object>> serverList = response.getData();
     assertEquals(0, response.getCode());
     assertEquals(4, serverList.size());
-    assertEquals(rpcPort1, Integer.parseInt(serverList.get(0).get("grpcPort").toString()));
-    assertEquals(ServerStatus.ACTIVE.toString(), serverList.get(0).get("status"));
-    assertEquals(rpcPort2, Integer.parseInt(serverList.get(1).get("grpcPort").toString()));
-    assertEquals(ServerStatus.ACTIVE.toString(), serverList.get(1).get("status"));
+    Set<Integer> portSet =
+        grpcShuffleServers.stream().map(server -> server.getGrpcPort()).collect(Collectors.toSet());
+    for (int i = 0; i < serverList.size(); i++) {
+      assertEquals(ServerStatus.ACTIVE.toString(), serverList.get(i).get("status"));
+      assertTrue(portSet.contains(Integer.parseInt(serverList.get(i).get("grpcPort").toString())));
+    }
   }
 
   @Test
@@ -182,7 +155,7 @@ public class ServletTest extends IntegrationTestBase {
       List<String> shuffleIds = new ArrayList<>();
       Response<List<HashMap<String, Object>>> response =
           objectMapper.readValue(
-              TestUtils.httpGet(LOSTNODES_URL),
+              TestUtils.httpGet(String.format(LOSTNODES_URL, coordinatorHttpPort)),
               new TypeReference<Response<List<HashMap<String, Object>>>>() {});
       List<HashMap<String, Object>> serverList = response.getData();
       for (HashMap<String, Object> stringObjectHashMap : serverList) {
@@ -203,7 +176,8 @@ public class ServletTest extends IntegrationTestBase {
             () -> {
               Response<List<HashMap<String, Object>>> response =
                   objectMapper.readValue(
-                      TestUtils.httpGet(DECOMMISSIONEDNODES_URL),
+                      TestUtils.httpGet(
+                          String.format(DECOMMISSIONEDNODES_URL, coordinatorHttpPort)),
                       new TypeReference<Response<List<HashMap<String, Object>>>>() {});
               List<HashMap<String, Object>> serverList = response.getData();
               for (HashMap<String, Object> stringObjectHashMap : serverList) {
@@ -222,23 +196,27 @@ public class ServletTest extends IntegrationTestBase {
     shuffleServer3.markUnhealthy();
     shuffleServer4.markUnhealthy();
     List<String> expectShuffleIds = Arrays.asList(shuffleServer3.getId(), shuffleServer4.getId());
-    List<String> shuffleIds = new ArrayList<>();
     Awaitility.await()
         .atMost(30, TimeUnit.SECONDS)
         .until(
             () -> {
               Response<List<HashMap<String, Object>>> response =
                   objectMapper.readValue(
-                      TestUtils.httpGet(UNHEALTHYNODES_URL),
+                      TestUtils.httpGet(String.format(UNHEALTHYNODES_URL, coordinatorHttpPort)),
                       new TypeReference<Response<List<HashMap<String, Object>>>>() {});
               List<HashMap<String, Object>> serverList = response.getData();
-              for (HashMap<String, Object> stringObjectHashMap : serverList) {
-                String shuffleId = (String) stringObjectHashMap.get("id");
-                shuffleIds.add(shuffleId);
+              if (serverList.size() != 2) {
+                return false;
               }
-              return serverList.size() == 2;
+
+              List<String> shuffleIds =
+                  serverList.stream()
+                      .map(serverInfo -> (String) serverInfo.get("id"))
+                      .collect(Collectors.toList());
+
+              assertTrue(CollectionUtils.isEqualCollection(expectShuffleIds, shuffleIds));
+              return true;
             });
-    assertTrue(CollectionUtils.isEqualCollection(expectShuffleIds, shuffleIds));
   }
 
   @Test
@@ -249,7 +227,9 @@ public class ServletTest extends IntegrationTestBase {
     decommissionRequest.setServerIds(Sets.newHashSet("not_exist_serverId"));
     String content =
         TestUtils.httpPost(
-            CANCEL_DECOMMISSION_URL, objectMapper.writeValueAsString(decommissionRequest));
+            String.format(CANCEL_DECOMMISSION_URL, coordinatorHttpPort),
+            objectMapper.writeValueAsString(decommissionRequest),
+            authorizationHeader);
     Response<?> response = objectMapper.readValue(content, Response.class);
     assertEquals(-1, response.getCode());
     assertNotNull(response.getErrMsg());
@@ -257,18 +237,24 @@ public class ServletTest extends IntegrationTestBase {
     cancelDecommissionRequest.setServerIds(Sets.newHashSet(shuffleServer.getId()));
     content =
         TestUtils.httpPost(
-            CANCEL_DECOMMISSION_URL, objectMapper.writeValueAsString(cancelDecommissionRequest));
+            String.format(CANCEL_DECOMMISSION_URL, coordinatorHttpPort),
+            objectMapper.writeValueAsString(cancelDecommissionRequest),
+            authorizationHeader);
     response = objectMapper.readValue(content, Response.class);
     assertEquals(0, response.getCode());
 
     // Register shuffle, avoid server exiting immediately.
-    ShuffleServerGrpcClient shuffleServerClient = new ShuffleServerGrpcClient(LOCALHOST, rpcPort1);
+    ShuffleServerGrpcClient shuffleServerClient =
+        new ShuffleServerGrpcClient(LOCALHOST, grpcShuffleServers.get(0).getGrpcPort());
     shuffleServerClient.registerShuffle(
         new RssRegisterShuffleRequest(
             "testDecommissionServlet_appId", 0, Lists.newArrayList(new PartitionRange(0, 1)), ""));
     decommissionRequest.setServerIds(Sets.newHashSet(shuffleServer.getId()));
     content =
-        TestUtils.httpPost(DECOMMISSION_URL, objectMapper.writeValueAsString(decommissionRequest));
+        TestUtils.httpPost(
+            String.format(DECOMMISSION_URL, coordinatorHttpPort),
+            objectMapper.writeValueAsString(decommissionRequest),
+            authorizationHeader);
     response = objectMapper.readValue(content, Response.class);
     assertEquals(0, response.getCode());
     assertEquals(ServerStatus.DECOMMISSIONING, shuffleServer.getServerStatus());
@@ -286,7 +272,9 @@ public class ServletTest extends IntegrationTestBase {
     // Cancel decommission.
     content =
         TestUtils.httpPost(
-            CANCEL_DECOMMISSION_URL, objectMapper.writeValueAsString(cancelDecommissionRequest));
+            String.format(CANCEL_DECOMMISSION_URL, coordinatorHttpPort),
+            objectMapper.writeValueAsString(cancelDecommissionRequest),
+            authorizationHeader);
     response = objectMapper.readValue(content, Response.class);
     assertEquals(0, response.getCode());
     assertEquals(ServerStatus.ACTIVE, shuffleServer.getServerStatus());
@@ -297,22 +285,34 @@ public class ServletTest extends IntegrationTestBase {
     ShuffleServer shuffleServer = grpcShuffleServers.get(0);
     assertEquals(ServerStatus.ACTIVE, shuffleServer.getServerStatus());
     String content =
-        TestUtils.httpPost(String.format(CANCEL_DECOMMISSION_SINGLENODE_URL, "not_exist_serverId"));
+        TestUtils.httpPost(
+            String.format(
+                CANCEL_DECOMMISSION_SINGLENODE_URL, coordinatorHttpPort, "not_exist_serverId"),
+            null,
+            authorizationHeader);
     Response<?> response = objectMapper.readValue(content, Response.class);
     assertEquals(-1, response.getCode());
     assertNotNull(response.getErrMsg());
     content =
         TestUtils.httpPost(
-            String.format(CANCEL_DECOMMISSION_SINGLENODE_URL, shuffleServer.getId()));
+            String.format(
+                CANCEL_DECOMMISSION_SINGLENODE_URL, coordinatorHttpPort, shuffleServer.getId()),
+            null,
+            authorizationHeader);
     response = objectMapper.readValue(content, Response.class);
     assertEquals(0, response.getCode());
 
     // Register shuffle, avoid server exiting immediately.
-    ShuffleServerGrpcClient shuffleServerClient = new ShuffleServerGrpcClient(LOCALHOST, rpcPort1);
+    ShuffleServerGrpcClient shuffleServerClient =
+        new ShuffleServerGrpcClient(LOCALHOST, grpcShuffleServers.get(0).getGrpcPort());
     shuffleServerClient.registerShuffle(
         new RssRegisterShuffleRequest(
             "testDecommissionServlet_appId", 0, Lists.newArrayList(new PartitionRange(0, 1)), ""));
-    content = TestUtils.httpPost(String.format(DECOMMISSION_SINGLENODE_URL, shuffleServer.getId()));
+    content =
+        TestUtils.httpPost(
+            String.format(DECOMMISSION_SINGLENODE_URL, coordinatorHttpPort, shuffleServer.getId()),
+            null,
+            authorizationHeader);
     response = objectMapper.readValue(content, Response.class);
     assertEquals(0, response.getCode());
     assertEquals(ServerStatus.DECOMMISSIONING, shuffleServer.getServerStatus());
@@ -330,9 +330,25 @@ public class ServletTest extends IntegrationTestBase {
     // Cancel decommission.
     content =
         TestUtils.httpPost(
-            String.format(CANCEL_DECOMMISSION_SINGLENODE_URL, shuffleServer.getId()));
+            String.format(
+                CANCEL_DECOMMISSION_SINGLENODE_URL, coordinatorHttpPort, shuffleServer.getId()),
+            null,
+            authorizationHeader);
     response = objectMapper.readValue(content, Response.class);
     assertEquals(0, response.getCode());
     assertEquals(ServerStatus.ACTIVE, shuffleServer.getServerStatus());
+  }
+
+  @Test
+  public void testRequestWithWrongCredentials() throws Exception {
+    DecommissionRequest decommissionRequest = new DecommissionRequest();
+    decommissionRequest.setServerIds(Sets.newHashSet("not_exist_serverId"));
+    String wrongCredentials = "dW5pZmZsZTp1bmlmZmxlMTIz1";
+    String content =
+        TestUtils.httpPost(
+            String.format(CANCEL_DECOMMISSION_URL, coordinatorHttpPort),
+            objectMapper.writeValueAsString(decommissionRequest),
+            ImmutableMap.of("Authorization", "Basic " + wrongCredentials));
+    assertEquals("Authentication Failed", content);
   }
 }

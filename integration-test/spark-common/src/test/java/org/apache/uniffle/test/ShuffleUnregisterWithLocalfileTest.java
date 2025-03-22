@@ -31,6 +31,7 @@ import org.apache.spark.shuffle.RssSparkConfig;
 import org.apache.spark.sql.SparkSession;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import org.apache.uniffle.common.config.RssBaseConf;
 import org.apache.uniffle.common.rpc.ServerType;
@@ -44,20 +45,31 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class ShuffleUnregisterWithLocalfileTest extends SparkIntegrationTestBase {
 
   @BeforeAll
-  public static void setupServers() throws Exception {
-    CoordinatorConf coordinatorConf = getCoordinatorConf();
+  public static void setupServers(@TempDir File tmpDir) throws Exception {
+    CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
     Map<String, String> dynamicConf = Maps.newHashMap();
     dynamicConf.put(CoordinatorConf.COORDINATOR_REMOTE_STORAGE_PATH.key(), HDFS_URI + "rss/test");
     dynamicConf.put(RssSparkConfig.RSS_STORAGE_TYPE.key(), StorageType.LOCALFILE.name());
     addDynamicConf(coordinatorConf, dynamicConf);
-    createCoordinatorServer(coordinatorConf);
-    ShuffleServerConf grpcShuffleServerConf = getShuffleServerConf(ServerType.GRPC);
+    storeCoordinatorConf(coordinatorConf);
+
+    ShuffleServerConf grpcShuffleServerConf =
+        shuffleServerConfWithoutPort(0, tmpDir, ServerType.GRPC);
     grpcShuffleServerConf.setString("rss.storage.type", StorageType.LOCALFILE.name());
-    ShuffleServerConf nettyShuffleServerConf = getShuffleServerConf(ServerType.GRPC_NETTY);
+    grpcShuffleServerConf.setString(
+        RssBaseConf.RSS_STORAGE_BASE_PATH.key(),
+        grpcShuffleServerConf.get(RssBaseConf.RSS_STORAGE_BASE_PATH).get(0));
+    storeShuffleServerConf(grpcShuffleServerConf);
+
+    ShuffleServerConf nettyShuffleServerConf =
+        shuffleServerConfWithoutPort(1, tmpDir, ServerType.GRPC_NETTY);
     nettyShuffleServerConf.setString("rss.storage.type", StorageType.LOCALFILE.name());
-    createShuffleServer(grpcShuffleServerConf);
-    createShuffleServer(nettyShuffleServerConf);
-    startServers();
+    nettyShuffleServerConf.setString(
+        RssBaseConf.RSS_STORAGE_BASE_PATH.key(),
+        nettyShuffleServerConf.get(RssBaseConf.RSS_STORAGE_BASE_PATH).get(0));
+    storeShuffleServerConf(nettyShuffleServerConf);
+
+    startServersWithRandomPorts();
   }
 
   @Override
@@ -94,7 +106,6 @@ public class ShuffleUnregisterWithLocalfileTest extends SparkIntegrationTestBase
               .get(RssBaseConf.RSS_STORAGE_BASE_PATH)
               .get(0);
       String appPath = new File(path).listFiles()[0].getAbsolutePath();
-
       String shufflePath = appPath + "/0";
       assertTrue(new File(shufflePath).exists());
 

@@ -128,7 +128,7 @@ public class QuotaManager {
         AppInfo appInfo = appAndTimes.get(uuid);
         long currentTimeMillis = System.currentTimeMillis();
         if (appInfo == null) {
-          appInfo = new AppInfo(uuid, currentTimeMillis, currentTimeMillis);
+          appInfo = new AppInfo(uuid, currentTimeMillis, currentTimeMillis, "", "");
           appAndTimes.put(uuid, appInfo);
         } else {
           appInfo.setUpdateTime(currentTimeMillis);
@@ -140,6 +140,11 @@ public class QuotaManager {
   }
 
   public void registerApplicationInfo(String appId, Map<String, AppInfo> appAndTime) {
+    registerApplicationInfo(appId, appAndTime, "", "");
+  }
+
+  public void registerApplicationInfo(
+      String appId, Map<String, AppInfo> appAndTime, String version, String gitCommitId) {
     long currentTimeMillis = System.currentTimeMillis();
     String[] appIdAndUuid = appId.split("_");
     String uuidFromApp = appIdAndUuid[appIdAndUuid.length - 1];
@@ -149,7 +154,7 @@ public class QuotaManager {
       // thread safe is guaranteed by synchronized
       AppInfo appInfo = appAndTime.get(appId);
       if (appInfo == null) {
-        appInfo = new AppInfo(appId, currentTimeMillis, currentTimeMillis);
+        appInfo = new AppInfo(appId, currentTimeMillis, currentTimeMillis, version, gitCommitId);
         appAndTime.put(appId, appInfo);
       } else {
         appInfo.setUpdateTime(currentTimeMillis);

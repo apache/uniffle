@@ -17,6 +17,7 @@
 
 package org.apache.uniffle.test;
 
+import java.io.File;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -30,10 +31,10 @@ import org.apache.spark.sql.Encoders;
 import org.apache.spark.sql.SparkSession;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import org.apache.uniffle.common.rpc.ServerType;
 import org.apache.uniffle.coordinator.CoordinatorConf;
-import org.apache.uniffle.server.ShuffleServerConf;
 import org.apache.uniffle.storage.util.StorageType;
 
 // This test has all tasks fail twice, the third attempt succeeds.
@@ -44,20 +45,21 @@ import org.apache.uniffle.storage.util.StorageType;
 public class FailingTasksTest extends SparkTaskFailureIntegrationTestBase {
 
   @BeforeAll
-  public static void setupServers() throws Exception {
+  public static void setupServers(@TempDir File tmpDir) throws Exception {
     shutdownServers();
-    CoordinatorConf coordinatorConf = getCoordinatorConf();
+
+    CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
     Map<String, String> dynamicConf = Maps.newHashMap();
     dynamicConf.put(CoordinatorConf.COORDINATOR_REMOTE_STORAGE_PATH.key(), HDFS_URI + "rss/test");
     dynamicConf.put(
         RssSparkConfig.RSS_STORAGE_TYPE.key(), StorageType.MEMORY_LOCALFILE_HDFS.name());
     addDynamicConf(coordinatorConf, dynamicConf);
-    createCoordinatorServer(coordinatorConf);
-    ShuffleServerConf grpcShuffleServerConf = getShuffleServerConf(ServerType.GRPC);
-    createShuffleServer(grpcShuffleServerConf);
-    ShuffleServerConf nettyShuffleServerConf = getShuffleServerConf(ServerType.GRPC_NETTY);
-    createShuffleServer(nettyShuffleServerConf);
-    startServers();
+    storeCoordinatorConf(coordinatorConf);
+
+    storeShuffleServerConf(shuffleServerConfWithoutPort(0, tmpDir, ServerType.GRPC));
+    storeShuffleServerConf(shuffleServerConfWithoutPort(1, tmpDir, ServerType.GRPC_NETTY));
+
+    startServersWithRandomPorts();
   }
 
   @Override

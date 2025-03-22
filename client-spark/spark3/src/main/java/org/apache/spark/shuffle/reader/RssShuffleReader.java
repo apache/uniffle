@@ -19,6 +19,7 @@ package org.apache.spark.shuffle.reader;
 
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 
 import scala.Function0;
 import scala.Function1;
@@ -49,6 +50,7 @@ import org.roaringbitmap.longlong.Roaring64NavigableMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.uniffle.client.api.ShuffleManagerClient;
 import org.apache.uniffle.client.api.ShuffleReadClient;
 import org.apache.uniffle.client.factory.ShuffleClientFactory;
 import org.apache.uniffle.client.util.RssClientConfig;
@@ -58,7 +60,6 @@ import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.common.config.RssConf;
 
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_RESUBMIT_STAGE_WITH_FETCH_FAILURE_ENABLED;
-import static org.apache.uniffle.common.util.Constants.DRIVER_HOST;
 
 public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
   private static final Logger LOG = LoggerFactory.getLogger(RssShuffleReader.class);
@@ -83,6 +84,7 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
   private ShuffleReadMetrics readMetrics;
   private RssConf rssConf;
   private ShuffleDataDistributionType dataDistributionType;
+  private Supplier<ShuffleManagerClient> managerClientSupplier;
 
   public RssShuffleReader(
       int startPartition,
@@ -97,6 +99,7 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
       Map<Integer, Roaring64NavigableMap> partitionToExpectBlocks,
       Roaring64NavigableMap taskIdBitmap,
       ShuffleReadMetrics readMetrics,
+      Supplier<ShuffleManagerClient> managerClientSupplier,
       RssConf rssConf,
       ShuffleDataDistributionType dataDistributionType,
       Map<Integer, List<ShuffleServerInfo>> allPartitionToServers) {
@@ -120,6 +123,7 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
     this.partitionToShuffleServers = allPartitionToServers;
     this.rssConf = rssConf;
     this.dataDistributionType = dataDistributionType;
+    this.managerClientSupplier = managerClientSupplier;
   }
 
   @Override
@@ -193,16 +197,13 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
     // resubmit stage and shuffle manager server port are both set
     if (rssConf.getBoolean(RSS_RESUBMIT_STAGE_WITH_FETCH_FAILURE_ENABLED)
         && rssConf.getInteger(RssClientConf.SHUFFLE_MANAGER_GRPC_PORT, 0) > 0) {
-      String driver = rssConf.getString(DRIVER_HOST, "");
-      int port = rssConf.get(RssClientConf.SHUFFLE_MANAGER_GRPC_PORT);
       resultIter =
           RssFetchFailedIterator.newBuilder()
               .appId(appId)
               .shuffleId(shuffleId)
               .partitionId(startPartition)
               .stageAttemptId(context.stageAttemptNumber())
-              .reportServerHost(driver)
-              .port(port)
+              .managerClientSupplier(managerClientSupplier)
               .build(resultIter);
     }
     return resultIter;

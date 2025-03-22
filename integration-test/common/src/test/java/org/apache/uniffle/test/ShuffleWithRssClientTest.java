@@ -64,41 +64,25 @@ public class ShuffleWithRssClientTest extends ShuffleReadWriteBase {
   private static ShuffleServerInfo shuffleServerInfo1;
   private static ShuffleServerInfo shuffleServerInfo2;
   private ShuffleWriteClientImpl shuffleWriteClientImpl;
-  private static int rpcPort1;
 
   @BeforeAll
   public static void setupServers(@TempDir File tmpDir) throws Exception {
-    CoordinatorConf coordinatorConf = getCoordinatorConf();
-    createCoordinatorServer(coordinatorConf);
-    ShuffleServerConf shuffleServerConf = getShuffleServerConf(ServerType.GRPC);
-    shuffleServerConf.setLong("rss.server.app.expired.withoutHeartbeat", 4000);
-    File dataDir1 = new File(tmpDir, "data1");
-    File dataDir2 = new File(tmpDir, "data2");
-    String basePath = dataDir1.getAbsolutePath() + "," + dataDir2.getAbsolutePath();
-    shuffleServerConf.setString("rss.storage.type", StorageType.LOCALFILE.name());
-    shuffleServerConf.setString("rss.storage.basePath", basePath);
-    rpcPort1 = shuffleServerConf.getInteger(ShuffleServerConf.RPC_SERVER_PORT);
-    createShuffleServer(shuffleServerConf);
-    File dataDir3 = new File(tmpDir, "data3");
-    File dataDir4 = new File(tmpDir, "data4");
-    basePath = dataDir3.getAbsolutePath() + "," + dataDir4.getAbsolutePath();
-    shuffleServerConf.setString("rss.storage.basePath", basePath);
-    shuffleServerConf.setInteger(
-        "rss.rpc.server.port", shuffleServerConf.getInteger(ShuffleServerConf.RPC_SERVER_PORT) + 1);
-    shuffleServerConf.setInteger(
-        "rss.jetty.http.port", shuffleServerConf.getInteger(ShuffleServerConf.JETTY_HTTP_PORT) + 1);
-    createShuffleServer(shuffleServerConf);
-    startServers();
-    shuffleServerInfo1 =
-        new ShuffleServerInfo(
-            String.format("127.0.0.1-%s", grpcShuffleServers.get(0).getGrpcPort()),
-            grpcShuffleServers.get(0).getIp(),
-            grpcShuffleServers.get(0).getGrpcPort());
-    shuffleServerInfo2 =
-        new ShuffleServerInfo(
-            String.format("127.0.0.1-%s", grpcShuffleServers.get(0).getGrpcPort() + 1),
-            grpcShuffleServers.get(1).getIp(),
-            grpcShuffleServers.get(0).getGrpcPort() + 1);
+    CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
+    storeCoordinatorConf(coordinatorConf);
+
+    Lists.newArrayList(0, 1)
+        .forEach(
+            subDirIndex -> {
+              ShuffleServerConf shuffleServerConf =
+                  shuffleServerConfWithoutPort(subDirIndex, tmpDir, ServerType.GRPC);
+              shuffleServerConf.setLong("rss.server.app.expired.withoutHeartbeat", 4000);
+              shuffleServerConf.setString("rss.storage.type", StorageType.LOCALFILE.name());
+              storeShuffleServerConf(shuffleServerConf);
+            });
+
+    startServersWithRandomPorts();
+    shuffleServerInfo1 = new ShuffleServerInfo(LOCALHOST, grpcShuffleServers.get(0).getGrpcPort());
+    shuffleServerInfo2 = new ShuffleServerInfo(LOCALHOST, grpcShuffleServers.get(1).getGrpcPort());
   }
 
   @BeforeEach
@@ -142,7 +126,10 @@ public class ShuffleWithRssClientTest extends ShuffleReadWriteBase {
 
     // simulator a failed server
     ShuffleServerInfo fakeShuffleServerInfo =
-        new ShuffleServerInfo("127.0.0.1-20001", grpcShuffleServers.get(0).getIp(), rpcPort1 + 100);
+        new ShuffleServerInfo(
+            "127.0.0.1-20001",
+            grpcShuffleServers.get(0).getIp(),
+            generateNonExistingPorts(1).get(0));
     List<ShuffleBlockInfo> blocks =
         createShuffleBlockList(
             0,
@@ -403,7 +390,9 @@ public class ShuffleWithRssClientTest extends ShuffleReadWriteBase {
     // commit will be failed because of fakeIp
     commitResult =
         shuffleWriteClientImpl.sendCommit(
-            Sets.newHashSet(new ShuffleServerInfo("127.0.0.1-20001", "fakeIp", rpcPort1)),
+            Sets.newHashSet(
+                new ShuffleServerInfo(
+                    "127.0.0.1-20001", "fakeIp", grpcShuffleServers.get(0).getGrpcPort())),
             testAppId,
             0,
             2);
@@ -445,10 +434,10 @@ public class ShuffleWithRssClientTest extends ShuffleReadWriteBase {
     String appId = "app-1";
     RemoteStorageInfo remoteStorage = new RemoteStorageInfo("");
     ShuffleAssignmentsInfo response = null;
-    ShuffleServerConf shuffleServerConf = getShuffleServerConf(ServerType.GRPC);
+    ShuffleServerConf shuffleServerConf = shuffleServerConfWithoutPort(0, null, ServerType.GRPC);
     int heartbeatInterval = shuffleServerConf.getInteger("rss.server.heartbeat.interval", 1000);
     Thread.sleep(heartbeatInterval * 2);
-    shuffleWriteClientImpl.registerCoordinators(COORDINATOR_QUORUM);
+    shuffleWriteClientImpl.registerCoordinators(getQuorum());
     response =
         RetryUtils.retry(
             () -> {

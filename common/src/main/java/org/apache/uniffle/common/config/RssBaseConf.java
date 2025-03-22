@@ -17,12 +17,15 @@
 
 package org.apache.uniffle.common.config;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import org.apache.uniffle.common.ClientType;
 import org.apache.uniffle.common.StorageType;
 import org.apache.uniffle.common.rpc.ServerType;
+import org.apache.uniffle.common.serializer.kryo.KryoSerializer;
+import org.apache.uniffle.common.serializer.writable.WritableSerializer;
 import org.apache.uniffle.common.util.RssUtils;
 
 public class RssBaseConf extends RssConf {
@@ -149,19 +152,11 @@ public class RssBaseConf extends RssConf {
           .defaultValue(1024L * 1024L * 1024L)
           .withDescription("Max size of rpc message (byte)");
 
-  public static final ConfigOption<ClientType> RSS_CLIENT_TYPE =
-      ConfigOptions.key("rss.rpc.client.type")
+  public static final ConfigOption<ClientType> RSS_COORDINATOR_CLIENT_TYPE =
+      ConfigOptions.key("rss.coordinator.rpc.client.type")
           .enumType(ClientType.class)
           .defaultValue(ClientType.GRPC)
-          .withDescription("client type for rss");
-
-  public static final ConfigOption<Long> RSS_CLIENT_TYPE_GRPC_TIMEOUT_MS =
-      ConfigOptions.key("rss.rpc.client.type.grpc.timeout")
-          .longType()
-          .checkValue(
-              ConfigUtils.POSITIVE_LONG_VALIDATOR, "The grpc timeout must be positive integer")
-          .defaultValue(60 * 1000L)
-          .withDescription("Remote shuffle service client type grpc timeout (ms)");
+          .withDescription("client type for coordinator rpc client.");
 
   public static final ConfigOption<StorageType> RSS_STORAGE_TYPE =
       ConfigOptions.key("rss.storage.type")
@@ -187,6 +182,11 @@ public class RssBaseConf extends RssConf {
           .intType()
           .defaultValue(1000)
           .withDescription("Thread number for grpc to process request");
+  public static final ConfigOption<Integer> RPC_EXECUTOR_QUEUE_SIZE =
+      ConfigOptions.key("rss.rpc.executor.queue.size")
+          .intType()
+          .defaultValue(Integer.MAX_VALUE)
+          .withDescription("Thread pool waiting queue size");
 
   public static final ConfigOption<Boolean> RSS_JVM_METRICS_VERBOSE_ENABLE =
       ConfigOptions.key("rss.jvm.metrics.verbose.enable")
@@ -278,17 +278,89 @@ public class RssBaseConf extends RssConf {
           .defaultValue(16)
           .withDescription("start server service max retry");
 
+  /* Serialization */
+  public static final ConfigOption<Boolean> RSS_KRYO_REGISTRATION_REQUIRED =
+      ConfigOptions.key("rss.kryo.registrationRequired")
+          .booleanType()
+          .defaultValue(false)
+          .withDescription("Whether registration is required.");
+  public static final ConfigOption<Boolean> RSS_KRYO_REFERENCE_TRACKING =
+      ConfigOptions.key("rss.kryo.referenceTracking")
+          .booleanType()
+          .defaultValue(true)
+          .withDescription(
+              "Whether to track references to the same object when serializing data with Kryo.");
+  public static final ConfigOption<Boolean> RSS_KRYO_SCALA_REGISTRATION_REQUIRED =
+      ConfigOptions.key("rss.kryo.scalaRegistrationRequired")
+          .booleanType()
+          .defaultValue(false)
+          .withDescription(
+              "Whether to require registration of some common scala classes, "
+                  + "usually used for spark applications");
+  public static final ConfigOption<String> RSS_KRYO_REGISTRATION_CLASSES =
+      ConfigOptions.key("rss.kryo.registrationClasses")
+          .stringType()
+          .defaultValue("")
+          .withDescription(
+              "The classes to be registered. This configuration must ensure that the"
+                  + "client and server are exactly the same. Dynamic configuration is recommended");
+  public static final ConfigOption<String> RSS_IO_SERIALIZATIONS =
+      ConfigOptions.key("rss.io.serializations")
+          .stringType()
+          .defaultValue(WritableSerializer.class.getName() + "," + KryoSerializer.class.getName())
+          .withDescription("Serializations are used for creative Serializers and Deserializers");
+
+  public static final ConfigOption<String> REST_AUTHORIZATION_CREDENTIALS =
+      ConfigOptions.key("rss.http.basic.authorizationCredentials")
+          .stringType()
+          .noDefaultValue()
+          .withDescription(
+              "Authorization credentials for the rest interface. "
+                  + "For Basic authentication the credentials are constructed by"
+                  + " first combining the username and the password with a colon (uniffle:uniffle123)"
+                  + ", and then by encoding the resulting string in base64 (dW5pZmZsZTp1bmlmZmxlMTIz).");
+
+  public static final ConfigOption<String> RSS_STORAGE_LOCALFILE_WRITE_DATA_BUFFER_SIZE =
+      ConfigOptions.key("rss.storage.localfile.write.dataBufferSize")
+          .stringType()
+          .defaultValue("8k")
+          .withDescription("The buffer size to cache the write data content for LOCALFILE.");
+
+  public static final ConfigOption<String> RSS_STORAGE_LOCALFILE_WRITE_INDEX_BUFFER_SIZE =
+      ConfigOptions.key("rss.storage.localfile.write.indexBufferSize")
+          .stringType()
+          .defaultValue("8k")
+          .withDescription("The buffer size to cache the write index content for LOCALFILE.");
+  public static final ConfigOption<String> RSS_STORAGE_LOCALFILE_WRITER_CLASS =
+      ConfigOptions.key("rss.storage.localFileWriterClass")
+          .stringType()
+          .defaultValue("org.apache.uniffle.storage.handler.impl.LocalFileWriter")
+          .withDescription("The writer class to write shuffle data for LOCALFILE.");
+
+  public static final ConfigOption<String> RSS_STORAGE_HDFS_WRITE_DATA_BUFFER_SIZE =
+      ConfigOptions.key("rss.storage.hdfs.write.dataBufferSize")
+          .stringType()
+          .defaultValue("8k")
+          .withDescription("The buffer size to cache the write data content for HDFS.");
+
+  public static final ConfigOption<String> RSS_STORAGE_HDFS_WRITE_INDEX_BUFFER_SIZE =
+      ConfigOptions.key("rss.storage.hdfs.write.indexBufferSize")
+          .stringType()
+          .defaultValue("8k")
+          .withDescription("The buffer size to cache the write index content for HDFS.");
+
   public boolean loadConfFromFile(String fileName, List<ConfigOption<Object>> configOptions) {
     Map<String, String> properties = RssUtils.getPropertiesFromFile(fileName);
-
     if (properties == null) {
       return false;
     }
-    return loadCommonConf(properties) && loadConf(properties, configOptions, true);
-  }
-
-  public boolean loadCommonConf(Map<String, String> properties) {
-    List<ConfigOption<Object>> configOptions = ConfigUtils.getAllConfigOptions(RssBaseConf.class);
-    return loadConf(properties, configOptions, false);
+    Map<String, String> propertiesFromSystem = new HashMap<>();
+    System.getProperties().stringPropertyNames().stream()
+        .forEach(
+            propName -> {
+              propertiesFromSystem.put(propName, System.getProperty(propName));
+            });
+    return loadConf(properties, configOptions, true)
+        && loadConf(propertiesFromSystem, configOptions, false);
   }
 }

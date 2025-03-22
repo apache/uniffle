@@ -17,13 +17,19 @@
 
 package org.apache.uniffle.storage.api;
 
+import java.io.Closeable;
 import java.io.IOException;
+
+import io.netty.buffer.ByteBuf;
 
 import org.apache.uniffle.storage.common.FileBasedShuffleSegment;
 
-public interface FileWriter {
-
+public interface FileWriter extends Closeable {
   void writeData(byte[] data) throws IOException;
 
+  void writeData(ByteBuf buf) throws IOException;
+
   void writeIndex(FileBasedShuffleSegment segment) throws IOException;
+
+  long nextOffset();
 }

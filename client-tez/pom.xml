@@ -23,13 +23,13 @@
     <parent>
         <artifactId>uniffle-parent</artifactId>
         <groupId>org.apache.uniffle</groupId>
-        <version>0.10.0-SNAPSHOT</version>
+        <version>0.11.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
     <groupId>org.apache.uniffle</groupId>
     <artifactId>rss-client-tez</artifactId>
-    <version>0.10.0-SNAPSHOT</version>
+    <version>0.11.0-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>Apache Uniffle Client (Tez)</name>
 
@@ -128,17 +128,29 @@
           </exclusion>
         </exclusions>
       </dependency>
-        <dependency>
-          <groupId>org.apache.hadoop</groupId>
-          <artifactId>hadoop-minicluster</artifactId>
-          <scope>test</scope>
-          <exclusions>
-            <exclusion>
-              <groupId>org.slf4j</groupId>
-              <artifactId>slf4j-log4j12</artifactId>
-            </exclusion>
-          </exclusions>
-        </dependency>
+      <dependency>
+        <groupId>org.apache.hadoop</groupId>
+        <artifactId>hadoop-minicluster</artifactId>
+        <scope>test</scope>
+        <exclusions>
+          <exclusion>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-log4j12</artifactId>
+          </exclusion>
+        </exclusions>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.uniffle</groupId>
+        <artifactId>rss-common</artifactId>
+        <scope>test</scope>
+        <type>test-jar</type>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.uniffle</groupId>
+        <artifactId>rss-client</artifactId>
+        <scope>test</scope>
+        <type>test-jar</type>
+      </dependency>
     </dependencies>
 
     <build>
@@ -191,6 +203,7 @@
                                     <artifact>*:*</artifact>
                                     <excludes>
                                         <exclude>LICENSE</exclude>
+                                        <exclude>module-info.class</exclude>
                                         <exclude>META-INF/*.SF</exclude>
                                         <exclude>META-INF/*.DSA</exclude>
                                         <exclude>META-INF/*.RSA</exclude>

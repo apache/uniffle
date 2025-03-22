@@ -212,7 +212,7 @@ public class HadoopShuffleReadHandlerTest extends HadoopTestBase {
                 new FileBasedShuffleSegment(
                     blockId,
                     startOffset,
-                    block.getLength(),
+                    block.getDataLength(),
                     block.getUncompressLength(),
                     crc,
                     block.getTaskAttemptId());

@@ -21,7 +21,6 @@ import java.util.concurrent.TimeUnit;
 
 import io.grpc.ManagedChannel;
 import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
-import io.grpc.netty.shaded.io.netty.buffer.ByteBufAllocator;
 import io.grpc.netty.shaded.io.netty.channel.ChannelOption;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,7 +37,7 @@ public abstract class GrpcClient {
   protected ManagedChannel channel;
 
   protected GrpcClient(String host, int port, int maxRetryAttempts, boolean usePlaintext) {
-    this(host, port, maxRetryAttempts, usePlaintext, 0, 0, 0);
+    this(host, port, maxRetryAttempts, usePlaintext, 0, 0, 0, -1);
   }
 
   protected GrpcClient(
@@ -48,17 +47,23 @@ public abstract class GrpcClient {
       boolean usePlaintext,
       int pageSize,
       int maxOrder,
-      int smallCacheSize) {
+      int smallCacheSize,
+      int nettyEventLoopThreads) {
     this.host = host;
     this.port = port;
     this.maxRetryAttempts = maxRetryAttempts;
     this.usePlaintext = usePlaintext;
 
+    if (nettyEventLoopThreads > 0) {
+      System.setProperty(
+          "io.grpc.netty.shaded.io.netty.eventLoopThreads", String.valueOf(nettyEventLoopThreads));
+    }
+
     NettyChannelBuilder channelBuilder =
         NettyChannelBuilder.forAddress(host, port)
             .withOption(
                 ChannelOption.ALLOCATOR,
-                createByteBufAllocator(pageSize, maxOrder, smallCacheSize));
+                GrpcNettyUtils.getSharedPooledByteBufAllocator(pageSize, maxOrder, smallCacheSize));
 
     if (usePlaintext) {
       channelBuilder.usePlaintext();
@@ -74,11 +79,6 @@ public abstract class GrpcClient {
 
   protected GrpcClient(ManagedChannel channel) {
     this.channel = channel;
-  }
-
-  protected ByteBufAllocator createByteBufAllocator(
-      int pageSize, int maxOrder, int smallCacheSize) {
-    return GrpcNettyUtils.createPooledByteBufAllocator(true, 0, 0, 0, 0);
   }
 
   public void close() {

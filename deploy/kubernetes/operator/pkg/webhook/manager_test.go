@@ -27,6 +27,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	admissionv1 "k8s.io/api/admissionregistration/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -85,6 +86,7 @@ var _ = BeforeSuite(
 		// +kubebuilder:scaffold:scheme
 
 		cfg := &config.Config{
+			LeaderElection: false,
 			HTTPConfig: config.HTTPConfig{
 				Port:            9876,
 				ExternalService: webhookconstants.ComponentName,
@@ -141,6 +143,11 @@ var _ = Describe("AdmissionManager", func() {
 			})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(mwc).ToNot(BeNil())
+
+			By("Check lease object when disabling leader election")
+			leaseList, leaseErr := kubeClient.CoordinationV1().Leases(corev1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
+			Expect(leaseErr).ToNot(HaveOccurred())
+			Expect(len(leaseList.Items)).To(Equal(0))
 		})
 	})
 })

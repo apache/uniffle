@@ -22,6 +22,7 @@ import java.io.DataOutput;
 import java.io.IOException;
 
 import org.apache.hadoop.io.Writable;
+import org.apache.hadoop.io.WritableUtils;
 import org.apache.tez.dag.records.TezTaskAttemptID;
 
 public class GetShuffleServerRequest implements Writable {
@@ -29,15 +30,32 @@ public class GetShuffleServerRequest implements Writable {
   private int startIndex;
   private int partitionNum;
   private int shuffleId;
+  private String keyClassName;
+  private String valueClassName;
+  private String comparatorClassName;
 
   public GetShuffleServerRequest() {}
 
   public GetShuffleServerRequest(
       TezTaskAttemptID currentTaskAttemptID, int startIndex, int partitionNum, int shuffleId) {
+    this(currentTaskAttemptID, startIndex, partitionNum, shuffleId, "", "", "");
+  }
+
+  public GetShuffleServerRequest(
+      TezTaskAttemptID currentTaskAttemptID,
+      int startIndex,
+      int partitionNum,
+      int shuffleId,
+      String keyClassName,
+      String valueClassName,
+      String comparatorClassName) {
     this.currentTaskAttemptID = currentTaskAttemptID;
     this.startIndex = startIndex;
     this.partitionNum = partitionNum;
     this.shuffleId = shuffleId;
+    this.keyClassName = keyClassName;
+    this.valueClassName = valueClassName;
+    this.comparatorClassName = comparatorClassName;
   }
 
   @Override
@@ -51,6 +69,9 @@ public class GetShuffleServerRequest implements Writable {
     } else {
       output.writeBoolean(false);
     }
+    WritableUtils.writeString(output, keyClassName);
+    WritableUtils.writeString(output, valueClassName);
+    WritableUtils.writeString(output, comparatorClassName);
   }
 
   @Override
@@ -63,6 +84,9 @@ public class GetShuffleServerRequest implements Writable {
       currentTaskAttemptID = new TezTaskAttemptID();
       currentTaskAttemptID.readFields(dataInput);
     }
+    keyClassName = WritableUtils.readString(dataInput);
+    valueClassName = WritableUtils.readString(dataInput);
+    comparatorClassName = WritableUtils.readString(dataInput);
   }
 
   @Override
@@ -93,5 +117,17 @@ public class GetShuffleServerRequest implements Writable {
 
   public int getShuffleId() {
     return shuffleId;
+  }
+
+  public String getKeyClassName() {
+    return keyClassName;
+  }
+
+  public String getValueClassName() {
+    return valueClassName;
+  }
+
+  public String getComparatorClassName() {
+    return comparatorClassName;
   }
 }

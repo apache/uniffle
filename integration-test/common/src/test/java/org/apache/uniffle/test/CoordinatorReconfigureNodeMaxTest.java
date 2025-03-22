@@ -20,7 +20,6 @@ package org.apache.uniffle.test;
 import java.io.File;
 import java.io.FileWriter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.concurrent.TimeUnit;
 
@@ -49,48 +48,38 @@ public class CoordinatorReconfigureNodeMaxTest extends CoordinatorTestBase {
   private static final int SERVER_NUM = 10;
   private static final HashSet<String> TAGS = Sets.newHashSet("t1");
 
-  private static final String QUORUM =
-      LOCALHOST + ":" + COORDINATOR_PORT_1 + "," + LOCALHOST + ":" + COORDINATOR_PORT_2;
-
   private static String tempConfFilePath;
 
   @BeforeAll
   public static void setupServers(@TempDir File tmpDir) throws Exception {
-    CoordinatorConf coordinatorConf1 = getCoordinatorConf();
+    CoordinatorConf coordinatorConf1 = coordinatorConfWithoutPort();
     coordinatorConf1.setLong(CoordinatorConf.COORDINATOR_APP_EXPIRED, 2000);
     coordinatorConf1.setInteger(
         CoordinatorConf.COORDINATOR_SHUFFLE_NODES_MAX, DEFAULT_SHUFFLE_NODES_MAX);
     coordinatorConf1.setLong(RssBaseConf.RSS_RECONFIGURE_INTERVAL_SEC, 1L);
     tempConfFilePath = tmpDir.getPath() + "/conf.file";
     ReconfigurableConfManager.init(coordinatorConf1, tempConfFilePath);
-    createCoordinatorServer(coordinatorConf1);
+    storeCoordinatorConf(coordinatorConf1);
 
-    CoordinatorConf coordinatorConf2 = getCoordinatorConf();
+    CoordinatorConf coordinatorConf2 = coordinatorConfWithoutPort();
     coordinatorConf2.setLong(CoordinatorConf.COORDINATOR_APP_EXPIRED, 2000);
     coordinatorConf2.setInteger(
         CoordinatorConf.COORDINATOR_SHUFFLE_NODES_MAX, DEFAULT_SHUFFLE_NODES_MAX);
-    coordinatorConf2.setInteger(CoordinatorConf.RPC_SERVER_PORT, COORDINATOR_PORT_2);
-    coordinatorConf2.setInteger(CoordinatorConf.JETTY_HTTP_PORT, JETTY_PORT_2);
     coordinatorConf2.setLong(RssBaseConf.RSS_RECONFIGURE_INTERVAL_SEC, 1L);
-    createCoordinatorServer(coordinatorConf2);
+    storeCoordinatorConf(coordinatorConf2);
 
     for (int i = 0; i < SERVER_NUM; i++) {
-      ShuffleServerConf shuffleServerConf = getShuffleServerConf(ServerType.GRPC);
-      File dataDir = new File(tmpDir, "data" + i);
-      String basePath = dataDir.getAbsolutePath();
+      ShuffleServerConf shuffleServerConf =
+          shuffleServerConfWithoutPort(i, tmpDir, ServerType.GRPC);
       shuffleServerConf.setString(
           ShuffleServerConf.RSS_STORAGE_TYPE.key(), StorageType.MEMORY_LOCALFILE_HDFS.name());
-      shuffleServerConf.set(ShuffleServerConf.RSS_STORAGE_BASE_PATH, Arrays.asList(basePath));
       shuffleServerConf.set(RssBaseConf.RPC_METRICS_ENABLED, true);
       shuffleServerConf.set(ShuffleServerConf.SERVER_APP_EXPIRED_WITHOUT_HEARTBEAT, 2000L);
       shuffleServerConf.set(ShuffleServerConf.SERVER_PRE_ALLOCATION_EXPIRED, 5000L);
-      shuffleServerConf.setInteger(RssBaseConf.RPC_SERVER_PORT, 18001 + i);
-      shuffleServerConf.setInteger(RssBaseConf.JETTY_HTTP_PORT, 19010 + i);
       shuffleServerConf.set(ShuffleServerConf.TAGS, new ArrayList<>(TAGS));
-      shuffleServerConf.setString("rss.coordinator.quorum", QUORUM);
-      createShuffleServer(shuffleServerConf);
+      storeShuffleServerConf(shuffleServerConf);
     }
-    startServers();
+    startServersWithRandomPorts();
 
     Thread.sleep(1000 * 5);
   }
@@ -117,7 +106,7 @@ public class CoordinatorReconfigureNodeMaxTest extends CoordinatorTestBase {
             .unregisterThreadPoolSize(10)
             .unregisterRequestTimeSec(10)
             .build();
-    shuffleWriteClient.registerCoordinators(COORDINATOR_QUORUM);
+    shuffleWriteClient.registerCoordinators(getQuorum());
     ShuffleAssignmentsInfo info =
         shuffleWriteClient.getShuffleAssignments("app1", 0, 10, 1, TAGS, SERVER_NUM + 10, -1);
     assertEquals(DEFAULT_SHUFFLE_NODES_MAX, info.getServerToPartitionRanges().keySet().size());

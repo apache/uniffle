@@ -33,6 +33,7 @@ import org.apache.uniffle.common.ShuffleAssignmentsInfo;
 import org.apache.uniffle.common.ShuffleBlockInfo;
 import org.apache.uniffle.common.ShuffleDataDistributionType;
 import org.apache.uniffle.common.ShuffleServerInfo;
+import org.apache.uniffle.proto.RssProtos.MergeContext;
 
 public interface ShuffleWriteClient {
 
@@ -71,7 +72,54 @@ public interface ShuffleWriteClient {
         remoteStorage,
         dataDistributionType,
         maxConcurrencyPerPartitionToWrite,
-        0);
+        0,
+        null,
+        Collections.emptyMap());
+  }
+
+  default void registerShuffle(
+      ShuffleServerInfo shuffleServerInfo,
+      String appId,
+      int shuffleId,
+      List<PartitionRange> partitionRanges,
+      RemoteStorageInfo remoteStorage,
+      ShuffleDataDistributionType dataDistributionType,
+      int maxConcurrencyPerPartitionToWrite,
+      Map<String, String> properties) {
+    registerShuffle(
+        shuffleServerInfo,
+        appId,
+        shuffleId,
+        partitionRanges,
+        remoteStorage,
+        dataDistributionType,
+        maxConcurrencyPerPartitionToWrite,
+        0,
+        null,
+        properties);
+  }
+
+  default void registerShuffle(
+      ShuffleServerInfo shuffleServerInfo,
+      String appId,
+      int shuffleId,
+      List<PartitionRange> partitionRanges,
+      RemoteStorageInfo remoteStorage,
+      ShuffleDataDistributionType dataDistributionType,
+      int maxConcurrencyPerPartitionToWrite,
+      int stageAttemptNumber,
+      MergeContext mergeContext) {
+    registerShuffle(
+        shuffleServerInfo,
+        appId,
+        shuffleId,
+        partitionRanges,
+        remoteStorage,
+        dataDistributionType,
+        maxConcurrencyPerPartitionToWrite,
+        stageAttemptNumber,
+        mergeContext,
+        Collections.emptyMap());
   }
 
   void registerShuffle(
@@ -82,12 +130,19 @@ public interface ShuffleWriteClient {
       RemoteStorageInfo remoteStorage,
       ShuffleDataDistributionType dataDistributionType,
       int maxConcurrencyPerPartitionToWrite,
-      int stageAttemptNumber);
+      int stageAttemptNumber,
+      MergeContext mergeContext,
+      Map<String, String> properties);
 
   boolean sendCommit(
       Set<ShuffleServerInfo> shuffleServerInfoSet, String appId, int shuffleId, int numMaps);
 
-  void registerCoordinators(String coordinators);
+  @Deprecated
+  default void registerCoordinators(String coordinators) {
+    registerCoordinators(coordinators, 0, 0);
+  }
+
+  void registerCoordinators(String coordinators, long retryIntervalMs, int retryTimes);
 
   Map<String, String> fetchClientConf(int timeoutMs);
 
@@ -100,6 +155,15 @@ public interface ShuffleWriteClient {
       long taskAttemptId,
       int bitmapNum);
 
+  default void reportShuffleResult(
+      Map<ShuffleServerInfo, Map<Integer, Set<Long>>> serverToPartitionToBlockIds,
+      String appId,
+      int shuffleId,
+      long taskAttemptId,
+      int bitmapNum,
+      Set<ShuffleServerInfo> reportFailureServers,
+      boolean enableWriteFailureRetry) {}
+
   ShuffleAssignmentsInfo getShuffleAssignments(
       String appId,
       int shuffleId,
@@ -111,7 +175,9 @@ public interface ShuffleWriteClient {
       Set<String> faultyServerIds,
       int stageId,
       int stageAttemptNumber,
-      boolean reassign);
+      boolean reassign,
+      long retryIntervalMs,
+      int retryTimes);
 
   default ShuffleAssignmentsInfo getShuffleAssignments(
       String appId,
@@ -133,7 +199,9 @@ public interface ShuffleWriteClient {
         faultyServerIds,
         -1,
         0,
-        false);
+        false,
+        0,
+        0);
   }
 
   default ShuffleAssignmentsInfo getShuffleAssignments(
@@ -175,4 +243,11 @@ public interface ShuffleWriteClient {
   void unregisterShuffle(String appId, int shuffleId);
 
   void unregisterShuffle(String appId);
+
+  void startSortMerge(
+      Set<ShuffleServerInfo> serverInfos,
+      String appId,
+      int shuffleId,
+      int partitionId,
+      Roaring64NavigableMap expectedTaskIds);
 }

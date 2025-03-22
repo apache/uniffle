@@ -21,7 +21,7 @@
       <el-col :span="4">
         <router-link
           class="router-link-active"
-          to="/shuffleserverpage/activeNodeList"
+          :to="{ path: '/shuffleserverpage/activeNodeList', query: { isExcludedPage: false } }"
           @click.native="routerHandler"
         >
           <el-card class="box-card" shadow="hover">
@@ -37,7 +37,7 @@
       <el-col :span="4">
         <router-link
           class="router-link-active"
-          to="/shuffleserverpage/decommissioningNodeList"
+          :to="{ path: '/shuffleserverpage/decommissioningNodeList', query: { isExcludedPage: false } }"
           @click.native="routerHandler"
         >
           <el-card class="box-card" shadow="hover">
@@ -55,7 +55,7 @@
       <el-col :span="4">
         <router-link
           class="router-link-active"
-          to="/shuffleserverpage/decommissionedNodeList"
+          :to="{ path: '/shuffleserverpage/decommissionedNodeList', query: { isExcludedPage: false } }"
           @click.native="routerHandler"
         >
           <el-card class="box-card" shadow="hover">
@@ -73,7 +73,7 @@
       <el-col :span="4">
         <router-link
           class="router-link-active"
-          to="/shuffleserverpage/lostNodeList"
+          :to="{ path: '/shuffleserverpage/lostNodeList', query: { isExcludedPage: false } }"
           @click.native="routerHandler"
           :updateTotalPage="updateTotalPage"
         >
@@ -90,7 +90,7 @@
       <el-col :span="4">
         <router-link
           class="router-link-active"
-          to="/shuffleserverpage/unhealthyNodeList"
+          :to="{ path: '/shuffleserverpage/unhealthyNodeList', query: { isExcludedPage: false } }"
           @click.native="routerHandler"
         >
           <el-card class="box-card" shadow="hover">
@@ -106,7 +106,7 @@
       <el-col :span="4">
         <router-link
           class="router-link-active"
-          to="/shuffleserverpage/excludeNodeList"
+          :to="{ path: '/shuffleserverpage/excludeNodeList', query: { isExcludedPage: true } }"
           @click.native="routerHandler"
         >
           <el-card class="box-card" shadow="hover">

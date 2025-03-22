@@ -18,15 +18,17 @@
 import request from '@/utils/request'
 import { useCurrentServerStore } from '@/store/useCurrentServerStore'
 
+const requestServerType = { coordinator: 'coordinator', server: 'server' }
 const http = {
   get(url, params, headers, fontBackFlag) {
     if (fontBackFlag === 0) {
       // The system obtains the address of the Coordinator to be accessed from global variables.
       const currentServerStore = useCurrentServerStore()
       if (headers) {
-        headers.targetAddress = currentServerStore.currentServer
+        headers.requestServerType = requestServerType.server
       } else {
         headers = {}
+        headers.requestServerType = requestServerType.coordinator
         headers.targetAddress = currentServerStore.currentServer
       }
       return request.getBackEndAxiosInstance().get(url, { params, headers })
@@ -39,9 +41,10 @@ const http = {
       // The system obtains the address of the Coordinator to be accessed from global variables.
       const currentServerStore = useCurrentServerStore()
       if (headers) {
-        headers.targetAddress = currentServerStore.currentServer
+        headers.requestServerType = requestServerType.server
       } else {
         headers = {}
+        headers.requestServerType = requestServerType.coordinator
         headers.targetAddress = currentServerStore.currentServer
       }
       return request.getBackEndAxiosInstance().post(url, data, headers)
@@ -54,9 +57,10 @@ const http = {
       // The system obtains the address of the Coordinator to be accessed from global variables.
       const currentServerStore = useCurrentServerStore()
       if (headers) {
-        headers.targetAddress = currentServerStore.currentServer
+        headers.requestServerType = requestServerType.server
       } else {
         headers = {}
+        headers.requestServerType = requestServerType.coordinator
         headers.targetAddress = currentServerStore.currentServer
       }
       return request.getBackEndAxiosInstance().delete(url, { params, headers })

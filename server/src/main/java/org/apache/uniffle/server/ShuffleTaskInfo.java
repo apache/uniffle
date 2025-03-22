@@ -23,14 +23,22 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import com.google.common.collect.Sets;
+import org.apache.commons.lang3.StringUtils;
 import org.roaringbitmap.longlong.Roaring64NavigableMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.uniffle.common.PartitionInfo;
 import org.apache.uniffle.common.ShuffleDataDistributionType;
+import org.apache.uniffle.common.config.RssClientConf;
+import org.apache.uniffle.common.util.Constants;
 import org.apache.uniffle.common.util.JavaUtils;
+import org.apache.uniffle.common.util.UnitConverter;
+import org.apache.uniffle.server.block.ShuffleBlockIdManager;
+import org.apache.uniffle.server.block.ShuffleBlockIdManagerFactory;
 
 /**
  * ShuffleTaskInfo contains the information of submitting the shuffle, the information of the cache
@@ -52,9 +60,13 @@ public class ShuffleTaskInfo {
 
   private final AtomicLong totalDataSize = new AtomicLong(0);
   private final AtomicLong inMemoryDataSize = new AtomicLong(0);
+  private final AtomicLong onLocalFileNum = new AtomicLong(0);
   private final AtomicLong onLocalFileDataSize = new AtomicLong(0);
+  private final AtomicLong onHadoopFileNum = new AtomicLong(0);
   private final AtomicLong onHadoopDataSize = new AtomicLong(0);
 
+  /** shuffleId, partitionId, partitionSize */
+  private final PartitionInfo maxSizePartitionInfo = new PartitionInfo();
   /** shuffleId -> partitionId -> partition shuffle data size */
   private Map<Integer, Map<Integer, Long>> partitionDataSizes;
   /** shuffleId -> huge partitionIds set */
@@ -64,9 +76,14 @@ public class ShuffleTaskInfo {
 
   private final AtomicReference<ShuffleSpecification> specification;
 
+  /** shuffleId -> partitionId -> block counter */
   private final Map<Integer, Map<Integer, AtomicLong>> partitionBlockCounters;
+  /** shuffleId -> shuffleDetailInfo */
+  private final Map<Integer, ShuffleDetailInfo> shuffleDetailInfos;
 
   private final Map<Integer, Integer> latestStageAttemptNumbers;
+  private Map<String, String> properties;
+  private ShuffleBlockIdManager shuffleBlockIdManager;
 
   public ShuffleTaskInfo(String appId) {
     this.appId = appId;
@@ -81,6 +98,7 @@ public class ShuffleTaskInfo {
     this.specification = new AtomicReference<>();
     this.partitionBlockCounters = JavaUtils.newConcurrentMap();
     this.latestStageAttemptNumbers = JavaUtils.newConcurrentMap();
+    this.shuffleDetailInfos = JavaUtils.newConcurrentMap();
   }
 
   public Long getCurrentTimes() {
@@ -126,10 +144,28 @@ public class ShuffleTaskInfo {
   public long addPartitionDataSize(int shuffleId, int partitionId, long delta) {
     totalDataSize.addAndGet(delta);
     inMemoryDataSize.addAndGet(delta);
+    ShuffleDetailInfo shuffleDetailInfo =
+        shuffleDetailInfos.computeIfAbsent(
+            shuffleId, key -> new ShuffleDetailInfo(shuffleId, System.currentTimeMillis()));
+    shuffleDetailInfo.incrDataSize(delta);
     partitionDataSizes.computeIfAbsent(shuffleId, key -> JavaUtils.newConcurrentMap());
     Map<Integer, Long> partitions = partitionDataSizes.get(shuffleId);
-    partitions.putIfAbsent(partitionId, 0L);
-    return partitions.computeIfPresent(partitionId, (k, v) -> v + delta);
+    partitions.computeIfAbsent(
+        partitionId,
+        k -> {
+          shuffleDetailInfo.incrPartitionCount();
+          return 0L;
+        });
+    return partitions.computeIfPresent(
+        partitionId,
+        (k, v) -> {
+          long size = v + delta;
+          if (size > maxSizePartitionInfo.getSize()) {
+            maxSizePartitionInfo.update(
+                partitionId, shuffleId, size, getBlockNumber(shuffleId, partitionId));
+          }
+          return size;
+        });
   }
 
   public long getTotalDataSize() {
@@ -140,7 +176,10 @@ public class ShuffleTaskInfo {
     return inMemoryDataSize.get();
   }
 
-  public long addOnLocalFileDataSize(long delta) {
+  public long addOnLocalFileDataSize(long delta, boolean isNewlyCreated) {
+    if (isNewlyCreated) {
+      onLocalFileNum.incrementAndGet();
+    }
     inMemoryDataSize.addAndGet(-delta);
     return onLocalFileDataSize.addAndGet(delta);
   }
@@ -149,7 +188,10 @@ public class ShuffleTaskInfo {
     return onLocalFileDataSize.get();
   }
 
-  public long addOnHadoopDataSize(long delta) {
+  public long addOnHadoopDataSize(long delta, boolean isNewlyCreated) {
+    if (isNewlyCreated) {
+      onHadoopDataSize.incrementAndGet();
+    }
     inMemoryDataSize.addAndGet(-delta);
     return onHadoopDataSize.addAndGet(delta);
   }
@@ -210,11 +252,23 @@ public class ShuffleTaskInfo {
     return partitionDataSizes.keySet();
   }
 
+  public Set<Integer> getPartitionIds(int shuffleId) {
+    return partitionDataSizes.get(shuffleId).keySet();
+  }
+
   public void incBlockNumber(int shuffleId, int partitionId, int delta) {
-    this.partitionBlockCounters
-        .computeIfAbsent(shuffleId, x -> JavaUtils.newConcurrentMap())
-        .computeIfAbsent(partitionId, x -> new AtomicLong())
-        .addAndGet(delta);
+    long blockCount =
+        this.partitionBlockCounters
+            .computeIfAbsent(shuffleId, x -> JavaUtils.newConcurrentMap())
+            .computeIfAbsent(partitionId, x -> new AtomicLong())
+            .addAndGet(delta);
+    if (maxSizePartitionInfo.isCurrentPartition(shuffleId, partitionId)) {
+      maxSizePartitionInfo.setBlockCount(blockCount);
+    }
+    shuffleDetailInfos
+        .computeIfAbsent(
+            shuffleId, key -> new ShuffleDetailInfo(shuffleId, System.currentTimeMillis()))
+        .incrBlockCount(delta);
   }
 
   public long getBlockNumber(int shuffleId, int partitionId) {
@@ -230,11 +284,23 @@ public class ShuffleTaskInfo {
   }
 
   public Integer getLatestStageAttemptNumber(int shuffleId) {
-    return latestStageAttemptNumbers.computeIfAbsent(shuffleId, key -> 0);
+    return latestStageAttemptNumbers.getOrDefault(shuffleId, 0);
   }
 
   public void refreshLatestStageAttemptNumber(int shuffleId, int stageAttemptNumber) {
     latestStageAttemptNumbers.put(shuffleId, stageAttemptNumber);
+  }
+
+  public PartitionInfo getMaxSizePartitionInfo() {
+    return maxSizePartitionInfo;
+  }
+
+  public ShuffleDetailInfo getShuffleDetailInfo(int shuffleId) {
+    return shuffleDetailInfos.get(shuffleId);
+  }
+
+  public long getPartitionNum() {
+    return partitionDataSizes.values().stream().mapToLong(Map::size).sum();
   }
 
   @Override
@@ -244,15 +310,52 @@ public class ShuffleTaskInfo {
         + appId
         + '\''
         + ", totalDataSize="
-        + totalDataSize
+        + UnitConverter.formatSize(totalDataSize.get())
         + ", inMemoryDataSize="
-        + inMemoryDataSize
+        + UnitConverter.formatSize(inMemoryDataSize.get())
         + ", onLocalFileDataSize="
-        + onLocalFileDataSize
+        + UnitConverter.formatSize(onLocalFileDataSize.get())
         + ", onHadoopDataSize="
-        + onHadoopDataSize
-        + ", partitionDataSizes="
-        + partitionDataSizes
+        + UnitConverter.formatSize(onHadoopDataSize.get())
+        + ", maxSizePartitionInfo="
+        + maxSizePartitionInfo
+        + ", shuffleDetailInfo="
+        + shuffleDetailInfos
         + '}';
+  }
+
+  public void setProperties(Map<String, String> properties) {
+    Map<String, String> filteredProperties =
+        properties.entrySet().stream()
+            .filter(entry -> entry.getKey().contains(".rss."))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    this.properties = filteredProperties;
+    LOGGER.info("{} set properties to {}", appId, filteredProperties);
+    String keyName = RssClientConf.RSS_CLIENT_BLOCK_ID_MANAGER_CLASS.key();
+    String className = properties.get(keyName);
+    if (StringUtils.isEmpty(className)) {
+      keyName =
+          Constants.SPARK_RSS_CONFIG_PREFIX + RssClientConf.RSS_CLIENT_BLOCK_ID_MANAGER_CLASS.key();
+      className =
+          properties.get(
+              Constants.SPARK_RSS_CONFIG_PREFIX
+                  + RssClientConf.RSS_CLIENT_BLOCK_ID_MANAGER_CLASS.key());
+    }
+    if (StringUtils.isNotEmpty(className)) {
+      shuffleBlockIdManager =
+          ShuffleBlockIdManagerFactory.createShuffleBlockIdManager(className, keyName);
+      LOGGER.info(
+          "{} use app configured ShuffleBlockIdManager to {}", appId, shuffleBlockIdManager);
+    }
+  }
+
+  public ShuffleBlockIdManager getShuffleBlockIdManager() {
+    return shuffleBlockIdManager;
+  }
+
+  public void setShuffleBlockIdManagerIfNeeded(ShuffleBlockIdManager shuffleBlockIdManager) {
+    if (this.shuffleBlockIdManager == null) {
+      this.shuffleBlockIdManager = shuffleBlockIdManager;
+    }
   }
 }

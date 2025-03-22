@@ -37,7 +37,7 @@ public class ShufflePartitionedBlockTest {
     new Random().nextBytes(buf);
 
     ShufflePartitionedBlock b1 = new ShufflePartitionedBlock(1, 1, 2, 3, 1, buf);
-    assertEquals(1, b1.getLength());
+    assertEquals(1, b1.getDataLength());
     assertEquals(2, b1.getCrc());
     assertEquals(3, b1.getBlockId());
 
@@ -73,7 +73,7 @@ public class ShufflePartitionedBlockTest {
         "ShufflePartitionedBlock{blockId["
             + b1.getBlockId()
             + "], length["
-            + b1.getLength()
+            + b1.getDataLength()
             + "], uncompressLength["
             + b1.getUncompressLength()
             + "], crc["
@@ -87,6 +87,6 @@ public class ShufflePartitionedBlockTest {
   @Test
   public void testSize() {
     ShufflePartitionedBlock b1 = new ShufflePartitionedBlock(1, 2, 3, 4, 5, new byte[6]);
-    assertEquals(b1.getSize(), b1.getLength() + 3 * Long.BYTES + 2 * Integer.BYTES);
+    assertEquals(b1.getEncodedLength(), b1.getDataLength() + 3 * Long.BYTES + 2 * Integer.BYTES);
   }
 }

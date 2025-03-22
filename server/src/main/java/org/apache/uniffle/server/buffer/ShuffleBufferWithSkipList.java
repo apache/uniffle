@@ -17,11 +17,12 @@
 
 package org.apache.uniffle.server.buffer;
 
-import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
-import java.util.LinkedList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.Supplier;
@@ -57,19 +58,29 @@ public class ShuffleBufferWithSkipList extends AbstractShuffleBuffer {
   }
 
   @Override
-  public long append(ShufflePartitionedData data) {
-    long mSize = 0;
+  public synchronized long append(ShufflePartitionedData data) {
+    if (evicted) {
+      return BUFFER_EVICTED;
+    }
+    long currentEncodedLength = 0;
+    long currentDataLength = 0;
 
-    synchronized (this) {
-      for (ShufflePartitionedBlock block : data.getBlockList()) {
+    for (ShufflePartitionedBlock block : data.getBlockList()) {
+      // If sendShuffleData retried, we may receive duplicate block. The duplicate
+      // block would gc without release. Here we must release the duplicated block.
+      if (!blocksMap.containsKey(block.getBlockId())) {
         blocksMap.put(block.getBlockId(), block);
         blockCount++;
-        mSize += block.getSize();
+        currentEncodedLength += block.getEncodedLength();
+        currentDataLength += block.getDataLength();
+      } else {
+        block.getData().release();
       }
-      size += mSize;
     }
+    this.encodedLength += currentEncodedLength;
+    this.dataLength += currentDataLength;
 
-    return mSize;
+    return currentEncodedLength;
   }
 
   @Override
@@ -83,26 +94,38 @@ public class ShuffleBufferWithSkipList extends AbstractShuffleBuffer {
     if (blocksMap.isEmpty()) {
       return null;
     }
-    List<ShufflePartitionedBlock> spBlocks = new LinkedList<>(blocksMap.values());
+    Collection<ShufflePartitionedBlock> spBlocks = blocksMap.values();
     long eventId = ShuffleFlushManager.ATOMIC_EVENT_ID.getAndIncrement();
     final ShuffleDataFlushEvent event =
         new ShuffleDataFlushEvent(
-            eventId, appId, shuffleId, startPartition, endPartition, size, spBlocks, isValid, this);
+            eventId,
+            appId,
+            shuffleId,
+            startPartition,
+            endPartition,
+            encodedLength,
+            dataLength,
+            spBlocks,
+            isValid,
+            this);
     event.addCleanupCallback(
         () -> {
           this.clearInFlushBuffer(event.getEventId());
           spBlocks.forEach(spb -> spb.getData().release());
+          inFlushSize.addAndGet(-event.getEncodedLength());
         });
     inFlushBlockMap.put(eventId, blocksMap);
     blocksMap = newConcurrentSkipListMap();
     blockCount = 0;
-    size = 0;
+    inFlushSize.addAndGet(encodedLength);
+    encodedLength = 0;
+    dataLength = 0;
     return event;
   }
 
   @Override
-  public List<ShufflePartitionedBlock> getBlocks() {
-    return new LinkedList<>(blocksMap.values());
+  public Set<ShufflePartitionedBlock> getBlocks() {
+    return new LinkedHashSet<>(blocksMap.values());
   }
 
   @Override
@@ -111,8 +134,32 @@ public class ShuffleBufferWithSkipList extends AbstractShuffleBuffer {
   }
 
   @Override
-  public void release() {
-    blocksMap.values().forEach(spb -> spb.getData().release());
+  public long getInFlushBlockCount() {
+    return inFlushBlockMap.values().stream().mapToLong(Map::size).sum();
+  }
+
+  @Override
+  public synchronized long release() {
+    Throwable lastException = null;
+    int failedToReleaseSize = 0;
+    long releasedSize = 0;
+    evicted = true;
+    for (ShufflePartitionedBlock spb : blocksMap.values()) {
+      try {
+        spb.getData().release();
+        releasedSize += spb.getEncodedLength();
+      } catch (Throwable t) {
+        lastException = t;
+        failedToReleaseSize += spb.getEncodedLength();
+      }
+    }
+    if (lastException != null) {
+      LOG.warn(
+          "Failed to release shuffle blocks with size (). Maybe it has been released by others.",
+          failedToReleaseSize,
+          lastException);
+    }
+    return releasedSize;
   }
 
   @Override
@@ -121,9 +168,10 @@ public class ShuffleBufferWithSkipList extends AbstractShuffleBuffer {
   }
 
   @Override
-  public Map<Long, List<ShufflePartitionedBlock>> getInFlushBlockMap() {
+  public Map<Long, Set<ShufflePartitionedBlock>> getInFlushBlockMap() {
     return inFlushBlockMap.entrySet().stream()
-        .collect(Collectors.toMap(Map.Entry::getKey, e -> new ArrayList<>(e.getValue().values())));
+        .collect(
+            Collectors.toMap(Map.Entry::getKey, e -> new LinkedHashSet<>(e.getValue().values())));
   }
 
   @Override
@@ -221,17 +269,29 @@ public class ShuffleBufferWithSkipList extends AbstractShuffleBuffer {
           new BufferSegment(
               block.getBlockId(),
               currentOffset,
-              block.getLength(),
+              block.getDataLength(),
               block.getUncompressLength(),
               block.getCrc(),
               block.getTaskAttemptId()));
       readBlocks.add(block);
       // update offset
-      currentOffset += block.getLength();
+      currentOffset += block.getDataLength();
       if (currentOffset >= readBufferSize) {
         break;
       }
     }
     return hasLastBlockId;
+  }
+
+  public synchronized ShufflePartitionedBlock getBlock(long blockId) {
+    ShufflePartitionedBlock block = blocksMap.get(blockId);
+    if (block == null) {
+      for (ConcurrentSkipListMap<Long, ShufflePartitionedBlock> map : inFlushBlockMap.values()) {
+        if (map.containsKey(blockId)) {
+          return map.get(blockId);
+        }
+      }
+    }
+    return block;
   }
 }

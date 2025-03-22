@@ -17,53 +17,18 @@
 
 package org.apache.uniffle.coordinator.web.vo;
 
-import java.util.Objects;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
+@Data
+@AllArgsConstructor
 public class UserAppNumVO implements Comparable<UserAppNumVO> {
 
   private String userName;
   private Integer appNum;
 
-  public UserAppNumVO(String userName, Integer appNum) {
-    this.userName = userName;
-    this.appNum = appNum;
-  }
-
-  public String getUserName() {
-    return userName;
-  }
-
-  public void setUserName(String userName) {
-    this.userName = userName;
-  }
-
-  public Integer getAppNum() {
-    return appNum;
-  }
-
-  public void setAppNum(Integer appNum) {
-    this.appNum = appNum;
-  }
-
   @Override
   public int compareTo(UserAppNumVO userAppNumVO) {
     return Integer.compare(appNum, userAppNumVO.getAppNum());
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) {
-      return true;
-    }
-    if (!(o instanceof UserAppNumVO)) {
-      return false;
-    }
-    UserAppNumVO that = (UserAppNumVO) o;
-    return userName.equals(that.userName) && appNum.equals(that.appNum);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(userName, appNum);
   }
 }

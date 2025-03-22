@@ -148,4 +148,26 @@ public final class UnitConverter {
       throw new NumberFormatException(timeError + "\n" + e.getMessage());
     }
   }
+
+  /**
+   * Returns a human-readable version of bytes 10GiB 2048KiB etc.
+   *
+   * @param bytes the number of bytes
+   * @return human-readable version
+   */
+  public static String formatSize(long bytes) {
+    if (bytes < ByteUnit.KiB.getMultiplier()) {
+      return bytes + "B";
+    } else if (bytes < ByteUnit.MiB.getMultiplier()) {
+      return String.format("%.2fKiB", bytes / (double) ByteUnit.KiB.getMultiplier());
+    } else if (bytes < ByteUnit.GiB.getMultiplier()) {
+      return String.format("%.2fMiB", bytes / (double) ByteUnit.MiB.getMultiplier());
+    } else if (bytes < ByteUnit.TiB.getMultiplier()) {
+      return String.format("%.2fGiB", bytes / (double) ByteUnit.GiB.getMultiplier());
+    } else if (bytes < ByteUnit.PiB.getMultiplier()) {
+      return String.format("%.2fTiB", bytes / (double) ByteUnit.TiB.getMultiplier());
+    } else {
+      return String.format("%.2fPiB", bytes / (double) ByteUnit.PiB.getMultiplier());
+    }
+  }
 }

@@ -30,6 +30,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.uniffle.common.util.Constants;
 
 public class RemoteStorageInfo implements Serializable {
+  private static final long serialVersionUID = 0L;
   public static final RemoteStorageInfo EMPTY_REMOTE_STORAGE = new RemoteStorageInfo("", "");
   private final String path;
   private final Map<String, String> confItems;

@@ -80,12 +80,12 @@ package_binary() {
 
   ${PROJECT_DIR}/build_distribution.sh
 
-  BIN_ORIGIN_NAME="rss-${RELEASE_VERSION}-hadoop2.8.tgz"
-  BIN_DIR_NAME="rss-${RELEASE_VERSION}-hadoop2.8"
+  BIN_ORIGIN_NAME="apache-uniffle-${RELEASE_VERSION}-incubating-hadoop2.8.tgz"
+  BIN_DIR_NAME="apache-uniffle-${RELEASE_VERSION}-incubating-hadoop2.8"
   tar -zxf $BIN_ORIGIN_NAME
   cp "${PROJECT_DIR}/LICENSE-binary" "${BIN_DIR_NAME}/LICENSE"
   cp "${PROJECT_DIR}/NOTICE-binary" "${BIN_DIR_NAME}/NOTICE"
-  cp "${PROJECT_DIR}/DISCLAIMER-WIP" ${BIN_DIR_NAME}
+  cp "${PROJECT_DIR}/DISCLAIMER" ${BIN_DIR_NAME}
   cp -r "${PROJECT_DIR}/licenses-binary" "${BIN_DIR_NAME}/licenses"
   tar -zcf $BIN_TGZ_FILE $BIN_DIR_NAME
 

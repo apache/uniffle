@@ -200,3 +200,12 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
+
+
+   This product bundles a third-party component under the
+   Apache 2.0 License.
+
+   Tikv
+   Copyright (c) 2017-present, PingCAP, Inc. Released under the Apache 2.0 license. See [LICENSE](https://github.com/tikv/raft-engine/blob/master/LICENSE) for details.
+
+   ./rust/experimental/server/src/readable_size.rs

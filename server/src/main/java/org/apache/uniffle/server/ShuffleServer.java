@@ -17,16 +17,20 @@
 
 package org.apache.uniffle.server;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import io.netty.util.internal.PlatformDependent;
 import io.prometheus.client.CollectorRegistry;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -34,6 +38,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import picocli.CommandLine;
 
+import org.apache.uniffle.client.request.RssSendHeartBeatRequest;
 import org.apache.uniffle.common.Arguments;
 import org.apache.uniffle.common.ReconfigurableConfManager;
 import org.apache.uniffle.common.ServerStatus;
@@ -56,7 +61,10 @@ import org.apache.uniffle.common.util.RssUtils;
 import org.apache.uniffle.common.util.ThreadUtils;
 import org.apache.uniffle.common.web.CoalescedCollectorRegistry;
 import org.apache.uniffle.common.web.JettyServer;
+import org.apache.uniffle.proto.RssProtos;
 import org.apache.uniffle.server.buffer.ShuffleBufferManager;
+import org.apache.uniffle.server.buffer.ShuffleBufferType;
+import org.apache.uniffle.server.merge.ShuffleMergeManager;
 import org.apache.uniffle.server.netty.StreamServer;
 import org.apache.uniffle.server.storage.StorageManager;
 import org.apache.uniffle.server.storage.StorageManagerFactory;
@@ -70,26 +78,34 @@ import static org.apache.uniffle.common.config.RssBaseConf.RSS_SECURITY_HADOOP_K
 import static org.apache.uniffle.common.config.RssBaseConf.RSS_SECURITY_HADOOP_KRB5_CONF_FILE;
 import static org.apache.uniffle.common.config.RssBaseConf.RSS_STORAGE_TYPE;
 import static org.apache.uniffle.common.config.RssBaseConf.RSS_TEST_MODE_ENABLE;
+import static org.apache.uniffle.common.metrics.CommonMetrics.JVM_PAUSE_INFO_TIME_EXCEEDED;
+import static org.apache.uniffle.common.metrics.CommonMetrics.JVM_PAUSE_TOTAL_EXTRA_TIME;
+import static org.apache.uniffle.common.metrics.CommonMetrics.JVM_PAUSE_WARN_TIME_EXCEEDED;
 import static org.apache.uniffle.server.ShuffleServerConf.SERVER_DECOMMISSION_CHECK_INTERVAL;
 import static org.apache.uniffle.server.ShuffleServerConf.SERVER_DECOMMISSION_SHUTDOWN;
+import static org.apache.uniffle.server.ShuffleServerMetrics.USED_DIRECT_MEMORY_SIZE;
+import static org.apache.uniffle.server.ShuffleServerMetrics.USED_DIRECT_MEMORY_SIZE_BY_GRPC_NETTY;
+import static org.apache.uniffle.server.ShuffleServerMetrics.USED_DIRECT_MEMORY_SIZE_BY_NETTY;
 
 /** Server that manages startup/shutdown of a {@code Greeter} server. */
 public class ShuffleServer {
 
   private static final Logger LOG = LoggerFactory.getLogger(ShuffleServer.class);
   private RegisterHeartBeat registerHeartBeat;
-  private NettyDirectMemoryTracker directMemoryUsageReporter;
   private String id;
   private String ip;
   private int grpcPort;
   private int nettyPort;
   private ShuffleServerConf shuffleServerConf;
   private JettyServer jettyServer;
+  private int jettyPort;
   private ShuffleTaskManager shuffleTaskManager;
   private ServerInterface server;
   private ShuffleFlushManager shuffleFlushManager;
   private ShuffleBufferManager shuffleBufferManager;
   private StorageManager storageManager;
+  private boolean remoteMergeEnable;
+  private ShuffleMergeManager shuffleMergeManager;
   private HealthCheck healthCheck;
   private Set<String> tags = Sets.newHashSet();
   private GRPCMetrics grpcMetrics;
@@ -104,8 +120,11 @@ public class ShuffleServer {
   private StreamServer streamServer;
   private JvmPauseMonitor jvmPauseMonitor;
 
+  private final long startTimeMs;
+
   public ShuffleServer(ShuffleServerConf shuffleServerConf) throws Exception {
     this.shuffleServerConf = shuffleServerConf;
+    this.startTimeMs = System.currentTimeMillis();
     try {
       initialization();
     } catch (Exception e) {
@@ -132,7 +151,9 @@ public class ShuffleServer {
   }
 
   public void start() throws Exception {
-    jettyServer.start();
+    LOG.info(
+        "{} version: {}", this.getClass().getSimpleName(), Constants.VERSION_AND_REVISION_SHORT);
+    jettyPort = jettyServer.start();
     grpcPort = server.start();
     if (nettyServerEnabled) {
       nettyPort = streamServer.start();
@@ -148,7 +169,6 @@ public class ShuffleServer {
     initMetricsReporter();
 
     registerHeartBeat.startHeartBeat();
-    directMemoryUsageReporter.start();
     Runtime.getRuntime()
         .addShutdownHook(
             new Thread() {
@@ -175,10 +195,6 @@ public class ShuffleServer {
     if (registerHeartBeat != null) {
       registerHeartBeat.shutdown();
       LOG.info("HeartBeat Stopped!");
-    }
-    if (directMemoryUsageReporter != null) {
-      directMemoryUsageReporter.stop();
-      LOG.info("Direct memory usage tracker Stopped!");
     }
     if (storageManager != null) {
       storageManager.stop();
@@ -237,7 +253,9 @@ public class ShuffleServer {
     jettyServer = new JettyServer(shuffleServerConf);
     registerMetrics();
     // register packages and instances for jersey
-    jettyServer.addResourcePackages("org.apache.uniffle.common.web.resource");
+    jettyServer.addResourcePackages(
+        "org.apache.uniffle.server.web.resource", "org.apache.uniffle.common.web.resource");
+    jettyServer.registerInstance(ShuffleServer.class, this);
     jettyServer.registerInstance(
         CollectorRegistry.class.getCanonicalName() + "#server",
         ShuffleServerMetrics.getCollectorRegistry());
@@ -294,14 +312,42 @@ public class ShuffleServer {
     }
 
     registerHeartBeat = new RegisterHeartBeat(this);
-    directMemoryUsageReporter = new NettyDirectMemoryTracker(shuffleServerConf);
     shuffleFlushManager = new ShuffleFlushManager(shuffleServerConf, this, storageManager);
     shuffleBufferManager =
         new ShuffleBufferManager(shuffleServerConf, shuffleFlushManager, nettyServerEnabled);
+    remoteMergeEnable = shuffleServerConf.get(ShuffleServerConf.SERVER_MERGE_ENABLE);
+    if (remoteMergeEnable) {
+      if (shuffleBufferManager.getShuffleBufferType() != ShuffleBufferType.SKIP_LIST) {
+        throw new RssException(
+            "Shuffle buffer type must be SKIP_LIST when remote merge is enable!");
+      }
+      shuffleMergeManager = new ShuffleMergeManager(shuffleServerConf, this);
+    }
     shuffleTaskManager =
         new ShuffleTaskManager(
-            shuffleServerConf, shuffleFlushManager, shuffleBufferManager, storageManager);
+            shuffleServerConf,
+            shuffleFlushManager,
+            shuffleBufferManager,
+            storageManager,
+            shuffleMergeManager);
     shuffleTaskManager.start();
+    ShuffleServerMetrics.addLabeledGauge(
+        USED_DIRECT_MEMORY_SIZE_BY_NETTY, PlatformDependent::usedDirectMemory);
+    ShuffleServerMetrics.addLabeledGauge(
+        USED_DIRECT_MEMORY_SIZE_BY_GRPC_NETTY,
+        io.grpc.netty.shaded.io.netty.util.internal.PlatformDependent::usedDirectMemory);
+    ShuffleServerMetrics.addLabeledGauge(
+        USED_DIRECT_MEMORY_SIZE,
+        () ->
+            (PlatformDependent.usedDirectMemory()
+                + io.grpc.netty.shaded.io.netty.util.internal.PlatformDependent
+                    .usedDirectMemory()));
+    ShuffleServerMetrics.addLabeledGauge(
+        JVM_PAUSE_TOTAL_EXTRA_TIME, jvmPauseMonitor::getTotalGcExtraSleepTime);
+    ShuffleServerMetrics.addLabeledGauge(
+        JVM_PAUSE_INFO_TIME_EXCEEDED, jvmPauseMonitor::getNumGcInfoThresholdExceeded);
+    ShuffleServerMetrics.addLabeledGauge(
+        JVM_PAUSE_WARN_TIME_EXCEEDED, jvmPauseMonitor::getNumGcWarnThresholdExceeded);
 
     setServer();
   }
@@ -417,16 +463,16 @@ public class ShuffleServer {
   }
 
   public synchronized void cancelDecommission() {
-    boolean wasDecomissioning =
+    boolean wasDecommissioning =
         serverStatus.compareAndSet(ServerStatus.DECOMMISSIONING, ServerStatus.ACTIVE);
-    boolean wasDecomissioned =
+    boolean wasDecommissioned =
         serverStatus.compareAndSet(ServerStatus.DECOMMISSIONED, ServerStatus.ACTIVE);
-    if (!wasDecomissioning && !wasDecomissioned) {
+    if (!wasDecommissioning && !wasDecommissioned) {
       LOG.info("Shuffle server is not decommissioning. Nothing needs to be done.");
       return;
     }
 
-    if (wasDecomissioning) {
+    if (wasDecommissioning) {
       if (decommissionFuture.cancel(true)) {
         LOG.info("Decommission canceled.");
       } else {
@@ -532,24 +578,78 @@ public class ShuffleServer {
     return nettyPort;
   }
 
+  public int getJettyPort() {
+    return jettyPort;
+  }
+
   public String getEncodedTags() {
     return StringUtils.join(tags, ",");
+  }
+
+  public long getStartTimeMs() {
+    return startTimeMs;
+  }
+
+  public List<RssProtos.ApplicationInfo> getAppInfos() {
+    List<RssProtos.ApplicationInfo> appInfos = new ArrayList<>();
+    Map<String, ShuffleTaskInfo> taskInfos = getShuffleTaskManager().getShuffleTaskInfos();
+    taskInfos.forEach(
+        (appId, taskInfo) -> {
+          RssProtos.ApplicationInfo applicationInfo =
+              RssProtos.ApplicationInfo.newBuilder()
+                  .setAppId(appId)
+                  .setPartitionNum(taskInfo.getPartitionNum())
+                  .setMemorySize(taskInfo.getInMemoryDataSize())
+                  .setLocalTotalSize(taskInfo.getOnLocalFileDataSize())
+                  .setHadoopTotalSize(taskInfo.getOnHadoopDataSize())
+                  .setTotalSize(taskInfo.getTotalDataSize())
+                  .build();
+
+          appInfos.add(applicationInfo);
+        });
+    return appInfos;
   }
 
   @VisibleForTesting
   public void sendHeartbeat() {
     ShuffleServer shuffleServer = this;
-    registerHeartBeat.sendHeartBeat(
-        shuffleServer.getId(),
-        shuffleServer.getIp(),
-        shuffleServer.getGrpcPort(),
-        shuffleServer.getUsedMemory(),
-        shuffleServer.getPreAllocatedMemory(),
-        shuffleServer.getAvailableMemory(),
-        shuffleServer.getEventNumInFlush(),
-        shuffleServer.getTags(),
-        shuffleServer.getServerStatus(),
-        shuffleServer.getStorageManager().getStorageInfo(),
-        shuffleServer.getNettyPort());
+    RssSendHeartBeatRequest request =
+        new RssSendHeartBeatRequest(
+            shuffleServer.getId(),
+            shuffleServer.getIp(),
+            shuffleServer.getGrpcPort(),
+            shuffleServer.getUsedMemory(),
+            shuffleServer.getPreAllocatedMemory(),
+            shuffleServer.getAvailableMemory(),
+            shuffleServer.getEventNumInFlush(),
+            registerHeartBeat.getHeartBeatInterval(),
+            shuffleServer.getTags(),
+            shuffleServer.getServerStatus(),
+            shuffleServer.getStorageManager().getStorageInfo(),
+            shuffleServer.getNettyPort(),
+            shuffleServer.getJettyPort(),
+            shuffleServer.getStartTimeMs(),
+            shuffleServer.getAppInfos(),
+            shuffleServer.getDisplayMetrics());
+    registerHeartBeat.sendHeartBeat(request);
+  }
+
+  public ShuffleMergeManager getShuffleMergeManager() {
+    return shuffleMergeManager;
+  }
+
+  public boolean isRemoteMergeEnable() {
+    return remoteMergeEnable;
+  }
+
+  public Map<String, String> getDisplayMetrics() {
+    List<String> list = shuffleServerConf.get(ShuffleServerConf.SERVER_DISPLAY_METRICS_LIST);
+    return list.stream()
+        .map(metric -> metric.split(":", 2))
+        .filter(parts -> parts.length == 2)
+        .collect(
+            Collectors.toMap(
+                parts -> parts[0], // 使用第一部分作为键
+                parts -> String.valueOf(ShuffleServerMetrics.getMetricsValue(parts[1]))));
   }
 }

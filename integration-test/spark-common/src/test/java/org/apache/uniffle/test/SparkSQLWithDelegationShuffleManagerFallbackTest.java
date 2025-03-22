@@ -18,7 +18,6 @@
 package org.apache.uniffle.test;
 
 import java.io.File;
-import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
@@ -45,7 +44,7 @@ public class SparkSQLWithDelegationShuffleManagerFallbackTest extends SparkSQLTe
                     .getClassLoader()
                     .getResource("candidates"))
             .getFile();
-    CoordinatorConf coordinatorConf = getCoordinatorConf();
+    CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
     coordinatorConf.setString(
         CoordinatorConf.COORDINATOR_ACCESS_CHECKERS.key(),
         "org.apache.uniffle.coordinator.access.checker.AccessCandidatesChecker,"
@@ -56,19 +55,17 @@ public class SparkSQLWithDelegationShuffleManagerFallbackTest extends SparkSQLTe
     Map<String, String> dynamicConf = Maps.newHashMap();
     dynamicConf.put(RssSparkConfig.RSS_STORAGE_TYPE.key(), StorageType.MEMORY_LOCALFILE.name());
     addDynamicConf(coordinatorConf, dynamicConf);
-    createCoordinatorServer(coordinatorConf);
-    ShuffleServerConf shuffleServerConf = getShuffleServerConf(ServerType.GRPC);
+    storeCoordinatorConf(coordinatorConf);
+
+    ShuffleServerConf shuffleServerConf = shuffleServerConfWithoutPort(0, tmpDir, ServerType.GRPC);
     shuffleServerConf.set(ShuffleServerConf.SERVER_HEARTBEAT_INTERVAL, 1000L);
     shuffleServerConf.set(ShuffleServerConf.SERVER_APP_EXPIRED_WITHOUT_HEARTBEAT, 4000L);
-    File dataDir1 = new File(tmpDir, "data1");
-    File dataDir2 = new File(tmpDir, "data2");
-    String basePath = dataDir1.getAbsolutePath() + "," + dataDir2.getAbsolutePath();
     shuffleServerConf.setString(
         ShuffleServerConf.RSS_STORAGE_TYPE.key(), StorageType.LOCALFILE.name());
-    shuffleServerConf.set(ShuffleServerConf.RSS_STORAGE_BASE_PATH, Arrays.asList(basePath));
     shuffleServerConf.setString(ShuffleServerConf.SERVER_BUFFER_CAPACITY.key(), "512mb");
-    createShuffleServer(shuffleServerConf);
-    startServers();
+    storeShuffleServerConf(shuffleServerConf);
+
+    startServersWithRandomPorts();
     Uninterruptibles.sleepUninterruptibly(1L, TimeUnit.SECONDS);
   }
 

@@ -30,6 +30,7 @@ import com.google.common.util.concurrent.Uninterruptibles;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import org.apache.uniffle.client.impl.grpc.CoordinatorGrpcClient;
 import org.apache.uniffle.client.request.RssFetchClientConfRequest;
 import org.apache.uniffle.client.request.RssFetchRemoteStorageRequest;
 import org.apache.uniffle.client.response.RssFetchClientConfResponse;
@@ -56,34 +57,37 @@ public class FetchClientConfTest extends CoordinatorTestBase {
     printWriter.flush();
     printWriter.close();
 
-    CoordinatorConf coordinatorConf = getCoordinatorConf();
+    CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
     coordinatorConf.setBoolean(CoordinatorConf.COORDINATOR_DYNAMIC_CLIENT_CONF_ENABLED, true);
     coordinatorConf.setString(
         CoordinatorConf.COORDINATOR_DYNAMIC_CLIENT_CONF_PATH, clientConfFile.getAbsolutePath());
     coordinatorConf.setInteger("rss.coordinator.dynamicClientConf.updateIntervalSec", 10);
-    createCoordinatorServer(coordinatorConf);
-    startServers();
+    storeCoordinatorConf(coordinatorConf);
+    startServersWithRandomPorts();
 
     Uninterruptibles.sleepUninterruptibly(2, TimeUnit.SECONDS);
     RssFetchClientConfRequest request = new RssFetchClientConfRequest(2000);
-    RssFetchClientConfResponse response = coordinatorClient.fetchClientConf(request);
+    CoordinatorGrpcClient client1 = getCoordinatorClient();
+    RssFetchClientConfResponse response = client1.fetchClientConf(request);
     assertEquals(StatusCode.SUCCESS, response.getStatusCode());
     assertEquals(2, response.getClientConf().size());
     assertEquals("1234", response.getClientConf().get("spark.mock.1"));
     assertEquals("true", response.getClientConf().get("spark.mock.2"));
     assertNull(response.getClientConf().get("spark.mock.3"));
+    client1.close();
     shutdownServers();
 
     // dynamic client conf is disabled by default
-    coordinatorConf = getCoordinatorConf();
+    coordinatorConf = coordinatorConfWithoutPort();
     coordinatorConf.setString(
         "rss.coordinator.dynamicClientConf.path", clientConfFile.getAbsolutePath());
     coordinatorConf.setInteger("rss.coordinator.dynamicClientConf.updateIntervalSec", 10);
-    createCoordinatorServer(coordinatorConf);
-    startServers();
+    storeCoordinatorConf(coordinatorConf);
+    startServersWithRandomPorts();
     Uninterruptibles.sleepUninterruptibly(2, TimeUnit.SECONDS);
     request = new RssFetchClientConfRequest(2000);
-    response = coordinatorClient.fetchClientConf(request);
+    CoordinatorGrpcClient client2 = getCoordinatorClient();
+    response = client2.fetchClientConf(request);
     assertEquals(StatusCode.SUCCESS, response.getStatusCode());
     assertEquals(0, response.getClientConf().size());
     shutdownServers();
@@ -91,10 +95,10 @@ public class FetchClientConfTest extends CoordinatorTestBase {
     // Fetch conf will not throw exception even if the request fails
     Uninterruptibles.sleepUninterruptibly(1, TimeUnit.SECONDS);
     request = new RssFetchClientConfRequest(10);
-    response = coordinatorClient.fetchClientConf(request);
+    response = client2.fetchClientConf(request);
     assertEquals(StatusCode.INTERNAL_ERROR, response.getStatusCode());
     assertEquals(0, response.getClientConf().size());
-    shutdownServers();
+    client2.close();
   }
 
   @Test
@@ -107,7 +111,7 @@ public class FetchClientConfTest extends CoordinatorTestBase {
     dynamicConf.put(CoordinatorConf.COORDINATOR_REMOTE_STORAGE_CLUSTER_CONF.key(), contItem);
     writeRemoteStorageConf(cfgFile, dynamicConf);
 
-    CoordinatorConf coordinatorConf = getCoordinatorConf();
+    CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
     coordinatorConf.setBoolean(CoordinatorConf.COORDINATOR_DYNAMIC_CLIENT_CONF_ENABLED, true);
     coordinatorConf.setString(
         CoordinatorConf.COORDINATOR_DYNAMIC_CLIENT_CONF_PATH, cfgFile.toURI().toString());
@@ -115,13 +119,14 @@ public class FetchClientConfTest extends CoordinatorTestBase {
         CoordinatorConf.COORDINATOR_DYNAMIC_CLIENT_CONF_UPDATE_INTERVAL_SEC, 3);
     coordinatorConf.setLong(CoordinatorConf.COORDINATOR_REMOTE_STORAGE_SCHEDULE_TIME, 1000);
     coordinatorConf.setInteger(CoordinatorConf.COORDINATOR_REMOTE_STORAGE_SCHEDULE_ACCESS_TIMES, 1);
-    createCoordinatorServer(coordinatorConf);
-    startServers();
+    storeCoordinatorConf(coordinatorConf);
+    startServersWithRandomPorts();
 
     waitForUpdate(Sets.newHashSet(remotePath1), coordinators.get(0).getApplicationManager());
     String appId = "application_testFetchRemoteStorageApp_" + 1;
     RssFetchRemoteStorageRequest request = new RssFetchRemoteStorageRequest(appId);
-    RssFetchRemoteStorageResponse response = coordinatorClient.fetchRemoteStorage(request);
+    CoordinatorGrpcClient client1 = getCoordinatorClient();
+    RssFetchRemoteStorageResponse response = client1.fetchRemoteStorage(request);
     RemoteStorageInfo remoteStorageInfo = response.getRemoteStorageInfo();
     assertTrue(remoteStorageInfo.getConfItems().isEmpty());
     assertEquals(remotePath1, remoteStorageInfo.getPath());
@@ -133,7 +138,7 @@ public class FetchClientConfTest extends CoordinatorTestBase {
     waitForUpdate(Sets.newHashSet(remotePath2), coordinators.get(0).getApplicationManager());
     request = new RssFetchRemoteStorageRequest(appId);
     Thread.sleep(1500);
-    response = coordinatorClient.fetchRemoteStorage(request);
+    response = client1.fetchRemoteStorage(request);
     // remotePath1 will be return because (appId -> remote storage path) is in cache
     remoteStorageInfo = response.getRemoteStorageInfo();
     assertEquals(remotePath1, remoteStorageInfo.getPath());
@@ -141,13 +146,14 @@ public class FetchClientConfTest extends CoordinatorTestBase {
 
     String newAppId = "application_testFetchRemoteStorageApp_" + 2;
     request = new RssFetchRemoteStorageRequest(newAppId);
-    response = coordinatorClient.fetchRemoteStorage(request);
+    response = client1.fetchRemoteStorage(request);
     // got the remotePath2 for new appId
     remoteStorageInfo = response.getRemoteStorageInfo();
     assertEquals(remotePath2, remoteStorageInfo.getPath());
     assertEquals(2, remoteStorageInfo.getConfItems().size());
     assertEquals("test1", remoteStorageInfo.getConfItems().get("key1"));
     assertEquals("test2", remoteStorageInfo.getConfItems().get("key2"));
+    client1.close();
     shutdownServers();
   }
 
@@ -161,7 +167,7 @@ public class FetchClientConfTest extends CoordinatorTestBase {
     dynamicConf.put(CoordinatorConf.COORDINATOR_REMOTE_STORAGE_CLUSTER_CONF.key(), contItem);
     writeRemoteStorageConf(cfgFile, dynamicConf);
 
-    CoordinatorConf coordinatorConf = getCoordinatorConf();
+    CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
     coordinatorConf.setBoolean(CoordinatorConf.COORDINATOR_DYNAMIC_CLIENT_CONF_ENABLED, true);
     coordinatorConf.setString(
         CoordinatorConf.COORDINATOR_DYNAMIC_CLIENT_CONF_PATH, cfgFile.toURI().toString());
@@ -170,13 +176,14 @@ public class FetchClientConfTest extends CoordinatorTestBase {
     coordinatorConf.setLong(CoordinatorConf.COORDINATOR_REMOTE_STORAGE_SCHEDULE_TIME, 1000);
     coordinatorConf.setInteger(CoordinatorConf.COORDINATOR_REMOTE_STORAGE_SCHEDULE_ACCESS_TIMES, 1);
     coordinatorConf.set(CoordinatorConf.COORDINATOR_REMOTE_STORAGE_SELECT_STRATEGY, IO_SAMPLE);
-    createCoordinatorServer(coordinatorConf);
-    startServers();
+    storeCoordinatorConf(coordinatorConf);
+    startServersWithRandomPorts();
 
     waitForUpdate(Sets.newHashSet(remotePath1), coordinators.get(0).getApplicationManager());
     String appId = "application_testFetchRemoteStorageApp_" + 1;
     RssFetchRemoteStorageRequest request = new RssFetchRemoteStorageRequest(appId);
-    RssFetchRemoteStorageResponse response = coordinatorClient.fetchRemoteStorage(request);
+    CoordinatorGrpcClient client1 = getCoordinatorClient();
+    RssFetchRemoteStorageResponse response = client1.fetchRemoteStorage(request);
     RemoteStorageInfo remoteStorageInfo = response.getRemoteStorageInfo();
     assertTrue(remoteStorageInfo.getConfItems().isEmpty());
     assertEquals(remotePath1, remoteStorageInfo.getPath());
@@ -187,7 +194,7 @@ public class FetchClientConfTest extends CoordinatorTestBase {
     writeRemoteStorageConf(cfgFile, dynamicConf);
     waitForUpdate(Sets.newHashSet(remotePath2), coordinators.get(0).getApplicationManager());
     request = new RssFetchRemoteStorageRequest(appId);
-    response = coordinatorClient.fetchRemoteStorage(request);
+    response = client1.fetchRemoteStorage(request);
     // remotePath1 will be return because (appId -> remote storage path) is in cache
     remoteStorageInfo = response.getRemoteStorageInfo();
     assertEquals(remotePath1, remoteStorageInfo.getPath());
@@ -197,13 +204,14 @@ public class FetchClientConfTest extends CoordinatorTestBase {
     Thread.sleep(2000);
     String newAppId = "application_testFetchRemoteStorageApp_" + 2;
     request = new RssFetchRemoteStorageRequest(newAppId);
-    response = coordinatorClient.fetchRemoteStorage(request);
+    response = client1.fetchRemoteStorage(request);
     // got the remotePath2 for new appId
     remoteStorageInfo = response.getRemoteStorageInfo();
     assertEquals(remotePath2, remoteStorageInfo.getPath());
     assertEquals(2, remoteStorageInfo.getConfItems().size());
     assertEquals("test1", remoteStorageInfo.getConfItems().get("key1"));
     assertEquals("test2", remoteStorageInfo.getConfItems().get("key2"));
+    client1.close();
     shutdownServers();
   }
 

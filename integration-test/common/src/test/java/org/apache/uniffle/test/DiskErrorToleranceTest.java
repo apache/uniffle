@@ -53,7 +53,6 @@ import org.apache.uniffle.common.ShuffleBlockInfo;
 import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.rpc.ServerType;
 import org.apache.uniffle.common.rpc.StatusCode;
-import org.apache.uniffle.coordinator.CoordinatorConf;
 import org.apache.uniffle.server.ShuffleServerConf;
 import org.apache.uniffle.storage.util.StorageType;
 
@@ -63,8 +62,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class DiskErrorToleranceTest extends ShuffleReadWriteBase {
   private ShuffleServerGrpcClient grpcShuffleServerClient;
   private ShuffleServerGrpcNettyClient nettyShuffleServerClient;
-  private static ShuffleServerConf grpcShuffleServerConfig;
-  private static ShuffleServerConf nettyShuffleServerConfig;
 
   private static File data1;
   private static File data2;
@@ -75,52 +72,37 @@ public class DiskErrorToleranceTest extends ShuffleReadWriteBase {
   public static void setupServers(@TempDir File serverTmpDir) throws Exception {
     data1 = new File(serverTmpDir, "data1");
     data2 = new File(serverTmpDir, "data2");
-    CoordinatorConf coordinatorConf = getCoordinatorConf();
-    createCoordinatorServer(coordinatorConf);
+    storeCoordinatorConf(coordinatorConfWithoutPort());
 
-    ShuffleServerConf grpcShuffleServerConf = buildShuffleServerConf(ServerType.GRPC);
-    createShuffleServer(grpcShuffleServerConf);
+    storeShuffleServerConf(buildShuffleServerConf(ServerType.GRPC));
+    storeShuffleServerConf(buildShuffleServerConf(ServerType.GRPC_NETTY));
 
-    ShuffleServerConf nettyShuffleServerConf = buildShuffleServerConf(ServerType.GRPC_NETTY);
-    createShuffleServer(nettyShuffleServerConf);
-
-    startServers();
-
-    grpcShuffleServerConfig = grpcShuffleServerConf;
-    nettyShuffleServerConfig = nettyShuffleServerConf;
+    startServersWithRandomPorts();
   }
 
   @BeforeEach
   public void createClient(@TempDir File serverTmpDir) throws Exception {
     grpcShuffleServerClient =
-        new ShuffleServerGrpcClient(
-            LOCALHOST, grpcShuffleServerConfig.getInteger(ShuffleServerConf.RPC_SERVER_PORT));
+        new ShuffleServerGrpcClient(LOCALHOST, grpcShuffleServers.get(0).getGrpcPort());
     nettyShuffleServerClient =
         new ShuffleServerGrpcNettyClient(
             LOCALHOST,
-            nettyShuffleServerConfig.getInteger(ShuffleServerConf.RPC_SERVER_PORT),
-            nettyShuffleServerConfig.getInteger(ShuffleServerConf.NETTY_SERVER_PORT));
+            nettyShuffleServers.get(0).getGrpcPort(),
+            nettyShuffleServers.get(0).getNettyPort());
 
     grpcShuffleServerInfoList =
         Lists.newArrayList(
-            new ShuffleServerInfo(
-                String.format(
-                    "127.0.0.1-%s",
-                    grpcShuffleServerConfig.getInteger(ShuffleServerConf.RPC_SERVER_PORT)),
-                LOCALHOST,
-                grpcShuffleServerConfig.getInteger(ShuffleServerConf.RPC_SERVER_PORT)));
+            new ShuffleServerInfo(LOCALHOST, grpcShuffleServers.get(0).getGrpcPort()));
     nettyShuffleServerInfoList =
         Lists.newArrayList(
             new ShuffleServerInfo(
-                String.format(
-                    "127.0.0.1-%s",
-                    grpcShuffleServerConfig.getInteger(ShuffleServerConf.RPC_SERVER_PORT)),
                 LOCALHOST,
-                grpcShuffleServerConfig.getInteger(ShuffleServerConf.RPC_SERVER_PORT)));
+                nettyShuffleServers.get(0).getGrpcPort(),
+                nettyShuffleServers.get(0).getNettyPort()));
   }
 
   private static ShuffleServerConf buildShuffleServerConf(ServerType serverType) throws Exception {
-    ShuffleServerConf shuffleServerConf = getShuffleServerConf(serverType);
+    ShuffleServerConf shuffleServerConf = shuffleServerConfWithoutPort(0, null, serverType);
     shuffleServerConf.setString(
         ShuffleServerConf.RSS_STORAGE_TYPE.key(), StorageType.LOCALFILE.name());
     shuffleServerConf.set(

@@ -27,6 +27,7 @@ import picocli.CommandLine;
 
 import org.apache.uniffle.common.Arguments;
 import org.apache.uniffle.common.ReconfigurableConfManager;
+import org.apache.uniffle.common.config.RssBaseConf;
 import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.metrics.GRPCMetrics;
 import org.apache.uniffle.common.metrics.JvmMetrics;
@@ -35,6 +36,7 @@ import org.apache.uniffle.common.metrics.MetricReporterFactory;
 import org.apache.uniffle.common.rpc.ServerInterface;
 import org.apache.uniffle.common.security.SecurityConfig;
 import org.apache.uniffle.common.security.SecurityContextFactory;
+import org.apache.uniffle.common.util.Constants;
 import org.apache.uniffle.common.util.RssUtils;
 import org.apache.uniffle.common.web.CoalescedCollectorRegistry;
 import org.apache.uniffle.common.web.JettyServer;
@@ -59,7 +61,9 @@ public class CoordinatorServer {
   private static final Logger LOG = LoggerFactory.getLogger(CoordinatorServer.class);
 
   private final CoordinatorConf coordinatorConf;
+  private final long startTimeMs;
   private JettyServer jettyServer;
+  private int jettyPort;
   private ServerInterface server;
   private ClusterManager clusterManager;
   private AssignmentStrategy assignmentStrategy;
@@ -69,8 +73,10 @@ public class CoordinatorServer {
   private GRPCMetrics grpcMetrics;
   private MetricReporter metricReporter;
   private String id;
+  private int rpcListenPort;
 
   public CoordinatorServer(CoordinatorConf coordinatorConf) throws Exception {
+    this.startTimeMs = System.currentTimeMillis();
     this.coordinatorConf = coordinatorConf;
     try {
       initialization();
@@ -99,8 +105,10 @@ public class CoordinatorServer {
   }
 
   public void start() throws Exception {
-    jettyServer.start();
-    server.start();
+    LOG.info(
+        "{} version: {}", this.getClass().getSimpleName(), Constants.VERSION_AND_REVISION_SHORT);
+    jettyPort = jettyServer.start();
+    rpcListenPort = server.start();
     if (metricReporter != null) {
       metricReporter.start();
     }
@@ -195,6 +203,9 @@ public class CoordinatorServer {
     CoordinatorFactory coordinatorFactory = new CoordinatorFactory(this);
     server = coordinatorFactory.getServer();
     jettyServer = new JettyServer(coordinatorConf);
+    jettyServer.registerInstance(
+        RssBaseConf.REST_AUTHORIZATION_CREDENTIALS.key(),
+        coordinatorConf.getString(RssBaseConf.REST_AUTHORIZATION_CREDENTIALS));
     // register packages and instances for jersey
     jettyServer.addResourcePackages(
         "org.apache.uniffle.coordinator.web.resource", "org.apache.uniffle.common.web.resource");
@@ -266,5 +277,17 @@ public class CoordinatorServer {
   /** Await termination on the main thread since the grpc library uses daemon threads. */
   protected void blockUntilShutdown() throws InterruptedException {
     server.blockUntilShutdown();
+  }
+
+  public long getStartTimeMs() {
+    return startTimeMs;
+  }
+
+  public int getRpcListenPort() {
+    return rpcListenPort;
+  }
+
+  public int getJettyPort() {
+    return jettyPort;
   }
 }

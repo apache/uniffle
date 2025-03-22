@@ -49,6 +49,7 @@ import com.google.common.collect.Sets;
 import com.google.common.net.InetAddresses;
 import io.netty.channel.unix.Errors;
 import io.netty.util.internal.PlatformDependent;
+import org.apache.commons.collections4.CollectionUtils;
 import org.eclipse.jetty.util.MultiException;
 import org.roaringbitmap.longlong.Roaring64NavigableMap;
 import org.slf4j.Logger;
@@ -59,6 +60,8 @@ import org.apache.uniffle.common.config.RssBaseConf;
 import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.rpc.ServerInterface;
+
+import static org.apache.uniffle.common.config.RssClientConf.RSS_CLIENT_EXTRA_JAVA_SYSTEM_PROPERTIES;
 
 public class RssUtils {
 
@@ -427,5 +430,18 @@ public class RssUtils {
     Class<?> klass = Class.forName(className);
     Constructor<?> constructor = klass.getConstructor(parameterTypes);
     return constructor;
+  }
+
+  public static void setExtraJavaProperties(RssConf conf) {
+    List<String> properties = conf.get(RSS_CLIENT_EXTRA_JAVA_SYSTEM_PROPERTIES);
+    if (CollectionUtils.isEmpty(properties)) {
+      return;
+    }
+
+    for (String propertyKv : properties) {
+      LOGGER.info("Setting system property: {}", propertyKv);
+      String[] raw = propertyKv.split("=", 2);
+      System.setProperty(raw[0], raw[1]);
+    }
   }
 }

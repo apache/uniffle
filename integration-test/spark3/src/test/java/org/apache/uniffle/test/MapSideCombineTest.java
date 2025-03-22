@@ -36,8 +36,6 @@ import org.junit.jupiter.api.Test;
 
 import org.apache.uniffle.common.StorageType;
 import org.apache.uniffle.common.rpc.ServerType;
-import org.apache.uniffle.coordinator.CoordinatorConf;
-import org.apache.uniffle.server.ShuffleServerConf;
 import org.apache.uniffle.test.listener.WriteAndReadMetricsSparkListener;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -46,13 +44,12 @@ public class MapSideCombineTest extends SparkIntegrationTestBase {
 
   @BeforeAll
   public static void setupServers() throws Exception {
-    CoordinatorConf coordinatorConf = getCoordinatorConf();
-    createCoordinatorServer(coordinatorConf);
-    ShuffleServerConf grpcShuffleServerConf = getShuffleServerConf(ServerType.GRPC);
-    createShuffleServer(grpcShuffleServerConf);
-    ShuffleServerConf nettyShuffleServerConf = getShuffleServerConf(ServerType.GRPC_NETTY);
-    createShuffleServer(nettyShuffleServerConf);
-    startServers();
+    storeCoordinatorConf(coordinatorConfWithoutPort());
+
+    storeShuffleServerConf(shuffleServerConfWithoutPort(0, null, ServerType.GRPC));
+    storeShuffleServerConf(shuffleServerConfWithoutPort(1, null, ServerType.GRPC_NETTY));
+
+    startServersWithRandomPorts();
   }
 
   @Override

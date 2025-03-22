@@ -17,6 +17,7 @@
 
 package org.apache.uniffle.test;
 
+import java.io.File;
 import java.util.List;
 import java.util.Map;
 
@@ -27,20 +28,20 @@ import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import org.apache.uniffle.client.util.RssClientConfig;
 import org.apache.uniffle.common.rpc.ServerType;
 import org.apache.uniffle.coordinator.CoordinatorConf;
 import org.apache.uniffle.server.MockedGrpcServer;
 import org.apache.uniffle.server.ShuffleServer;
-import org.apache.uniffle.server.ShuffleServerConf;
 import org.apache.uniffle.storage.util.StorageType;
 
 public class RSSStageResubmitTest extends SparkTaskFailureIntegrationTestBase {
 
   @BeforeAll
-  public static void setupServers() throws Exception {
-    final CoordinatorConf coordinatorConf = getCoordinatorConf();
+  public static void setupServers(@TempDir File tmpDir) throws Exception {
+    final CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
     Map<String, String> dynamicConf = Maps.newHashMap();
     dynamicConf.put(CoordinatorConf.COORDINATOR_REMOTE_STORAGE_PATH.key(), HDFS_URI + "rss/test");
     dynamicConf.put(RssSparkConfig.RSS_STORAGE_TYPE.key(), StorageType.MEMORY_LOCALFILE.name());
@@ -48,13 +49,13 @@ public class RSSStageResubmitTest extends SparkTaskFailureIntegrationTestBase {
         RssSparkConfig.SPARK_RSS_CONFIG_PREFIX + RssClientConfig.RSS_RESUBMIT_STAGE, "true");
     dynamicConf.put(RssSparkConfig.RSS_STORAGE_TYPE.key(), StorageType.MEMORY_LOCALFILE.name());
     addDynamicConf(coordinatorConf, dynamicConf);
-    createCoordinatorServer(coordinatorConf);
-    ShuffleServerConf grpcShuffleServerConf = getShuffleServerConf(ServerType.GRPC);
-    createMockedShuffleServer(grpcShuffleServerConf);
+    storeCoordinatorConf(coordinatorConf);
+
+    storeMockShuffleServerConf(shuffleServerConfWithoutPort(0, tmpDir, ServerType.GRPC));
+    storeMockShuffleServerConf(shuffleServerConfWithoutPort(1, tmpDir, ServerType.GRPC_NETTY));
+
+    startServersWithRandomPorts();
     enableFirstReadRequest(2 * maxTaskFailures);
-    ShuffleServerConf nettyShuffleServerConf = getShuffleServerConf(ServerType.GRPC_NETTY);
-    createMockedShuffleServer(nettyShuffleServerConf);
-    startServers();
   }
 
   private static void enableFirstReadRequest(int failCount) {
@@ -78,7 +79,9 @@ public class RSSStageResubmitTest extends SparkTaskFailureIntegrationTestBase {
   public void updateSparkConfCustomer(SparkConf sparkConf) {
     super.updateSparkConfCustomer(sparkConf);
     sparkConf.set(
-        RssSparkConfig.SPARK_RSS_CONFIG_PREFIX + RssClientConfig.RSS_RESUBMIT_STAGE, "true");
+        RssSparkConfig.SPARK_RSS_CONFIG_PREFIX
+            + RssSparkConfig.RSS_RESUBMIT_STAGE_WITH_FETCH_FAILURE_ENABLED,
+        "true");
   }
 
   @Test

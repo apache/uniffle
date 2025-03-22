@@ -18,7 +18,6 @@
 package org.apache.uniffle.test;
 
 import java.io.File;
-import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
@@ -45,7 +44,7 @@ public class SparkSQLWithDelegationShuffleManagerTest extends SparkSQLTest {
                     .getClassLoader()
                     .getResource("candidates"))
             .getFile();
-    CoordinatorConf coordinatorConf = getCoordinatorConf();
+    CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
     coordinatorConf.setString(
         CoordinatorConf.COORDINATOR_ACCESS_CHECKERS.key(),
         "org.apache.uniffle.coordinator.access.checker.AccessCandidatesChecker,"
@@ -56,31 +55,21 @@ public class SparkSQLWithDelegationShuffleManagerTest extends SparkSQLTest {
     Map<String, String> dynamicConf = Maps.newHashMap();
     dynamicConf.put(RssSparkConfig.RSS_STORAGE_TYPE.key(), StorageType.MEMORY_LOCALFILE.name());
     addDynamicConf(coordinatorConf, dynamicConf);
-    createCoordinatorServer(coordinatorConf);
+    storeCoordinatorConf(coordinatorConf);
 
-    File dataDir1 = new File(tmpDir, "data1");
-    File dataDir2 = new File(tmpDir, "data2");
-    String grpcBasePath = dataDir1.getAbsolutePath() + "," + dataDir2.getAbsolutePath();
-    ShuffleServerConf grpcShuffleServerConf = buildShuffleServerConf(ServerType.GRPC, grpcBasePath);
-    createShuffleServer(grpcShuffleServerConf);
+    storeShuffleServerConf(buildShuffleServerConf(0, tmpDir, ServerType.GRPC));
+    storeShuffleServerConf(buildShuffleServerConf(1, tmpDir, ServerType.GRPC_NETTY));
 
-    File dataDir3 = new File(tmpDir, "data3");
-    File dataDir4 = new File(tmpDir, "data4");
-    String nettyBasePath = dataDir3.getAbsolutePath() + "," + dataDir4.getAbsolutePath();
-    ShuffleServerConf nettyShuffleServerConf =
-        buildShuffleServerConf(ServerType.GRPC_NETTY, nettyBasePath);
-    createShuffleServer(nettyShuffleServerConf);
-
-    startServers();
+    startServersWithRandomPorts();
     Uninterruptibles.sleepUninterruptibly(1L, TimeUnit.SECONDS);
   }
 
-  private static ShuffleServerConf buildShuffleServerConf(ServerType serverType, String basePath)
-      throws Exception {
-    ShuffleServerConf shuffleServerConf = getShuffleServerConf(serverType);
+  private static ShuffleServerConf buildShuffleServerConf(
+      int subDirIndex, File tmpDir, ServerType serverType) {
+    ShuffleServerConf shuffleServerConf =
+        shuffleServerConfWithoutPort(subDirIndex, tmpDir, serverType);
     shuffleServerConf.set(ShuffleServerConf.SERVER_HEARTBEAT_INTERVAL, 1000L);
     shuffleServerConf.set(ShuffleServerConf.SERVER_APP_EXPIRED_WITHOUT_HEARTBEAT, 4000L);
-    shuffleServerConf.set(ShuffleServerConf.RSS_STORAGE_BASE_PATH, Arrays.asList(basePath));
     shuffleServerConf.setString(ShuffleServerConf.SERVER_BUFFER_CAPACITY.key(), "512mb");
     return shuffleServerConf;
   }

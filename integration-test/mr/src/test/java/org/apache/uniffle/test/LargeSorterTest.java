@@ -23,7 +23,8 @@ import org.apache.hadoop.mapreduce.MRJobConfig;
 import org.apache.hadoop.mapreduce.RssMRConfig;
 import org.apache.hadoop.util.Tool;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import org.apache.uniffle.common.ClientType;
 
@@ -34,14 +35,15 @@ public class LargeSorterTest extends MRIntegrationTestBase {
     MRIntegrationTestBase.setupServers(MRIntegrationTestBase.getDynamicConf());
   }
 
-  @Test
-  public void largeSorterTest() throws Exception {
-    run();
+  @ParameterizedTest
+  @MethodSource("clientTypeProvider")
+  public void largeSorterTest(ClientType clientType) throws Exception {
+    run(clientType);
   }
 
   @Override
-  protected void updateRssConfiguration(Configuration jobConf) {
-    jobConf.set(RssMRConfig.RSS_CLIENT_TYPE, ClientType.GRPC.name());
+  protected void updateRssConfiguration(Configuration jobConf, ClientType clientType) {
+    jobConf.set(RssMRConfig.RSS_CLIENT_TYPE, clientType.name());
     jobConf.setInt(LargeSorter.NUM_MAP_TASKS, 1);
     jobConf.setInt(LargeSorter.MBS_PER_MAP, 256);
     jobConf.set(

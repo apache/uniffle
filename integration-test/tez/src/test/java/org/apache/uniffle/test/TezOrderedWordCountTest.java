@@ -29,6 +29,7 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.util.Tool;
 import org.apache.tez.examples.OrderedWordCount;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 public class TezOrderedWordCountTest extends TezIntegrationTestBase {
@@ -38,6 +39,11 @@ public class TezOrderedWordCountTest extends TezIntegrationTestBase {
   private List<String> wordTable =
       Lists.newArrayList(
           "apple", "banana", "fruit", "cherry", "Chinese", "America", "Japan", "tomato");
+
+  @BeforeAll
+  public static void setupServers() throws Exception {
+    TezIntegrationTestBase.setupServers(null);
+  }
 
   @Test
   public void orderedWordCountTest() throws Exception {

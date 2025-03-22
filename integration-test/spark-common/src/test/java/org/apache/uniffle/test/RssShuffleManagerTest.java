@@ -90,11 +90,11 @@ public class RssShuffleManagerTest extends SparkIntegrationTestBase {
           RssClientConf.BLOCKID_TASK_ATTEMPT_ID_BITS.key(),
           String.valueOf(dynamicConfLayout.taskAttemptIdBits));
     }
-    CoordinatorConf coordinatorConf = getCoordinatorConf();
+    CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
     addDynamicConf(coordinatorConf, dynamicConf);
-    createCoordinatorServer(coordinatorConf);
-    createShuffleServer(getShuffleServerConf(ServerType.GRPC));
-    startServers();
+    storeCoordinatorConf(coordinatorConf);
+    storeShuffleServerConf(shuffleServerConfWithoutPort(0, tempDir, ServerType.GRPC));
+    startServersWithRandomPorts();
     return dynamicConf;
   }
 

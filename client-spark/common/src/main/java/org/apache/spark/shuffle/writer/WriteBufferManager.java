@@ -22,9 +22,11 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
@@ -69,7 +71,7 @@ public class WriteBufferManager extends MemoryConsumer {
   /** An atomic counter used to keep track of the number of blocks */
   private AtomicLong blockCounter = new AtomicLong(0);
   // it's part of blockId
-  private Map<Integer, Integer> partitionToSeqNo = Maps.newHashMap();
+  private Map<Integer, AtomicInteger> partitionToSeqNo = Maps.newHashMap();
   private long askExecutorMemory;
   private int shuffleId;
   private String taskId;
@@ -83,15 +85,17 @@ public class WriteBufferManager extends MemoryConsumer {
   private long copyTime = 0;
   private long serializeTime = 0;
   private long compressTime = 0;
+  private long sortTime = 0;
   private long writeTime = 0;
   private long estimateTime = 0;
   private long requireMemoryTime = 0;
   private SerializationStream serializeStream;
   private WrappedByteArrayOutputStream arrayOutputStream;
   private long uncompressedDataLen = 0;
+  private long compressedDataLen = 0;
   private long requireMemoryInterval;
   private int requireMemoryRetryMax;
-  private Codec codec;
+  private Optional<Codec> codec;
   private Function<List<ShuffleBlockInfo>, List<CompletableFuture<Long>>> spillFunc;
   private long sendSizeLimit;
   private boolean memorySpillEnabled;
@@ -100,6 +104,7 @@ public class WriteBufferManager extends MemoryConsumer {
   private BlockIdLayout blockIdLayout;
   private double bufferSpillRatio;
   private Function<Integer, List<ShuffleServerInfo>> partitionAssignmentRetrieveFunc;
+  private int stageAttemptNumber;
 
   public WriteBufferManager(
       int shuffleId,
@@ -120,7 +125,8 @@ public class WriteBufferManager extends MemoryConsumer {
         taskMemoryManager,
         shuffleWriteMetrics,
         rssConf,
-        null);
+        null,
+        0);
   }
 
   public WriteBufferManager(
@@ -134,6 +140,32 @@ public class WriteBufferManager extends MemoryConsumer {
       RssConf rssConf,
       Function<List<ShuffleBlockInfo>, List<CompletableFuture<Long>>> spillFunc,
       Function<Integer, List<ShuffleServerInfo>> partitionAssignmentRetrieveFunc) {
+    this(
+        shuffleId,
+        taskId,
+        taskAttemptId,
+        bufferManagerOptions,
+        serializer,
+        taskMemoryManager,
+        shuffleWriteMetrics,
+        rssConf,
+        spillFunc,
+        partitionAssignmentRetrieveFunc,
+        0);
+  }
+
+  public WriteBufferManager(
+      int shuffleId,
+      String taskId,
+      long taskAttemptId,
+      BufferManagerOptions bufferManagerOptions,
+      Serializer serializer,
+      TaskMemoryManager taskMemoryManager,
+      ShuffleWriteMetrics shuffleWriteMetrics,
+      RssConf rssConf,
+      Function<List<ShuffleBlockInfo>, List<CompletableFuture<Long>>> spillFunc,
+      Function<Integer, List<ShuffleServerInfo>> partitionAssignmentRetrieveFunc,
+      int stageAttemptNumber) {
     super(taskMemoryManager, taskMemoryManager.pageSizeBytes(), MemoryMode.ON_HEAP);
     this.bufferSize = bufferManagerOptions.getBufferSize();
     this.spillSize = bufferManagerOptions.getBufferSpillThreshold();
@@ -159,7 +191,7 @@ public class WriteBufferManager extends MemoryConsumer {
             RssSparkConfig.SPARK_SHUFFLE_COMPRESS_KEY.substring(
                 RssSparkConfig.SPARK_RSS_CONFIG_PREFIX.length()),
             RssSparkConfig.SPARK_SHUFFLE_COMPRESS_DEFAULT);
-    this.codec = compress ? Codec.newInstance(rssConf) : null;
+    this.codec = compress ? Codec.newInstance(rssConf) : Optional.empty();
     this.spillFunc = spillFunc;
     this.sendSizeLimit = rssConf.get(RssSparkConfig.RSS_CLIENT_SEND_SIZE_LIMITATION);
     this.memorySpillTimeoutSec = rssConf.get(RssSparkConfig.RSS_MEMORY_SPILL_TIMEOUT);
@@ -167,6 +199,7 @@ public class WriteBufferManager extends MemoryConsumer {
     this.bufferSpillRatio = rssConf.get(RssSparkConfig.RSS_MEMORY_SPILL_RATIO);
     this.blockIdLayout = BlockIdLayout.from(rssConf);
     this.partitionAssignmentRetrieveFunc = partitionAssignmentRetrieveFunc;
+    this.stageAttemptNumber = stageAttemptNumber;
   }
 
   public WriteBufferManager(
@@ -179,7 +212,8 @@ public class WriteBufferManager extends MemoryConsumer {
       TaskMemoryManager taskMemoryManager,
       ShuffleWriteMetrics shuffleWriteMetrics,
       RssConf rssConf,
-      Function<List<ShuffleBlockInfo>, List<CompletableFuture<Long>>> spillFunc) {
+      Function<List<ShuffleBlockInfo>, List<CompletableFuture<Long>>> spillFunc,
+      int stageAttemptNumber) {
     this(
         shuffleId,
         taskId,
@@ -190,7 +224,8 @@ public class WriteBufferManager extends MemoryConsumer {
         shuffleWriteMetrics,
         rssConf,
         spillFunc,
-        partitionId -> partitionToServers.get(partitionId));
+        partitionId -> partitionToServers.get(partitionId),
+        stageAttemptNumber);
   }
 
   /** add serialized columnar data directly when integrate with gluten */
@@ -339,9 +374,11 @@ public class WriteBufferManager extends MemoryConsumer {
     bufferSpillRatio = Math.max(0.1, Math.min(1.0, bufferSpillRatio));
     List<Integer> partitionList = new ArrayList(buffers.keySet());
     if (Double.compare(bufferSpillRatio, 1.0) < 0) {
+      long start = System.currentTimeMillis();
       partitionList.sort(
           Comparator.comparingInt(o -> buffers.get(o) == null ? 0 : buffers.get(o).getMemoryUsed())
               .reversed());
+      sortTime += start;
       targetSpillSize = (long) ((getUsedBytes() - getInSendListBytes()) * bufferSpillRatio);
     }
 
@@ -384,9 +421,9 @@ public class WriteBufferManager extends MemoryConsumer {
     byte[] data = wb.getData();
     final int uncompressLength = data.length;
     byte[] compressed = data;
-    if (codec != null) {
+    if (codec.isPresent()) {
       long start = System.currentTimeMillis();
-      compressed = codec.compress(data);
+      compressed = codec.get().compress(data);
       compressTime += System.currentTimeMillis() - start;
     }
     final long crc32 = ChecksumUtils.getCrc32(compressed);
@@ -394,6 +431,7 @@ public class WriteBufferManager extends MemoryConsumer {
         blockIdLayout.getBlockId(getNextSeqNo(partitionId), partitionId, taskAttemptId);
     blockCounter.incrementAndGet();
     uncompressedDataLen += data.length;
+    compressedDataLen += compressed.length;
     shuffleWriteMetrics.incBytesWritten(compressed.length);
     // add memory to indicate bytes which will be sent to shuffle server
     inSendListBytes.addAndGet(wb.getMemoryUsed());
@@ -412,10 +450,9 @@ public class WriteBufferManager extends MemoryConsumer {
 
   // it's run in single thread, and is not thread safe
   private int getNextSeqNo(int partitionId) {
-    partitionToSeqNo.putIfAbsent(partitionId, 0);
-    int seqNo = partitionToSeqNo.get(partitionId);
-    partitionToSeqNo.put(partitionId, seqNo + 1);
-    return seqNo;
+    return partitionToSeqNo
+        .computeIfAbsent(partitionId, k -> new AtomicInteger(0))
+        .getAndIncrement();
   }
 
   private void requestMemory(long requiredMem) {
@@ -491,7 +528,7 @@ public class WriteBufferManager extends MemoryConsumer {
                   + totalSize
                   + " bytes");
         }
-        events.add(new AddBlockEvent(taskId, shuffleBlockInfosPerEvent));
+        events.add(new AddBlockEvent(taskId, stageAttemptNumber, shuffleBlockInfosPerEvent));
         shuffleBlockInfosPerEvent = Lists.newArrayList();
         totalSize = 0;
       }
@@ -506,7 +543,7 @@ public class WriteBufferManager extends MemoryConsumer {
                 + " bytes");
       }
       // Use final temporary variables for closures
-      events.add(new AddBlockEvent(taskId, shuffleBlockInfosPerEvent));
+      events.add(new AddBlockEvent(taskId, stageAttemptNumber, shuffleBlockInfosPerEvent));
     }
     return events;
   }
@@ -611,14 +648,20 @@ public class WriteBufferManager extends MemoryConsumer {
         + writeTime
         + "], serializeTime["
         + serializeTime
-        + "], compressTime["
-        + compressTime
+        + "], sortTime["
+        + sortTime
         + "], estimateTime["
         + estimateTime
         + "], requireMemoryTime["
         + requireMemoryTime
         + "], uncompressedDataLen["
         + uncompressedDataLen
+        + "], compressedDataLen["
+        + compressedDataLen
+        + "], compressTime["
+        + compressTime
+        + "], compressRatio["
+        + (compressedDataLen == 0 ? 0 : (float) uncompressedDataLen / compressedDataLen)
         + "]";
   }
 

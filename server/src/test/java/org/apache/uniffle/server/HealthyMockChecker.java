@@ -25,7 +25,7 @@ public class HealthyMockChecker extends Checker {
   }
 
   @Override
-  boolean checkIsHealthy() {
+  public boolean checkIsHealthy() {
     return true;
   }
 }

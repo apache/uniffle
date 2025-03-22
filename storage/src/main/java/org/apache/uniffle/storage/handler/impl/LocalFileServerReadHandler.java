@@ -36,6 +36,7 @@ import org.apache.uniffle.storage.util.ShuffleStorageUtils;
 public class LocalFileServerReadHandler implements ServerReadHandler {
 
   private static final Logger LOG = LoggerFactory.getLogger(LocalFileServerReadHandler.class);
+  private final int storageId;
   private String indexFileName = "";
   private String dataFileName = "";
   private String appId;
@@ -48,11 +49,23 @@ public class LocalFileServerReadHandler implements ServerReadHandler {
       int partitionId,
       int partitionNumPerRange,
       int partitionNum,
-      String path) {
+      String path,
+      int storageId) {
     this.appId = appId;
     this.shuffleId = shuffleId;
     this.partitionId = partitionId;
+    this.storageId = storageId;
     init(appId, shuffleId, partitionId, partitionNumPerRange, partitionNum, path);
+  }
+
+  public LocalFileServerReadHandler(
+      String appId,
+      int shuffleId,
+      int partitionId,
+      int partitionNumPerRange,
+      int partitionNum,
+      String path) {
+    this(appId, shuffleId, partitionId, partitionNumPerRange, partitionNum, path, 0);
   }
 
   private void init(
@@ -149,6 +162,20 @@ public class LocalFileServerReadHandler implements ServerReadHandler {
     }
     // get dataFileSize for read segment generation in DataSkippableReadHandler#readShuffleData
     long dataFileSize = new File(dataFileName).length();
-    return new ShuffleIndexResult(new FileSegmentManagedBuffer(indexFile, 0, len), dataFileSize);
+    return new ShuffleIndexResult(
+        new FileSegmentManagedBuffer(indexFile, 0, len), dataFileSize, dataFileName, storageId);
+  }
+
+  public String getDataFileName() {
+    return dataFileName;
+  }
+
+  public String getIndexFileName() {
+    return indexFileName;
+  }
+
+  @Override
+  public int getStorageId() {
+    return storageId;
   }
 }

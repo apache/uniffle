@@ -20,11 +20,18 @@ package org.apache.tez.runtime.library.common.sort.buffer;
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
+import io.netty.buffer.Unpooled;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.BytesWritable;
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.WritableComparator;
 import org.apache.hadoop.io.WritableUtils;
 import org.apache.hadoop.io.serializer.Deserializer;
@@ -33,10 +40,21 @@ import org.apache.hadoop.io.serializer.Serializer;
 import org.apache.hadoop.mapred.JobConf;
 import org.junit.jupiter.api.Test;
 
+import org.apache.uniffle.common.config.RssConf;
+import org.apache.uniffle.common.serializer.DeserializationStream;
+import org.apache.uniffle.common.serializer.SerInputStream;
+import org.apache.uniffle.common.serializer.SerializerFactory;
+import org.apache.uniffle.common.serializer.SerializerInstance;
+
 import static com.google.common.collect.Maps.newConcurrentMap;
+import static org.apache.uniffle.common.serializer.SerializerUtils.genData;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class WriteBufferTest {
+
+  private static final int RECORDS_NUM = 1009;
 
   @Test
   public void testReadWrite() throws IOException {
@@ -57,8 +75,10 @@ public class WriteBufferTest {
             1,
             WritableComparator.get(BytesWritable.class),
             1024L,
+            false,
             keySerializer,
-            valSerializer);
+            valSerializer,
+            null);
 
     long recordLength = buffer.addRecord(key, value);
     assertEquals(20, buffer.getData().length);
@@ -88,8 +108,10 @@ public class WriteBufferTest {
             1,
             WritableComparator.get(BytesWritable.class),
             528L,
+            false,
             keySerializer,
-            valSerializer);
+            valSerializer,
+            null);
     long start = buffer.getDataLength();
     assertEquals(0, start);
     keyStr = "key3";
@@ -159,6 +181,79 @@ public class WriteBufferTest {
     valueRead = valDeserializer.deserialize(null);
     assertEquals(bigWritableKey, keyRead);
     assertEquals(bigWritableValue, valueRead);
+  }
+
+  @Test
+  public void testReadWriteWithRemoteMergeAndNoSort() throws IOException {
+    RssConf rssConf = new RssConf();
+    SerializerFactory factory = new SerializerFactory(rssConf);
+    org.apache.uniffle.common.serializer.Serializer serializer = factory.getSerializer(Text.class);
+    SerializerInstance instance = serializer.newInstance();
+    WriteBuffer buffer =
+        new WriteBuffer<BytesWritable, BytesWritable>(
+            false,
+            1,
+            WritableComparator.get(BytesWritable.class),
+            1024L,
+            true,
+            null,
+            null,
+            instance);
+    for (int i = 0; i < RECORDS_NUM; i++) {
+      buffer.addRecord(genData(Text.class, i), genData(IntWritable.class, i));
+    }
+    byte[] bytes = buffer.getData();
+    SerInputStream inputStream =
+        SerInputStream.newInputStream(Unpooled.wrappedBuffer(ByteBuffer.wrap(bytes)));
+    DeserializationStream dStream =
+        instance.deserializeStream(inputStream, Text.class, IntWritable.class, false, false);
+    dStream.init();
+    for (int i = 0; i < RECORDS_NUM; i++) {
+      assertTrue(dStream.nextRecord());
+      assertEquals(genData(Text.class, i), dStream.getCurrentKey());
+      assertEquals(genData(IntWritable.class, i), dStream.getCurrentValue());
+    }
+    assertFalse(dStream.nextRecord());
+    dStream.close();
+  }
+
+  @Test
+  public void testReadWriteWithRemoteMergeAndSort() throws IOException {
+    RssConf rssConf = new RssConf();
+    SerializerFactory factory = new SerializerFactory(rssConf);
+    org.apache.uniffle.common.serializer.Serializer serializer = factory.getSerializer(Text.class);
+    SerializerInstance instance = serializer.newInstance();
+    WriteBuffer buffer =
+        new WriteBuffer<BytesWritable, BytesWritable>(
+            false,
+            1,
+            WritableComparator.get(BytesWritable.class),
+            1024L,
+            true,
+            null,
+            null,
+            instance);
+    List<Integer> indices = new ArrayList<>();
+    for (int i = 0; i < RECORDS_NUM; i++) {
+      indices.add(i);
+    }
+    Collections.shuffle(indices);
+    for (int i = 0; i < RECORDS_NUM; i++) {
+      buffer.addRecord(genData(Text.class, i), genData(IntWritable.class, i));
+    }
+    byte[] bytes = buffer.getData();
+    SerInputStream inputStream =
+        SerInputStream.newInputStream(Unpooled.wrappedBuffer(ByteBuffer.wrap(bytes)));
+    DeserializationStream dStream =
+        instance.deserializeStream(inputStream, Text.class, IntWritable.class, false, false);
+    dStream.init();
+    for (int i = 0; i < RECORDS_NUM; i++) {
+      assertTrue(dStream.nextRecord());
+      assertEquals(genData(Text.class, i), dStream.getCurrentKey());
+      assertEquals(genData(IntWritable.class, i), dStream.getCurrentValue());
+    }
+    assertFalse(dStream.nextRecord());
+    dStream.close();
   }
 
   int readInt(DataInputStream dStream) throws IOException {

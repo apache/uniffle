@@ -29,17 +29,23 @@ import org.apache.hbase.thirdparty.javax.ws.rs.Path;
 import org.apache.hbase.thirdparty.javax.ws.rs.Produces;
 import org.apache.hbase.thirdparty.javax.ws.rs.core.Context;
 import org.apache.hbase.thirdparty.javax.ws.rs.core.MediaType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.apache.uniffle.common.web.resource.BaseResource;
 import org.apache.uniffle.common.web.resource.Response;
 import org.apache.uniffle.coordinator.AppInfo;
 import org.apache.uniffle.coordinator.ApplicationManager;
+import org.apache.uniffle.coordinator.CoordinatorServer;
+import org.apache.uniffle.coordinator.ServerNode;
+import org.apache.uniffle.coordinator.metric.CoordinatorMetrics;
 import org.apache.uniffle.coordinator.web.vo.AppInfoVO;
 import org.apache.uniffle.coordinator.web.vo.UserAppNumVO;
+import org.apache.uniffle.proto.RssProtos;
 
 @Produces({MediaType.APPLICATION_JSON})
 public class ApplicationResource extends BaseResource {
-
+  private static final Logger LOG = LoggerFactory.getLogger(ApplicationResource.class);
   @Context protected ServletContext servletContext;
 
   @GET
@@ -48,7 +54,8 @@ public class ApplicationResource extends BaseResource {
     return execute(
         () -> {
           Map<String, Integer> appTotalityMap = Maps.newHashMap();
-          appTotalityMap.put("appTotality", getApplicationManager().getAppIds().size());
+          appTotalityMap.put("appCurrent", (int) CoordinatorMetrics.gaugeRunningAppNum.get());
+          appTotalityMap.put("appTotality", (int) CoordinatorMetrics.counterTotalAppNum.get());
           return appTotalityMap;
         });
   }
@@ -80,17 +87,44 @@ public class ApplicationResource extends BaseResource {
           List<AppInfoVO> userToAppList = new ArrayList<>();
           Map<String, Map<String, AppInfo>> currentUserAndApp =
               getApplicationManager().getCurrentUserAndApp();
+          List<ServerNode> serverNodes = getCoordinatorServer().getClusterManager().list();
           for (Map.Entry<String, Map<String, AppInfo>> userAppIdTimestampMap :
               currentUserAndApp.entrySet()) {
             for (Map.Entry<String, AppInfo> appIdTimestampMap :
                 userAppIdTimestampMap.getValue().entrySet()) {
+              String user = appIdTimestampMap.getKey();
               AppInfo appInfo = appIdTimestampMap.getValue();
-              userToAppList.add(
+              AppInfoVO appInfoVO =
                   new AppInfoVO(
-                      userAppIdTimestampMap.getKey(),
+                      user,
                       appInfo.getAppId(),
                       appInfo.getUpdateTime(),
-                      appInfo.getRegistrationTime()));
+                      appInfo.getRegistrationTime(),
+                      appInfo.getVersion(),
+                      appInfo.getGitCommitId(),
+                      0,
+                      0,
+                      0,
+                      0,
+                      0,
+                      0,
+                      0);
+              for (ServerNode server : serverNodes) {
+                Map<String, RssProtos.ApplicationInfo> appIdToInfos = server.getAppIdToInfos();
+                if (appIdToInfos.containsKey(appInfoVO.getAppId())) {
+                  RssProtos.ApplicationInfo app = appIdToInfos.get(appInfoVO.getAppId());
+                  appInfoVO.setPartitionNum(appInfoVO.getPartitionNum() + app.getPartitionNum());
+                  appInfoVO.setMemorySize(appInfoVO.getMemorySize() + app.getMemorySize());
+                  appInfoVO.setLocalFileNum(appInfoVO.getLocalFileNum() + app.getLocalFileNum());
+                  appInfoVO.setLocalTotalSize(
+                      appInfoVO.getLocalTotalSize() + app.getLocalTotalSize());
+                  appInfoVO.setHadoopFileNum(appInfoVO.getHadoopFileNum() + app.getHadoopFileNum());
+                  appInfoVO.setHadoopTotalSize(
+                      appInfoVO.getHadoopTotalSize() + app.getHadoopTotalSize());
+                  appInfoVO.setTotalSize(appInfoVO.getTotalSize() + app.getTotalSize());
+                }
+              }
+              userToAppList.add(appInfoVO);
             }
           }
           // Display is inverted by the submission time of the application.
@@ -102,5 +136,10 @@ public class ApplicationResource extends BaseResource {
   private ApplicationManager getApplicationManager() {
     return (ApplicationManager)
         servletContext.getAttribute(ApplicationManager.class.getCanonicalName());
+  }
+
+  private CoordinatorServer getCoordinatorServer() {
+    return (CoordinatorServer)
+        servletContext.getAttribute(CoordinatorServer.class.getCanonicalName());
   }
 }

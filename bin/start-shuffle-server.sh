@@ -30,13 +30,16 @@ SHUFFLE_SERVER_CONF_FILE="${RSS_CONF_DIR}/server.conf"
 JAR_DIR="${RSS_HOME}/jars"
 LOG_CONF_FILE="${RSS_CONF_DIR}/log4j2.xml"
 LOG_PATH="${RSS_LOG_DIR}/shuffle_server.log"
-AUDIT_LOG_PATH="${RSS_LOG_DIR}/audit.log"
+LOG_OUT_PATH="${RSS_LOG_DIR}/shuffle_server.out"
+SHUFFLE_SERVER_STORAGE_AUDIT_LOG_PATH=${SHUFFLE_SERVER_STORAGE_AUDIT_LOG_PATH:-"${RSS_LOG_DIR}/shuffle_server_storage_audit.log"}
+SHUFFLE_SERVER_RPC_AUDIT_LOG_PATH=${SHUFFLE_SERVER_RPC_AUDIT_LOG_PATH:-"${RSS_LOG_DIR}/shuffle_server_rpc_audit.log"}
 
-if [ -z "${XMX_SIZE:-}" ]; then
-  echo "No env XMX_SIZE."
+SHUFFLE_SERVER_XMX_SIZE=${SHUFFLE_SERVER_XMX_SIZE:-${XMX_SIZE}}
+if [ -z "${SHUFFLE_SERVER_XMX_SIZE:-}" ]; then
+  echo "No env XMX_SIZE or SHUFFLE_SERVER_XMX_SIZE."
   exit 1
 fi
-echo "Shuffle Server JVM XMX size: ${XMX_SIZE}"
+echo "Shuffle Server JVM XMX size: ${SHUFFLE_SERVER_XMX_SIZE}"
 if [ -n "${RSS_IP:-}" ]; then
   echo "Shuffle Server RSS_IP: ${RSS_IP}"
 fi
@@ -91,22 +94,23 @@ if [ -n "${OOM_DUMP_PATH:-}" ]; then
   JAVA_OPTS="-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=$OOM_DUMP_PATH"
 fi
 
-JVM_ARGS=" -server \
-          -Xmx${XMX_SIZE} \
-          -Xms${XMX_SIZE} \
+SHUFFLE_SERVER_BASE_JVM_ARGS=${SHUFFLE_SERVER_BASE_JVM_ARGS:-" -server \
+          -Xmx${SHUFFLE_SERVER_XMX_SIZE} \
+          -Xms${SHUFFLE_SERVER_XMX_SIZE} \
           ${MAX_DIRECT_MEMORY_OPTS} \
           ${JAVA_OPTS} \
-          -XX:+UseG1GC \
+          -XX:+CrashOnOutOfMemoryError \
+          -XX:+ExitOnOutOfMemoryError \
+          -XX:+UnlockExperimentalVMOptions \
+          -XX:+PrintCommandLineFlags"}
+
+DEFAULT_GC_ARGS=${SHUFFLE_SERVER_DEFAULT_GC_ARGS:-" -XX:+UseG1GC \
           -XX:MaxGCPauseMillis=200 \
           -XX:ParallelGCThreads=20 \
           -XX:ConcGCThreads=5 \
           -XX:InitiatingHeapOccupancyPercent=60 \
           -XX:G1HeapRegionSize=32m \
-          -XX:+UnlockExperimentalVMOptions \
-          -XX:G1NewSizePercent=10 \
-          -XX:+CrashOnOutOfMemoryError \
-          -XX:+ExitOnOutOfMemoryError \
-          -XX:+PrintCommandLineFlags"
+          -XX:G1NewSizePercent=10"}
 
 GC_LOG_ARGS_LEGACY=" -XX:+PrintGC \
           -XX:+PrintAdaptiveSizePolicy \
@@ -129,10 +133,10 @@ GC_LOG_ARGS_NEW=" -XX:+IgnoreUnrecognizedVMOptions \
           -Xlog:gc+start=debug \
           -Xlog:gc*:file=${RSS_LOG_DIR}/gc-%t.log:tags,uptime,time,level"
 
-ARGS=""
+JVM_LOG_ARGS=""
 
 if [ -f ${LOG_CONF_FILE} ]; then
-  ARGS="$ARGS -Dlog4j2.configurationFile=file:${LOG_CONF_FILE} -Dlog.path=${LOG_PATH} -Daudit.log.path=${AUDIT_LOG_PATH}"
+  JVM_LOG_ARGS=" -Dlog4j2.configurationFile=file:${LOG_CONF_FILE} -Dlog.path=${LOG_PATH} -Dstorage.audit.log.path=${SHUFFLE_SERVER_STORAGE_AUDIT_LOG_PATH} -Drpc.audit.log.path=${SHUFFLE_SERVER_RPC_AUDIT_LOG_PATH}"
 else
   echo "Exit with error: ${LOG_CONF_FILE} file doesn't exist."
   exit 1
@@ -140,12 +144,13 @@ fi
 
 version=$($RUNNER -version 2>&1 | awk -F[\".] '/version/ {print $2}')
 if [[ "$version" -lt "9" ]]; then
-  GC_ARGS=$GC_LOG_ARGS_LEGACY
+  SHUFFLE_SERVER_JVM_GC_ARGS="${SHUFFLE_SERVER_JVM_GC_ARGS:-${DEFAULT_GC_ARGS} ${GC_LOG_ARGS_LEGACY}}"
 else
-  GC_ARGS=$GC_LOG_ARGS_NEW
+  SHUFFLE_SERVER_JVM_GC_ARGS="${SHUFFLE_SERVER_JVM_GC_ARGS:-${DEFAULT_GC_ARGS} ${GC_LOG_ARGS_NEW}}"
 fi
 
-$RUNNER $ARGS $JVM_ARGS $GC_ARGS $JAVA_LIB_PATH -cp $CLASSPATH $MAIN_CLASS --conf "$SHUFFLE_SERVER_CONF_FILE" $@ &
+SHUFFLE_SERVER_JAVA_OPTS=${SHUFFLE_SERVER_JAVA_OPTS:-""}
+(nohup $RUNNER ${SHUFFLE_SERVER_BASE_JVM_ARGS} ${SHUFFLE_SERVER_JVM_GC_ARGS} ${JVM_LOG_ARGS} ${JAVA_LIB_PATH} ${SHUFFLE_SERVER_JAVA_OPTS} -cp ${CLASSPATH} ${MAIN_CLASS} --conf "${SHUFFLE_SERVER_CONF_FILE}" $@ > ${LOG_OUT_PATH} 2>&1) &
 
 get_pid_file_name shuffle-server
 echo $! >${RSS_PID_DIR}/${pid_file}

@@ -47,7 +47,10 @@ public class CoordinatorUtils {
       PartitionRangeAssignment pra) {
     List<RssProtos.PartitionRangeAssignment> praList = pra.convertToGrpcProto();
 
-    return GetShuffleAssignmentsResponse.newBuilder().addAllAssignments(praList).build();
+    return GetShuffleAssignmentsResponse.newBuilder()
+        .addAllAssignments(praList)
+        .setStatus(RssProtos.StatusCode.SUCCESS)
+        .build();
   }
 
   public static int nextIdx(int idx, int size) {

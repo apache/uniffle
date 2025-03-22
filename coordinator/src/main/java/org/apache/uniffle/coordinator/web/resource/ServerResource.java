@@ -28,6 +28,7 @@ import java.util.stream.Stream;
 import javax.servlet.ServletContext;
 
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.hbase.thirdparty.javax.ws.rs.Consumes;
 import org.apache.hbase.thirdparty.javax.ws.rs.DELETE;
 import org.apache.hbase.thirdparty.javax.ws.rs.GET;
 import org.apache.hbase.thirdparty.javax.ws.rs.POST;
@@ -41,6 +42,7 @@ import org.apache.hbase.thirdparty.javax.ws.rs.core.MediaType;
 import org.apache.uniffle.common.Application;
 import org.apache.uniffle.common.ServerStatus;
 import org.apache.uniffle.common.exception.RssException;
+import org.apache.uniffle.common.web.resource.Authorization;
 import org.apache.uniffle.common.web.resource.BaseResource;
 import org.apache.uniffle.common.web.resource.Response;
 import org.apache.uniffle.coordinator.ApplicationManager;
@@ -77,26 +79,29 @@ public class ServerResource extends BaseResource {
       serverList = clusterManager.getLostServerList();
     } else if (ServerStatus.EXCLUDED.name().equalsIgnoreCase(status)) {
       serverList =
-          clusterManager.getExcludeNodes().stream()
-              .map(excludeNodeStr -> new ServerNode(excludeNodeStr))
+          clusterManager.list().stream()
+              .filter(node -> clusterManager.getExcludedNodes().contains(node.getId()))
               .collect(Collectors.toList());
     } else {
-      serverList = clusterManager.list();
+      List<ServerNode> serverAllList = clusterManager.list();
+      serverList =
+          serverAllList.stream()
+              .filter(node -> !clusterManager.getExcludedNodes().contains(node.getId()))
+              .collect(Collectors.toList());
     }
     serverList =
         serverList.stream()
             .filter(
-                server -> {
-                  if (status != null && !server.getStatus().name().equalsIgnoreCase(status)) {
-                    return false;
-                  }
-                  return true;
-                })
+                server ->
+                    status == null
+                        || server.getStatus().name().equalsIgnoreCase(status)
+                        || ServerStatus.EXCLUDED.name().equalsIgnoreCase(status))
             .collect(Collectors.toList());
     serverList.sort(Comparator.comparing(ServerNode::getId));
     return Response.success(serverList);
   }
 
+  @Authorization
   @POST
   @Path("/cancelDecommission")
   public Response<Object> cancelDecommission(CancelDecommissionRequest params) {
@@ -110,6 +115,7 @@ public class ServerResource extends BaseResource {
         });
   }
 
+  @Authorization
   @POST
   @Path("/{id}/cancelDecommission")
   public Response<Object> cancelDecommission(@PathParam("id") String serverId) {
@@ -120,6 +126,7 @@ public class ServerResource extends BaseResource {
         });
   }
 
+  @Authorization
   @POST
   @Path("/decommission")
   public Response<Object> decommission(DecommissionRequest params) {
@@ -133,6 +140,7 @@ public class ServerResource extends BaseResource {
         });
   }
 
+  @Authorization
   @POST
   @Path("/{id}/decommission")
   @Produces({MediaType.APPLICATION_JSON})
@@ -181,13 +189,18 @@ public class ServerResource extends BaseResource {
     return execute(
         () -> {
           ClusterManager clusterManager = getClusterManager();
+          List<ServerNode> serverAllList = clusterManager.list();
           List<ServerNode> excludeNodes =
-              clusterManager.getExcludeNodes().stream()
-                  .map(exclude -> new ServerNode(exclude))
+              clusterManager.getExcludedNodes().stream()
+                  .map(ServerNode::new)
                   .collect(Collectors.toList());
-          Map<String, Integer> stringIntegerHash =
+          List<ServerNode> activeServerList =
+              serverAllList.stream()
+                  .filter(node -> !clusterManager.getExcludedNodes().contains(node.getId()))
+                  .collect(Collectors.toList());
+          Map<String, Integer> serverStatusNum =
               Stream.of(
-                      clusterManager.list(),
+                      activeServerList,
                       clusterManager.getLostServerList(),
                       excludeNodes,
                       clusterManager.getUnhealthyServerList())
@@ -196,15 +209,37 @@ public class ServerResource extends BaseResource {
                   .collect(
                       Collectors.groupingBy(
                           n -> n.getStatus().name(), Collectors.reducing(0, n -> 1, Integer::sum)));
-          return stringIntegerHash;
+          return serverStatusNum;
         });
   }
 
   @DELETE
   @Path("/deleteServer")
-  public Response<String> deleteLostedServer(@QueryParam("serverId") String serverId) {
+  public Response<String> handleDeleteLostServerRequest(@QueryParam("serverId") String serverId) {
     ClusterManager clusterManager = getClusterManager();
     if (clusterManager.deleteLostServerById(serverId)) {
+      return Response.success("success");
+    }
+    return Response.fail("fail");
+  }
+
+  @POST
+  @Path("/addExcludeNodes")
+  @Consumes(MediaType.APPLICATION_JSON)
+  public Response<String> handleAddExcludedNodesRequest(Map<String, List<String>> excludeNodes) {
+    ClusterManager clusterManager = getClusterManager();
+    if (clusterManager.addExcludedNodes(excludeNodes.get("excludeNodes"))) {
+      return Response.success("success");
+    }
+    return Response.fail("fail");
+  }
+
+  @POST
+  @Path("/removeExcludeNodes")
+  @Consumes(MediaType.APPLICATION_JSON)
+  public Response<String> handleDeleteExcludeNodesRequest(Map<String, List<String>> excludeNodes) {
+    ClusterManager clusterManager = getClusterManager();
+    if (clusterManager.removeExcludedNodesFromFile(excludeNodes.get("excludeNodes"))) {
       return Response.success("success");
     }
     return Response.fail("fail");

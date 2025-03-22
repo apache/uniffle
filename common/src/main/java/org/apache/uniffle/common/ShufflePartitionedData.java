@@ -19,14 +19,37 @@ package org.apache.uniffle.common;
 
 import java.util.Arrays;
 
+import com.google.common.annotations.VisibleForTesting;
+
 public class ShufflePartitionedData {
 
+  private static final ShufflePartitionedBlock[] EMPTY_BLOCK_LIST =
+      new ShufflePartitionedBlock[] {};
   private int partitionId;
-  private ShufflePartitionedBlock[] blockList;
+  private final ShufflePartitionedBlock[] blockList;
+  private final long totalBlockEncodedLength;
+  private final long totalBlockDataLength;
 
+  public ShufflePartitionedData(
+      int partitionId, long encodedLength, long dataLength, ShufflePartitionedBlock[] blockList) {
+    this.partitionId = partitionId;
+    this.blockList = blockList == null ? EMPTY_BLOCK_LIST : blockList;
+    totalBlockEncodedLength = encodedLength;
+    totalBlockDataLength = dataLength;
+  }
+
+  @VisibleForTesting
   public ShufflePartitionedData(int partitionId, ShufflePartitionedBlock[] blockList) {
     this.partitionId = partitionId;
-    this.blockList = blockList;
+    this.blockList = blockList == null ? EMPTY_BLOCK_LIST : blockList;
+    long encodedLength = 0L;
+    long dataLength = 0L;
+    for (ShufflePartitionedBlock block : this.blockList) {
+      encodedLength += block.getEncodedLength();
+      dataLength += block.getDataLength();
+    }
+    totalBlockEncodedLength = encodedLength;
+    totalBlockDataLength = dataLength;
   }
 
   @Override
@@ -47,20 +70,14 @@ public class ShufflePartitionedData {
   }
 
   public ShufflePartitionedBlock[] getBlockList() {
-    if (blockList == null) {
-      return new ShufflePartitionedBlock[] {};
-    }
     return blockList;
   }
 
-  public long getTotalBlockSize() {
-    if (blockList == null) {
-      return 0L;
-    }
-    long size = 0;
-    for (ShufflePartitionedBlock block : blockList) {
-      size += block.getSize();
-    }
-    return size;
+  public long getTotalBlockEncodedLength() {
+    return totalBlockEncodedLength;
+  }
+
+  public long getTotalBlockDataLength() {
+    return totalBlockDataLength;
   }
 }

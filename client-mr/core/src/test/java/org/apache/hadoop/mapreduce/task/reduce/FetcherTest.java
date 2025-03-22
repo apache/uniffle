@@ -37,7 +37,6 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.WritableComparator;
 import org.apache.hadoop.io.compress.BZip2Codec;
 import org.apache.hadoop.io.compress.CompressionCodec;
-import org.apache.hadoop.io.serializer.SerializationFactory;
 import org.apache.hadoop.mapred.Counters;
 import org.apache.hadoop.mapred.IFile;
 import org.apache.hadoop.mapred.InputSplit;
@@ -78,6 +77,7 @@ import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.rpc.StatusCode;
 import org.apache.uniffle.common.util.JavaUtils;
 import org.apache.uniffle.hadoop.shim.HadoopShimImpl;
+import org.apache.uniffle.proto.RssProtos;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
@@ -339,7 +339,6 @@ public class FetcherTest {
 
   private static byte[] writeMapOutputRss(Configuration conf, Map<String, String> keysToValues)
       throws IOException, InterruptedException {
-    SerializationFactory serializationFactory = new SerializationFactory(jobConf);
     MockShuffleWriteClient client = new MockShuffleWriteClient();
     client.setMode(2);
     Map<Integer, List<ShuffleServerInfo>> partitionToServers = JavaUtils.newConcurrentMap();
@@ -353,8 +352,9 @@ public class FetcherTest {
             10240,
             1,
             10,
-            serializationFactory.getSerializer(Text.class),
-            serializationFactory.getSerializer(Text.class),
+            Text.class,
+            Text.class,
+            jobConf,
             WritableComparator.get(Text.class),
             0.9,
             "test",
@@ -374,7 +374,8 @@ public class FetcherTest {
             0.2f,
             1024000L,
             new RssConf(),
-            null);
+            null,
+            false);
 
     for (String key : keysToValues.keySet()) {
       String value = keysToValues.get(key);
@@ -506,7 +507,9 @@ public class FetcherTest {
         RemoteStorageInfo storageType,
         ShuffleDataDistributionType distributionType,
         int maxConcurrencyPerPartitionToWrite,
-        int stageAttemptNumber) {}
+        int stageAttemptNumber,
+        RssProtos.MergeContext mergeContext,
+        Map<String, String> properties) {}
 
     @Override
     public boolean sendCommit(
@@ -515,7 +518,7 @@ public class FetcherTest {
     }
 
     @Override
-    public void registerCoordinators(String coordinators) {}
+    public void registerCoordinators(String coordinators, long retryIntervalMs, int retryTimes) {}
 
     @Override
     public Map<String, String> fetchClientConf(int timeoutMs) {
@@ -547,7 +550,9 @@ public class FetcherTest {
         Set<String> faultyServerIds,
         int stageId,
         int stageAttemptNumber,
-        boolean reassign) {
+        boolean reassign,
+        long retryIntervalMs,
+        int retryTimes) {
       return null;
     }
 
@@ -580,6 +585,14 @@ public class FetcherTest {
 
     @Override
     public void unregisterShuffle(String appId) {}
+
+    @Override
+    public void startSortMerge(
+        Set<ShuffleServerInfo> serverInfos,
+        String appId,
+        int shuffleId,
+        int partitionId,
+        Roaring64NavigableMap expectedTaskIds) {}
   }
 
   static class MockedShuffleReadClient implements ShuffleReadClient {

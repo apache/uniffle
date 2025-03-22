@@ -21,7 +21,7 @@ import java.util.Objects;
 
 public class FileBasedShuffleSegment extends ShuffleSegment
     implements Comparable<FileBasedShuffleSegment> {
-
+  private static final long serialVersionUID = 0L;
   public static final int SEGMENT_SIZE = 4 * Long.BYTES + 2 * Integer.BYTES;
   private long offset;
   private int length;
@@ -119,7 +119,7 @@ public class FileBasedShuffleSegment extends ShuffleSegment
         + uncompressLength
         + "], crc["
         + crc
-        + "], blockid["
+        + "], blockId["
         + blockId
         + "], taskAttemptId["
         + taskAttemptId

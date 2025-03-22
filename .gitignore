@@ -39,6 +39,7 @@ testbin/*
 *.swo
 *~
 deploy/kubernetes/operator/bin
+deploy/kubernetes/operator/local
 common/build/
 integration-test/common/build/
 storage/build/

@@ -20,13 +20,19 @@ package org.apache.uniffle.client.response;
 import org.apache.uniffle.common.ShuffleIndexResult;
 import org.apache.uniffle.common.netty.buffer.ManagedBuffer;
 import org.apache.uniffle.common.rpc.StatusCode;
+import org.apache.uniffle.common.util.Constants;
 
 public class RssGetShuffleIndexResponse extends ClientResponse {
   private final ShuffleIndexResult shuffleIndexResult;
 
-  public RssGetShuffleIndexResponse(StatusCode statusCode, ManagedBuffer data, long dataFileLen) {
+  public RssGetShuffleIndexResponse(
+      StatusCode statusCode, ManagedBuffer data, long dataFileLen, int[] storageIds) {
     super(statusCode);
-    this.shuffleIndexResult = new ShuffleIndexResult(data, dataFileLen);
+    this.shuffleIndexResult = new ShuffleIndexResult(data, dataFileLen, null, storageIds);
+  }
+
+  public RssGetShuffleIndexResponse(StatusCode statusCode, ManagedBuffer data, long dataFileLen) {
+    this(statusCode, data, dataFileLen, Constants.EMPTY_INT_ARRAY);
   }
 
   public ShuffleIndexResult getShuffleIndexResult() {

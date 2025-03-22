@@ -17,6 +17,9 @@
 
 package org.apache.uniffle.common.util;
 
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadInfo;
+import java.lang.management.ThreadMXBean;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -39,6 +42,7 @@ import org.slf4j.LoggerFactory;
 
 public class ThreadUtils {
   private static final Logger LOGGER = LoggerFactory.getLogger(ThreadUtils.class);
+  private static final ThreadMXBean THREAD_BEAN = ManagementFactory.getThreadMXBean();
 
   /** Provide a general method to create a thread factory to make the code more standardized */
   public static ThreadFactory getThreadFactory(String factoryName) {
@@ -182,5 +186,19 @@ public class ThreadUtils {
       long timeoutMs,
       String taskMsg) {
     return executeTasks(executorService, items, task, timeoutMs, taskMsg, future -> null);
+  }
+
+  public static synchronized void printThreadInfo(StringBuilder builder, String title) {
+    builder.append("Process Thread Dump: " + title + "\n");
+    builder.append(THREAD_BEAN.getThreadCount() + " active threads\n");
+    long[] threadIds = THREAD_BEAN.getAllThreadIds();
+    for (long id : threadIds) {
+      ThreadInfo info = THREAD_BEAN.getThreadInfo(id, Integer.MAX_VALUE);
+      if (info == null) {
+        // The thread is no longer active, ignore
+        continue;
+      }
+      builder.append(info + "\n");
+    }
   }
 }

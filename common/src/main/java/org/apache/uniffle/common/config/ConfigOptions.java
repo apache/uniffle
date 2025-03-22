@@ -208,7 +208,7 @@ public class ConfigOptions {
    * @param <E> list element type of the option
    */
   public static class ListConfigOptionBuilder<E> {
-    private static final String LIST_SPILTTER = ",";
+    private static final String LIST_SPLITTER = ",";
 
     private final String key;
     private final Class<E> clazz;
@@ -230,7 +230,7 @@ public class ConfigOptions {
               if (StringUtils.isEmpty(trimmedVal)) {
                 return Collections.emptyList();
               }
-              return Arrays.stream(trimmedVal.split(LIST_SPILTTER))
+              return Arrays.stream(trimmedVal.split(LIST_SPLITTER))
                   .map(atomicConverter::apply)
                   .collect(Collectors.toList());
             }

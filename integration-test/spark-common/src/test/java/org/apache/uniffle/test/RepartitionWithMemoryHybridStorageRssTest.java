@@ -18,7 +18,6 @@
 package org.apache.uniffle.test;
 
 import java.io.File;
-import java.util.Arrays;
 import java.util.Map;
 
 import com.google.common.collect.Maps;
@@ -35,36 +34,24 @@ import org.apache.uniffle.storage.util.StorageType;
 public class RepartitionWithMemoryHybridStorageRssTest extends RepartitionTest {
   @BeforeAll
   public static void setupServers(@TempDir File tmpDir) throws Exception {
-    CoordinatorConf coordinatorConf = getCoordinatorConf();
+    CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
     Map<String, String> dynamicConf = Maps.newHashMap();
     dynamicConf.put(CoordinatorConf.COORDINATOR_REMOTE_STORAGE_PATH.key(), HDFS_URI + "rss/test");
     dynamicConf.put(
         RssSparkConfig.RSS_STORAGE_TYPE.key(), StorageType.MEMORY_LOCALFILE_HDFS.name());
     addDynamicConf(coordinatorConf, dynamicConf);
-    createCoordinatorServer(coordinatorConf);
+    storeCoordinatorConf(coordinatorConf);
 
-    // local storage config
-    File dataDir1 = new File(tmpDir, "data1");
-    File dataDir2 = new File(tmpDir, "data2");
-    String grpcBasePath = dataDir1.getAbsolutePath() + "," + dataDir2.getAbsolutePath();
-    ShuffleServerConf grpcShuffleServerConf = buildShuffleServerConf(ServerType.GRPC, grpcBasePath);
+    storeShuffleServerConf(buildShuffleServerConf(0, tmpDir, ServerType.GRPC));
+    storeShuffleServerConf(buildShuffleServerConf(1, tmpDir, ServerType.GRPC_NETTY));
 
-    File dataDir3 = new File(tmpDir, "data3");
-    File dataDir4 = new File(tmpDir, "data4");
-    String nettyBasePath = dataDir3.getAbsolutePath() + "," + dataDir4.getAbsolutePath();
-    ShuffleServerConf nettyShuffleServerConf =
-        buildShuffleServerConf(ServerType.GRPC_NETTY, nettyBasePath);
-
-    createShuffleServer(grpcShuffleServerConf);
-    createShuffleServer(nettyShuffleServerConf);
-
-    startServers();
+    startServersWithRandomPorts();
   }
 
-  private static ShuffleServerConf buildShuffleServerConf(ServerType serverType, String basePath)
-      throws Exception {
-    ShuffleServerConf shuffleServerConf = getShuffleServerConf(serverType);
-    shuffleServerConf.set(ShuffleServerConf.RSS_STORAGE_BASE_PATH, Arrays.asList(basePath));
+  private static ShuffleServerConf buildShuffleServerConf(
+      int subDirIndex, File tmpDir, ServerType serverType) {
+    ShuffleServerConf shuffleServerConf =
+        shuffleServerConfWithoutPort(subDirIndex, tmpDir, serverType);
     shuffleServerConf.setLong(ShuffleServerConf.FLUSH_COLD_STORAGE_THRESHOLD_SIZE, 1024L * 1024L);
     return shuffleServerConf;
   }

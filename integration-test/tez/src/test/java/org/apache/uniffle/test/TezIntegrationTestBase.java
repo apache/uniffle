@@ -61,7 +61,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class TezIntegrationTestBase extends IntegrationTestBase {
 
   private static final Logger LOG = LoggerFactory.getLogger(TezIntegrationTestBase.class);
-  private static String TEST_ROOT_DIR =
+  private static final String TEST_ROOT_DIR =
       "target" + Path.SEPARATOR + TezIntegrationTestBase.class.getName() + "-tmpDir";
 
   private Path remoteStagingDir = null;
@@ -75,20 +75,33 @@ public class TezIntegrationTestBase extends IntegrationTestBase {
       miniTezCluster.init(conf);
       miniTezCluster.start();
     }
-    LOG.info("Starting corrdinators and shuffer servers");
-    CoordinatorConf coordinatorConf = getCoordinatorConf();
-    Map<String, String> dynamicConf = new HashMap();
+  }
+
+  protected static void setupServers(ShuffleServerConf serverConf) throws Exception {
+    LOG.info("Starting coordinators and shuffle servers");
+    CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
+    Map<String, String> dynamicConf = new HashMap<>();
     dynamicConf.put(CoordinatorConf.COORDINATOR_REMOTE_STORAGE_PATH.key(), HDFS_URI + "rss/test");
     dynamicConf.put(RssTezConfig.RSS_STORAGE_TYPE, StorageType.MEMORY_LOCALFILE_HDFS.name());
     addDynamicConf(coordinatorConf, dynamicConf);
-    createCoordinatorServer(coordinatorConf);
-    ShuffleServerConf shuffleServerConf = getShuffleServerConf(ServerType.GRPC);
-    createShuffleServer(shuffleServerConf);
-    startServers();
+    storeCoordinatorConf(coordinatorConf);
+    ShuffleServerConf grpcShuffleServerConf =
+        shuffleServerConfWithoutPort(0, null, ServerType.GRPC);
+    if (serverConf != null) {
+      grpcShuffleServerConf.addAll(serverConf);
+    }
+    storeShuffleServerConf(grpcShuffleServerConf);
+    ShuffleServerConf nettyShuffleServerConf =
+        shuffleServerConfWithoutPort(0, null, ServerType.GRPC_NETTY);
+    if (serverConf != null) {
+      nettyShuffleServerConf.addAll(serverConf);
+    }
+    storeShuffleServerConf(nettyShuffleServerConf);
+    startServersWithRandomPorts();
   }
 
   @AfterAll
-  public static void tearDown() throws Exception {
+  public static void tearDown() {
     if (miniTezCluster != null) {
       LOG.info("Stopping MiniTezCluster");
       miniTezCluster.stop();
@@ -117,25 +130,25 @@ public class TezIntegrationTestBase extends IntegrationTestBase {
     runTezApp(appConf, getTestTool(), getTestArgs("origin"));
     final String originPath = getOutputDir("origin");
 
-    // 2 Run Tez examples based on rss
-    appConf = new TezConfiguration(miniTezCluster.getConfig());
-    updateRssConfiguration(appConf);
-    appendAndUploadRssJars(appConf);
-    runTezApp(appConf, getTestTool(), getTestArgs("rss"));
-    final String rssPath = getOutputDir("rss");
+    // Run RSS tests with different configurations
+    runRssTest(ClientType.GRPC, null, "rss-grpc", originPath);
+    runRssTest(ClientType.GRPC, "/tmp/spill-grpc", "rss-spill-grpc", originPath);
+    runRssTest(ClientType.GRPC_NETTY, null, "rss-netty", originPath);
+    runRssTest(ClientType.GRPC_NETTY, "/tmp/spill-netty", "rss-spill-netty", originPath);
+  }
 
-    // 3 Run Tez examples base on rss with remote spill enable
-    appConf = new TezConfiguration(miniTezCluster.getConfig());
-    appConf.setBoolean(RssTezConfig.RSS_REDUCE_REMOTE_SPILL_ENABLED, true);
-    appConf.set(RssTezConfig.RSS_REMOTE_SPILL_STORAGE_PATH, "/tmp/spill");
-    updateRssConfiguration(appConf);
+  private void runRssTest(
+      ClientType clientType, String spillPath, String testName, String originPath)
+      throws Exception {
+    TezConfiguration appConf = new TezConfiguration(miniTezCluster.getConfig());
+    if (spillPath != null) {
+      appConf.setBoolean(RssTezConfig.RSS_REDUCE_REMOTE_SPILL_ENABLED, true);
+      appConf.set(RssTezConfig.RSS_REMOTE_SPILL_STORAGE_PATH, spillPath);
+    }
+    updateRssConfiguration(appConf, clientType);
     appendAndUploadRssJars(appConf);
-    runTezApp(appConf, getTestTool(), getTestArgs("rss-spill"));
-    final String rssPathSpill = getOutputDir("rss-spill");
-
-    // 4 verify the results
-    verifyResults(originPath, rssPath);
-    verifyResults(originPath, rssPathSpill);
+    runTezApp(appConf, getTestTool(), getTestArgs(testName));
+    verifyResults(originPath, getOutputDir(testName));
   }
 
   public Tool getTestTool() {
@@ -165,14 +178,14 @@ public class TezIntegrationTestBase extends IntegrationTestBase {
     appConf.set(TezConfiguration.TEZ_TASK_LAUNCH_CMD_OPTS, " -Xmx384m");
   }
 
-  public void updateRssConfiguration(Configuration appConf) throws Exception {
+  public void updateRssConfiguration(Configuration appConf, ClientType clientType) {
     appConf.set(TezConfiguration.TEZ_AM_STAGING_DIR, remoteStagingDir.toString());
     appConf.setInt(TezConfiguration.TEZ_AM_RESOURCE_MEMORY_MB, 512);
     appConf.set(TezConfiguration.TEZ_AM_LAUNCH_CMD_OPTS, " -Xmx384m");
     appConf.setInt(TezConfiguration.TEZ_TASK_RESOURCE_MEMORY_MB, 512);
     appConf.set(TezConfiguration.TEZ_TASK_LAUNCH_CMD_OPTS, " -Xmx384m");
-    appConf.set(RssTezConfig.RSS_COORDINATOR_QUORUM, COORDINATOR_QUORUM);
-    appConf.set(RssTezConfig.RSS_CLIENT_TYPE, ClientType.GRPC.name());
+    appConf.set(RssTezConfig.RSS_COORDINATOR_QUORUM, getQuorum());
+    appConf.set(RssTezConfig.RSS_CLIENT_TYPE, clientType.name());
     appConf.set(
         TezConfiguration.TEZ_AM_LAUNCH_CMD_OPTS,
         TezConfiguration.TEZ_AM_LAUNCH_CMD_OPTS_DEFAULT + " " + RssDAGAppMaster.class.getName());
@@ -221,8 +234,8 @@ public class TezIntegrationTestBase extends IntegrationTestBase {
     FileStatus[] rssFiles = fs.listStatus(rssPathFs);
     long originLen = 0;
     long rssLen = 0;
-    List<String> originFileList = new ArrayList();
-    List<String> rssFileList = new ArrayList();
+    List<String> originFileList = new ArrayList<>();
+    List<String> rssFileList = new ArrayList<>();
     for (FileStatus file : originFiles) {
       originLen += file.getLen();
       String name = file.getPath().getName();
@@ -297,8 +310,8 @@ public class TezIntegrationTestBase extends IntegrationTestBase {
 
     // 2 Load original result and rss result to hashmap
     Map<String, Integer> originalResults = new HashMap<>();
-    for (int i = 0; i < originFileList.size(); i++) {
-      Path path = new Path(originPath, originFileList.get(i));
+    for (String file : originFileList) {
+      Path path = new Path(originPath, file);
       LineReader lineReader = new LineReader(fs.open(path));
       Text line = new Text();
       while (lineReader.readLine(line) > 0) {
@@ -311,8 +324,8 @@ public class TezIntegrationTestBase extends IntegrationTestBase {
     }
 
     Map<String, Integer> rssResults = new HashMap<>();
-    for (int i = 0; i < rssFileList.size(); i++) {
-      Path path = new Path(rssPath, rssFileList.get(i));
+    for (String file : rssFileList) {
+      Path path = new Path(rssPath, file);
       LineReader lineReader = new LineReader(fs.open(path));
       Text line = new Text();
       while (lineReader.readLine(line) > 0) {

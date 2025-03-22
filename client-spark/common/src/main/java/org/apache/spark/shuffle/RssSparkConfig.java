@@ -17,6 +17,8 @@
 
 package org.apache.spark.shuffle;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 
 import scala.Tuple2;
@@ -296,7 +298,7 @@ public class RssSparkConfig {
       createIntegerBuilder(
               new ConfigBuilder(
                   SPARK_RSS_CONFIG_PREFIX + RssClientConfig.RSS_DATA_TRANSFER_POOL_SIZE))
-          .createWithDefault(RssClientConfig.RSS_DATA_TRANFER_POOL_SIZE_DEFAULT_VALUE);
+          .createWithDefault(RssClientConfig.RSS_DATA_TRANSFER_POOL_SIZE_DEFAULT_VALUE);
 
   public static final ConfigEntry<Integer> RSS_DATA_COMMIT_POOL_SIZE =
       createIntegerBuilder(
@@ -322,6 +324,9 @@ public class RssSparkConfig {
 
   public static final ConfigEntry<String> RSS_ACCESS_ID =
       createStringBuilder(new ConfigBuilder("spark.rss.access.id")).createWithDefault("");
+  public static final ConfigEntry<String> RSS_ACCESS_ID_PROVIDER_KEY =
+      createStringBuilder(new ConfigBuilder("spark.rss.access.id.providerKey"))
+          .createWithDefault("");
 
   public static final ConfigEntry<Integer> RSS_ACCESS_TIMEOUT_MS =
       createIntegerBuilder(
@@ -511,5 +516,16 @@ public class RssSparkConfig {
       rssConf.setString(key, tuple._2);
     }
     return rssConf;
+  }
+
+  public static Map<String, String> sparkConfToMap(SparkConf sparkConf) {
+    Map<String, String> map = new HashMap<>();
+
+    for (Tuple2<String, String> tuple : sparkConf.getAll()) {
+      String key = tuple._1;
+      map.put(key, tuple._2);
+    }
+
+    return map;
   }
 }

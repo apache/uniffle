@@ -17,6 +17,7 @@
 
 package org.apache.uniffle.test;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -33,6 +34,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -66,24 +68,20 @@ public class ShuffleServerConcurrentWriteOfHadoopTest extends ShuffleServerWithH
   private static final int MAX_CONCURRENCY = 3;
 
   @BeforeAll
-  public static void setupServers() throws Exception {
-    CoordinatorConf coordinatorConf = getCoordinatorConf();
-    createCoordinatorServer(coordinatorConf);
+  public static void setupServers(@TempDir File tmpDir) throws Exception {
+    CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
+    storeCoordinatorConf(coordinatorConf);
 
-    ShuffleServerConf grpcShuffleServerConf = buildShuffleServerConf(ServerType.GRPC);
-    createShuffleServer(grpcShuffleServerConf);
+    storeShuffleServerConf(buildShuffleServerConf(0, tmpDir, ServerType.GRPC));
+    storeShuffleServerConf(buildShuffleServerConf(1, tmpDir, ServerType.GRPC_NETTY));
 
-    ShuffleServerConf nettyShuffleServerConf = buildShuffleServerConf(ServerType.GRPC_NETTY);
-    createShuffleServer(nettyShuffleServerConf);
-
-    startServers();
-
-    grpcShuffleServerConfig = grpcShuffleServerConf;
-    nettyShuffleServerConfig = nettyShuffleServerConf;
+    startServersWithRandomPorts();
   }
 
-  private static ShuffleServerConf buildShuffleServerConf(ServerType serverType) throws Exception {
-    ShuffleServerConf shuffleServerConf = getShuffleServerConf(serverType);
+  protected static ShuffleServerConf buildShuffleServerConf(
+      int subDirIndex, File tempDir, ServerType serverType) {
+    ShuffleServerConf shuffleServerConf =
+        shuffleServerConfWithoutPort(subDirIndex, tempDir, serverType);
     shuffleServerConf.setString(ShuffleServerConf.RSS_STORAGE_TYPE.key(), StorageType.HDFS.name());
     shuffleServerConf.setInteger(
         ShuffleServerConf.SERVER_MAX_CONCURRENCY_OF_ONE_PARTITION, MAX_CONCURRENCY);
@@ -163,10 +161,9 @@ public class ShuffleServerConcurrentWriteOfHadoopTest extends ShuffleServerWithH
         isNettyMode
             ? new ShuffleServerInfo(
                 LOCALHOST,
-                nettyShuffleServerConfig.getInteger(ShuffleServerConf.RPC_SERVER_PORT),
-                nettyShuffleServerConfig.getInteger(ShuffleServerConf.NETTY_SERVER_PORT))
-            : new ShuffleServerInfo(
-                LOCALHOST, grpcShuffleServerConfig.getInteger(ShuffleServerConf.RPC_SERVER_PORT));
+                nettyShuffleServers.get(0).getGrpcPort(),
+                nettyShuffleServers.get(0).getNettyPort())
+            : new ShuffleServerInfo(LOCALHOST, grpcShuffleServers.get(0).getGrpcPort());
     Roaring64NavigableMap blocksBitmap = Roaring64NavigableMap.bitmapOf();
     bitmaps.stream()
         .forEach(

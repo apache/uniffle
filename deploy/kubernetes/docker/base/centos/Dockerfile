@@ -19,6 +19,12 @@
 ARG BASE_IMAGE=eclipse-temurin:11-jdk-centos7
 FROM ${BASE_IMAGE}
 
-RUN yum install lzo zlib zlib-devel lzop lsof netcat dnsutils less procps iputils-ping -y && \
+# Update the CentOS repository configuration
+RUN sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-* && \
+    sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-* && \
+    yum clean all && \
+    yum makecache
+
+RUN yum install lzo zlib zlib-devel lzop lsof netcat dnsutils less procps iputils-ping which -y && \
     yum clean all && \
     rm -rf /var/cache/yum

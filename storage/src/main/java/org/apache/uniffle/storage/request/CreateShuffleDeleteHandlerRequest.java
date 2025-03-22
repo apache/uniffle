@@ -24,16 +24,28 @@ public class CreateShuffleDeleteHandlerRequest {
   private String storageType;
   private Configuration conf;
   private String shuffleServerId;
+  private boolean isAsync;
 
   public CreateShuffleDeleteHandlerRequest(String storageType, Configuration conf) {
     this(storageType, conf, null);
   }
 
   public CreateShuffleDeleteHandlerRequest(
+      String storageType, Configuration conf, boolean isAsync) {
+    this(storageType, conf, null, isAsync);
+  }
+
+  public CreateShuffleDeleteHandlerRequest(
       String storageType, Configuration conf, String shuffleServerId) {
+    this(storageType, conf, shuffleServerId, false);
+  }
+
+  public CreateShuffleDeleteHandlerRequest(
+      String storageType, Configuration conf, String shuffleServerId, boolean isAsync) {
     this.storageType = storageType;
     this.conf = conf;
     this.shuffleServerId = shuffleServerId;
+    this.isAsync = isAsync;
   }
 
   public String getStorageType() {
@@ -46,5 +58,9 @@ public class CreateShuffleDeleteHandlerRequest {
 
   public String getShuffleServerId() {
     return shuffleServerId;
+  }
+
+  public boolean isAsync() {
+    return isAsync;
   }
 }

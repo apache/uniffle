@@ -62,6 +62,7 @@ public class LocalStorageChecker extends Checker {
   private boolean isHealthy = true;
   private ExecutorService workers;
   private ReconfigurableConfManager.Reconfigurable<Long> diskCheckerExecutionTimeoutMs;
+  private boolean markUnhealthyOnceDirCorrupted = false;
 
   public LocalStorageChecker(ShuffleServerConf conf, List<LocalStorage> storages) {
     super(conf);
@@ -88,6 +89,9 @@ public class LocalStorageChecker extends Checker {
     this.diskCheckerExecutionTimeoutMs =
         conf.getReconfigurableConf(ShuffleServerConf.HEALTH_CHECKER_LOCAL_STORAGE_EXECUTE_TIMEOUT);
     this.workers = Executors.newFixedThreadPool(basePaths.size());
+
+    this.markUnhealthyOnceDirCorrupted =
+        conf.get(ShuffleServerConf.SERVER_UNHEALTHY_ONCE_STORAGE_CORRUPTION);
   }
 
   @Override
@@ -174,6 +178,15 @@ public class LocalStorageChecker extends Checker {
     if (storageInfos.isEmpty()) {
       if (isHealthy) {
         LOG.info("shuffle server become unhealthy because of empty storage");
+      }
+      isHealthy = false;
+      return false;
+    }
+
+    if (markUnhealthyOnceDirCorrupted && corruptedDirs.get() > 0) {
+      if (isHealthy) {
+        LOG.info(
+            "shuffle server become unhealthy because {} corrupted dirs exist", corruptedDirs.get());
       }
       isHealthy = false;
       return false;
@@ -315,10 +328,7 @@ public class LocalStorageChecker extends Checker {
       } catch (Exception e) {
         LOG.error("Storage read and write error. Storage dir: {}", storageDir, e);
         // avoid check bad track failure due to lack of disk space
-        if (e.getMessage() != null && DEVICE_NO_SPACE_ERROR_MESSAGE.equals(e.getMessage())) {
-          return true;
-        }
-        return false;
+        return e.getMessage() != null && DEVICE_NO_SPACE_ERROR_MESSAGE.equals(e.getMessage());
       } finally {
         try {
           FileUtils.deleteDirectory(checkDir);

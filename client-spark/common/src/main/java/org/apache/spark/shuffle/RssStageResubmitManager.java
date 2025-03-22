@@ -17,29 +17,21 @@
 
 package org.apache.spark.shuffle;
 
-import java.util.Map;
 import java.util.Set;
 
 import com.google.common.collect.Sets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.apache.uniffle.common.util.JavaUtils;
-
 public class RssStageResubmitManager {
 
   private static final Logger LOG = LoggerFactory.getLogger(RssStageResubmitManager.class);
+
   /** Blacklist of the Shuffle Server when the write fails. */
   private Set<String> serverIdBlackList;
-  /**
-   * Prevent multiple tasks from reporting FetchFailed, resulting in multiple ShuffleServer
-   * assignments, stageID, Attemptnumber Whether to reassign the combination flag;
-   */
-  private Map<Integer, RssStageInfo> serverAssignedInfos;
 
   public RssStageResubmitManager() {
     this.serverIdBlackList = Sets.newConcurrentHashSet();
-    this.serverAssignedInfos = JavaUtils.newConcurrentMap();
   }
 
   public Set<String> getServerIdBlackList() {
@@ -52,18 +44,5 @@ public class RssStageResubmitManager {
 
   public void recordFailuresShuffleServer(String shuffleServerId) {
     serverIdBlackList.add(shuffleServerId);
-  }
-
-  public RssStageInfo recordAndGetServerAssignedInfo(int shuffleId, String stageIdAndAttempt) {
-
-    return serverAssignedInfos.computeIfAbsent(
-        shuffleId, id -> new RssStageInfo(stageIdAndAttempt, false));
-  }
-
-  public void recordAndGetServerAssignedInfo(
-      int shuffleId, String stageIdAndAttempt, boolean isRetried) {
-    serverAssignedInfos
-        .computeIfAbsent(shuffleId, id -> new RssStageInfo(stageIdAndAttempt, false))
-        .setReassigned(isRetried);
   }
 }

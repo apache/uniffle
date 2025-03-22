@@ -27,8 +27,17 @@
       </Policies>
       <DefaultRolloverStrategy max="10"/>
     </RollingFile>
-    <RollingFile name="auditAppender" fileName="${sys:audit.log.path}" filePattern="${sys:audit.log.path}.%i">
+    <RollingFile name="StorageAuditAppender" fileName="${sys:storage.audit.log.path}" filePattern="${sys:storage.audit.log.path}.%i"
+                 createOnDemand="true">
       <PatternLayout pattern="%m%n"/>
+      <Policies>
+        <SizeBasedTriggeringPolicy size="2GB"/>
+      </Policies>
+      <DefaultRolloverStrategy max="10"/>
+    </RollingFile>
+    <RollingFile name="RPCAuditAppender" fileName="${sys:rpc.audit.log.path}" filePattern="${sys:rpc.audit.log.path}.%i"
+                 createOnDemand="true">
+      <PatternLayout pattern="[%d{yyyy-MM-dd HH:mm:ss.SSS}] %m%n"/>
       <Policies>
         <SizeBasedTriggeringPolicy size="2GB"/>
       </Policies>
@@ -37,23 +46,25 @@
   </Appenders>
   <Loggers>
     <Root level="info">
-      <AppenderRef ref="console"/>
       <AppenderRef ref="RollingAppender"/>
     </Root>
     <Logger name="io.grpc.netty.shaded.io.grpc.netty" level="info" additivity="false">
-      <AppenderRef ref="console"/>
       <AppenderRef ref="RollingAppender"/>
     </Logger>
     <Logger name="org.apache.hadoop" level="info" additivity="false">
-      <AppenderRef ref="console"/>
       <AppenderRef ref="RollingAppender"/>
     </Logger>
     <Logger name="org.eclipse.jetty" level="info" additivity="false">
-      <AppenderRef ref="console"/>
       <AppenderRef ref="RollingAppender"/>
     </Logger>
-    <Logger name="audit" level="INFO" additivity="false">
-      <AppenderRef ref="auditAppender"/>
+    <Logger name="SHUFFLE_SERVER_STORAGE_AUDIT_LOG" level="INFO" additivity="false">
+      <AppenderRef ref="StorageAuditAppender"/>
+    </Logger>
+    <Logger name="SHUFFLE_SERVER_RPC_AUDIT_LOG" level="INFO" additivity="false">
+      <AppenderRef ref="RPCAuditAppender"/>
+    </Logger>
+    <Logger name="COORDINATOR_RPC_AUDIT_LOG" level="INFO" additivity="false">
+      <AppenderRef ref="RPCAuditAppender"/>
     </Logger>
   </Loggers>
 </Configuration>

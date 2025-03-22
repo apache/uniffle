@@ -22,13 +22,13 @@
     <parent>
         <artifactId>uniffle-parent</artifactId>
         <groupId>org.apache.uniffle</groupId>
-        <version>0.10.0-SNAPSHOT</version>
+        <version>0.11.0-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <groupId>org.apache.uniffle</groupId>
     <artifactId>rss-client-mr</artifactId>
-    <version>0.10.0-SNAPSHOT</version>
+    <version>0.11.0-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>Apache Uniffle Client (MapReduce)</name>
 
@@ -123,6 +123,18 @@
             <artifactId>hadoop${hadoop.short.version}-shim</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.apache.uniffle</groupId>
+            <artifactId>rss-common</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.uniffle</groupId>
+            <artifactId>rss-client</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -175,6 +187,7 @@
                                     <artifact>*:*</artifact>
                                     <excludes>
                                         <exclude>LICENSE</exclude>
+                                        <exclude>module-info.class</exclude>
                                         <exclude>META-INF/*.SF</exclude>
                                         <exclude>META-INF/*.DSA</exclude>
                                         <exclude>META-INF/*.RSA</exclude>

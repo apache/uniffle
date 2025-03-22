@@ -27,18 +27,15 @@ import org.apache.uniffle.client.request.RssGetShuffleResultForMultiPartRequest;
 import org.apache.uniffle.client.request.RssGetShuffleResultRequest;
 import org.apache.uniffle.client.request.RssPartitionToShuffleServerRequest;
 import org.apache.uniffle.client.request.RssReassignOnBlockSendFailureRequest;
-import org.apache.uniffle.client.request.RssReassignServersRequest;
 import org.apache.uniffle.client.request.RssReportShuffleFetchFailureRequest;
 import org.apache.uniffle.client.request.RssReportShuffleResultRequest;
 import org.apache.uniffle.client.request.RssReportShuffleWriteFailureRequest;
 import org.apache.uniffle.client.response.RssGetShuffleResultResponse;
 import org.apache.uniffle.client.response.RssReassignOnBlockSendFailureResponse;
 import org.apache.uniffle.client.response.RssReassignOnStageRetryResponse;
-import org.apache.uniffle.client.response.RssReassignServersResponse;
 import org.apache.uniffle.client.response.RssReportShuffleFetchFailureResponse;
 import org.apache.uniffle.client.response.RssReportShuffleResultResponse;
 import org.apache.uniffle.client.response.RssReportShuffleWriteFailureResponse;
-import org.apache.uniffle.common.config.RssBaseConf;
 import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.proto.RssProtos;
 import org.apache.uniffle.proto.RssProtos.ReportShuffleFetchFailureRequest;
@@ -48,22 +45,22 @@ import org.apache.uniffle.proto.ShuffleManagerGrpc;
 public class ShuffleManagerGrpcClient extends GrpcClient implements ShuffleManagerClient {
 
   private static final Logger LOG = LoggerFactory.getLogger(ShuffleManagerGrpcClient.class);
-  private static RssBaseConf rssConf = new RssBaseConf();
-  private long rpcTimeout = rssConf.getLong(RssBaseConf.RSS_CLIENT_TYPE_GRPC_TIMEOUT_MS);
+  private final long rpcTimeout;
   private ShuffleManagerGrpc.ShuffleManagerBlockingStub blockingStub;
 
-  public ShuffleManagerGrpcClient(String host, int port) {
-    this(host, port, 3);
+  public ShuffleManagerGrpcClient(String host, int port, long rpcTimeout) {
+    this(host, port, rpcTimeout, 3);
   }
 
-  public ShuffleManagerGrpcClient(String host, int port, int maxRetryAttempts) {
-    this(host, port, maxRetryAttempts, true);
+  public ShuffleManagerGrpcClient(String host, int port, long rpcTimeout, int maxRetryAttempts) {
+    this(host, port, rpcTimeout, maxRetryAttempts, true);
   }
 
   public ShuffleManagerGrpcClient(
-      String host, int port, int maxRetryAttempts, boolean usePlaintext) {
+      String host, int port, long rpcTimeout, int maxRetryAttempts, boolean usePlaintext) {
     super(host, port, maxRetryAttempts, usePlaintext);
     blockingStub = ShuffleManagerGrpc.newBlockingStub(channel);
+    this.rpcTimeout = rpcTimeout;
   }
 
   public ShuffleManagerGrpc.ShuffleManagerBlockingStub getBlockingStub() {
@@ -127,14 +124,6 @@ public class ShuffleManagerGrpcClient extends GrpcClient implements ShuffleManag
   }
 
   @Override
-  public RssReassignServersResponse reassignOnStageResubmit(RssReassignServersRequest req) {
-    RssProtos.ReassignServersRequest reassignServersRequest = req.toProto();
-    RssProtos.ReassignServersResponse reassignServersResponse =
-        getBlockingStub().reassignOnStageResubmit(reassignServersRequest);
-    return RssReassignServersResponse.fromProto(reassignServersResponse);
-  }
-
-  @Override
   public RssReassignOnBlockSendFailureResponse reassignOnBlockSendFailure(
       RssReassignOnBlockSendFailureRequest request) {
     RssProtos.RssReassignOnBlockSendFailureRequest protoReq =
@@ -164,5 +153,10 @@ public class ShuffleManagerGrpcClient extends GrpcClient implements ShuffleManag
     RssProtos.ReportShuffleResultResponse response =
         getBlockingStub().reportShuffleResult(request.toProto());
     return RssReportShuffleResultResponse.fromProto(response);
+  }
+
+  @Override
+  public boolean isClosed() {
+    return channel.isShutdown() || channel.isTerminated();
   }
 }

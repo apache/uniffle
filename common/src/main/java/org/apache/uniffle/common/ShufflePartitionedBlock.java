@@ -24,7 +24,7 @@ import io.netty.buffer.Unpooled;
 
 public class ShufflePartitionedBlock {
 
-  private int length;
+  private int dataLength;
   private long crc;
   private long blockId;
   private int uncompressLength;
@@ -32,8 +32,13 @@ public class ShufflePartitionedBlock {
   private long taskAttemptId;
 
   public ShufflePartitionedBlock(
-      int length, int uncompressLength, long crc, long blockId, long taskAttemptId, byte[] data) {
-    this.length = length;
+      int dataLength,
+      int uncompressLength,
+      long crc,
+      long blockId,
+      long taskAttemptId,
+      byte[] data) {
+    this.dataLength = dataLength;
     this.crc = crc;
     this.blockId = blockId;
     this.uncompressLength = uncompressLength;
@@ -42,8 +47,13 @@ public class ShufflePartitionedBlock {
   }
 
   public ShufflePartitionedBlock(
-      int length, int uncompressLength, long crc, long blockId, long taskAttemptId, ByteBuf data) {
-    this.length = length;
+      int dataLength,
+      int uncompressLength,
+      long crc,
+      long blockId,
+      long taskAttemptId,
+      ByteBuf data) {
+    this.dataLength = dataLength;
     this.crc = crc;
     this.blockId = blockId;
     this.uncompressLength = uncompressLength;
@@ -53,8 +63,8 @@ public class ShufflePartitionedBlock {
 
   // calculate the data size for this block in memory including metadata which are
   // blockId, crc, taskAttemptId, length, uncompressLength
-  public long getSize() {
-    return length + 3 * 8 + 2 * 4;
+  public long getEncodedLength() {
+    return dataLength + 3 * 8 + 2 * 4;
   }
 
   @Override
@@ -66,7 +76,7 @@ public class ShufflePartitionedBlock {
       return false;
     }
     ShufflePartitionedBlock that = (ShufflePartitionedBlock) o;
-    return length == that.length
+    return dataLength == that.dataLength
         && crc == that.crc
         && blockId == that.blockId
         && data.equals(that.data);
@@ -74,15 +84,15 @@ public class ShufflePartitionedBlock {
 
   @Override
   public int hashCode() {
-    return Objects.hash(length, crc, blockId, data);
+    return Objects.hash(dataLength, crc, blockId, data);
   }
 
-  public int getLength() {
-    return length;
+  public int getDataLength() {
+    return dataLength;
   }
 
-  public void setLength(int length) {
-    this.length = length;
+  public void setDataLength(int dataLength) {
+    this.dataLength = dataLength;
   }
 
   public long getCrc() {
@@ -126,7 +136,7 @@ public class ShufflePartitionedBlock {
     return "ShufflePartitionedBlock{blockId["
         + blockId
         + "], length["
-        + length
+        + dataLength
         + "], uncompressLength["
         + uncompressLength
         + "], crc["

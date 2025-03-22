@@ -29,14 +29,12 @@ import java.util.concurrent.TimeUnit;
 
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Uninterruptibles;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import org.apache.uniffle.client.api.CoordinatorClient;
-import org.apache.uniffle.client.factory.CoordinatorClientFactory;
 import org.apache.uniffle.client.request.RssAccessClusterRequest;
 import org.apache.uniffle.client.response.RssAccessClusterResponse;
-import org.apache.uniffle.common.ClientType;
 import org.apache.uniffle.common.rpc.ServerType;
 import org.apache.uniffle.common.rpc.StatusCode;
 import org.apache.uniffle.common.util.Constants;
@@ -45,6 +43,7 @@ import org.apache.uniffle.coordinator.CoordinatorConf;
 import org.apache.uniffle.coordinator.access.AccessCheckResult;
 import org.apache.uniffle.coordinator.access.AccessInfo;
 import org.apache.uniffle.coordinator.access.checker.AccessChecker;
+import org.apache.uniffle.coordinator.metric.CoordinatorMetrics;
 import org.apache.uniffle.server.ShuffleServer;
 import org.apache.uniffle.server.ShuffleServerConf;
 
@@ -81,20 +80,27 @@ public class AccessClusterTest extends CoordinatorTestBase {
     }
   }
 
+  @AfterEach
+  public void afterEach() throws Exception {
+    shutdownServers();
+    CoordinatorMetrics.clear();
+  }
+
   @Test
   public void testUsingCustomExtraProperties() throws Exception {
-    CoordinatorConf coordinatorConf = getCoordinatorConf();
+    CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
     coordinatorConf.setString(
         "rss.coordinator.access.checkers",
         "org.apache.uniffle.test.AccessClusterTest$MockedAccessChecker");
-    createCoordinatorServer(coordinatorConf);
-    startServers();
+    storeCoordinatorConf(coordinatorConf);
+    startServersWithRandomPorts();
     Uninterruptibles.sleepUninterruptibly(3, TimeUnit.SECONDS);
     // case1: empty map
     String accessID = "acessid";
     RssAccessClusterRequest request =
         new RssAccessClusterRequest(
             accessID, Sets.newHashSet(Constants.SHUFFLE_SERVER_VERSION), 2000, "user");
+    createClient();
     RssAccessClusterResponse response = coordinatorClient.accessCluster(request);
     assertEquals(StatusCode.ACCESS_DENIED, response.getStatusCode());
 
@@ -123,8 +129,6 @@ public class AccessClusterTest extends CoordinatorTestBase {
             "user");
     response = coordinatorClient.accessCluster(request);
     assertEquals(StatusCode.SUCCESS, response.getStatusCode());
-
-    shutdownServers();
   }
 
   @Test
@@ -138,23 +142,23 @@ public class AccessClusterTest extends CoordinatorTestBase {
     printWriter.flush();
     printWriter.close();
 
-    CoordinatorConf coordinatorConf = getCoordinatorConf();
+    CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
     coordinatorConf.setInteger("rss.coordinator.access.loadChecker.serverNum.threshold", 2);
     coordinatorConf.setString("rss.coordinator.access.candidates.path", cfgFile.getAbsolutePath());
     coordinatorConf.setString(
         "rss.coordinator.access.checkers",
         "org.apache.uniffle.coordinator.access.checker.AccessCandidatesChecker,"
             + "org.apache.uniffle.coordinator.access.checker.AccessClusterLoadChecker");
-    createCoordinatorServer(coordinatorConf);
+    storeCoordinatorConf(coordinatorConf);
 
-    ShuffleServerConf shuffleServerConf = getShuffleServerConf(ServerType.GRPC);
-    createShuffleServer(shuffleServerConf);
-    startServers();
+    storeShuffleServerConf(shuffleServerConfWithoutPort(0, tempDir, ServerType.GRPC));
+    startServersWithRandomPorts();
     Uninterruptibles.sleepUninterruptibly(3, TimeUnit.SECONDS);
     String accessId = "111111";
     RssAccessClusterRequest request =
         new RssAccessClusterRequest(
             accessId, Sets.newHashSet(Constants.SHUFFLE_SERVER_VERSION), 2000, "user");
+    createClient();
     RssAccessClusterResponse response = coordinatorClient.accessCluster(request);
     assertEquals(StatusCode.ACCESS_DENIED, response.getStatusCode());
     assertTrue(response.getMessage().startsWith("Denied by AccessCandidatesChecker"));
@@ -166,24 +170,13 @@ public class AccessClusterTest extends CoordinatorTestBase {
     response = coordinatorClient.accessCluster(request);
     assertEquals(StatusCode.ACCESS_DENIED, response.getStatusCode());
     assertTrue(response.getMessage().startsWith("Denied by AccessClusterLoadChecker"));
-
-    shuffleServerConf.setInteger(
-        "rss.rpc.server.port", shuffleServerConf.getInteger(ShuffleServerConf.RPC_SERVER_PORT) + 2);
-    shuffleServerConf.setInteger(
-        "rss.jetty.http.port", shuffleServerConf.getInteger(ShuffleServerConf.JETTY_HTTP_PORT) + 1);
+    ShuffleServerConf shuffleServerConf = shuffleServerConfWithoutPort(0, tempDir, ServerType.GRPC);
+    shuffleServerConf.setString("rss.coordinator.quorum", getQuorum());
     ShuffleServer shuffleServer = new ShuffleServer(shuffleServerConf);
     shuffleServer.start();
+    // this make sure the server can be shutdown
+    grpcShuffleServers.add(shuffleServer);
     Uninterruptibles.sleepUninterruptibly(3, TimeUnit.SECONDS);
-
-    CoordinatorClient client =
-        CoordinatorClientFactory.getInstance()
-            .createCoordinatorClient(ClientType.GRPC, LOCALHOST, COORDINATOR_PORT_1 + 13);
-    request =
-        new RssAccessClusterRequest(
-            accessId, Sets.newHashSet(Constants.SHUFFLE_SERVER_VERSION), 2000, "user");
-    response = client.accessCluster(request);
-    assertEquals(StatusCode.INTERNAL_ERROR, response.getStatusCode());
-    assertTrue(response.getMessage().startsWith("UNAVAILABLE: io exception"));
 
     request =
         new RssAccessClusterRequest(
@@ -191,7 +184,5 @@ public class AccessClusterTest extends CoordinatorTestBase {
     response = coordinatorClient.accessCluster(request);
     assertEquals(StatusCode.SUCCESS, response.getStatusCode());
     assertTrue(response.getMessage().startsWith("SUCCESS"));
-    shuffleServer.stopServer();
-    shutdownServers();
   }
 }

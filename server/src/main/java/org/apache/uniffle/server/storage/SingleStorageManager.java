@@ -18,6 +18,7 @@
 package org.apache.uniffle.server.storage;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import com.google.common.collect.Lists;
@@ -25,11 +26,13 @@ import com.google.common.util.concurrent.Uninterruptibles;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.apache.uniffle.common.ShufflePartitionedBlock;
+import org.apache.uniffle.common.storage.ApplicationStorageInfo;
+import org.apache.uniffle.common.util.JavaUtils;
 import org.apache.uniffle.common.util.RssUtils;
 import org.apache.uniffle.server.ShuffleDataFlushEvent;
 import org.apache.uniffle.server.ShuffleServerConf;
 import org.apache.uniffle.server.ShuffleServerMetrics;
+import org.apache.uniffle.server.event.PurgeEvent;
 import org.apache.uniffle.storage.common.Storage;
 import org.apache.uniffle.storage.common.StorageWriteMetrics;
 import org.apache.uniffle.storage.handler.api.ShuffleWriteHandler;
@@ -42,6 +45,8 @@ public abstract class SingleStorageManager implements StorageManager {
   private final long eventSizeThresholdL1;
   private final long eventSizeThresholdL2;
   private final long eventSizeThresholdL3;
+  protected final Map<String, ApplicationStorageInfo> appStorageInfoMap =
+      JavaUtils.newConcurrentMap();
 
   public SingleStorageManager(ShuffleServerConf conf) {
     writeSlowThreshold = conf.getSizeAsBytes(ShuffleServerConf.SERVER_WRITE_SLOW_THRESHOLD);
@@ -81,7 +86,7 @@ public abstract class SingleStorageManager implements StorageManager {
       if (metrics.getWriteTime() > writeSlowThreshold) {
         ShuffleServerMetrics.counterWriteSlow.inc();
       }
-      ShuffleServerMetrics.counterTotalWriteDataSize.inc(metrics.getEventSize());
+      ShuffleServerMetrics.counterTotalWriteDataSize.inc(metrics.getDataSize());
       ShuffleServerMetrics.counterTotalWriteBlockSize.inc(metrics.getWriteBlocks());
       if (metrics.getEventSize() < eventSizeThresholdL1) {
         ShuffleServerMetrics.counterEventSizeThresholdLevel1.inc();
@@ -91,6 +96,16 @@ public abstract class SingleStorageManager implements StorageManager {
         ShuffleServerMetrics.counterEventSizeThresholdLevel3.inc();
       } else {
         ShuffleServerMetrics.counterEventSizeThresholdLevel4.inc();
+      }
+      String appId = event.getAppId();
+      ApplicationStorageInfo appStorage =
+          appStorageInfoMap.computeIfAbsent(appId, id -> new ApplicationStorageInfo(appId));
+      appStorage.incUsedBytes(event.getDataLength());
+      ShuffleServerMetrics.gaugeStorageUsedBytes.inc(event.getDataLength());
+      if (event.getUnderStorage().containsWriteHandler(appId)) {
+        appStorage.incFileNum(1);
+        ShuffleServerMetrics.gaugeFlushFileNum.inc();
+        ShuffleServerMetrics.counterTotalFlushFileNum.inc();
       }
       Storage storage = event.getUnderStorage();
       if (storage != null) {
@@ -106,10 +121,7 @@ public abstract class SingleStorageManager implements StorageManager {
     try {
       Storage storage = selectStorage(event);
       // if storage is null, appId may not be registered
-      if (storage == null || !storage.canWrite()) {
-        return false;
-      }
-      return true;
+      return storage != null && storage.canWrite();
     } catch (Exception e) {
       LOG.warn("Exception happened when select storage", e);
       return false;
@@ -118,12 +130,7 @@ public abstract class SingleStorageManager implements StorageManager {
 
   public StorageWriteMetrics createStorageWriteMetrics(
       ShuffleDataFlushEvent event, long writeTime) {
-    long length = 0;
-    long blockNum = 0;
-    for (ShufflePartitionedBlock block : event.getShuffleBlocks()) {
-      length += block.getLength();
-      blockNum++;
-    }
+    long blockNum = event.getShuffleBlocks().size();
     List<Integer> partitions = Lists.newArrayList();
     for (int partition = event.getStartPartition();
         partition <= event.getEndPartition();
@@ -131,10 +138,10 @@ public abstract class SingleStorageManager implements StorageManager {
       partitions.add(partition);
     }
     return new StorageWriteMetrics(
-        event.getSize(),
+        event.getEncodedLength(),
         blockNum,
         writeTime,
-        length,
+        event.getDataLength(),
         partitions,
         event.getAppId(),
         event.getShuffleId());
@@ -148,5 +155,16 @@ public abstract class SingleStorageManager implements StorageManager {
   @Override
   public void stop() {
     // do nothing
+  }
+
+  public void removeAppStorageInfo(PurgeEvent event) {
+    String appId = event.getAppId();
+    ApplicationStorageInfo info = appStorageInfoMap.remove(appId);
+    if (info != null) {
+      ShuffleServerMetrics.gaugeStorageUsedBytes.dec(info.getUsedBytes());
+      ShuffleServerMetrics.gaugeFlushFileNum.dec(info.getFileNum());
+      ShuffleServerMetrics.counterTotalDeleteDataSize.inc(info.getUsedBytes());
+      ShuffleServerMetrics.counterTotalDeleteFileNum.inc(info.getFileNum());
+    }
   }
 }

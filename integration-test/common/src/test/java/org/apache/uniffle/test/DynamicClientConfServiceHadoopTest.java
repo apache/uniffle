@@ -67,63 +67,66 @@ public class DynamicClientConfServiceHadoopTest extends HadoopTestBase {
     Path path = new Path(cfgFile);
     FSDataOutputStream out = fileSystem.create(path);
     conf.set(CoordinatorConf.COORDINATOR_DYNAMIC_CLIENT_CONF_PATH, cfgFile);
-    DynamicClientConfService clientConfManager =
-        new DynamicClientConfService(conf, new Configuration());
-    assertEquals(0, clientConfManager.getRssClientConf().size());
+    try (DynamicClientConfService clientConfManager =
+        new DynamicClientConfService(conf, new Configuration())) {
+      assertEquals(0, clientConfManager.getRssClientConf().size());
+    }
 
-    PrintWriter printWriter = new PrintWriter(new OutputStreamWriter(out));
-    printWriter.println("spark.mock.1 abc");
-    printWriter.println(" spark.mock.2   123 ");
-    printWriter.println("spark.mock.3 true  ");
-    printWriter.flush();
-    printWriter.close();
-    clientConfManager = new DynamicClientConfService(conf, hadoopConf);
-    sleep(1200);
-    Map<String, String> clientConf = clientConfManager.getRssClientConf();
-    assertEquals("abc", clientConf.get("spark.mock.1"));
-    assertEquals("123", clientConf.get("spark.mock.2"));
-    assertEquals("true", clientConf.get("spark.mock.3"));
-    assertEquals(3, clientConf.size());
+    try (PrintWriter printWriter = new PrintWriter(new OutputStreamWriter(out))) {
+      printWriter.println("spark.mock.1 abc");
+      printWriter.println(" spark.mock.2   123 ");
+      printWriter.println("spark.mock.3 true  ");
+      printWriter.flush();
+    }
+    try (DynamicClientConfService clientConfManager =
+        new DynamicClientConfService(conf, hadoopConf)) {
+      sleep(1200);
+      Map<String, String> clientConf = clientConfManager.getRssClientConf();
+      assertEquals("abc", clientConf.get("spark.mock.1"));
+      assertEquals("123", clientConf.get("spark.mock.2"));
+      assertEquals("true", clientConf.get("spark.mock.3"));
+      assertEquals(3, clientConf.size());
 
-    // ignore empty or wrong content
-    printWriter.println("");
-    printWriter.flush();
-    printWriter.close();
-    sleep(1300);
-    assertTrue(fileSystem.exists(path));
-    clientConf = clientConfManager.getRssClientConf();
-    assertEquals("abc", clientConf.get("spark.mock.1"));
-    assertEquals("123", clientConf.get("spark.mock.2"));
-    assertEquals("true", clientConf.get("spark.mock.3"));
-    assertEquals(3, clientConf.size());
+      // ignore empty or wrong content
+      try (PrintWriter printWriter = new PrintWriter(new OutputStreamWriter(out))) {
+        printWriter.println("");
+        printWriter.flush();
+      }
+      sleep(1300);
+      assertTrue(fileSystem.exists(path));
+      clientConf = clientConfManager.getRssClientConf();
+      assertEquals("abc", clientConf.get("spark.mock.1"));
+      assertEquals("123", clientConf.get("spark.mock.2"));
+      assertEquals("true", clientConf.get("spark.mock.3"));
+      assertEquals(3, clientConf.size());
 
-    // the config will not be changed when the conf file is deleted
-    fileSystem.delete(path, true);
-    assertFalse(fileSystem.exists(path));
-    sleep(1200);
-    clientConf = clientConfManager.getRssClientConf();
-    assertEquals("abc", clientConf.get("spark.mock.1"));
-    assertEquals("123", clientConf.get("spark.mock.2"));
-    assertEquals("true", clientConf.get("spark.mock.3"));
-    assertEquals(3, clientConf.size());
+      // the config will not be changed when the conf file is deleted
+      fileSystem.delete(path, true);
+      assertFalse(fileSystem.exists(path));
+      sleep(1200);
+      clientConf = clientConfManager.getRssClientConf();
+      assertEquals("abc", clientConf.get("spark.mock.1"));
+      assertEquals("123", clientConf.get("spark.mock.2"));
+      assertEquals("true", clientConf.get("spark.mock.3"));
+      assertEquals(3, clientConf.size());
 
-    // the normal update config process, move the new conf file to the old one
-    Path tmpPath = new Path(cfgFile + ".tmp");
-    out = fileSystem.create(tmpPath);
-    printWriter = new PrintWriter(new OutputStreamWriter(out));
-    printWriter.println("spark.mock.4 deadbeaf");
-    printWriter.println("spark.mock.5 9527");
-    printWriter.println("spark.mock.6 9527 3423");
-    printWriter.println("spark.mock.7");
-    printWriter.close();
-    fileSystem.rename(tmpPath, path);
-    sleep(1200);
-    clientConf = clientConfManager.getRssClientConf();
-    assertEquals("deadbeaf", clientConf.get("spark.mock.4"));
-    assertEquals("9527", clientConf.get("spark.mock.5"));
-    assertEquals(2, clientConf.size());
-    assertFalse(clientConf.containsKey("spark.mock.6"));
-    assertFalse(clientConf.containsKey("spark.mock.7"));
-    clientConfManager.close();
+      // the normal update config process, move the new conf file to the old one
+      Path tmpPath = new Path(cfgFile + ".tmp");
+      out = fileSystem.create(tmpPath);
+      try (PrintWriter printWriter = new PrintWriter(new OutputStreamWriter(out))) {
+        printWriter.println("spark.mock.4 deadbeaf");
+        printWriter.println("spark.mock.5 9527");
+        printWriter.println("spark.mock.6 9527 3423");
+        printWriter.println("spark.mock.7");
+      }
+      fileSystem.rename(tmpPath, path);
+      sleep(1200);
+      clientConf = clientConfManager.getRssClientConf();
+      assertEquals("deadbeaf", clientConf.get("spark.mock.4"));
+      assertEquals("9527", clientConf.get("spark.mock.5"));
+      assertEquals(2, clientConf.size());
+      assertFalse(clientConf.containsKey("spark.mock.6"));
+      assertFalse(clientConf.containsKey("spark.mock.7"));
+    }
   }
 }

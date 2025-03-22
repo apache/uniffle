@@ -33,6 +33,7 @@ import org.apache.uniffle.common.ShuffleServerInfo;
  * <p>It's to be broadcast to executors and referenced by shuffle tasks.
  */
 public class SimpleShuffleHandleInfo extends ShuffleHandleInfoBase implements Serializable {
+  private static final long serialVersionUID = 0L;
   private Map<Integer, List<ShuffleServerInfo>> partitionToServers;
 
   public SimpleShuffleHandleInfo(

@@ -17,8 +17,6 @@
 
 package org.apache.uniffle.common.web;
 
-import java.io.FileNotFoundException;
-
 import org.eclipse.jetty.server.Handler;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
@@ -31,14 +29,14 @@ import org.apache.uniffle.common.util.ExitUtils;
 import org.apache.uniffle.common.util.ExitUtils.ExitException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class JettyServerTest {
-
   @Test
-  public void jettyServerTest() throws FileNotFoundException {
+  public void jettyServerTest() throws Exception {
     RssBaseConf conf = new RssBaseConf();
-    conf.setString("rss.jetty.http.port", "9527");
+    conf.setInteger("rss.jetty.http.port", 0);
     JettyServer jettyServer = new JettyServer(conf);
     Server server = jettyServer.getServer();
 
@@ -50,28 +48,33 @@ public class JettyServerTest {
     assertEquals(server, server.getHandler().getServer());
     assertTrue(server.getConnectors()[0] instanceof ServerConnector);
     ServerConnector connector = (ServerConnector) server.getConnectors()[0];
-    assertEquals(9527, connector.getPort());
+    assertEquals(0, connector.getPort());
+    jettyServer.start();
+    assertEquals(jettyServer.getHttpPort(), connector.getLocalPort());
+    assertNotEquals(jettyServer.getHttpPort(), 0);
 
     assertEquals(1, server.getHandlers().length);
     Handler handler = server.getHandler();
     assertTrue(handler instanceof ServletContextHandler);
+    jettyServer.stop();
   }
 
   @Test
   public void jettyServerStartTest() throws Exception {
     RssBaseConf conf = new RssBaseConf();
-    conf.setString("rss.jetty.http.port", "9527");
+    conf.setInteger("rss.jetty.http.port", 0);
     JettyServer jettyServer1 = new JettyServer(conf);
-    JettyServer jettyServer2 = new JettyServer(conf);
-    jettyServer1.start();
 
+    int portExist = jettyServer1.start();
+    conf.setInteger("rss.jetty.http.port", portExist);
+    JettyServer jettyServer2 = new JettyServer(conf);
     ExitUtils.disableSystemExit();
     final String expectMessage = "Fail to start jetty http server";
     final int expectStatus = 1;
     try {
       jettyServer2.start();
     } catch (Exception e) {
-      assertEquals(expectMessage, e.getMessage());
+      assertTrue(e.getMessage().startsWith(expectMessage));
       assertEquals(expectStatus, ((ExitException) e).getStatus());
     }
 

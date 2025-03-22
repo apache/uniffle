@@ -83,6 +83,7 @@ public class HadoopStorage extends AbstractStorage {
       String user = request.getUser();
       if (request.getMaxFileNumber() == 1) {
         return new HadoopShuffleWriteHandler(
+            request.getRssBaseConf(),
             request.getAppId(),
             request.getShuffleId(),
             request.getStartPartition(),
@@ -93,6 +94,7 @@ public class HadoopStorage extends AbstractStorage {
             user);
       } else {
         return new PooledHadoopShuffleWriteHandler(
+            request.getRssBaseConf(),
             request.getAppId(),
             request.getShuffleId(),
             request.getStartPartition(),

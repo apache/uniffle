@@ -30,8 +30,13 @@ import org.apache.hbase.thirdparty.javax.ws.rs.Produces;
 import org.apache.hbase.thirdparty.javax.ws.rs.core.Context;
 import org.apache.hbase.thirdparty.javax.ws.rs.core.MediaType;
 
+import org.apache.uniffle.common.util.Constants;
 import org.apache.uniffle.common.util.RssUtils;
+import org.apache.uniffle.common.util.ThreadUtils;
 import org.apache.uniffle.common.web.resource.BaseResource;
+import org.apache.uniffle.common.web.resource.ConfOpsResource;
+import org.apache.uniffle.common.web.resource.MetricResource;
+import org.apache.uniffle.common.web.resource.PrometheusMetricResource;
 import org.apache.uniffle.common.web.resource.Response;
 import org.apache.uniffle.coordinator.CoordinatorConf;
 import org.apache.uniffle.coordinator.CoordinatorServer;
@@ -65,11 +70,11 @@ public class CoordinatorServerResource extends BaseResource {
 
   @GET
   @Path("/info")
-  public Response<Map<String, String>> getCoordinatorInfo() {
+  public Response<Map<String, Object>> getCoordinatorInfo() {
     return execute(
         () -> {
           final CoordinatorConf coordinatorConf = getCoordinatorServer().getCoordinatorConf();
-          Map<String, String> coordinatorServerInfo = new HashMap<>();
+          Map<String, Object> coordinatorServerInfo = new HashMap<>();
           coordinatorServerInfo.put(
               "coordinatorId", coordinatorConf.getString(CoordinatorUtils.COORDINATOR_ID, "none"));
           coordinatorServerInfo.put("serverIp", RssUtils.getHostIp());
@@ -77,6 +82,9 @@ public class CoordinatorServerResource extends BaseResource {
               "serverPort", String.valueOf(coordinatorConf.getInteger("rss.rpc.server.port", 0)));
           coordinatorServerInfo.put(
               "serverWebPort", String.valueOf(coordinatorConf.get(JETTY_HTTP_PORT)));
+          coordinatorServerInfo.put("version", Constants.VERSION);
+          coordinatorServerInfo.put("gitCommitId", Constants.REVISION_SHORT);
+          coordinatorServerInfo.put("startTime", getCoordinatorServer().getStartTimeMs());
           return coordinatorServerInfo;
         });
   }
@@ -84,5 +92,28 @@ public class CoordinatorServerResource extends BaseResource {
   private CoordinatorServer getCoordinatorServer() {
     return (CoordinatorServer)
         servletContext.getAttribute(CoordinatorServer.class.getCanonicalName());
+  }
+
+  @Path("/metrics")
+  public Class<MetricResource> getMetricResource() {
+    return MetricResource.class;
+  }
+
+  @Path("/prometheus/metrics")
+  public Class<PrometheusMetricResource> getPrometheusMetricResource() {
+    return PrometheusMetricResource.class;
+  }
+
+  @GET
+  @Path("/stacks")
+  public String getCoordinatorStacks() {
+    StringBuilder builder = new StringBuilder();
+    ThreadUtils.printThreadInfo(builder, "");
+    return builder.toString();
+  }
+
+  @Path("/conf/ops")
+  public Class<ConfOpsResource> getConfOps() {
+    return ConfOpsResource.class;
   }
 }

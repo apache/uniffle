@@ -28,7 +28,6 @@ import com.google.common.collect.Sets;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.RawComparator;
-import org.apache.hadoop.io.serializer.SerializationFactory;
 import org.apache.hadoop.mapreduce.JobContext;
 import org.apache.hadoop.mapreduce.RssMRConfig;
 import org.apache.hadoop.mapreduce.RssMRUtils;
@@ -131,7 +130,6 @@ public class RssMapOutputCollector<K extends Object, V extends Object>
 
     Map<Integer, List<ShuffleServerInfo>> partitionToServers = createAssignmentMap(rssJobConf);
 
-    SerializationFactory serializationFactory = new SerializationFactory(mrJobConf);
     long maxSegmentSize =
         RssMRUtils.getLong(
             rssJobConf,
@@ -148,13 +146,19 @@ public class RssMapOutputCollector<K extends Object, V extends Object>
             RssMRConfig.RSS_WRITER_BUFFER_SIZE,
             RssMRConfig.RSS_WRITER_BUFFER_SIZE_DEFAULT_VALUE);
     shuffleClient = RssMRUtils.createShuffleClient(mrJobConf);
+    boolean isRemoteMergeEnable =
+        RssMRUtils.getBoolean(
+            rssJobConf,
+            RssMRConfig.RSS_REMOTE_MERGE_ENABLE,
+            RssMRConfig.RSS_REMOTE_MERGE_ENABLE_DEFAULT);
     bufferManager =
         new SortWriteBufferManager(
             (long) (ByteUnit.MiB.toBytes(sortmb) * sortThreshold),
             taskAttemptId,
             batch,
-            serializationFactory.getSerializer(keyClass),
-            serializationFactory.getSerializer(valClass),
+            keyClass,
+            valClass,
+            mrJobConf,
             comparator,
             memoryThreshold,
             appId,
@@ -174,7 +178,8 @@ public class RssMapOutputCollector<K extends Object, V extends Object>
             sendThreshold,
             maxBufferSize,
             RssMRConfig.toRssConf(rssJobConf),
-            combinerRunner);
+            combinerRunner,
+            isRemoteMergeEnable);
   }
 
   private Map<Integer, List<ShuffleServerInfo>> createAssignmentMap(Configuration jobConf) {

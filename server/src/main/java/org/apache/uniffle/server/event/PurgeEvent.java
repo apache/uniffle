@@ -25,11 +25,19 @@ public abstract class PurgeEvent {
   private String appId;
   private String user;
   private List<Integer> shuffleIds;
+  // Whether to enable the deletion mode: Rename files and then delete them asynchronously.
+  private boolean isRenameAndDelete;
 
   public PurgeEvent(String appId, String user, List<Integer> shuffleIds) {
+    this(appId, user, shuffleIds, false);
+  }
+
+  public PurgeEvent(
+      String appId, String user, List<Integer> shuffleIds, boolean isRenameAndDelete) {
     this.appId = appId;
     this.user = user;
     this.shuffleIds = shuffleIds;
+    this.isRenameAndDelete = isRenameAndDelete;
   }
 
   public String getAppId() {
@@ -44,6 +52,10 @@ public abstract class PurgeEvent {
     return shuffleIds;
   }
 
+  public boolean isRenameAndDelete() {
+    return isRenameAndDelete;
+  }
+
   @Override
   public String toString() {
     return this.getClass().getSimpleName()
@@ -56,6 +68,8 @@ public abstract class PurgeEvent {
         + '\''
         + ", shuffleIds="
         + shuffleIds
+        + ", isRenameAndDelete="
+        + isRenameAndDelete
         + '}';
   }
 }

@@ -132,7 +132,7 @@ public class SimpleClusterManagerTest {
   public void getLostServerListTest() throws Exception {
     CoordinatorConf coordinatorConf = new CoordinatorConf();
     // Shorten the heartbeat time
-    coordinatorConf.setLong(CoordinatorConf.COORDINATOR_HEARTBEAT_TIMEOUT, 300L);
+    coordinatorConf.setLong(CoordinatorConf.COORDINATOR_HEARTBEAT_TIMEOUT, 600L);
     try (SimpleClusterManager clusterManager =
         new SimpleClusterManager(coordinatorConf, new Configuration())) {
       ServerNode sn1 = new ServerNode("sn1", "ip", 0, 100L, 50L, 20, 10, grpcTags);
@@ -174,7 +174,7 @@ public class SimpleClusterManagerTest {
   public void getUnhealthyServerList() throws Exception {
     CoordinatorConf coordinatorConf = new CoordinatorConf();
     // Shorten the heartbeat time
-    coordinatorConf.setLong(CoordinatorConf.COORDINATOR_HEARTBEAT_TIMEOUT, 300L);
+    coordinatorConf.setLong(CoordinatorConf.COORDINATOR_HEARTBEAT_TIMEOUT, 600L);
     try (SimpleClusterManager clusterManager =
         new SimpleClusterManager(coordinatorConf, new Configuration())) {
       ServerNode sn1 = new ServerNode("sn1", "ip", 0, 100L, 50L, 20, 10, grpcTags);
@@ -375,7 +375,7 @@ public class SimpleClusterManagerTest {
   @Test
   public void heartbeatTimeoutTest() throws Exception {
     CoordinatorConf ssc = new CoordinatorConf();
-    ssc.setLong(CoordinatorConf.COORDINATOR_HEARTBEAT_TIMEOUT, 300L);
+    ssc.setLong(CoordinatorConf.COORDINATOR_HEARTBEAT_TIMEOUT, 600L);
     try (SimpleClusterManager clusterManager = new SimpleClusterManager(ssc, new Configuration())) {
       addNode("sn0", clusterManager);
       addNode("sn1", clusterManager);
@@ -439,11 +439,11 @@ public class SimpleClusterManagerTest {
       scm.add(new ServerNode("node2-1999", "ip", 0, 100L, 50L, 20, 10, testTags));
       scm.add(new ServerNode("node3-1999", "ip", 0, 100L, 50L, 20, 10, testTags));
       scm.add(new ServerNode("node4-1999", "ip", 0, 100L, 50L, 20, 10, testTags));
-      assertTrue(scm.getExcludeNodes().isEmpty());
+      assertTrue(scm.getExcludedNodes().isEmpty());
 
       final Set<String> nodes = Sets.newHashSet("node1-1999", "node2-1999");
       writeExcludeHosts(excludeNodesPath, nodes);
-      await().atMost(3, TimeUnit.SECONDS).until(() -> scm.getExcludeNodes().equals(nodes));
+      await().atMost(3, TimeUnit.SECONDS).until(() -> scm.getExcludedNodes().equals(nodes));
       List<ServerNode> availableNodes = scm.getServerList(testTags);
       assertEquals(2, availableNodes.size());
       Set<String> remainNodes = Sets.newHashSet("node3-1999", "node4-1999");
@@ -452,8 +452,8 @@ public class SimpleClusterManagerTest {
 
       final Set<String> nodes2 = Sets.newHashSet("node3-1999", "node4-1999");
       writeExcludeHosts(excludeNodesPath, nodes2);
-      await().atMost(3, TimeUnit.SECONDS).until(() -> scm.getExcludeNodes().equals(nodes2));
-      assertEquals(nodes2, scm.getExcludeNodes());
+      await().atMost(3, TimeUnit.SECONDS).until(() -> scm.getExcludedNodes().equals(nodes2));
+      assertEquals(nodes2, scm.getExcludedNodes());
 
       final Set<String> comments =
           Sets.newHashSet(
@@ -464,26 +464,26 @@ public class SimpleClusterManagerTest {
               "# The content of the third comment");
       final Set<String> noComments = Sets.newHashSet("node3-1999", "node4-1999");
       writeExcludeHosts(excludeNodesPath, comments);
-      await().atMost(3, TimeUnit.SECONDS).until(() -> scm.getExcludeNodes().equals(noComments));
-      assertEquals(noComments, scm.getExcludeNodes());
+      await().atMost(3, TimeUnit.SECONDS).until(() -> scm.getExcludedNodes().equals(noComments));
+      assertEquals(noComments, scm.getExcludedNodes());
 
-      Set<String> excludeNodes = scm.getExcludeNodes();
+      Set<String> excludeNodes = scm.getExcludedNodes();
       Thread.sleep(3000);
       // excludeNodes shouldn't be updated if file has no change
-      assertEquals(excludeNodes, scm.getExcludeNodes());
+      assertEquals(excludeNodes, scm.getExcludedNodes());
 
       writeExcludeHosts(excludeNodesPath, Sets.newHashSet());
       // excludeNodes is an empty file, set should be empty
-      await().atMost(3, TimeUnit.SECONDS).until(() -> scm.getExcludeNodes().isEmpty());
+      await().atMost(3, TimeUnit.SECONDS).until(() -> scm.getExcludedNodes().isEmpty());
 
       final Set<String> nodes3 = Sets.newHashSet("node1-1999");
       writeExcludeHosts(excludeNodesPath, nodes3);
-      await().atMost(3, TimeUnit.SECONDS).until(() -> scm.getExcludeNodes().equals(nodes3));
+      await().atMost(3, TimeUnit.SECONDS).until(() -> scm.getExcludedNodes().equals(nodes3));
 
       File blacklistFile = new File(excludeNodesPath);
       assertTrue(blacklistFile.delete());
       // excludeNodes is deleted, set should be empty
-      await().atMost(3, TimeUnit.SECONDS).until(() -> scm.getExcludeNodes().isEmpty());
+      await().atMost(3, TimeUnit.SECONDS).until(() -> scm.getExcludedNodes().isEmpty());
 
       remainNodes = Sets.newHashSet("node1-1999", "node2-1999", "node3-1999", "node4-1999");
       availableNodes = scm.getServerList(testTags);
@@ -515,7 +515,7 @@ public class SimpleClusterManagerTest {
       scm.add(new ServerNode("node3-1999", "ip", 0, 100L, 50L, 20, 10, testTags));
       scm.add(new ServerNode("node4-1999", "ip", 0, 100L, 50L, 20, 10, testTags));
       assertEquals(4, scm.getNodesNum());
-      assertEquals(2, scm.getExcludeNodes().size());
+      assertEquals(2, scm.getExcludedNodes().size());
     }
     File blacklistFile = new File(excludeNodesPath);
     assertTrue(blacklistFile.delete());

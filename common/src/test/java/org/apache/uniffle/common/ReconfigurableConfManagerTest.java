@@ -71,6 +71,8 @@ public class ReconfigurableConfManagerTest {
         .until(() -> portReconfigurable.get().equals(100));
     assertEquals(200, rpcReconfigurable.get());
     assertEquals(Arrays.asList("/d1"), typeReconfigurable.get());
+    // The base config should be updated too
+    assertEquals(200, base.getInteger(RPC_SERVER_PORT));
   }
 
   @Test

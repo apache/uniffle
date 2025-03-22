@@ -17,28 +17,12 @@
 
 package org.apache.uniffle.coordinator.web.vo;
 
+import lombok.AllArgsConstructor;
+import lombok.Data;
+
+@Data
+@AllArgsConstructor
 public class CoordinatorConfVO {
   private String argumentKey;
   private String argumentValue;
-
-  public CoordinatorConfVO(String argumentKey, String argumentValue) {
-    this.argumentKey = argumentKey;
-    this.argumentValue = argumentValue;
-  }
-
-  public String getArgumentKey() {
-    return argumentKey;
-  }
-
-  public void setArgumentKey(String argumentKey) {
-    this.argumentKey = argumentKey;
-  }
-
-  public String getArgumentValue() {
-    return argumentValue;
-  }
-
-  public void setArgumentValue(String argumentValue) {
-    this.argumentValue = argumentValue;
-  }
 }

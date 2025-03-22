@@ -1,8 +1,15 @@
+# NOTICE: Please remove all these generated template comments before request review(include this line)
+
 <!--
 1. Title: [#<issue>] <type>(<scope>): <subject>
    Examples:
      - "[#123] feat(operator): support xxx"
+     - "[#123] feat(server,coordinator): support xxx"
+     - "[#123] feat(common): support xxx"
+     - "[MINOR] improvement(script): fix style"
+     - "[MINOR] improvement(ci): add some examples and notice"
      - "[#233] fix: check null before access result in xxx"
+     - "[#233][FOLLOWUP] improvement(dashboard): display something xxx"
      - "[MINOR] refactor: fix typo in variable name"
      - "[MINOR] docs: fix typo in README"
      - "[#255] test: fix flaky test NameOfTheTest"
@@ -13,27 +20,30 @@
 -->
 
 ### What changes were proposed in this pull request?
-
+<!--
 (Please outline the changes and how this PR fixes the issue.)
+-->
 
 ### Why are the changes needed?
-
+<!--
 (Please clarify why the changes are needed. For instance,
   1. If you propose a new API, clarify the use case for a new API.
   2. If you fix a bug, describe the bug.)
 
 Fix: # (issue)
+-->
 
 ### Does this PR introduce _any_ user-facing change?
-
+<!--
 (Please list the user-facing changes introduced by your change, including
   1. Change in user-facing APIs.
   2. Addition or removal of property keys.)
-
+-->
 No.
 
 ### How was this patch tested?
-
+<!--
 (Please test your changes, and provide instructions on how to test it:
   1. If you add a feature or fix a bug, add a test to cover your changes. 
   2. If you fix a flaky test, repeat it for many times to prove it works.)
+-->

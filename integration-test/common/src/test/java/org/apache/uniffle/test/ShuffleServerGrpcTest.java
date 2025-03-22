@@ -19,7 +19,6 @@ package org.apache.uniffle.test;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -92,47 +91,32 @@ public class ShuffleServerGrpcTest extends IntegrationTestBase {
 
   private ShuffleServerGrpcClient grpcShuffleServerClient;
   private ShuffleServerGrpcNettyClient nettyShuffleServerClient;
-  private static ShuffleServerConf grpcShuffleServerConfig;
-  private static ShuffleServerConf nettyShuffleServerConfig;
   private final AtomicInteger atomicInteger = new AtomicInteger(0);
   private static final BlockIdLayout layout = BlockIdLayout.DEFAULT;
   private static final Long EVENT_THRESHOLD_SIZE = 2048L;
   private static final int GB = 1024 * 1024 * 1024;
   protected static final long FAILED_REQUIRE_ID = -1;
-  private static int rpcPort1;
 
   @BeforeAll
   public static void setupServers(@TempDir File tmpDir) throws Exception {
-    CoordinatorConf coordinatorConf = getCoordinatorConf();
+    CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
     coordinatorConf.setLong(CoordinatorConf.COORDINATOR_APP_EXPIRED, 2000);
-    createCoordinatorServer(coordinatorConf);
+    storeCoordinatorConf(coordinatorConf);
 
-    File dataDir1 = new File(tmpDir, "data1");
-    String grpcBasePath = dataDir1.getAbsolutePath();
-    ShuffleServerConf grpcShuffleServerConf = buildShuffleServerConf(ServerType.GRPC, grpcBasePath);
-    rpcPort1 = grpcShuffleServerConf.getInteger(ShuffleServerConf.RPC_SERVER_PORT);
-    createShuffleServer(grpcShuffleServerConf);
+    storeShuffleServerConf(buildShuffleServerConf(0, tmpDir, ServerType.GRPC));
+    storeShuffleServerConf(buildShuffleServerConf(1, tmpDir, ServerType.GRPC_NETTY));
 
-    File dataDir2 = new File(tmpDir, "data2");
-    String nettyBasePath = dataDir2.getAbsolutePath();
-    ShuffleServerConf nettyShuffleServerConf =
-        buildShuffleServerConf(ServerType.GRPC_NETTY, nettyBasePath);
-    createShuffleServer(nettyShuffleServerConf);
-
-    startServers();
-
-    grpcShuffleServerConfig = grpcShuffleServerConf;
-    nettyShuffleServerConfig = nettyShuffleServerConf;
+    startServersWithRandomPorts();
   }
 
-  private static ShuffleServerConf buildShuffleServerConf(ServerType serverType, String basePath)
-      throws Exception {
-    ShuffleServerConf shuffleServerConf = getShuffleServerConf(serverType);
+  private static ShuffleServerConf buildShuffleServerConf(
+      int subDirIndex, File tmpDir, ServerType serverType) {
+    ShuffleServerConf shuffleServerConf =
+        shuffleServerConfWithoutPort(subDirIndex, tmpDir, serverType);
     shuffleServerConf.setString(
         ShuffleServerConf.RSS_STORAGE_TYPE.key(), StorageType.MEMORY_LOCALFILE_HDFS.name());
     shuffleServerConf.set(
         ShuffleServerConf.FLUSH_COLD_STORAGE_THRESHOLD_SIZE, EVENT_THRESHOLD_SIZE);
-    shuffleServerConf.set(ShuffleServerConf.RSS_STORAGE_BASE_PATH, Arrays.asList(basePath));
     shuffleServerConf.set(RssBaseConf.RPC_METRICS_ENABLED, true);
     shuffleServerConf.set(ShuffleServerConf.SERVER_APP_EXPIRED_WITHOUT_HEARTBEAT, 2000L);
     shuffleServerConf.set(ShuffleServerConf.SERVER_PRE_ALLOCATION_EXPIRED, 5000L);
@@ -144,13 +128,12 @@ public class ShuffleServerGrpcTest extends IntegrationTestBase {
   @BeforeEach
   public void createClient() throws Exception {
     grpcShuffleServerClient =
-        new ShuffleServerGrpcClient(
-            LOCALHOST, grpcShuffleServerConfig.getInteger(ShuffleServerConf.RPC_SERVER_PORT));
+        new ShuffleServerGrpcClient(LOCALHOST, grpcShuffleServers.get(0).getGrpcPort());
     nettyShuffleServerClient =
         new ShuffleServerGrpcNettyClient(
             LOCALHOST,
-            nettyShuffleServerConfig.getInteger(ShuffleServerConf.RPC_SERVER_PORT),
-            nettyShuffleServerConfig.getInteger(ShuffleServerConf.NETTY_SERVER_PORT));
+            nettyShuffleServers.get(0).getGrpcPort(),
+            nettyShuffleServers.get(0).getNettyPort());
   }
 
   @AfterEach
@@ -178,9 +161,9 @@ public class ShuffleServerGrpcTest extends IntegrationTestBase {
                     .unregisterThreadPoolSize(10)
                     .unregisterTimeSec(10)
                     .unregisterRequestTimeSec(10));
-    shuffleWriteClient.registerCoordinators("127.0.0.1:" + COORDINATOR_PORT_1);
+    shuffleWriteClient.registerCoordinators(getQuorum());
     shuffleWriteClient.registerShuffle(
-        new ShuffleServerInfo("127.0.0.1-" + rpcPort1, "127.0.0.1", rpcPort1),
+        new ShuffleServerInfo(LOCALHOST, grpcShuffleServers.get(0).getGrpcPort()),
         "application_clearResourceTest1",
         0,
         Lists.newArrayList(new PartitionRange(0, 1)),
@@ -259,7 +242,7 @@ public class ShuffleServerGrpcTest extends IntegrationTestBase {
       grpcShuffleServerClient.reportShuffleResult(request);
       fail("Exception should be thrown");
     } catch (Exception e) {
-      assertTrue(e.getMessage().contains("error happened when report shuffle result"));
+      assertTrue(e.getMessage().contains("NO_REGISTER"));
     }
 
     RssGetShuffleResultRequest req =
@@ -268,7 +251,7 @@ public class ShuffleServerGrpcTest extends IntegrationTestBase {
       grpcShuffleServerClient.getShuffleResult(req);
       fail("Exception should be thrown");
     } catch (Exception e) {
-      assertTrue(e.getMessage().contains("Can't get shuffle result"));
+      assertTrue(e.getMessage().contains("NO_REGISTER"));
     }
 
     RssRegisterShuffleRequest rrsr =
@@ -352,14 +335,13 @@ public class ShuffleServerGrpcTest extends IntegrationTestBase {
     request = new RssReportShuffleResultRequest("shuffleResultTest", 2, 1L, partitionToBlockIds, 3);
     grpcShuffleServerClient.reportShuffleResult(request);
     // validate bitmap in shuffleTaskManager
-    Roaring64NavigableMap[] bitmaps =
+    long bitmapNum =
         grpcShuffleServers
             .get(0)
             .getShuffleTaskManager()
-            .getPartitionsToBlockIds()
-            .get("shuffleResultTest")
-            .get(2);
-    assertEquals(3, bitmaps.length);
+            .getShuffleBlockIdManager()
+            .getBitmapNum("shuffleResultTest", 2);
+    assertEquals(3, bitmapNum);
 
     req = new RssGetShuffleResultRequest("shuffleResultTest", 2, 1, layout);
     result = grpcShuffleServerClient.getShuffleResult(req);
@@ -531,15 +513,21 @@ public class ShuffleServerGrpcTest extends IntegrationTestBase {
     // trigger NoBufferForHugePartitionException and get FAILED_REQUIRE_ID
     long requireId =
         shuffleServerClient.requirePreAllocation(
-            appId, shuffleId, Lists.newArrayList(partitionId), hugePartitionDataLength, 3, 100);
+            appId,
+            shuffleId,
+            Lists.newArrayList(partitionId),
+            Lists.newArrayList(hugePartitionDataLength),
+            hugePartitionDataLength,
+            3,
+            100);
     assertEquals(FAILED_REQUIRE_ID, requireId);
 
     // Add NoBufferForHugePartitionException check
     // and ShuffleServerMetrics.TOTAL_REQUIRE_BUFFER_FAILED_FOR_HUGE_PARTITION metric should be 1
     int jettyPort =
         isNettyMode
-            ? nettyShuffleServerConfig.getInteger(ShuffleServerConf.JETTY_HTTP_PORT)
-            : grpcShuffleServerConfig.getInteger(ShuffleServerConf.JETTY_HTTP_PORT);
+            ? nettyShuffleServers.get(0).getJettyPort()
+            : grpcShuffleServers.get(0).getJettyPort();
     String content =
         TestUtils.httpGet(String.format("http://127.0.0.1:%s/metrics/server", jettyPort));
     ObjectMapper mapper = new ObjectMapper();

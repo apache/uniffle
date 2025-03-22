@@ -58,7 +58,7 @@ public class CoordinatorGrpcServerTest {
   @Test
   public void testGrpcConnectionSize() throws Exception {
     RssBaseConf baseConf = new RssBaseConf();
-    baseConf.set(RssBaseConf.RPC_SERVER_PORT, 20001);
+    baseConf.set(RssBaseConf.RPC_SERVER_PORT, 0);
     baseConf.set(RssBaseConf.RPC_EXECUTOR_SIZE, 2);
 
     GRPCMetrics grpcMetrics = new CoordinatorGrpcMetrics(baseConf);
@@ -69,30 +69,34 @@ public class CoordinatorGrpcServerTest {
             .grpcMetrics(grpcMetrics)
             .addService(new MockedCoordinatorGrpcService())
             .build();
-    grpcServer.start();
+    try {
+      final int port = grpcServer.start();
 
-    // case1: test the single one connection metric
-    double connSize = grpcMetrics.getGaugeMap().get(GRPC_SERVER_CONNECTION_NUMBER_KEY).get();
-    assertEquals(0, connSize);
+      // case1: test the single one connection metric
+      double connSize = grpcMetrics.getGaugeMap().get(GRPC_SERVER_CONNECTION_NUMBER_KEY).get();
+      assertEquals(0, connSize);
 
-    CoordinatorGrpcClient coordinatorGrpcClient = new CoordinatorGrpcClient("localhost", 20001);
-    coordinatorGrpcClient.registerApplicationInfo(
-        new RssApplicationInfoRequest("testGrpcConnectionSize", 10000, "user"));
+      // case2: test the multiple connections
+      try (CoordinatorGrpcClient coordinatorGrpcClient =
+              new CoordinatorGrpcClient("localhost", port);
+          CoordinatorGrpcClient client1 = new CoordinatorGrpcClient("localhost", port);
+          CoordinatorGrpcClient client2 = new CoordinatorGrpcClient("localhost", port)) {
+        coordinatorGrpcClient.registerApplicationInfo(
+            new RssApplicationInfoRequest("testGrpcConnectionSize", 10000, "user"));
 
-    connSize = grpcMetrics.getGaugeMap().get(GRPC_SERVER_CONNECTION_NUMBER_KEY).get();
-    assertEquals(1, connSize);
+        connSize = grpcMetrics.getGaugeMap().get(GRPC_SERVER_CONNECTION_NUMBER_KEY).get();
+        assertEquals(1, connSize);
 
-    // case2: test the multiple connections
-    CoordinatorGrpcClient client1 = new CoordinatorGrpcClient("localhost", 20001);
-    CoordinatorGrpcClient client2 = new CoordinatorGrpcClient("localhost", 20001);
-    client1.registerApplicationInfo(
-        new RssApplicationInfoRequest("testGrpcConnectionSize", 10000, "user"));
-    client2.registerApplicationInfo(
-        new RssApplicationInfoRequest("testGrpcConnectionSize", 10000, "user"));
+        client1.registerApplicationInfo(
+            new RssApplicationInfoRequest("testGrpcConnectionSize", 10000, "user"));
+        client2.registerApplicationInfo(
+            new RssApplicationInfoRequest("testGrpcConnectionSize", 10000, "user"));
 
-    connSize = grpcMetrics.getGaugeMap().get(GRPC_SERVER_CONNECTION_NUMBER_KEY).get();
-    assertEquals(3, connSize);
-
-    grpcServer.stop();
+        connSize = grpcMetrics.getGaugeMap().get(GRPC_SERVER_CONNECTION_NUMBER_KEY).get();
+        assertEquals(3, connSize);
+      }
+    } finally {
+      grpcServer.stop();
+    }
   }
 }

@@ -18,6 +18,7 @@
 package org.apache.uniffle.storage.request;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.apache.hadoop.conf.Configuration;
 import org.roaringbitmap.longlong.Roaring64NavigableMap;
@@ -26,8 +27,10 @@ import org.apache.uniffle.common.ClientType;
 import org.apache.uniffle.common.ShuffleDataDistributionType;
 import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.config.RssBaseConf;
+import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.util.IdHelper;
+import org.apache.uniffle.storage.handler.impl.PrefetchableClientReadHandler;
 
 public class CreateShuffleReadHandlerRequest {
 
@@ -241,5 +244,16 @@ public class CreateShuffleReadHandlerRequest {
 
   public void setClientType(ClientType clientType) {
     this.clientType = clientType;
+  }
+
+  public Optional<PrefetchableClientReadHandler.PrefetchOption> getPrefetchOption() {
+    if (clientConf.get(RssClientConf.RSS_CLIENT_PREFETCH_ENABLED)) {
+      return Optional.of(
+          new PrefetchableClientReadHandler.PrefetchOption(
+              clientConf.get(RssClientConf.RSS_CLIENT_PREFETCH_CAPACITY),
+              clientConf.get(RssClientConf.READ_CLIENT_PREFETCH_TIMEOUT_SEC)));
+    } else {
+      return Optional.empty();
+    }
   }
 }

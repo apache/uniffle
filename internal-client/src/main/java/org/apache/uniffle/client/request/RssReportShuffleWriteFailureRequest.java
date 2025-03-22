@@ -28,6 +28,7 @@ import org.apache.uniffle.proto.RssProtos.ShuffleServerId;
 public class RssReportShuffleWriteFailureRequest {
   private String appId;
   private int shuffleId;
+  private int stageAttemptId;
   private int stageAttemptNumber;
   private List<ShuffleServerInfo> shuffleServerInfos;
   private String exception;
@@ -35,11 +36,13 @@ public class RssReportShuffleWriteFailureRequest {
   public RssReportShuffleWriteFailureRequest(
       String appId,
       int shuffleId,
+      int stageAttemptId,
       int stageAttemptNumber,
       List<ShuffleServerInfo> shuffleServerInfos,
       String exception) {
     this.appId = appId;
     this.shuffleId = shuffleId;
+    this.stageAttemptId = stageAttemptId;
     this.stageAttemptNumber = stageAttemptNumber;
     this.shuffleServerInfos = shuffleServerInfos;
     this.exception = exception;
@@ -60,6 +63,7 @@ public class RssReportShuffleWriteFailureRequest {
     builder
         .setAppId(appId)
         .setShuffleId(shuffleId)
+        .setStageAttemptId(stageAttemptId)
         .setStageAttemptNumber(stageAttemptNumber)
         .addAllShuffleServerIds(shuffleServerIds);
     if (exception != null) {

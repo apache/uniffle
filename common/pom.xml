@@ -21,14 +21,18 @@
   <parent>
     <groupId>org.apache.uniffle</groupId>
     <artifactId>uniffle-parent</artifactId>
-    <version>0.10.0-SNAPSHOT</version>
+    <version>0.11.0-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
   <artifactId>rss-common</artifactId>
   <packaging>jar</packaging>
   <name>Apache Uniffle Common</name>
-
+  <scm>
+    <connection>scm:git:git@github.com:apache/incubator-uniffle.git</connection>
+    <developerConnection>scm:git:git@github.com:apache/incubator-uniffle.git</developerConnection>
+    <url>scm:git:git@github.com:apache/incubator-uniffle.git</url>
+  </scm>
   <dependencies>
     <dependency>
       <artifactId>rss-proto</artifactId>
@@ -170,9 +174,19 @@
       <groupId>org.apache.hbase.thirdparty</groupId>
       <artifactId>hbase-shaded-jersey</artifactId>
     </dependency>
+    <dependency>
+      <groupId>com.esotericsoftware</groupId>
+      <artifactId>kryo-shaded</artifactId>
+    </dependency>
   </dependencies>
 
   <build>
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+        <filtering>true</filtering>
+      </resource>
+    </resources>
     <plugins>
       <plugin>
         <groupId>org.apache.felix</groupId>
@@ -180,6 +194,58 @@
         <version>2.4.0</version>
         <extensions>true</extensions>
       </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>templating-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>filter-src</id>
+            <goals>
+              <goal>filter-sources</goal>
+            </goals>
+            <configuration>
+              <sourceDirectory>${basedir}/src/main/java-templates</sourceDirectory>
+              <outputDirectory>${project.build.directory}/generated-sources/java-templates
+              </outputDirectory>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>buildnumber-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <phase>initialize</phase>
+            <goals>
+              <goal>create-metadata</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <outputDirectory>${project.build.directory}/generated/build-metadata</outputDirectory>
+          <outputName>build.properties</outputName>
+          <revisionPropertyName>git.revision</revisionPropertyName>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>properties-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <phase>initialize</phase>
+            <goals>
+              <goal>read-project-properties</goal>
+            </goals>
+            <configuration>
+              <files>
+                <file>${project.build.directory}/generated/build-metadata/build.properties</file>
+              </files>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
+
   </build>
 </project>

@@ -17,6 +17,8 @@
 
 package org.apache.uniffle.server.buffer;
 
+import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -47,13 +49,13 @@ public class ShuffleBufferWithLinkedListTest extends BufferTestBase {
     ShuffleBuffer shuffleBuffer = new ShuffleBufferWithLinkedList();
     shuffleBuffer.append(createData(10));
     // ShufflePartitionedBlock has constant 32 bytes overhead
-    assertEquals(42, shuffleBuffer.getSize());
+    assertEquals(42, shuffleBuffer.getEncodedLength());
 
     shuffleBuffer.append(createData(26));
-    assertEquals(100, shuffleBuffer.getSize());
+    assertEquals(100, shuffleBuffer.getEncodedLength());
 
     shuffleBuffer.append(createData(1));
-    assertEquals(133, shuffleBuffer.getSize());
+    assertEquals(133, shuffleBuffer.getEncodedLength());
   }
 
   @Test
@@ -65,7 +67,7 @@ public class ShuffleBufferWithLinkedListTest extends BufferTestBase {
     dataCombine[0] = data1.getBlockList()[0];
     dataCombine[1] = data2.getBlockList()[0];
     shuffleBuffer.append(new ShufflePartitionedData(1, dataCombine));
-    assertEquals(84, shuffleBuffer.getSize());
+    assertEquals(84, shuffleBuffer.getEncodedLength());
   }
 
   @Test
@@ -74,10 +76,15 @@ public class ShuffleBufferWithLinkedListTest extends BufferTestBase {
     ShuffleDataFlushEvent event = shuffleBuffer.toFlushEvent("appId", 0, 0, 1, null);
     assertNull(event);
     shuffleBuffer.append(createData(10));
-    assertEquals(42, shuffleBuffer.getSize());
+    assertEquals(42, shuffleBuffer.getEncodedLength());
     event = shuffleBuffer.toFlushEvent("appId", 0, 0, 1, null);
-    assertEquals(42, event.getSize());
-    assertEquals(0, shuffleBuffer.getSize());
+    assertEquals(42, event.getEncodedLength());
+    assertEquals(10, event.getDataLength());
+    shuffleBuffer.append(createData(10));
+    event = shuffleBuffer.toFlushEvent("appId", 0, 0, 1, null);
+    assertEquals(42, event.getEncodedLength());
+    assertEquals(10, event.getDataLength());
+    assertEquals(0, shuffleBuffer.getEncodedLength());
     assertEquals(0, shuffleBuffer.getBlocks().size());
   }
 
@@ -207,7 +214,8 @@ public class ShuffleBufferWithLinkedListTest extends BufferTestBase {
     // First read from the cached data
     ShuffleDataResult sdr = shuffleBuffer.getShuffleData(Constants.INVALID_BLOCK_ID, 16);
     byte[] expectedData = getExpectedData(spd1, spd2);
-    compareBufferSegment(shuffleBuffer.getBlocks(), sdr.getBufferSegments(), 0, 2);
+    compareBufferSegment(
+        new LinkedList<>(shuffleBuffer.getBlocks()), sdr.getBufferSegments(), 0, 2);
     assertArrayEquals(expectedData, sdr.getData());
 
     // Second read after flushed
@@ -217,19 +225,31 @@ public class ShuffleBufferWithLinkedListTest extends BufferTestBase {
     sdr = shuffleBuffer.getShuffleData(lastBlockId, 16);
     expectedData = getExpectedData(spd3);
     compareBufferSegment(
-        shuffleBuffer.getInFlushBlockMap().get(event1.getEventId()), sdr.getBufferSegments(), 2, 1);
+        new LinkedList<>(shuffleBuffer.getInFlushBlockMap().get(event1.getEventId())),
+        sdr.getBufferSegments(),
+        2,
+        1);
     assertArrayEquals(expectedData, sdr.getData());
+    Iterator<ShufflePartitionedBlock> it = event1.getShuffleBlocks().iterator();
+    assertEquals(0, it.next().getTaskAttemptId());
+    assertEquals(1, it.next().getTaskAttemptId());
+    assertEquals(2, it.next().getTaskAttemptId());
 
-    assertEquals(0, event1.getShuffleBlocks().get(0).getTaskAttemptId());
-    assertEquals(1, event1.getShuffleBlocks().get(1).getTaskAttemptId());
-    assertEquals(2, event1.getShuffleBlocks().get(2).getTaskAttemptId());
-
     assertEquals(
-        1, shuffleBuffer.getInFlushBlockMap().get(event1.getEventId()).get(0).getTaskAttemptId());
+        1,
+        new LinkedList<>(shuffleBuffer.getInFlushBlockMap().get(event1.getEventId()))
+            .get(0)
+            .getTaskAttemptId());
     assertEquals(
-        0, shuffleBuffer.getInFlushBlockMap().get(event1.getEventId()).get(1).getTaskAttemptId());
+        0,
+        new LinkedList<>(shuffleBuffer.getInFlushBlockMap().get(event1.getEventId()))
+            .get(1)
+            .getTaskAttemptId());
     assertEquals(
-        2, shuffleBuffer.getInFlushBlockMap().get(event1.getEventId()).get(2).getTaskAttemptId());
+        2,
+        new LinkedList<>(shuffleBuffer.getInFlushBlockMap().get(event1.getEventId()))
+            .get(2)
+            .getTaskAttemptId());
   }
 
   @Test
@@ -242,7 +262,8 @@ public class ShuffleBufferWithLinkedListTest extends BufferTestBase {
     shuffleBuffer.append(spd2);
     byte[] expectedData = getExpectedData(spd1, spd2);
     ShuffleDataResult sdr = shuffleBuffer.getShuffleData(Constants.INVALID_BLOCK_ID, 40);
-    compareBufferSegment(shuffleBuffer.getBlocks(), sdr.getBufferSegments(), 0, 2);
+    compareBufferSegment(
+        new LinkedList<>(shuffleBuffer.getBlocks()), sdr.getBufferSegments(), 0, 2);
     assertArrayEquals(expectedData, sdr.getData());
 
     // case2: cached data only, blockId = -1, readBufferSize = buffer size
@@ -253,7 +274,8 @@ public class ShuffleBufferWithLinkedListTest extends BufferTestBase {
     shuffleBuffer.append(spd2);
     expectedData = getExpectedData(spd1, spd2);
     sdr = shuffleBuffer.getShuffleData(Constants.INVALID_BLOCK_ID, 40);
-    compareBufferSegment(shuffleBuffer.getBlocks(), sdr.getBufferSegments(), 0, 2);
+    compareBufferSegment(
+        new LinkedList<>(shuffleBuffer.getBlocks()), sdr.getBufferSegments(), 0, 2);
     assertArrayEquals(expectedData, sdr.getData());
 
     // case3-1: cached data only, blockId = -1, readBufferSize < buffer size
@@ -264,7 +286,8 @@ public class ShuffleBufferWithLinkedListTest extends BufferTestBase {
     shuffleBuffer.append(spd2);
     expectedData = getExpectedData(spd1, spd2);
     sdr = shuffleBuffer.getShuffleData(Constants.INVALID_BLOCK_ID, 40);
-    compareBufferSegment(shuffleBuffer.getBlocks(), sdr.getBufferSegments(), 0, 2);
+    compareBufferSegment(
+        new LinkedList<>(shuffleBuffer.getBlocks()), sdr.getBufferSegments(), 0, 2);
     assertArrayEquals(expectedData, sdr.getData());
 
     // case3-2: cached data only, blockId = -1, readBufferSize < buffer size
@@ -277,14 +300,16 @@ public class ShuffleBufferWithLinkedListTest extends BufferTestBase {
     shuffleBuffer.append(spd3);
     expectedData = getExpectedData(spd1, spd2);
     sdr = shuffleBuffer.getShuffleData(Constants.INVALID_BLOCK_ID, 25);
-    compareBufferSegment(shuffleBuffer.getBlocks(), sdr.getBufferSegments(), 0, 2);
+    compareBufferSegment(
+        new LinkedList<>(shuffleBuffer.getBlocks()), sdr.getBufferSegments(), 0, 2);
     assertArrayEquals(expectedData, sdr.getData());
 
     // case4: cached data only, blockId != -1 && exist, readBufferSize < buffer size
     long lastBlockId = spd2.getBlockList()[0].getBlockId();
     sdr = shuffleBuffer.getShuffleData(lastBlockId, 25);
     expectedData = getExpectedData(spd3);
-    compareBufferSegment(shuffleBuffer.getBlocks(), sdr.getBufferSegments(), 2, 1);
+    compareBufferSegment(
+        new LinkedList<>(shuffleBuffer.getBlocks()), sdr.getBufferSegments(), 2, 1);
     assertArrayEquals(expectedData, sdr.getData());
 
     // case5: flush data only, blockId = -1, readBufferSize < buffer size
@@ -297,7 +322,10 @@ public class ShuffleBufferWithLinkedListTest extends BufferTestBase {
     assertEquals(0, shuffleBuffer.getBlocks().size());
     sdr = shuffleBuffer.getShuffleData(Constants.INVALID_BLOCK_ID, 20);
     compareBufferSegment(
-        shuffleBuffer.getInFlushBlockMap().get(event1.getEventId()), sdr.getBufferSegments(), 0, 2);
+        new LinkedList<>(shuffleBuffer.getInFlushBlockMap().get(event1.getEventId())),
+        sdr.getBufferSegments(),
+        0,
+        2);
     expectedData = getExpectedData(spd1, spd2);
     assertArrayEquals(expectedData, sdr.getData());
 
@@ -561,17 +589,30 @@ public class ShuffleBufferWithLinkedListTest extends BufferTestBase {
     assertArrayEquals(expectedData, sdr.getData());
   }
 
+  @Test
+  public void appendRepeatBlockTest() {
+    ShuffleBuffer shuffleBuffer = new ShuffleBufferWithLinkedList();
+    ShufflePartitionedData block = createData(10);
+    shuffleBuffer.append(block);
+    // ShufflePartitionedBlock has constant 32 bytes overhead
+    assertEquals(42, shuffleBuffer.getEncodedLength());
+
+    shuffleBuffer.append(block);
+    // The repeat block should not append to shuffleBuffer
+    assertEquals(42, shuffleBuffer.getEncodedLength());
+  }
+
   private byte[] getExpectedData(ShufflePartitionedData... spds) {
     int size = 0;
     for (ShufflePartitionedData spd : spds) {
-      size += spd.getBlockList()[0].getLength();
+      size += spd.getBlockList()[0].getDataLength();
     }
     byte[] expectedData = new byte[size];
     int offset = 0;
     for (ShufflePartitionedData spd : spds) {
       ShufflePartitionedBlock block = spd.getBlockList()[0];
-      ByteBufUtils.readBytes(block.getData(), expectedData, offset, block.getLength());
-      offset += block.getLength();
+      ByteBufUtils.readBytes(block.getData(), expectedData, offset, block.getDataLength());
+      offset += block.getDataLength();
     }
     return expectedData;
   }
@@ -588,10 +629,10 @@ public class ShuffleBufferWithLinkedListTest extends BufferTestBase {
       ShufflePartitionedBlock spb = blocks.get(i);
       BufferSegment segment = bufferSegments.get(segmentIndex);
       assertEquals(spb.getBlockId(), segment.getBlockId());
-      assertEquals(spb.getLength(), segment.getLength());
+      assertEquals(spb.getDataLength(), segment.getLength());
       assertEquals(spb.getCrc(), segment.getCrc());
       assertEquals(offset, segment.getOffset());
-      offset += spb.getLength();
+      offset += spb.getDataLength();
       segmentIndex++;
     }
   }

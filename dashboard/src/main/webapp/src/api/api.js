@@ -16,6 +16,16 @@
  */
 
 import http from '@/utils/http'
+// Create a Dashboard information interface
+export function getDashboardInfo(params, headers) {
+  return http.get('/dashboard/info', params, headers, 1)
+}
+
+// Create a dashboard configuration file interface
+export function getDashboardConf(params, headers) {
+  return http.get('/dashboard/conf', params, headers, 1)
+}
+
 // Create a Coordinator information interface
 export function getCoordinatorServerInfo(params, headers) {
   return http.get('/coordinator/info', params, headers, 0)
@@ -24,6 +34,34 @@ export function getCoordinatorServerInfo(params, headers) {
 // Create a coordinator configuration file interface
 export function getCoordinatorConf(params, headers) {
   return http.get('/coordinator/conf', params, headers, 0)
+}
+
+export function getShuffleServerConf(params, headers) {
+  return http.get('/shuffleServer/conf', params, headers, 0)
+}
+
+export function getCoordinatorMetrics(params, headers) {
+  return http.get('/coordinator/metrics', params, headers, 0)
+}
+
+export function getShuffleServerMetrics(params, headers) {
+  return http.get('/shuffleServer/metrics', params, headers, 0)
+}
+
+export function getCoordinatorPrometheusMetrics(params, headers) {
+  return http.get('/coordinator/prometheus/metrics/all', params, headers, 0)
+}
+
+export function getShuffleServerPrometheusMetrics(params, headers) {
+  return http.get('/shuffleServer/prometheus/metrics/all', params, headers, 0)
+}
+
+export function getCoordinatorStacks(params, headers) {
+  return http.get('/coordinator/stacks', params, headers, 0)
+}
+
+export function getShuffleServerStacks(params, headers) {
+  return http.get('/shuffleServer/stacks', params, headers, 0)
 }
 
 // Create an interface for the total number of nodes
@@ -59,6 +97,16 @@ export function getShuffleDecommissionedList(params, headers) {
 // Create an interface for excludeNodes
 export function getShuffleExcludeNodes(params, headers) {
   return http.get('/server/nodes?status=excluded', params, headers, 0)
+}
+
+//  Create an interface for add blacklist
+export function addShuffleExcludeNodes(params, headers) {
+  return http.post('/server/addExcludeNodes', params, headers, 0)
+}
+
+//  Create an interface for remove blacklist
+export function removeShuffleExcludeNodes(params, headers) {
+  return http.post('/server/removeExcludeNodes', params, headers, 0)
 }
 
 // Total number of interfaces for new App

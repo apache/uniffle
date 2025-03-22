@@ -22,7 +22,11 @@ import java.util.NoSuchElementException;
 import org.apache.spark.SparkConf;
 import org.apache.spark.shuffle.sort.SortShuffleManager;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
+import org.apache.uniffle.client.api.CoordinatorClient;
+import org.apache.uniffle.client.request.RssAccessClusterRequest;
+import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.storage.util.StorageType;
 
 import static org.apache.uniffle.common.rpc.StatusCode.ACCESS_DENIED;
@@ -30,6 +34,7 @@ import static org.apache.uniffle.common.rpc.StatusCode.SUCCESS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.verify;
 
 public class DelegationRssShuffleManagerTest extends RssShuffleManagerTestBase {
 
@@ -47,15 +52,27 @@ public class DelegationRssShuffleManagerTest extends RssShuffleManagerTestBase {
 
     SparkConf conf = new SparkConf();
     assertCreateSortShuffleManager(conf);
+    conf = new SparkConf();
+    conf.set(RssSparkConfig.RSS_DYNAMIC_CLIENT_CONF_ENABLED.key(), "false");
+    conf.set("spark.foo.bar.key", "mockId");
+    conf.set(RssSparkConfig.RSS_ACCESS_ID_PROVIDER_KEY.key(), "spark.foo.bar.key");
+    assertCreateSortShuffleManager(conf);
+
+    conf = new SparkConf();
     conf.set(RssSparkConfig.RSS_DYNAMIC_CLIENT_CONF_ENABLED.key(), "false");
     conf.set(RssSparkConfig.RSS_ACCESS_ID.key(), "mockId");
     assertCreateSortShuffleManager(conf);
+
+    conf = new SparkConf();
+    conf.set(RssSparkConfig.RSS_DYNAMIC_CLIENT_CONF_ENABLED.key(), "false");
+    conf.set(RssSparkConfig.RSS_ACCESS_ID.key(), "mockId");
     conf.set(RssSparkConfig.RSS_COORDINATOR_QUORUM.key(), "m1:8001,m2:8002");
     conf.set("spark.rss.storage.type", StorageType.LOCALFILE.name());
     conf.set(RssSparkConfig.RSS_TEST_MODE_ENABLE, true);
     assertCreateRssShuffleManager(conf);
 
     conf = new SparkConf();
+    conf.set(RssSparkConfig.RSS_DYNAMIC_CLIENT_CONF_ENABLED.key(), "false");
     conf.set(RssSparkConfig.RSS_COORDINATOR_QUORUM.key(), "m1:8001,m2:8002");
     assertCreateSortShuffleManager(conf);
   }
@@ -117,6 +134,87 @@ public class DelegationRssShuffleManagerTest extends RssShuffleManagerTestBase {
     secondConf.set(RssSparkConfig.RSS_COORDINATOR_QUORUM.key(), "m1:8001,m2:8002");
     secondConf.set("spark.rss.storage.type", StorageType.LOCALFILE.name());
     assertCreateSortShuffleManager(secondConf);
+  }
+
+  @Test
+  public void testDefaultIncludeExcludeProperties() throws Exception {
+    final CoordinatorClient mockClient = setupMockedRssShuffleUtils(SUCCESS);
+    SparkConf conf = new SparkConf();
+    conf.set(RssSparkConfig.RSS_CLIENT_ACCESS_RETRY_INTERVAL_MS, 3000L);
+    conf.set(RssSparkConfig.RSS_CLIENT_ACCESS_RETRY_TIMES, 3);
+    conf.set(RssSparkConfig.RSS_DYNAMIC_CLIENT_CONF_ENABLED.key(), "false");
+    conf.set(RssSparkConfig.RSS_ACCESS_ID.key(), "mockId");
+    conf.set(RssSparkConfig.RSS_COORDINATOR_QUORUM.key(), "m1:8001,m2:8002");
+    conf.set("spark.rss.storage.type", StorageType.LOCALFILE.name());
+    conf.set(RssSparkConfig.RSS_TEST_MODE_ENABLE, true);
+    final int confInitKeyCount = conf.getAll().length;
+    assertCreateRssShuffleManager(conf);
+
+    // default case: access cluster should include all properties in conf and an extra one.
+    ArgumentCaptor<RssAccessClusterRequest> argumentCaptor =
+        ArgumentCaptor.forClass(RssAccessClusterRequest.class);
+    verify(mockClient).accessCluster(argumentCaptor.capture());
+    RssAccessClusterRequest request = argumentCaptor.getValue();
+    assertEquals(confInitKeyCount + 1, request.getExtraProperties().size());
+  }
+
+  @Test
+  public void testIncludeProperties() throws Exception {
+    final CoordinatorClient mockClient = setupMockedRssShuffleUtils(SUCCESS);
+    SparkConf conf = new SparkConf();
+    conf.set(RssSparkConfig.RSS_CLIENT_ACCESS_RETRY_INTERVAL_MS, 3000L);
+    conf.set(RssSparkConfig.RSS_CLIENT_ACCESS_RETRY_TIMES, 3);
+    conf.set(RssSparkConfig.RSS_DYNAMIC_CLIENT_CONF_ENABLED.key(), "false");
+    conf.set(RssSparkConfig.RSS_ACCESS_ID.key(), "mockId");
+    conf.set(RssSparkConfig.RSS_COORDINATOR_QUORUM.key(), "m1:8001,m2:8002");
+    conf.set("spark.rss.storage.type", StorageType.LOCALFILE.name());
+    conf.set(RssSparkConfig.RSS_TEST_MODE_ENABLE, true);
+    // test include properties
+    conf.set(
+        RssSparkConfig.SPARK_RSS_CONFIG_PREFIX
+            + RssClientConf.RSS_CLIENT_REPORT_INCLUDE_PROPERTIES.key(),
+        RssSparkConfig.RSS_ACCESS_ID
+            .key()
+            .substring(RssSparkConfig.SPARK_RSS_CONFIG_PREFIX.length()));
+    assertCreateRssShuffleManager(conf);
+
+    ArgumentCaptor<RssAccessClusterRequest> argumentCaptor =
+        ArgumentCaptor.forClass(RssAccessClusterRequest.class);
+
+    verify(mockClient).accessCluster(argumentCaptor.capture());
+    RssAccessClusterRequest request = argumentCaptor.getValue();
+    // only accessId and extra one
+    assertEquals(1 + 1, request.getExtraProperties().size());
+  }
+
+  @Test
+  public void testExcludeProperties() throws Exception {
+    final CoordinatorClient mockClient = setupMockedRssShuffleUtils(SUCCESS);
+    SparkConf conf = new SparkConf();
+    conf.set(RssSparkConfig.RSS_CLIENT_ACCESS_RETRY_INTERVAL_MS, 3000L);
+    conf.set(RssSparkConfig.RSS_CLIENT_ACCESS_RETRY_TIMES, 3);
+    conf.set(RssSparkConfig.RSS_DYNAMIC_CLIENT_CONF_ENABLED.key(), "false");
+    conf.set(RssSparkConfig.RSS_ACCESS_ID.key(), "mockId");
+    conf.set(RssSparkConfig.RSS_COORDINATOR_QUORUM.key(), "m1:8001,m2:8002");
+    conf.set("spark.rss.storage.type", StorageType.LOCALFILE.name());
+    conf.set(RssSparkConfig.RSS_TEST_MODE_ENABLE, true);
+    // test exclude properties
+    conf.set(
+        RssSparkConfig.SPARK_RSS_CONFIG_PREFIX
+            + RssClientConf.RSS_CLIENT_REPORT_EXCLUDE_PROPERTIES.key(),
+        RssSparkConfig.RSS_ACCESS_ID
+            .key()
+            .substring(RssSparkConfig.SPARK_RSS_CONFIG_PREFIX.length()));
+    final int confInitKeyCount = conf.getAll().length;
+    assertCreateRssShuffleManager(conf);
+
+    ArgumentCaptor<RssAccessClusterRequest> argumentCaptor =
+        ArgumentCaptor.forClass(RssAccessClusterRequest.class);
+
+    verify(mockClient).accessCluster(argumentCaptor.capture());
+    RssAccessClusterRequest request = argumentCaptor.getValue();
+    // all accessId and extra one except the excluded one
+    assertEquals(confInitKeyCount + 1 - 1, request.getExtraProperties().size());
   }
 
   private void assertCreateSortShuffleManager(SparkConf conf) throws Exception {

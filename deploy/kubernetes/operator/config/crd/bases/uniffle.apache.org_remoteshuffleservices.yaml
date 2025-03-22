@@ -1786,6 +1786,14 @@ spec:
                     description: ExcludeNodesFilePath indicates exclude nodes file
                       path in coordinators' containers.
                     type: string
+                  headlessServiceAnnotations:
+                    description: HeadlessServiceAnnotations is a list of annotations
+                      for the headless service.
+                    items:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    type: array
                   hostNetwork:
                     default: true
                     description: HostNetwork indicates whether we need to enable host
@@ -1827,6 +1835,14 @@ spec:
                     description: LogHostPath represents host path used to save logs
                       of shuffle servers.
                     type: string
+                  nodePortServiceAnnotations:
+                    description: NodePortServiceAnnotations is a list of annotations
+                      for the NodePort service.
+                    items:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    type: array
                   nodeSelector:
                     additionalProperties:
                       type: string
@@ -6796,6 +6812,11 @@ spec:
                     description: Parameters holds the optional parameters used by
                       coordinators or shuffle servers.
                     type: object
+                  podManagementPolicy:
+                    description: PodManagementPolicy defines the policy used to manage
+                      shuffle servers' pods, options are OrderedReady and Parallel,
+                      default is OrderedReady.
+                    type: string
                   ports:
                     description: Ports represents ports used by coordinators or shuffle
                       servers.

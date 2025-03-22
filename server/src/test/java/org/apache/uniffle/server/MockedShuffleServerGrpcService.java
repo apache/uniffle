@@ -128,8 +128,17 @@ public class MockedShuffleServerGrpcService extends ShuffleServerGrpcService {
       RssProtos.SendShuffleDataRequest request,
       StreamObserver<RssProtos.SendShuffleDataResponse> responseObserver) {
     if (mockSendDataFailed) {
-      LOG.info("Add a mocked sendData failed on sendShuffleData");
-      throw new RuntimeException("This write request is failed as mocked failure！");
+      RssProtos.SendShuffleDataResponse reply;
+      String errorMsg = "This write request is failed as mocked failure！";
+      LOG.warn(errorMsg);
+      reply =
+          RssProtos.SendShuffleDataResponse.newBuilder()
+              .setStatus(StatusCode.INTERNAL_ERROR.toProto())
+              .setRetMsg(errorMsg)
+              .build();
+      responseObserver.onNext(reply);
+      responseObserver.onCompleted();
+      return;
     }
     if (mockSendDataFailedStageNumber == request.getStageAttemptNumber()) {
       LOG.info(

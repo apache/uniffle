@@ -20,9 +20,9 @@ package org.apache.uniffle.server;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Supplier;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Queues;
@@ -30,7 +30,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.uniffle.common.config.RssBaseConf;
+import org.apache.uniffle.common.exception.RssException;
+import org.apache.uniffle.common.executor.ThreadPoolManager;
 import org.apache.uniffle.common.function.ConsumerWithException;
+import org.apache.uniffle.common.future.CompletableFutureUtils;
 import org.apache.uniffle.common.util.ThreadUtils;
 import org.apache.uniffle.server.flush.EventDiscardException;
 import org.apache.uniffle.server.flush.EventInvalidException;
@@ -40,6 +43,9 @@ import org.apache.uniffle.storage.common.HadoopStorage;
 import org.apache.uniffle.storage.common.LocalStorage;
 import org.apache.uniffle.storage.common.Storage;
 import org.apache.uniffle.storage.util.StorageType;
+
+import static org.apache.uniffle.server.ShuffleServerConf.STORAGE_FLUSH_OPERATION_TIMEOUT_SEC;
+import static org.apache.uniffle.server.ShuffleServerMetrics.EVENT_QUEUE_SIZE;
 
 public class DefaultFlushEventHandler implements FlushEventHandler {
   private static final Logger LOG = LoggerFactory.getLogger(DefaultFlushEventHandler.class);
@@ -53,6 +59,7 @@ public class DefaultFlushEventHandler implements FlushEventHandler {
   protected final BlockingQueue<ShuffleDataFlushEvent> flushQueue = Queues.newLinkedBlockingQueue();
   private ConsumerWithException<ShuffleDataFlushEvent> eventConsumer;
   private final ShuffleServer shuffleServer;
+  private final long flushMaxWaitTimeoutSec;
 
   private volatile boolean stopped = false;
 
@@ -62,6 +69,7 @@ public class DefaultFlushEventHandler implements FlushEventHandler {
       ShuffleServer shuffleServer,
       ConsumerWithException<ShuffleDataFlushEvent> eventConsumer) {
     this.shuffleServerConf = conf;
+    this.flushMaxWaitTimeoutSec = conf.getLong(STORAGE_FLUSH_OPERATION_TIMEOUT_SEC);
     this.storageType =
         StorageType.valueOf(shuffleServerConf.get(RssBaseConf.RSS_STORAGE_TYPE).name());
     this.storageManager = storageManager;
@@ -77,9 +85,26 @@ public class DefaultFlushEventHandler implements FlushEventHandler {
       // We need to release the memory when discarding the event
       event.doCleanup();
       ShuffleServerMetrics.counterTotalDroppedEventNum.inc();
-    } else {
-      ShuffleServerMetrics.gaugeEventQueueSize.inc();
     }
+  }
+
+  private void consumeEvent(ShuffleDataFlushEvent event) throws Exception {
+    if (flushMaxWaitTimeoutSec <= 0) {
+      eventConsumer.accept(event);
+      return;
+    }
+
+    Supplier<Void> supplier =
+        () -> {
+          try {
+            this.eventConsumer.accept(event);
+          } catch (Exception e) {
+            throw new RssException(e);
+          }
+          return null;
+        };
+    CompletableFutureUtils.withTimeoutCancel(
+        supplier, flushMaxWaitTimeoutSec * 1000, "event-flushing");
   }
 
   /**
@@ -94,7 +119,7 @@ public class DefaultFlushEventHandler implements FlushEventHandler {
     try {
       readLock.lock();
       try {
-        eventConsumer.accept(event);
+        consumeEvent(event);
       } finally {
         readLock.unlock();
       }
@@ -109,7 +134,7 @@ public class DefaultFlushEventHandler implements FlushEventHandler {
             "Flush event:{} successfully in {} ms and release {} bytes",
             event,
             System.currentTimeMillis() - start,
-            event.getSize());
+            event.getEncodedLength());
       }
     } catch (Exception e) {
       if (e instanceof EventRetryException) {
@@ -122,9 +147,9 @@ public class DefaultFlushEventHandler implements FlushEventHandler {
         return;
       }
 
+      ShuffleServerMetrics.counterTotalDroppedEventNum.inc();
+      ShuffleServerMetrics.counterTotalFailedWrittenEventNum.inc();
       if (e instanceof EventDiscardException) {
-        ShuffleServerMetrics.counterTotalDroppedEventNum.inc();
-        ShuffleServerMetrics.counterTotalFailedWrittenEventNum.inc();
         if (storage != null) {
           ShuffleServerMetrics.incStorageFailedCounter(storage.getStorageHost());
         }
@@ -133,7 +158,7 @@ public class DefaultFlushEventHandler implements FlushEventHandler {
             "Flush event: {} failed in {} ms and release {} bytes. This will make data lost.",
             event,
             System.currentTimeMillis() - start,
-            event.getSize());
+            event.getEncodedLength());
         return;
       }
 
@@ -143,7 +168,10 @@ public class DefaultFlushEventHandler implements FlushEventHandler {
       }
 
       LOG.error(
-          "Unexpected exceptions happened when handling the flush event: {}, due to ", event, e);
+          "Unexpected exceptions happened when handling the flush event: [{}] (it cost {} ms), due to ",
+          event,
+          System.currentTimeMillis() - start,
+          e);
       // We need to release the memory when unexpected exceptions happened
       event.doCleanup();
     } finally {
@@ -160,24 +188,28 @@ public class DefaultFlushEventHandler implements FlushEventHandler {
       } else {
         ShuffleServerMetrics.gaugeFallbackFlushThreadPoolQueueSize.dec();
       }
-
-      ShuffleServerMetrics.gaugeEventQueueSize.dec();
     }
   }
 
   protected void initFlushEventExecutor() {
     if (StorageType.withLocalfile(storageType)) {
-      int poolSize =
-          shuffleServerConf.getInteger(ShuffleServerConf.SERVER_FLUSH_LOCALFILE_THREAD_POOL_SIZE);
       localFileThreadPoolExecutor =
-          createFlushEventExecutor(poolSize, "LocalFileFlushEventThreadPool");
+          createFlushEventExecutor(
+              () ->
+                  shuffleServerConf.getInteger(
+                      ShuffleServerConf.SERVER_FLUSH_LOCALFILE_THREAD_POOL_SIZE),
+              "LocalFileFlushEventThreadPool");
     }
     if (StorageType.withHadoop(storageType)) {
-      int poolSize =
-          shuffleServerConf.getInteger(ShuffleServerConf.SERVER_FLUSH_HADOOP_THREAD_POOL_SIZE);
-      hadoopThreadPoolExecutor = createFlushEventExecutor(poolSize, "HadoopFlushEventThreadPool");
+      hadoopThreadPoolExecutor =
+          createFlushEventExecutor(
+              () ->
+                  shuffleServerConf.getInteger(
+                      ShuffleServerConf.SERVER_FLUSH_HADOOP_THREAD_POOL_SIZE),
+              "HadoopFlushEventThreadPool");
     }
-    fallbackThreadPoolExecutor = createFlushEventExecutor(5, "FallBackFlushEventThreadPool");
+    fallbackThreadPoolExecutor = createFlushEventExecutor(() -> 5, "FallBackFlushEventThreadPool");
+    ShuffleServerMetrics.addLabeledGauge(EVENT_QUEUE_SIZE, () -> (double) flushQueue.size());
     startEventProcessor();
   }
 
@@ -227,20 +259,16 @@ public class DefaultFlushEventHandler implements FlushEventHandler {
     }
   }
 
-  protected Executor createFlushEventExecutor(int poolSize, String threadFactoryName) {
+  protected Executor createFlushEventExecutor(
+      Supplier<Integer> poolSizeSupplier, String threadFactoryName) {
     int waitQueueSize =
         shuffleServerConf.getInteger(ShuffleServerConf.SERVER_FLUSH_THREAD_POOL_QUEUE_SIZE);
     BlockingQueue<Runnable> waitQueue = Queues.newLinkedBlockingQueue(waitQueueSize);
-    long keepAliveTime = shuffleServerConf.getLong(ShuffleServerConf.SERVER_FLUSH_THREAD_ALIVE);
-    LOG.info(
-        "CreateFlushPool, poolSize:{}, keepAliveTime:{}, queueSize:{}",
-        poolSize,
-        keepAliveTime,
-        waitQueueSize);
-    return new ThreadPoolExecutor(
-        poolSize,
-        poolSize,
-        keepAliveTime,
+    return ThreadPoolManager.newThreadPool(
+        threadFactoryName,
+        poolSizeSupplier,
+        poolSizeSupplier,
+        () -> shuffleServerConf.getLong(ShuffleServerConf.SERVER_FLUSH_THREAD_ALIVE),
         TimeUnit.SECONDS,
         waitQueue,
         ThreadUtils.getThreadFactory(threadFactoryName));
@@ -248,7 +276,7 @@ public class DefaultFlushEventHandler implements FlushEventHandler {
 
   @Override
   public int getEventNumInFlush() {
-    return (int) ShuffleServerMetrics.gaugeEventQueueSize.get();
+    return flushQueue.size();
   }
 
   @Override

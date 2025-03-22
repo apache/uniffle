@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -56,19 +57,20 @@ import org.apache.uniffle.storage.util.StorageType;
 public class HadoopStorageManager extends SingleStorageManager {
 
   private static final Logger LOG = LoggerFactory.getLogger(HadoopStorageManager.class);
-  private static final Logger AUDIT_LOGGER = LoggerFactory.getLogger("audit");
+  private static final Logger AUDIT_LOGGER =
+      LoggerFactory.getLogger("SHUFFLE_SERVER_STORAGE_AUDIT_LOG");
 
   private final Configuration hadoopConf;
   private final String shuffleServerId;
   private Map<String, HadoopStorage> appIdToStorages = JavaUtils.newConcurrentMap();
   private Map<String, HadoopStorage> pathToStorages = JavaUtils.newConcurrentMap();
-  private final boolean isAuditLogEnabled;
+  private final boolean isStorageAuditLogEnabled;
 
   HadoopStorageManager(ShuffleServerConf conf) {
     super(conf);
     hadoopConf = conf.getHadoopConf();
     shuffleServerId = conf.getString(ShuffleServerConf.SHUFFLE_SERVER_ID, "shuffleServerId");
-    isAuditLogEnabled = conf.getBoolean(ShuffleServerConf.SERVER_AUDIT_LOG_ENABLED);
+    isStorageAuditLogEnabled = conf.getBoolean(ShuffleServerConf.SERVER_STORAGE_AUDIT_LOG_ENABLED);
   }
 
   @Override
@@ -80,7 +82,7 @@ public class HadoopStorageManager extends SingleStorageManager {
       return;
     }
     ShuffleServerMetrics.incHadoopStorageWriteDataSize(
-        storage.getStorageHost(), event.getSize(), event.isOwnedByHugePartition());
+        storage.getStorageHost(), event.getDataLength(), event.isOwnedByHugePartition());
   }
 
   @Override
@@ -112,7 +114,8 @@ public class HadoopStorageManager extends SingleStorageManager {
                   new CreateShuffleDeleteHandlerRequest(
                       StorageType.HDFS.name(),
                       storage.getConf(),
-                      purgeForExpired ? shuffleServerId : null));
+                      purgeForExpired ? shuffleServerId : null,
+                      event.isRenameAndDelete()));
 
       String basicPath =
           ShuffleStorageUtils.getFullShuffleDataFolder(storage.getStoragePath(), appId);
@@ -120,7 +123,7 @@ public class HadoopStorageManager extends SingleStorageManager {
 
       if (event instanceof AppPurgeEvent) {
         deletePaths.add(basicPath);
-        if (isAuditLogEnabled) {
+        if (isStorageAuditLogEnabled) {
           AUDIT_LOGGER.info(
               String.format(
                   "%s|%s|%s|%s",
@@ -134,7 +137,7 @@ public class HadoopStorageManager extends SingleStorageManager {
           deletePaths.add(
               ShuffleStorageUtils.getFullShuffleDataFolder(basicPath, String.valueOf(shuffleId)));
         }
-        if (isAuditLogEnabled) {
+        if (isStorageAuditLogEnabled) {
           AUDIT_LOGGER.info(
               String.format(
                   "%s|%s|%s|%s|%s",
@@ -148,6 +151,7 @@ public class HadoopStorageManager extends SingleStorageManager {
         }
       }
       deleteHandler.delete(deletePaths.toArray(new String[0]), appId, event.getUser());
+      removeAppStorageInfo(event);
     } else {
       LOG.warn("Storage gotten is null when removing resources for event: {}", event);
     }
@@ -179,7 +183,7 @@ public class HadoopStorageManager extends SingleStorageManager {
   }
 
   @Override
-  public void checkAndClearLeakedShuffleData(Collection<String> appIds) {}
+  public void checkAndClearLeakedShuffleData(Supplier<Collection<String>> appIdsSupplier) {}
 
   @Override
   public Map<String, StorageInfo> getStorageInfo() {

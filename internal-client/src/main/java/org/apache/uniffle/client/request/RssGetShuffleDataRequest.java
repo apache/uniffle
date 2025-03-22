@@ -28,6 +28,7 @@ public class RssGetShuffleDataRequest extends RetryableRequest {
   private final int partitionNum;
   private final long offset;
   private final int length;
+  private final int storageId;
 
   public RssGetShuffleDataRequest(
       String appId,
@@ -37,6 +38,7 @@ public class RssGetShuffleDataRequest extends RetryableRequest {
       int partitionNum,
       long offset,
       int length,
+      int storageId,
       int retryMax,
       long retryIntervalMax) {
     this.appId = appId;
@@ -46,6 +48,7 @@ public class RssGetShuffleDataRequest extends RetryableRequest {
     this.partitionNum = partitionNum;
     this.offset = offset;
     this.length = length;
+    this.storageId = storageId;
     this.retryMax = retryMax;
     this.retryIntervalMax = retryIntervalMax;
   }
@@ -59,7 +62,17 @@ public class RssGetShuffleDataRequest extends RetryableRequest {
       int partitionNum,
       long offset,
       int length) {
-    this(appId, shuffleId, partitionId, partitionNumPerRange, partitionNum, offset, length, 1, 0);
+    this(
+        appId,
+        shuffleId,
+        partitionId,
+        partitionNumPerRange,
+        partitionNum,
+        offset,
+        length,
+        -1,
+        1,
+        0);
   }
 
   public String getAppId() {
@@ -88,6 +101,14 @@ public class RssGetShuffleDataRequest extends RetryableRequest {
 
   public int getLength() {
     return length;
+  }
+
+  public int getStorageId() {
+    return storageId;
+  }
+
+  public boolean storageIdSpecified() {
+    return storageId != -1;
   }
 
   @Override

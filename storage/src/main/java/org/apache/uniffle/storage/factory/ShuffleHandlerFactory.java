@@ -32,9 +32,11 @@ import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.util.RssUtils;
 import org.apache.uniffle.storage.handler.api.ClientReadHandler;
 import org.apache.uniffle.storage.handler.api.ShuffleDeleteHandler;
+import org.apache.uniffle.storage.handler.impl.AsynDeletionEventManager;
 import org.apache.uniffle.storage.handler.impl.ComposedClientReadHandler;
 import org.apache.uniffle.storage.handler.impl.HadoopClientReadHandler;
 import org.apache.uniffle.storage.handler.impl.HadoopShuffleDeleteHandler;
+import org.apache.uniffle.storage.handler.impl.LocalFileAsyncDeleteHandler;
 import org.apache.uniffle.storage.handler.impl.LocalFileClientReadHandler;
 import org.apache.uniffle.storage.handler.impl.LocalFileDeleteHandler;
 import org.apache.uniffle.storage.handler.impl.MemoryClientReadHandler;
@@ -136,7 +138,8 @@ public class ShuffleHandlerFactory {
             shuffleServerClient,
             expectTaskIds,
             request.getRetryMax(),
-            request.getRetryIntervalMax());
+            request.getRetryIntervalMax(),
+            request.getPrefetchOption());
     return memoryClientReadHandler;
   }
 
@@ -159,7 +162,8 @@ public class ShuffleHandlerFactory {
         request.getDistributionType(),
         request.getExpectTaskIds(),
         request.getRetryMax(),
-        request.getRetryIntervalMax());
+        request.getRetryIntervalMax(),
+        request.getPrefetchOption());
   }
 
   private ClientReadHandler getHadoopClientReadHandler(
@@ -179,14 +183,18 @@ public class ShuffleHandlerFactory {
         request.getDistributionType(),
         request.getExpectTaskIds(),
         ssi.getId(),
-        request.isOffHeapEnabled());
+        request.isOffHeapEnabled(),
+        request.getPrefetchOption());
   }
 
   public ShuffleDeleteHandler createShuffleDeleteHandler(
       CreateShuffleDeleteHandlerRequest request) {
     if (StorageType.HDFS.name().equals(request.getStorageType())) {
       return new HadoopShuffleDeleteHandler(request.getConf(), request.getShuffleServerId());
-    } else if (StorageType.LOCALFILE.name().equals(request.getStorageType())) {
+    } else if (StorageType.LOCALFILE.name().equals(request.getStorageType()) && request.isAsync()) {
+      return new LocalFileAsyncDeleteHandler(AsynDeletionEventManager.getInstance());
+    } else if (StorageType.LOCALFILE.name().equals(request.getStorageType())
+        && !request.isAsync()) {
       return new LocalFileDeleteHandler();
     } else {
       throw new UnsupportedOperationException(

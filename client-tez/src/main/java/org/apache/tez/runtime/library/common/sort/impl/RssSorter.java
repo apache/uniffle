@@ -30,6 +30,7 @@ import org.apache.tez.common.RssTezConfig;
 import org.apache.tez.common.RssTezUtils;
 import org.apache.tez.dag.records.TezTaskAttemptID;
 import org.apache.tez.runtime.api.OutputContext;
+import org.apache.tez.runtime.library.common.ConfigUtils;
 import org.apache.tez.runtime.library.common.sort.buffer.WriteBufferManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -139,6 +140,9 @@ public class RssSorter extends ExternalSorter {
 
     LOG.info("applicationAttemptId is {}", applicationAttemptId.toString());
 
+    boolean isRemoteMergeEnable =
+        conf.getBoolean(
+            RssTezConfig.RSS_REMOTE_MERGE_ENABLE, RssTezConfig.RSS_REMOTE_MERGE_ENABLE_DEFAULT);
     bufferManager =
         new WriteBufferManager(
             tezTaskAttemptID,
@@ -167,7 +171,10 @@ public class RssSorter extends ExternalSorter {
             shuffleId,
             true,
             mapOutputByteCounter,
-            mapOutputRecordCounter);
+            mapOutputRecordCounter,
+            isRemoteMergeEnable,
+            ConfigUtils.getIntermediateOutputKeyClass(this.conf),
+            ConfigUtils.getIntermediateOutputValueClass(this.conf));
     LOG.info("Initialized WriteBufferManager.");
   }
 

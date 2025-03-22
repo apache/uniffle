@@ -38,6 +38,10 @@ import org.apache.tez.common.counters.TezCounters;
 import org.apache.tez.common.security.JobTokenIdentifier;
 import org.apache.tez.common.security.JobTokenSecretManager;
 import org.apache.tez.dag.api.TezConfiguration;
+import org.apache.tez.dag.records.TezDAGID;
+import org.apache.tez.dag.records.TezTaskAttemptID;
+import org.apache.tez.dag.records.TezTaskID;
+import org.apache.tez.dag.records.TezVertexID;
 import org.apache.tez.runtime.api.ExecutionContext;
 import org.apache.tez.runtime.api.InputContext;
 import org.apache.tez.runtime.api.impl.ExecutionContextImpl;
@@ -54,6 +58,7 @@ import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
 import static org.apache.tez.runtime.library.common.shuffle.impl.RssShuffleManagerTest.APPATTEMPT_ID;
+import static org.apache.tez.runtime.library.common.shuffle.impl.RssShuffleManagerTest.APP_ID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -68,6 +73,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 public class RssShuffleSchedulerTest {
+
+  private static final TezTaskAttemptID TEZ_TASK_ATTEMPT_ID =
+      TezTaskAttemptID.getInstance(
+          TezTaskID.getInstance(TezVertexID.getInstance(TezDAGID.getInstance(APP_ID, 0), 0), 0), 0);
 
   private TezExecutors sharedExecutor;
 
@@ -108,7 +117,8 @@ public class RssShuffleSchedulerTest {
     // Generate 320 events
     for (int i = 0; i < 320; i++) {
       CompositeInputAttemptIdentifier inputAttemptIdentifier =
-          new CompositeInputAttemptIdentifier(i, 0, "attempt_", 1);
+          new CompositeInputAttemptIdentifier(
+              i, 0, String.format("%s_%05d", TEZ_TASK_ATTEMPT_ID.toString(), 0), 1);
       scheduler.addKnownMapOutput(
           "host" + (i % totalProducerNodes), 10000, i, inputAttemptIdentifier);
     }
@@ -186,7 +196,8 @@ public class RssShuffleSchedulerTest {
       // Generate 0-200 events
       for (int i = 0; i < 200; i++) {
         CompositeInputAttemptIdentifier inputAttemptIdentifier =
-            new CompositeInputAttemptIdentifier(i, 0, "attempt_", 1);
+            new CompositeInputAttemptIdentifier(
+                i, 0, String.format("%s_%05d", TEZ_TASK_ATTEMPT_ID.toString(), 0), 1);
         scheduler.addKnownMapOutput(
             "host" + (i % totalProducerNodes), 10000, i, inputAttemptIdentifier);
       }
@@ -345,7 +356,8 @@ public class RssShuffleSchedulerTest {
       // Generate 320 events
       for (int i = 0; i < 320; i++) {
         CompositeInputAttemptIdentifier inputAttemptIdentifier =
-            new CompositeInputAttemptIdentifier(i, 0, "attempt_", 1);
+            new CompositeInputAttemptIdentifier(
+                i, 0, String.format("%s_%05d", TEZ_TASK_ATTEMPT_ID.toString(), 0), 1);
         scheduler.addKnownMapOutput(
             "host" + (i % totalProducerNodes), 10000, i, inputAttemptIdentifier);
       }
@@ -432,7 +444,8 @@ public class RssShuffleSchedulerTest {
       // Generate 320 events
       for (int i = 0; i < 320; i++) {
         CompositeInputAttemptIdentifier inputAttemptIdentifier =
-            new CompositeInputAttemptIdentifier(i, 0, "attempt_", 1);
+            new CompositeInputAttemptIdentifier(
+                i, 0, String.format("%s_%05d", TEZ_TASK_ATTEMPT_ID.toString(), 0), 1);
         scheduler.addKnownMapOutput(
             "host" + (i % totalProducerNodes), 10000, i, inputAttemptIdentifier);
       }
@@ -573,7 +586,8 @@ public class RssShuffleSchedulerTest {
       // Generate 319 events (last event has not arrived)
       for (int i = 0; i < 319; i++) {
         CompositeInputAttemptIdentifier inputAttemptIdentifier =
-            new CompositeInputAttemptIdentifier(i, 0, "attempt_", 1);
+            new CompositeInputAttemptIdentifier(
+                i, 0, String.format("%s_%05d", TEZ_TASK_ATTEMPT_ID.toString(), 0), 1);
         scheduler.addKnownMapOutput(
             "host" + (i % totalProducerNodes), 10000, i, inputAttemptIdentifier);
       }
@@ -669,7 +683,8 @@ public class RssShuffleSchedulerTest {
     // Generate 320 events (last event has not arrived)
     for (int i = 0; i < 320; i++) {
       CompositeInputAttemptIdentifier inputAttemptIdentifier =
-          new CompositeInputAttemptIdentifier(i, 0, "attempt_", 1);
+          new CompositeInputAttemptIdentifier(
+              i, 0, String.format("%s_%05d", TEZ_TASK_ATTEMPT_ID.toString(), 0), 1);
       scheduler.addKnownMapOutput(
           "host" + (i % totalProducerNodes), 10000, i, inputAttemptIdentifier);
     }
@@ -758,7 +773,8 @@ public class RssShuffleSchedulerTest {
       // Generate 320 events
       for (int i = 0; i < 320; i++) {
         CompositeInputAttemptIdentifier inputAttemptIdentifier =
-            new CompositeInputAttemptIdentifier(i, 0, "attempt_", 1);
+            new CompositeInputAttemptIdentifier(
+                i, 0, String.format("%s_%05d", TEZ_TASK_ATTEMPT_ID.toString(), 0), 1);
         scheduler.addKnownMapOutput(
             "host" + (i % totalProducerNodes), 10000, i, inputAttemptIdentifier);
       }
@@ -854,7 +870,8 @@ public class RssShuffleSchedulerTest {
       final ShuffleSchedulerForTest scheduler = createScheduler(startTime, 1, shuffle);
 
       CompositeInputAttemptIdentifier inputAttemptIdentifier =
-          new CompositeInputAttemptIdentifier(0, 0, "attempt_", 1);
+          new CompositeInputAttemptIdentifier(
+              0, 0, String.format("%s_%05d", TEZ_TASK_ATTEMPT_ID.toString(), 0), 1);
       scheduler.addKnownMapOutput("host0", 10000, 0, inputAttemptIdentifier);
 
       assertTrue(scheduler.pendingHosts.size() == 1);
@@ -950,7 +967,8 @@ public class RssShuffleSchedulerTest {
 
       for (int i = 0; i < numInputs; i++) {
         CompositeInputAttemptIdentifier inputAttemptIdentifier =
-            new CompositeInputAttemptIdentifier(i, 0, "attempt_", 1);
+            new CompositeInputAttemptIdentifier(
+                i, 0, String.format("%s_%05d", TEZ_TASK_ATTEMPT_ID.toString(), 0), 1);
         scheduler.addKnownMapOutput("host" + i, 10000, 1, inputAttemptIdentifier);
         identifiers[i] = inputAttemptIdentifier;
       }

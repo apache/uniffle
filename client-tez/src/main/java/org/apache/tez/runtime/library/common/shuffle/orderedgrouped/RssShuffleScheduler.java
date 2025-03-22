@@ -62,6 +62,7 @@ import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.tez.common.CallableWithNdc;
+import org.apache.tez.common.IdUtils;
 import org.apache.tez.common.InputContextUtils;
 import org.apache.tez.common.RssTezConfig;
 import org.apache.tez.common.RssTezUtils;
@@ -74,6 +75,7 @@ import org.apache.tez.common.security.JobTokenSecretManager;
 import org.apache.tez.dag.api.TezConfiguration;
 import org.apache.tez.dag.api.TezException;
 import org.apache.tez.dag.records.TezTaskAttemptID;
+import org.apache.tez.dag.records.TezTaskID;
 import org.apache.tez.http.HttpConnectionParams;
 import org.apache.tez.runtime.api.Event;
 import org.apache.tez.runtime.api.InputContext;
@@ -94,8 +96,10 @@ import org.slf4j.LoggerFactory;
 import org.apache.uniffle.client.api.ShuffleReadClient;
 import org.apache.uniffle.client.api.ShuffleWriteClient;
 import org.apache.uniffle.client.factory.ShuffleClientFactory;
+import org.apache.uniffle.client.util.RssClientConfig;
 import org.apache.uniffle.common.RemoteStorageInfo;
 import org.apache.uniffle.common.ShuffleServerInfo;
+import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.util.JavaUtils;
 import org.apache.uniffle.common.util.UnitConverter;
@@ -274,13 +278,13 @@ class RssShuffleScheduler extends ShuffleScheduler {
 
   private final Map<Integer, Set<InputAttemptIdentifier>> partitionIdToSuccessMapTaskAttempts =
       new HashMap<>();
+  final Map<Integer, Set<TezTaskID>> partitionIdToSuccessTezTasks = new HashMap<>();
   private final String storageType;
 
   private final int readBufferSize;
   private final int partitionNumPerRange;
   private String basePath;
   private RemoteStorageInfo remoteStorageInfo;
-  private int indexReadLimit;
 
   private final int maxAttemptNo;
 
@@ -502,10 +506,8 @@ class RssShuffleScheduler extends ShuffleScheduler {
             TezRuntimeConfiguration.TEZ_RUNTIME_SHUFFLE_FETCH_VERIFY_DISK_CHECKSUM,
             TezRuntimeConfiguration.TEZ_RUNTIME_SHUFFLE_FETCH_VERIFY_DISK_CHECKSUM_DEFAULT);
 
-    /**
-     * Setting to very high val can lead to Http 400 error. Cap it to 75; every attempt id would be
-     * approximately 48 bytes; 48 * 75 = 3600 which should give some room for other info in URL.
-     */
+    // Setting to very high val can lead to Http 400 error. Cap it to 75; every attempt id would be
+    // approximately 48 bytes; 48 * 75 = 3600 which should give some room for other info in URL.
     this.maxTaskOutputAtOnce =
         Math.max(
             1,
@@ -682,10 +684,8 @@ class RssShuffleScheduler extends ShuffleScheduler {
     lastEventReceived.setValue(relativeTime);
   }
 
-  /**
-   * Placeholder for tracking shuffle events in case we get multiple spills info for the same
-   * attempt.
-   */
+  // Placeholder for tracking shuffle events in case we get multiple spills info for the same
+  // attempt.
   static class ShuffleEventInfo {
     BitSet eventsProcessed;
     int finalEventId = -1; // 0 indexed
@@ -783,11 +783,9 @@ class RssShuffleScheduler extends ShuffleScheduler {
         skippedInputCounter.increment(1);
       }
 
-      /**
-       * In case of pipelined shuffle, it is quite possible that fetchers pulled the FINAL_UPDATE
-       * spill in advance due to smaller output size. In such scenarios, we need to wait until we
-       * retrieve all spill details to claim success.
-       */
+      // In case of pipelined shuffle, it is quite possible that fetchers pulled the FINAL_UPDATE
+      // spill in advance due to smaller output size. In such scenarios, we need to wait until we
+      // retrieve all spill details to claim success.
       if (!srcAttemptIdentifier.canRetrieveInputInChunks()) {
         remainingMaps.decrementAndGet();
         setInputFinished(srcAttemptIdentifier.getInputIdentifier());
@@ -1143,8 +1141,14 @@ class RssShuffleScheduler extends ShuffleScheduler {
     }
   }
 
+  private boolean allInputTaskAttemptDone() {
+    return (this.partitionIdToSuccessTezTasks.values().stream().mapToInt(s -> s.size()).sum()
+            + skippedInputCounter.getValue())
+        == numInputs;
+  }
+
   private boolean isAllInputFetched() {
-    return allEventsReceived() && (successRssPartitionSet.size() >= allRssPartition.size());
+    return allInputTaskAttemptDone() && (successRssPartitionSet.size() >= allRssPartition.size());
   }
 
   /**
@@ -1293,6 +1297,10 @@ class RssShuffleScheduler extends ShuffleScheduler {
       partitionIdToSuccessMapTaskAttempts.put(partitionId, new HashSet<>());
     }
     partitionIdToSuccessMapTaskAttempts.get(partitionId).add(srcAttempt);
+    String pathComponent = srcAttempt.getPathComponent();
+    TezTaskAttemptID tezTaskAttemptId = IdUtils.convertTezTaskAttemptID(pathComponent);
+    partitionIdToSuccessTezTasks.putIfAbsent(partitionId, new HashSet<>());
+    partitionIdToSuccessTezTasks.get(partitionId).add(tezTaskAttemptId.getTaskID());
 
     uniqueHosts.add(new HostPort(inputHostName, port));
     HostPortPartition identifier = new HostPortPartition(inputHostName, port, partitionId);
@@ -1661,10 +1669,10 @@ class RssShuffleScheduler extends ShuffleScheduler {
     protected Void callInternal()
         throws IOException, InterruptedException, TezException, RssException {
       while (!isShutdown.get() && !isAllInputFetched()) {
-        LOG.info("Now allEventsReceived: " + allEventsReceived());
+        LOG.info("Now allInputTaskAttemptDone: " + allInputTaskAttemptDone());
 
         synchronized (RssShuffleScheduler.this) {
-          while (!allEventsReceived()
+          while (!allInputTaskAttemptDone()
               || ((rssRunningFetchers.size() >= numFetchers || pendingHosts.isEmpty())
                   && !isAllInputFetched())) {
             try {
@@ -1856,6 +1864,15 @@ class RssShuffleScheduler extends ShuffleScheduler {
       int partitionNum = partitionToServers.size();
       boolean expectedTaskIdsBitmapFilterEnable = shuffleServerInfoSet.size() > 1;
 
+      RssConf rssConf = RssTezConfig.toRssConf(this.conf);
+      int retryMax =
+          rssConf.getInteger(
+              RssClientConfig.RSS_CLIENT_RETRY_MAX,
+              RssClientConfig.RSS_CLIENT_RETRY_MAX_DEFAULT_VALUE);
+      long retryIntervalMax =
+          rssConf.getLong(
+              RssClientConfig.RSS_CLIENT_RETRY_INTERVAL_MAX,
+              RssClientConfig.RSS_CLIENT_RETRY_INTERVAL_MAX_DEFAULT_VALUE);
       ShuffleReadClient shuffleReadClient =
           ShuffleClientFactory.getInstance()
               .createShuffleReadClient(
@@ -1872,7 +1889,9 @@ class RssShuffleScheduler extends ShuffleScheduler {
                       .hadoopConf(hadoopConf)
                       .idHelper(new TezIdHelper())
                       .expectedTaskIdsBitmapFilterEnable(expectedTaskIdsBitmapFilterEnable)
-                      .rssConf(RssTezConfig.toRssConf(conf)));
+                      .retryMax(retryMax)
+                      .retryIntervalMax(retryIntervalMax)
+                      .rssConf(rssConf));
       RssTezShuffleDataFetcher fetcher =
           new RssTezShuffleDataFetcher(
               partitionIdToSuccessMapTaskAttempts.get(mapHost.getPartitionId()).iterator().next(),

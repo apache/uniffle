@@ -96,11 +96,11 @@ public class HadoopShuffleHandlerTestBase {
           new FileBasedShuffleSegment(
               spb.getBlockId(),
               offset,
-              spb.getLength(),
+              spb.getDataLength(),
               spb.getUncompressLength(),
               spb.getCrc(),
               1);
-      offset += spb.getLength();
+      offset += spb.getDataLength();
       segments.add(segment);
       if (doWrite) {
         writer.writeData(ByteBufUtils.readBytes(spb.getData()));

@@ -48,12 +48,14 @@ import org.apache.spark.shuffle.RssSparkConfig;
 import org.apache.spark.shuffle.handle.SimpleShuffleHandleInfo;
 import org.junit.jupiter.api.Test;
 
+import org.apache.uniffle.client.api.ShuffleManagerClient;
 import org.apache.uniffle.client.api.ShuffleWriteClient;
 import org.apache.uniffle.client.impl.FailedBlockSendTracker;
 import org.apache.uniffle.common.ShuffleBlockInfo;
 import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.rpc.StatusCode;
+import org.apache.uniffle.common.util.ExpiringCloseableSupplier;
 import org.apache.uniffle.storage.util.StorageType;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -88,6 +90,7 @@ public class RssShuffleWriterTest {
 
     Serializer kryoSerializer = new KryoSerializer(conf);
     ShuffleWriteClient mockShuffleWriteClient = mock(ShuffleWriteClient.class);
+    ShuffleManagerClient mockShuffleManagerClient = mock(ShuffleManagerClient.class);
     Partitioner mockPartitioner = mock(Partitioner.class);
     ShuffleDependency<String, String, String> mockDependency = mock(ShuffleDependency.class);
     RssShuffleHandle<String, String, String> mockHandle = mock(RssShuffleHandle.class);
@@ -124,6 +127,7 @@ public class RssShuffleWriterTest {
             manager,
             conf,
             mockShuffleWriteClient,
+            ExpiringCloseableSupplier.of(() -> mockShuffleManagerClient),
             mockHandle,
             mockShuffleHandleInfo,
             contextMock);
@@ -234,6 +238,7 @@ public class RssShuffleWriterTest {
     Partitioner mockPartitioner = mock(Partitioner.class);
     ShuffleDependency<String, String, String> mockDependency = mock(ShuffleDependency.class);
     final ShuffleWriteClient mockShuffleWriteClient = mock(ShuffleWriteClient.class);
+    final ShuffleManagerClient mockShuffleManagerClient = mock(ShuffleManagerClient.class);
     RssShuffleHandle<String, String, String> mockHandle = mock(RssShuffleHandle.class);
     when(mockHandle.getDependency()).thenReturn(mockDependency);
     Serializer kryoSerializer = new KryoSerializer(conf);
@@ -282,7 +287,8 @@ public class RssShuffleWriterTest {
             mockTaskMemoryManager,
             shuffleWriteMetrics,
             new RssConf(),
-            null);
+            null,
+            0);
     WriteBufferManager bufferManagerSpy = spy(bufferManager);
     doReturn(1000000L).when(bufferManagerSpy).acquireMemory(anyLong());
     TaskContext contextMock = mock(TaskContext.class);
@@ -299,6 +305,7 @@ public class RssShuffleWriterTest {
             manager,
             conf,
             mockShuffleWriteClient,
+            ExpiringCloseableSupplier.of(() -> mockShuffleManagerClient),
             mockHandle,
             mockShuffleHandleInfo,
             contextMock);
@@ -348,6 +355,7 @@ public class RssShuffleWriterTest {
   @Test
   public void postBlockEventTest() throws Exception {
     final ShuffleWriteMetrics mockMetrics = mock(ShuffleWriteMetrics.class);
+    final ShuffleManagerClient mockShuffleManagerClient = mock(ShuffleManagerClient.class);
     ShuffleDependency<String, String, String> mockDependency = mock(ShuffleDependency.class);
     Partitioner mockPartitioner = mock(Partitioner.class);
     when(mockDependency.partitioner()).thenReturn(mockPartitioner);
@@ -411,6 +419,7 @@ public class RssShuffleWriterTest {
             manager,
             conf,
             mockWriteClient,
+            ExpiringCloseableSupplier.of(() -> mockShuffleManagerClient),
             mockHandle,
             mockShuffleHandleInfo,
             contextMock);

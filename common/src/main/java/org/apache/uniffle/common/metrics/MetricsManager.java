@@ -19,6 +19,7 @@ package org.apache.uniffle.common.metrics;
 
 import java.util.Arrays;
 import java.util.Map;
+import java.util.function.Supplier;
 
 import com.google.common.collect.Maps;
 import io.prometheus.client.CollectorRegistry;
@@ -27,12 +28,15 @@ import io.prometheus.client.Gauge;
 import io.prometheus.client.Histogram;
 import io.prometheus.client.Summary;
 
+import org.apache.uniffle.common.util.JavaUtils;
+
 public class MetricsManager {
   private final CollectorRegistry collectorRegistry;
   private final String[] defaultLabelNames;
   private final String[] defaultLabelValues;
   private static final double[] QUANTILES = {0.50, 0.75, 0.90, 0.95, 0.99};
   private static final double QUANTILE_ERROR = 0.01;
+  private Map<String, SupplierGauge> supplierGaugeMap;
 
   public MetricsManager() {
     this(null, Maps.newHashMap());
@@ -47,6 +51,7 @@ public class MetricsManager {
     this.defaultLabelNames = defaultLabels.keySet().toArray(new String[0]);
     this.defaultLabelValues =
         Arrays.stream(defaultLabelNames).map(defaultLabels::get).toArray(String[]::new);
+    this.supplierGaugeMap = JavaUtils.newConcurrentMap();
   }
 
   public CollectorRegistry getCollectorRegistry() {
@@ -77,6 +82,25 @@ public class MetricsManager {
   public Gauge.Child addLabeledGauge(String name) {
     Gauge c = addGauge(name, this.defaultLabelNames);
     return c.labels(this.defaultLabelValues);
+  }
+
+  public <T extends Number> void addLabeledGauge(String name, Supplier<T> supplier) {
+    addLabeledCacheGauge(name, supplier, 0);
+  }
+
+  public <T extends Number> void addLabeledCacheGauge(
+      String name, Supplier<T> supplier, long updateInterval) {
+    supplierGaugeMap.computeIfAbsent(
+        name,
+        metricName ->
+            new SupplierGauge(
+                    name,
+                    "Gauge " + name,
+                    supplier,
+                    this.defaultLabelNames,
+                    this.defaultLabelValues,
+                    updateInterval)
+                .register(collectorRegistry));
   }
 
   public Histogram addHistogram(String name, double[] buckets, String... labels) {
@@ -111,5 +135,27 @@ public class MetricsManager {
       builder = builder.quantile(QUANTILES[i], QUANTILE_ERROR);
     }
     return builder.register(collectorRegistry).labels(defaultLabelValues);
+  }
+
+  public void unregisterAllSupplierGauge() {
+    for (SupplierGauge gauge : supplierGaugeMap.values()) {
+      collectorRegistry.unregister(gauge);
+    }
+    supplierGaugeMap.clear();
+  }
+
+  public void unregisterSupplierGauge(String name) {
+    if (supplierGaugeMap.containsKey(name)) {
+      collectorRegistry.unregister(supplierGaugeMap.get(name));
+      supplierGaugeMap.remove(name);
+    }
+  }
+
+  public String[] getDefaultLabelNames() {
+    return defaultLabelNames;
+  }
+
+  public String[] getDefaultLabelValues() {
+    return defaultLabelValues;
   }
 }

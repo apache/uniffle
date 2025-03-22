@@ -39,27 +39,24 @@ public class SparkSQLWithMemoryLocalTest extends SparkSQLTest {
 
   @BeforeAll
   public static void setupServers(@TempDir File tmpDir) throws Exception {
-    CoordinatorConf coordinatorConf = getCoordinatorConf();
+    CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
     coordinatorConf.setLong("rss.coordinator.app.expired", 5000);
     Map<String, String> dynamicConf = Maps.newHashMap();
     dynamicConf.put(RssSparkConfig.RSS_STORAGE_TYPE.key(), StorageType.MEMORY_LOCALFILE.name());
     addDynamicConf(coordinatorConf, dynamicConf);
-    createCoordinatorServer(coordinatorConf);
+    storeCoordinatorConf(coordinatorConf);
     File dataDir1 = new File(tmpDir, "data1");
     File dataDir2 = new File(tmpDir, "data2");
     basePath = dataDir1.getAbsolutePath() + "," + dataDir2.getAbsolutePath();
 
-    ShuffleServerConf grpcShuffleServerConf = buildShuffleServerConf(ServerType.GRPC);
-    createShuffleServer(grpcShuffleServerConf);
+    storeShuffleServerConf(buildShuffleServerConf(ServerType.GRPC));
+    storeShuffleServerConf(buildShuffleServerConf(ServerType.GRPC_NETTY));
 
-    ShuffleServerConf nettyShuffleServerConf = buildShuffleServerConf(ServerType.GRPC_NETTY);
-    createShuffleServer(nettyShuffleServerConf);
-
-    startServers();
+    startServersWithRandomPorts();
   }
 
   private static ShuffleServerConf buildShuffleServerConf(ServerType serverType) throws Exception {
-    ShuffleServerConf shuffleServerConf = getShuffleServerConf(serverType);
+    ShuffleServerConf shuffleServerConf = shuffleServerConfWithoutPort(0, null, serverType);
     shuffleServerConf.setLong("rss.server.heartbeat.interval", 5000);
     shuffleServerConf.setLong("rss.server.app.expired.withoutHeartbeat", 4000);
     shuffleServerConf.setString("rss.storage.basePath", basePath);

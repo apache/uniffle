@@ -63,7 +63,7 @@ public class RssTezConfig {
   public static final String RSS_DATA_TRANSFER_POOL_SIZE =
       TEZ_RSS_CONFIG_PREFIX + RssClientConfig.RSS_DATA_TRANSFER_POOL_SIZE;
   public static final int RSS_DATA_TRANSFER_POOL_SIZE_DEFAULT_VALUE =
-      RssClientConfig.RSS_DATA_TRANFER_POOL_SIZE_DEFAULT_VALUE;
+      RssClientConfig.RSS_DATA_TRANSFER_POOL_SIZE_DEFAULT_VALUE;
   public static final String RSS_DATA_COMMIT_POOL_SIZE =
       TEZ_RSS_CONFIG_PREFIX + RssClientConfig.RSS_DATA_COMMIT_POOL_SIZE;
   public static final int RSS_DATA_COMMIT_POOL_SIZE_DEFAULT_VALUE =
@@ -224,6 +224,16 @@ public class RssTezConfig {
       TEZ_RSS_CONFIG_PREFIX + "rss.remote.spill.storage.path";
   public static final String RSS_SHUFFLE_MODE = TEZ_RSS_CONFIG_PREFIX + "shuffle.mode";
   public static final String DEFAULT_RSS_SHUFFLE_MODE = "remote";
+
+  public static final String RSS_REMOTE_MERGE_ENABLE =
+      TEZ_RSS_CONFIG_PREFIX + RssClientConfig.RSS_REMOTE_MERGE_ENABLE;
+  public static final boolean RSS_REMOTE_MERGE_ENABLE_DEFAULT = false;
+  public static final String RSS_MERGED_BLOCK_SZIE =
+      TEZ_RSS_CONFIG_PREFIX + RssClientConfig.RSS_MERGED_BLOCK_SZIE;
+  public static final int RSS_MERGED_BLOCK_SZIE_DEFAULT =
+      RssClientConfig.RSS_MERGED_BLOCK_SZIE_DEFAULT;
+  public static final String RSS_REMOTE_MERGE_CLASS_LOADER =
+      TEZ_RSS_CONFIG_PREFIX + RssClientConfig.RSS_REMOTE_MERGE_CLASS_LOADER;
 
   public static RssConf toRssConf(Configuration jobConf) {
     RssConf rssConf = new RssConf();

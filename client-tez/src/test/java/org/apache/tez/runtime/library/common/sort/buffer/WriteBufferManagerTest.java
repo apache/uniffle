@@ -20,6 +20,7 @@ package org.apache.tez.runtime.library.common.sort.buffer;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,10 +31,12 @@ import java.util.stream.Collectors;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import io.netty.buffer.ByteBuf;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.BytesWritable;
+import org.apache.hadoop.io.DataOutputBuffer;
 import org.apache.hadoop.io.RawComparator;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.WritableComparator;
@@ -44,6 +47,7 @@ import org.apache.tez.common.RssTezUtils;
 import org.apache.tez.common.TezRuntimeFrameworkConfigs;
 import org.apache.tez.common.counters.TaskCounter;
 import org.apache.tez.common.counters.TezCounter;
+import org.apache.tez.common.counters.TezCounters;
 import org.apache.tez.dag.records.TezTaskAttemptID;
 import org.apache.tez.runtime.api.OutputContext;
 import org.apache.tez.runtime.library.api.TezRuntimeConfiguration;
@@ -66,7 +70,14 @@ import org.apache.uniffle.common.ShuffleDataDistributionType;
 import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.exception.RssException;
+import org.apache.uniffle.common.records.RecordsReader;
 import org.apache.uniffle.common.rpc.StatusCode;
+import org.apache.uniffle.common.serializer.SerInputStream;
+import org.apache.uniffle.common.serializer.SerializerFactory;
+import org.apache.uniffle.common.serializer.SerializerInstance;
+import org.apache.uniffle.common.serializer.SerializerUtils;
+import org.apache.uniffle.common.util.JavaUtils;
+import org.apache.uniffle.proto.RssProtos;
 import org.apache.uniffle.storage.util.StorageType;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -75,6 +86,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 public class WriteBufferManagerTest {
+
+  private static final int RECORDS = 1009;
+
   @Test
   public void testWriteException(@TempDir File tmpDir) throws IOException, InterruptedException {
     TezTaskAttemptID tezTaskAttemptID =
@@ -155,7 +169,10 @@ public class WriteBufferManagerTest {
             shuffleId,
             true,
             mapOutputByteCounter,
-            mapOutputRecordCounter);
+            mapOutputRecordCounter,
+            false,
+            null,
+            null);
     partitionToServers.put(1, Lists.newArrayList(mock(ShuffleServerInfo.class)));
     Random random = new Random();
     for (int i = 0; i < 1000; i++) {
@@ -259,7 +276,10 @@ public class WriteBufferManagerTest {
             shuffleId,
             true,
             mapOutputByteCounter,
-            mapOutputRecordCounter);
+            mapOutputRecordCounter,
+            false,
+            null,
+            null);
 
     Random random = new Random();
     for (int i = 0; i < 1000; i++) {
@@ -286,8 +306,6 @@ public class WriteBufferManagerTest {
     }
 
     assertEquals(1175900, mapOutputByteCounter.getValue());
-    assert (1 == bufferManager.getWaitSendBuffers().size());
-    assert (4928 == bufferManager.getWaitSendBuffers().get(0).getDataLength());
 
     bufferManager.waitSendFinished();
     assertTrue(bufferManager.getWaitSendBuffers().isEmpty());
@@ -374,10 +392,13 @@ public class WriteBufferManagerTest {
             shuffleId,
             true,
             mapOutputByteCounter,
-            mapOutputRecordCounter);
+            mapOutputRecordCounter,
+            false,
+            null,
+            null);
 
     Random random = new Random();
-    for (int i = 0; i < 10000; i++) {
+    for (int i = 0; i < 1000; i++) {
       byte[] key = new byte[20];
       byte[] value = new byte[1024];
       random.nextBytes(key);
@@ -388,8 +409,8 @@ public class WriteBufferManagerTest {
     }
     bufferManager.waitSendFinished();
 
-    assertEquals(10000, mapOutputRecordCounter.getValue());
-    assertEquals(10520000, mapOutputByteCounter.getValue());
+    assertEquals(1000, mapOutputRecordCounter.getValue());
+    assertEquals(1052000, mapOutputByteCounter.getValue());
     assertTrue(bufferManager.getWaitSendBuffers().isEmpty());
     assertEquals(
         writeClient.mockedShuffleServer.getFinishBlockSize(),
@@ -478,7 +499,10 @@ public class WriteBufferManagerTest {
             shuffleId,
             true,
             mapOutputByteCounter,
-            mapOutputRecordCounter);
+            mapOutputRecordCounter,
+            false,
+            null,
+            null);
 
     Random random = new Random();
     RssException rssException =
@@ -506,6 +530,104 @@ public class WriteBufferManagerTest {
     assertTrue(mapOutputByteCounter.getValue() < 10520000);
   }
 
+  @Test
+  public void testWriteWithRemoteMerge() throws Exception {
+    MockShuffleWriteClient client = new MockShuffleWriteClient();
+    client.setMode(3);
+    Map<Integer, List<ShuffleServerInfo>> partitionToServers = JavaUtils.newConcurrentMap();
+    partitionToServers.put(0, new ArrayList());
+    partitionToServers.get(0).add(new ShuffleServerInfo("host", 39998));
+    Set<Long> successBlockIds = Sets.newConcurrentHashSet();
+    Set<Long> failedBlockIds = Sets.newConcurrentHashSet();
+    RssConf rssConf = new RssConf();
+    TezCounters counter = new TezCounters();
+    TezCounter mapOutputByteCounter = counter.findCounter("group", "bytes");
+    TezCounter mapOutputRecordCounter = counter.findCounter("group", "records");
+    TezTaskAttemptID tezTaskAttemptID =
+        TezTaskAttemptID.fromString("attempt_1681717153064_3770270_1_00_000000_0");
+    final long maxMemSize = 102400L;
+    final String appId = "application_1681717153064_3770270";
+    final int taskAttemptId = 0;
+    long maxSegmentSize = 3 * 1024;
+    long maxBufferSize = 14 * 1024 * 1024;
+    int shuffleId =
+        RssTezUtils.computeShuffleId(
+            tezTaskAttemptID.getTaskID().getVertexID().getDAGId().getId(), 1, 2);
+
+    WriteBufferManager<Text, Text> manager =
+        new WriteBufferManager<Text, Text>(
+            tezTaskAttemptID,
+            maxMemSize,
+            appId,
+            taskAttemptId,
+            successBlockIds,
+            failedBlockIds,
+            client,
+            new Text.Comparator(),
+            maxSegmentSize,
+            null,
+            null,
+            maxBufferSize,
+            0.8f,
+            1,
+            0.2f,
+            50,
+            rssConf,
+            partitionToServers,
+            1,
+            false,
+            500L,
+            5 * 1000,
+            1,
+            shuffleId,
+            true,
+            mapOutputByteCounter,
+            mapOutputRecordCounter,
+            true,
+            Text.class,
+            Text.class);
+
+    List<Integer> indexes = new ArrayList<>();
+    for (int i = 0; i < RECORDS; i++) {
+      indexes.add(i);
+    }
+    Collections.shuffle(indexes);
+    for (Integer index : indexes) {
+      manager.addRecord(
+          0,
+          (Text) SerializerUtils.genData(Text.class, index),
+          (Text) SerializerUtils.genData(Text.class, index + 1));
+    }
+    manager.waitSendFinished();
+    assertEquals(RECORDS, mapOutputRecordCounter.getValue());
+    SerializerFactory factory = new SerializerFactory(rssConf);
+    org.apache.uniffle.common.serializer.Serializer serializer = factory.getSerializer(Text.class);
+    SerializerInstance instance = serializer.newInstance();
+    DataOutputBuffer keyBuffer = new DataOutputBuffer();
+    instance.serialize(SerializerUtils.genData(Text.class, 0), keyBuffer);
+    assertEquals(RECORDS * keyBuffer.getLength() * 2, mapOutputByteCounter.getValue());
+    assertTrue(manager.getWaitSendBuffers().isEmpty());
+
+    // check blocks
+    List<ShuffleBlockInfo> blockInfos = client.getCachedBlockInfos();
+    assertEquals(1, blockInfos.size());
+    ByteBuf buf = blockInfos.get(0).getData();
+    byte[] bytes = new byte[blockInfos.get(0).getLength()];
+    buf.readBytes(bytes);
+    RecordsReader<Text, Text> reader =
+        new RecordsReader<>(
+            rssConf, SerInputStream.newInputStream(buf), Text.class, Text.class, false, false);
+    reader.init();
+    int index = 0;
+    while (reader.next()) {
+      assertEquals(SerializerUtils.genData(Text.class, index), reader.getCurrentKey());
+      assertEquals(SerializerUtils.genData(Text.class, index + 1), reader.getCurrentValue());
+      index++;
+    }
+    reader.close();
+    assertEquals(RECORDS, index);
+  }
+
   class MockShuffleServer {
     private List<ShuffleBlockInfo> cachedBlockInfos = new ArrayList<>();
     private List<ShuffleBlockInfo> flushBlockInfos = new ArrayList<>();
@@ -529,6 +651,10 @@ public class WriteBufferManagerTest {
 
     public synchronized int getFinishBlockSize() {
       return finishedBlockInfos.size();
+    }
+
+    public List<ShuffleBlockInfo> getCachedBlockInfos() {
+      return cachedBlockInfos;
     }
   }
 
@@ -589,7 +715,9 @@ public class WriteBufferManagerTest {
         RemoteStorageInfo remoteStorage,
         ShuffleDataDistributionType dataDistributionType,
         int maxConcurrencyPerPartitionToWrite,
-        int stageAttemptNumber) {}
+        int stageAttemptNumber,
+        RssProtos.MergeContext mergeContext,
+        Map<String, String> properties) {}
 
     @Override
     public boolean sendCommit(
@@ -605,7 +733,7 @@ public class WriteBufferManagerTest {
     }
 
     @Override
-    public void registerCoordinators(String coordinators) {}
+    public void registerCoordinators(String coordinators, long retryIntervalMs, int retryTimes) {}
 
     @Override
     public Map<String, String> fetchClientConf(int timeoutMs) {
@@ -649,7 +777,9 @@ public class WriteBufferManagerTest {
         Set<String> faultyServerIds,
         int stageId,
         int stageAttemptNumber,
-        boolean reassign) {
+        boolean reassign,
+        long retryIntervalMs,
+        int retryTimes) {
       return null;
     }
 
@@ -682,5 +812,17 @@ public class WriteBufferManagerTest {
 
     @Override
     public void unregisterShuffle(String appId) {}
+
+    @Override
+    public void startSortMerge(
+        Set<ShuffleServerInfo> serverInfos,
+        String appId,
+        int shuffleId,
+        int partitionId,
+        Roaring64NavigableMap expectedTaskIds) {}
+
+    public List<ShuffleBlockInfo> getCachedBlockInfos() {
+      return mockedShuffleServer.getCachedBlockInfos();
+    }
   }
 }

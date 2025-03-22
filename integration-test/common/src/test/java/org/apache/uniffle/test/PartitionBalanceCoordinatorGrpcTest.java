@@ -17,12 +17,14 @@
 
 package org.apache.uniffle.test;
 
+import java.io.File;
 import java.util.List;
 import java.util.Map;
 
 import com.google.common.collect.Sets;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import org.apache.uniffle.client.request.RssGetShuffleAssignmentsRequest;
 import org.apache.uniffle.client.response.RssGetShuffleAssignmentsResponse;
@@ -36,35 +38,26 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class PartitionBalanceCoordinatorGrpcTest extends CoordinatorTestBase {
 
-  private static int rpcPort1;
-  private static int rpcPort2;
-  private static int rpcPort3;
-
   @BeforeAll
-  public static void setupServers() throws Exception {
-    CoordinatorConf coordinatorConf = getCoordinatorConf();
+  public static void setupServers(@TempDir File tmpDir) throws Exception {
+    CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
     coordinatorConf.setLong("rss.coordinator.app.expired", 2000);
     coordinatorConf.setLong("rss.coordinator.server.heartbeat.timeout", 30000);
-    createCoordinatorServer(coordinatorConf);
-    ShuffleServerConf shuffleServerConf = getShuffleServerConf(ServerType.GRPC);
-    shuffleServerConf.setString("rss.server.buffer.capacity", "204800000");
-    rpcPort1 = shuffleServerConf.getInteger(ShuffleServerConf.RPC_SERVER_PORT);
-    createShuffleServer(shuffleServerConf);
-    shuffleServerConf.setInteger(
-        "rss.rpc.server.port", shuffleServerConf.getInteger(ShuffleServerConf.RPC_SERVER_PORT) + 1);
-    shuffleServerConf.setInteger(
-        "rss.jetty.http.port", shuffleServerConf.getInteger(ShuffleServerConf.JETTY_HTTP_PORT) + 1);
-    shuffleServerConf.setString("rss.server.buffer.capacity", "512000000");
-    rpcPort2 = shuffleServerConf.getInteger(ShuffleServerConf.RPC_SERVER_PORT);
-    createShuffleServer(shuffleServerConf);
-    shuffleServerConf.setInteger(
-        "rss.rpc.server.port", shuffleServerConf.getInteger(ShuffleServerConf.RPC_SERVER_PORT) + 2);
-    shuffleServerConf.setInteger(
-        "rss.jetty.http.port", shuffleServerConf.getInteger(ShuffleServerConf.JETTY_HTTP_PORT) + 2);
-    shuffleServerConf.setString("rss.server.buffer.capacity", "102400000");
-    rpcPort3 = shuffleServerConf.getInteger(ShuffleServerConf.RPC_SERVER_PORT);
-    createShuffleServer(shuffleServerConf);
-    startServers();
+    storeCoordinatorConf(coordinatorConf);
+
+    ShuffleServerConf shuffleServerConf0 = shuffleServerConfWithoutPort(0, tmpDir, ServerType.GRPC);
+    shuffleServerConf0.setString("rss.server.buffer.capacity", "204800000");
+    storeShuffleServerConf(shuffleServerConf0);
+
+    ShuffleServerConf shuffleServerConf1 = shuffleServerConfWithoutPort(1, tmpDir, ServerType.GRPC);
+    shuffleServerConf1.setString("rss.server.buffer.capacity", "512000000");
+    storeShuffleServerConf(shuffleServerConf1);
+
+    ShuffleServerConf shuffleServerConf2 = shuffleServerConfWithoutPort(2, tmpDir, ServerType.GRPC);
+    shuffleServerConf2.setString("rss.server.buffer.capacity", "102400000");
+    storeShuffleServerConf(shuffleServerConf2);
+
+    startServersWithRandomPorts();
   }
 
   @Test
@@ -78,7 +71,7 @@ public class PartitionBalanceCoordinatorGrpcTest extends CoordinatorTestBase {
     for (Map.Entry<Integer, List<ShuffleServerInfo>> entry :
         response.getPartitionToServers().entrySet()) {
       assertEquals(1, entry.getValue().size());
-      assertEquals(rpcPort2, entry.getValue().get(0).getGrpcPort());
+      assertEquals(grpcShuffleServers.get(1).getGrpcPort(), entry.getValue().get(0).getGrpcPort());
     }
     request =
         new RssGetShuffleAssignmentsRequest(
@@ -88,7 +81,7 @@ public class PartitionBalanceCoordinatorGrpcTest extends CoordinatorTestBase {
     for (Map.Entry<Integer, List<ShuffleServerInfo>> entry :
         response.getPartitionToServers().entrySet()) {
       assertEquals(1, entry.getValue().size());
-      assertEquals(rpcPort2, entry.getValue().get(0).getGrpcPort());
+      assertEquals(grpcShuffleServers.get(1).getGrpcPort(), entry.getValue().get(0).getGrpcPort());
     }
     request =
         new RssGetShuffleAssignmentsRequest(
@@ -98,7 +91,7 @@ public class PartitionBalanceCoordinatorGrpcTest extends CoordinatorTestBase {
     for (Map.Entry<Integer, List<ShuffleServerInfo>> entry :
         response.getPartitionToServers().entrySet()) {
       assertEquals(1, entry.getValue().size());
-      assertEquals(rpcPort1, entry.getValue().get(0).getGrpcPort());
+      assertEquals(grpcShuffleServers.get(0).getGrpcPort(), entry.getValue().get(0).getGrpcPort());
     }
   }
 }

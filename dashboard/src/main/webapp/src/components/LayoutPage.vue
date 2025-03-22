@@ -22,7 +22,7 @@
         <el-row>
           <el-col :span="24">
             <el-menu
-              :default-active="activeIndex1"
+              :default-active="currentActive"
               router
               class="el-menu-demo"
               mode="horizontal"
@@ -35,6 +35,10 @@
                 <div class="unffilelogo">
                   <img src="../assets/uniffle-logo.png" alt="unffile" />
                 </div>
+              </el-menu-item>
+              <el-menu-item index="/dashboardpage">
+                <el-icon><House /></el-icon>
+                <span>Dashboard</span>
               </el-menu-item>
               <el-menu-item index="/coordinatorserverpage">
                 <el-icon><House /></el-icon>
@@ -54,7 +58,7 @@
                   v-for="item in hostNameAndPorts"
                   :key="item.label"
                   index="/nullpage"
-                  @click="changeServer(item.label)"
+                  @click="handleChangeServer(item.label)"
                 >
                   <span>{{ item.label }}</span>
                 </el-menu-item>
@@ -83,7 +87,7 @@ import { useCurrentServerStore } from '@/store/useCurrentServerStore'
 
 export default {
   setup() {
-    const activeIndex1 = ref('1')
+    const currentActive = ref('0')
     const currentServerStore = useCurrentServerStore()
     const hostNameAndPorts = reactive([
       {
@@ -92,29 +96,46 @@ export default {
       }
     ])
 
-    function changeServer(key) {
+    /**
+     * Troubleshoot the problem that the browser refresh address menu cannot be selected.
+     */
+    function handleSelectMenu() {
+      const urlAddress = window.location.hash.toString().replace(/^#/, '')
+      const shuffleServerPage = '/shuffleserverpage'
+      if (urlAddress.startsWith(shuffleServerPage)) {
+        currentActive.value = shuffleServerPage
+      } else {
+        currentActive.value = urlAddress
+      }
+    }
+
+    const handleChangeServer = (key) => {
       currentServerStore.currentServer = key
     }
 
     async function getSelectCurrentServer() {
       const res = await getAllCoordinatorAddrees()
       const selectCurrentServer = res.data.data
-      currentServerStore.currentServer = Object.keys(selectCurrentServer)[0]
+      if (!currentServerStore.currentServer) {
+        currentServerStore.currentServer = Object.keys(selectCurrentServer)[0]
+      }
       hostNameAndPorts.length = 0
       Object.entries(selectCurrentServer).forEach(([key, value]) => {
         hostNameAndPorts.push({ value: value, label: key })
       })
+      hostNameAndPorts.sort((a, b) => a.label.localeCompare(b.label))
     }
 
     onMounted(() => {
       getSelectCurrentServer()
+      handleSelectMenu()
     })
 
     return {
-      activeIndex1,
+      currentActive,
       currentServerStore,
       hostNameAndPorts,
-      changeServer
+      handleChangeServer
     }
   }
 }

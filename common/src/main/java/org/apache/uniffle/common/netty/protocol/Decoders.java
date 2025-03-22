@@ -26,6 +26,7 @@ import io.netty.buffer.ByteBuf;
 
 import org.apache.uniffle.common.BufferSegment;
 import org.apache.uniffle.common.ShuffleBlockInfo;
+import org.apache.uniffle.common.ShufflePartitionedBlock;
 import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.util.ByteBufUtils;
 import org.apache.uniffle.common.util.NettyUtils;
@@ -67,6 +68,32 @@ public class Decoders {
         uncompressLength,
         freeMemory,
         taskAttemptId);
+  }
+
+  public static ShufflePartitionedBlock decodeShufflePartitionedBlockV1(ByteBuf byteBuf) {
+    // To ensure upgrade compatibility, only the server-side code was modified.
+    // Some unused information will be skipped during decoding.
+    // TODO: Remove the ShuffleBlockInfo used in the communication between client and server via
+    // handleSendShuffleDataRequest.
+    //    https://github.com/apache/incubator-uniffle/issues/2201
+    byteBuf.skipBytes(4); // partId Int
+    final long blockId = byteBuf.readLong();
+    final int length = byteBuf.readInt();
+    byteBuf.skipBytes(4); // shuffleId Int
+    final long crc = byteBuf.readLong();
+    final long taskAttemptId = byteBuf.readLong();
+    int dataLength = byteBuf.readInt();
+    ByteBuf data = NettyUtils.getSharedUnpooledByteBufAllocator(true).directBuffer(dataLength);
+    data.writeBytes(byteBuf, dataLength);
+    int lengthOfShuffleServers = byteBuf.readInt();
+    List<ShuffleServerInfo> serverInfos = Lists.newArrayList();
+    for (int k = 0; k < lengthOfShuffleServers; k++) {
+      serverInfos.add(decodeShuffleServerInfo(byteBuf));
+    }
+    final int uncompressLength = byteBuf.readInt();
+    byteBuf.skipBytes(8); // freeMemory Long
+
+    return new ShufflePartitionedBlock(length, uncompressLength, crc, blockId, taskAttemptId, data);
   }
 
   public static Map<Integer, List<Long>> decodePartitionToBlockIds(ByteBuf byteBuf) {

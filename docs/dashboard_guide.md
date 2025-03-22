@@ -32,6 +32,13 @@ rss.dashboard.http.port 19997
 coordinator.web.address http://coordinator.hostname:19998/
 ```
 
+### Configure related JVM parameters
+You can add extra JVM arguments for the Uniffle dashboard by specifying `DASHBOARD_JAVA_OPTS` in `RSS_HOME/bin/rss-env.sh`
+Example:
+```
+DASHBOARD_JAVA_OPTS="-Xdebug -Xrunjdwp:transport=dt_socket,server=y,suspend=y,address=5004 -Drss.jetty.http.port=19997"
+```
+
 ### Start the dashboard process
 In the $RSS_HOME/bin directory, start with a script.
 ``` shell
@@ -40,3 +47,12 @@ sh start-dashboard.sh
 
 ## Close dashboard
 sh stop-dashboard.sh
+```
+
+### Dashboard front-end development
+
+In the main.js file, open the import '@/mock' comment and you can use the front-end mock data for interface development.
+
+```js
+import '@/mock' 
+```

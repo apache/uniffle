@@ -44,9 +44,7 @@ import org.apache.uniffle.common.ShuffleDataDistributionType;
 import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.rpc.ServerType;
 import org.apache.uniffle.coordinator.CoordinatorConf;
-import org.apache.uniffle.coordinator.CoordinatorServer;
 import org.apache.uniffle.server.MockedGrpcServer;
-import org.apache.uniffle.server.MockedShuffleServer;
 import org.apache.uniffle.server.ShuffleServer;
 import org.apache.uniffle.server.ShuffleServerConf;
 import org.apache.uniffle.storage.util.StorageType;
@@ -73,50 +71,30 @@ public class RpcClientRetryTest extends ShuffleReadWriteBase {
         .readBufferSize(1000);
   }
 
-  public static MockedShuffleServer createMockedShuffleServer(int id, File tmpDir)
-      throws Exception {
-    ShuffleServerConf shuffleServerConf = getShuffleServerConf(ServerType.GRPC);
-    File dataDir1 = new File(tmpDir, id + "_1");
-    File dataDir2 = new File(tmpDir, id + "_2");
-    String basePath = dataDir1.getAbsolutePath() + "," + dataDir2.getAbsolutePath();
+  public static ShuffleServerConf buildMockShuffleConf(int id, File tmpDir) {
+    ShuffleServerConf shuffleServerConf = shuffleServerConfWithoutPort(id, tmpDir, ServerType.GRPC);
     shuffleServerConf.setString("rss.storage.type", StorageType.MEMORY_LOCALFILE.name());
-    shuffleServerConf.setString("rss.storage.basePath", basePath);
     shuffleServerConf.set(ShuffleServerConf.SERVER_MEMORY_SHUFFLE_LOWWATERMARK_PERCENTAGE, 5.0);
     shuffleServerConf.set(ShuffleServerConf.SERVER_MEMORY_SHUFFLE_HIGHWATERMARK_PERCENTAGE, 15.0);
     shuffleServerConf.set(ShuffleServerConf.SERVER_BUFFER_CAPACITY, 600L);
-    return new MockedShuffleServer(shuffleServerConf);
+    shuffleServerConf.set(ShuffleServerConf.SINGLE_BUFFER_FLUSH_BLOCKS_NUM_THRESHOLD, 1);
+    return shuffleServerConf;
   }
 
   @BeforeAll
   public static void initCluster(@TempDir File tmpDir) throws Exception {
-    CoordinatorConf coordinatorConf = getCoordinatorConf();
-    createCoordinatorServer(coordinatorConf);
+    CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
+    storeCoordinatorConf(coordinatorConf);
 
-    grpcShuffleServers.add(createMockedShuffleServer(0, tmpDir));
-    grpcShuffleServers.add(createMockedShuffleServer(1, tmpDir));
-    grpcShuffleServers.add(createMockedShuffleServer(2, tmpDir));
+    storeMockShuffleServerConf(buildMockShuffleConf(0, tmpDir));
+    storeMockShuffleServerConf(buildMockShuffleConf(1, tmpDir));
+    storeMockShuffleServerConf(buildMockShuffleConf(2, tmpDir));
 
-    shuffleServerInfo0 =
-        new ShuffleServerInfo(
-            String.format("127.0.0.1-%s", grpcShuffleServers.get(0).getGrpcPort()),
-            grpcShuffleServers.get(0).getIp(),
-            grpcShuffleServers.get(0).getGrpcPort());
-    shuffleServerInfo1 =
-        new ShuffleServerInfo(
-            String.format("127.0.0.1-%s", grpcShuffleServers.get(1).getGrpcPort()),
-            grpcShuffleServers.get(1).getIp(),
-            grpcShuffleServers.get(1).getGrpcPort());
-    shuffleServerInfo2 =
-        new ShuffleServerInfo(
-            String.format("127.0.0.1-%s", grpcShuffleServers.get(2).getGrpcPort()),
-            grpcShuffleServers.get(2).getIp(),
-            grpcShuffleServers.get(2).getGrpcPort());
-    for (CoordinatorServer coordinator : coordinators) {
-      coordinator.start();
-    }
-    for (ShuffleServer shuffleServer : grpcShuffleServers) {
-      shuffleServer.start();
-    }
+    startServersWithRandomPorts();
+
+    shuffleServerInfo0 = new ShuffleServerInfo(LOCALHOST, grpcShuffleServers.get(0).getGrpcPort());
+    shuffleServerInfo1 = new ShuffleServerInfo(LOCALHOST, grpcShuffleServers.get(1).getGrpcPort());
+    shuffleServerInfo2 = new ShuffleServerInfo(LOCALHOST, grpcShuffleServers.get(2).getGrpcPort());
   }
 
   @AfterAll
@@ -204,6 +182,8 @@ public class RpcClientRetryTest extends ShuffleReadWriteBase {
     enableFirstNReadRequestsToFail(1);
     validateResult(readClient2, expectedData);
     disableFirstNReadRequestsToFail();
+    readClient1.close();
+    readClient2.close();
   }
 
   private static void enableFirstNReadRequestsToFail(int failedCount) {

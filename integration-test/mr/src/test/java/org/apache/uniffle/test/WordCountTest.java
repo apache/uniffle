@@ -32,7 +32,10 @@ import org.apache.hadoop.mapred.WordCount;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.util.Tool;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
+
+import org.apache.uniffle.common.ClientType;
 
 public class WordCountTest extends MRIntegrationTestBase {
 
@@ -46,10 +49,11 @@ public class WordCountTest extends MRIntegrationTestBase {
     MRIntegrationTestBase.setupServers(MRIntegrationTestBase.getDynamicConf());
   }
 
-  @Test
-  public void wordCountTest() throws Exception {
+  @ParameterizedTest
+  @MethodSource("clientTypeProvider")
+  public void wordCountTest(ClientType clientType) throws Exception {
     generateInputFile();
-    run();
+    run(clientType);
   }
 
   @Override

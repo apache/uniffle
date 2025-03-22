@@ -28,7 +28,7 @@ public class TezSortMergeJoinTest extends TezJoinIntegrationTestBase {
   @Test
   public void sortMergeJoinTest() throws Exception {
     generateInputFile();
-    run(getTestArgs(""));
+    run(SORT_MERGE_JOIN_OUTPUT_PATH);
   }
 
   @Override
@@ -38,11 +38,11 @@ public class TezSortMergeJoinTest extends TezJoinIntegrationTestBase {
 
   @Override
   public String[] getTestArgs(String uniqueOutputName) {
-    return new String[] {STREAM_INPUT_PATH, HASH_INPUT_PATH, "2", SORT_MERGE_JOIN_OUTPUT_PATH};
+    return new String[] {STREAM_INPUT_PATH, HASH_INPUT_PATH, "2", uniqueOutputName};
   }
 
   @Override
   public String getOutputDir(String uniqueOutputName) {
-    return SORT_MERGE_JOIN_OUTPUT_PATH;
+    return uniqueOutputName;
   }
 }

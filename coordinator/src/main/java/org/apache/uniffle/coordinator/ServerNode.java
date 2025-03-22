@@ -17,18 +17,23 @@
 
 package org.apache.uniffle.coordinator;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
 import org.apache.uniffle.common.ServerStatus;
 import org.apache.uniffle.common.storage.StorageInfo;
+import org.apache.uniffle.proto.RssProtos;
 import org.apache.uniffle.proto.RssProtos.ShuffleServerId;
 
 public class ServerNode implements Comparable<ServerNode> {
 
+  private final Map<String, String> displayMetrics;
   private String id;
   private String ip;
   private int grpcPort;
@@ -42,6 +47,11 @@ public class ServerNode implements Comparable<ServerNode> {
   private ServerStatus status;
   private Map<String, StorageInfo> storageInfo;
   private int nettyPort = -1;
+  private int jettyPort = -1;
+  private long startTime = -1;
+  private String version;
+  private String gitCommitId;
+  Map<String, RssProtos.ApplicationInfo> appIdToInfos;
 
   public ServerNode(String id) {
     this(id, "", 0, 0, 0, 0, 0, Sets.newHashSet(), ServerStatus.EXCLUDED);
@@ -115,6 +125,8 @@ public class ServerNode implements Comparable<ServerNode> {
         tags,
         status,
         storageInfoMap,
+        -1,
+        -1,
         -1);
   }
 
@@ -130,6 +142,74 @@ public class ServerNode implements Comparable<ServerNode> {
       ServerStatus status,
       Map<String, StorageInfo> storageInfoMap,
       int nettyPort) {
+    this(
+        id,
+        ip,
+        grpcPort,
+        usedMemory,
+        preAllocatedMemory,
+        availableMemory,
+        eventNumInFlush,
+        tags,
+        status,
+        storageInfoMap,
+        nettyPort,
+        -1,
+        -1L);
+  }
+
+  public ServerNode(
+      String id,
+      String ip,
+      int grpcPort,
+      long usedMemory,
+      long preAllocatedMemory,
+      long availableMemory,
+      int eventNumInFlush,
+      Set<String> tags,
+      ServerStatus status,
+      Map<String, StorageInfo> storageInfoMap,
+      int nettyPort,
+      int jettyPort,
+      long startTime) {
+    this(
+        id,
+        ip,
+        grpcPort,
+        usedMemory,
+        preAllocatedMemory,
+        availableMemory,
+        eventNumInFlush,
+        tags,
+        status,
+        storageInfoMap,
+        nettyPort,
+        jettyPort,
+        startTime,
+        "",
+        "",
+        Collections.EMPTY_LIST,
+        Collections.EMPTY_MAP);
+  }
+
+  public ServerNode(
+      String id,
+      String ip,
+      int grpcPort,
+      long usedMemory,
+      long preAllocatedMemory,
+      long availableMemory,
+      int eventNumInFlush,
+      Set<String> tags,
+      ServerStatus status,
+      Map<String, StorageInfo> storageInfoMap,
+      int nettyPort,
+      int jettyPort,
+      long startTime,
+      String version,
+      String gitCommitId,
+      List<RssProtos.ApplicationInfo> appInfos,
+      Map<String, String> displayMetrics) {
     this.id = id;
     this.ip = ip;
     this.grpcPort = grpcPort;
@@ -145,6 +225,15 @@ public class ServerNode implements Comparable<ServerNode> {
     if (nettyPort > 0) {
       this.nettyPort = nettyPort;
     }
+    if (jettyPort > 0) {
+      this.jettyPort = jettyPort;
+    }
+    this.startTime = startTime;
+    this.version = version;
+    this.gitCommitId = gitCommitId;
+    this.appIdToInfos = new ConcurrentHashMap<>();
+    appInfos.forEach(appInfo -> appIdToInfos.put(appInfo.getAppId(), appInfo));
+    this.displayMetrics = displayMetrics;
   }
 
   public ShuffleServerId convertToGrpcProto() {
@@ -153,6 +242,7 @@ public class ServerNode implements Comparable<ServerNode> {
         .setIp(ip)
         .setPort(grpcPort)
         .setNettyPort(nettyPort)
+        .setJettyPort(jettyPort)
         .build();
   }
 
@@ -214,6 +304,8 @@ public class ServerNode implements Comparable<ServerNode> {
         + grpcPort
         + "], netty port["
         + nettyPort
+        + "], jettyPort["
+        + jettyPort
         + "], usedMemory["
         + usedMemory
         + "], preAllocatedMemory["
@@ -224,13 +316,16 @@ public class ServerNode implements Comparable<ServerNode> {
         + eventNumInFlush
         + "], timestamp["
         + timestamp
-        + "], tags"
+        + "], tags["
         + tags.toString()
-        + ""
-        + ", status["
+        + "], status["
         + status
         + "], storages[num="
         + storageInfo.size()
+        + "], version["
+        + version
+        + "], gitCommitId["
+        + gitCommitId
         + "]";
   }
 
@@ -276,5 +371,29 @@ public class ServerNode implements Comparable<ServerNode> {
 
   public int getNettyPort() {
     return nettyPort;
+  }
+
+  public int getJettyPort() {
+    return jettyPort;
+  }
+
+  public long getStartTime() {
+    return startTime;
+  }
+
+  public String getVersion() {
+    return version;
+  }
+
+  public String getGitCommitId() {
+    return gitCommitId;
+  }
+
+  public Map<String, RssProtos.ApplicationInfo> getAppIdToInfos() {
+    return appIdToInfos;
+  }
+
+  public Map<String, String> getDisplayMetrics() {
+    return displayMetrics;
   }
 }

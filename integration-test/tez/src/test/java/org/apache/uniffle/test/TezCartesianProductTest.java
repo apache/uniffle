@@ -22,6 +22,7 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.util.Tool;
 import org.apache.tez.examples.CartesianProduct;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 public class TezCartesianProductTest extends TezIntegrationTestBase {
@@ -30,6 +31,11 @@ public class TezCartesianProductTest extends TezIntegrationTestBase {
   private String inputPath2 = "cartesian_product_input2";
   private String inputPath3 = "cartesian_product_input3";
   private String outputPath = "cartesian_product_output";
+
+  @BeforeAll
+  public static void setupServers() throws Exception {
+    TezIntegrationTestBase.setupServers(null);
+  }
 
   @Test
   public void cartesianProductTest() throws Exception {

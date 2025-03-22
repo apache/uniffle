@@ -36,6 +36,8 @@ More advanced details for Uniffle users are available in the following:
 - [Uniffle Shuffle Client Guide](client_guide/client_guide.md)
 
 - [Metrics Guide](metrics_guide.md)
+
+- [Troubleshooting](troubleshooting.md)
 - 
 Here you can read API docs for Uniffle along with its submodules.
 

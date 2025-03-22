@@ -28,4 +28,9 @@ public class WebResource {
   public Class<CoordinatorResource> getGainCoordinatorsResource() {
     return CoordinatorResource.class;
   }
+
+  @Path("dashboard")
+  public Class<DashboardResource> getDashboardResource() {
+    return DashboardResource.class;
+  }
 }

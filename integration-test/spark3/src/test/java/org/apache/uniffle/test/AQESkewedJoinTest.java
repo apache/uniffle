@@ -17,6 +17,7 @@
 
 package org.apache.uniffle.test;
 
+import java.io.File;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -34,10 +35,9 @@ import org.apache.spark.sql.functions;
 import org.apache.spark.sql.internal.SQLConf;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import org.apache.uniffle.common.rpc.ServerType;
-import org.apache.uniffle.coordinator.CoordinatorConf;
-import org.apache.uniffle.server.ShuffleServerConf;
 import org.apache.uniffle.storage.util.StorageType;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -45,14 +45,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class AQESkewedJoinTest extends SparkIntegrationTestBase {
 
   @BeforeAll
-  public static void setupServers() throws Exception {
-    CoordinatorConf coordinatorConf = getCoordinatorConf();
-    createCoordinatorServer(coordinatorConf);
-    ShuffleServerConf grpcShuffleServerConf = getShuffleServerConf(ServerType.GRPC);
-    createShuffleServer(grpcShuffleServerConf);
-    ShuffleServerConf nettyShuffleServerConf = getShuffleServerConf(ServerType.GRPC_NETTY);
-    createShuffleServer(nettyShuffleServerConf);
-    startServers();
+  public static void setupServers(@TempDir File tmpDir) throws Exception {
+    storeCoordinatorConf(coordinatorConfWithoutPort());
+
+    storeShuffleServerConf(shuffleServerConfWithoutPort(0, tmpDir, ServerType.GRPC));
+    storeShuffleServerConf(shuffleServerConfWithoutPort(1, tmpDir, ServerType.GRPC_NETTY));
+
+    startServersWithRandomPorts();
   }
 
   @Override

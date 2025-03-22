@@ -51,31 +51,25 @@ public class PartitionBlockDataReassignBasicTest extends SparkSQLTest {
     LOGGER.info("Setup servers");
 
     // for coordinator
-    CoordinatorConf coordinatorConf = getCoordinatorConf();
+    CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
     coordinatorConf.setLong("rss.coordinator.app.expired", 5000);
     Map<String, String> dynamicConf = Maps.newHashMap();
     dynamicConf.put(RssSparkConfig.RSS_STORAGE_TYPE.key(), StorageType.MEMORY_LOCALFILE.name());
     addDynamicConf(coordinatorConf, dynamicConf);
-    createCoordinatorServer(coordinatorConf);
+    storeCoordinatorConf(coordinatorConf);
 
     // for shuffle-server
     File dataDir1 = new File(tmpDir, "data1");
     File dataDir2 = new File(tmpDir, "data2");
     basePath = dataDir1.getAbsolutePath() + "," + dataDir2.getAbsolutePath();
 
-    ShuffleServerConf grpcShuffleServerConf1 = buildShuffleServerConf(ServerType.GRPC);
-    createShuffleServer(grpcShuffleServerConf1);
-
-    ShuffleServerConf grpcShuffleServerConf2 = buildShuffleServerConf(ServerType.GRPC);
-    createShuffleServer(grpcShuffleServerConf2);
-
-    ShuffleServerConf grpcShuffleServerConf3 = buildShuffleServerConf(ServerType.GRPC_NETTY);
-    createShuffleServer(grpcShuffleServerConf3);
-
-    ShuffleServerConf grpcShuffleServerConf4 = buildShuffleServerConf(ServerType.GRPC_NETTY);
-    createShuffleServer(grpcShuffleServerConf4);
-
-    startServers();
+    for (int i = 0; i < 3; i++) {
+      storeShuffleServerConf(buildShuffleServerConf(ServerType.GRPC));
+    }
+    for (int i = 0; i < 2; i++) {
+      storeShuffleServerConf(buildShuffleServerConf(ServerType.GRPC_NETTY));
+    }
+    startServersWithRandomPorts();
 
     // simulate one server without enough buffer for grpc
     ShuffleServer grpcServer = grpcShuffleServers.get(0);
@@ -88,9 +82,8 @@ public class PartitionBlockDataReassignBasicTest extends SparkSQLTest {
     bufferManager.setUsedMemory(bufferManager.getCapacity() + 100);
   }
 
-  protected static ShuffleServerConf buildShuffleServerConf(ServerType serverType)
-      throws Exception {
-    ShuffleServerConf shuffleServerConf = getShuffleServerConf(serverType);
+  protected static ShuffleServerConf buildShuffleServerConf(ServerType serverType) {
+    ShuffleServerConf shuffleServerConf = shuffleServerConfWithoutPort(0, null, serverType);
     shuffleServerConf.setLong("rss.server.heartbeat.interval", 5000);
     shuffleServerConf.setLong("rss.server.app.expired.withoutHeartbeat", 4000);
     shuffleServerConf.setString("rss.storage.basePath", basePath);

@@ -31,7 +31,8 @@ public interface ShuffleHandleInfo {
 
   /**
    * Get the assignment of available servers for writer to write partitioned blocks to corresponding
-   * shuffleServers. Implementations might return dynamic, up-to-date information here.
+   * shuffleServers. Implementations might return dynamic, up-to-date information here. Returns
+   * partitionId -> [replica1, replica2, ...]
    */
   Map<Integer, List<ShuffleServerInfo>> getAvailablePartitionServersForWriter();
 

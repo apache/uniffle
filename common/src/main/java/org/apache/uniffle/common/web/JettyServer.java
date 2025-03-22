@@ -50,6 +50,8 @@ import org.apache.uniffle.common.config.RssBaseConf;
 import org.apache.uniffle.common.util.ExitUtils;
 import org.apache.uniffle.common.util.ThreadUtils;
 
+import static org.apache.uniffle.common.web.resource.ConfOpsResource.SERVLET_CONTEXT_ATTR_CONF;
+
 public class JettyServer {
 
   private static final Logger LOG = LoggerFactory.getLogger(JettyServer.class);
@@ -58,7 +60,7 @@ public class JettyServer {
   private ServletContextHandler servletContextHandler;
   private int httpPort;
   private ServletHolder servletHolder;
-  private Set<String> reourcePackages = new HashSet<>();
+  private Set<String> resourcePackages = new HashSet<>();
 
   public JettyServer(RssBaseConf conf) throws FileNotFoundException {
     createServer(conf);
@@ -82,6 +84,10 @@ public class JettyServer {
 
     if (conf.getBoolean(RssBaseConf.JETTY_SSL_ENABLE)) {
       addHttpsConnector(httpConfig, conf);
+    }
+
+    if (servletContextHandler != null) {
+      servletContextHandler.setAttribute(SERVLET_CONTEXT_ATTR_CONF, conf);
     }
   }
 
@@ -146,9 +152,9 @@ public class JettyServer {
   }
 
   public void addResourcePackages(String... packages) {
-    reourcePackages.addAll(Arrays.asList(packages));
+    resourcePackages.addAll(Arrays.asList(packages));
     servletHolder.setInitParameter(
-        ServerProperties.PROVIDER_PACKAGES, String.join(",", reourcePackages));
+        ServerProperties.PROVIDER_PACKAGES, String.join(",", resourcePackages));
   }
 
   public void registerInstance(Class<?> clazz, Object instance) {
@@ -163,16 +169,22 @@ public class JettyServer {
     return this.server;
   }
 
-  public void start() throws Exception {
+  public int start() throws Exception {
     try {
       server.start();
+      httpPort = ((ServerConnector) server.getConnectors()[0]).getLocalPort();
     } catch (BindException e) {
-      ExitUtils.terminate(1, "Fail to start jetty http server", e, LOG);
+      ExitUtils.terminate(1, "Fail to start jetty http server, port is " + httpPort, e, LOG);
     }
     LOG.info("Jetty http server started, listening on port {}", httpPort);
+    return httpPort;
   }
 
   public void stop() throws Exception {
     server.stop();
+  }
+
+  public int getHttpPort() {
+    return httpPort;
   }
 }

@@ -34,12 +34,8 @@ public class JavaUtils {
   private static final String JAVA_9 = "JAVA_9";
 
   public static boolean isJavaVersionAtLeastJava9() {
-    if (Enums.getIfPresent(JavaVersion.class, JAVA_9).isPresent()
-        && SystemUtils.isJavaVersionAtLeast(JavaVersion.JAVA_9)) {
-      return true;
-    } else {
-      return false;
-    }
+    return Enums.getIfPresent(JavaVersion.class, JAVA_9).isPresent()
+        && SystemUtils.isJavaVersionAtLeast(JavaVersion.JAVA_9);
   }
 
   /** Closes the given object, ignoring IOExceptions. */

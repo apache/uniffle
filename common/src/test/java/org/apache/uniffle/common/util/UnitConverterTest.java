@@ -20,6 +20,7 @@ package org.apache.uniffle.common.util;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -114,5 +115,15 @@ public class UnitConverterTest {
     } else {
       assertEquals(expected, UnitConverter.timeStringAs(value, unit));
     }
+  }
+
+  @Test
+  public void testFormatSize() {
+    assertEquals("500B", UnitConverter.formatSize(500), "Should display in bytes");
+    assertEquals("1.90KiB", UnitConverter.formatSize(1946), "Should display in KiB");
+    assertEquals("11.77MiB", UnitConverter.formatSize(12345678), "Should display in MiB");
+    assertEquals("11.50GiB", UnitConverter.formatSize(12345678901L), "Should display in GiB");
+    assertEquals("1.00TiB", UnitConverter.formatSize(1099511627776L), "Should display in TiB");
+    assertEquals("9.77PiB", UnitConverter.formatSize(10995116277760000L), "Should display in PiB");
   }
 }

@@ -18,6 +18,7 @@
 package org.apache.uniffle.storage.handler.impl;
 
 import java.util.List;
+import java.util.Optional;
 
 import com.google.common.collect.Lists;
 import org.roaringbitmap.longlong.Roaring64NavigableMap;
@@ -30,7 +31,7 @@ import org.apache.uniffle.common.ShuffleDataSegment;
 import org.apache.uniffle.common.ShuffleIndexResult;
 import org.apache.uniffle.common.segment.SegmentSplitterFactory;
 
-public abstract class DataSkippableReadHandler extends AbstractClientReadHandler {
+public abstract class DataSkippableReadHandler extends PrefetchableClientReadHandler {
   private static final Logger LOG = LoggerFactory.getLogger(DataSkippableReadHandler.class);
 
   protected List<ShuffleDataSegment> shuffleDataSegments = Lists.newArrayList();
@@ -50,7 +51,9 @@ public abstract class DataSkippableReadHandler extends AbstractClientReadHandler
       Roaring64NavigableMap expectBlockIds,
       Roaring64NavigableMap processBlockIds,
       ShuffleDataDistributionType distributionType,
-      Roaring64NavigableMap expectTaskIds) {
+      Roaring64NavigableMap expectTaskIds,
+      Optional<PrefetchOption> prefetchOption) {
+    super(prefetchOption);
     this.appId = appId;
     this.shuffleId = shuffleId;
     this.partitionId = partitionId;
@@ -66,7 +69,7 @@ public abstract class DataSkippableReadHandler extends AbstractClientReadHandler
   protected abstract ShuffleDataResult readShuffleData(ShuffleDataSegment segment);
 
   @Override
-  public ShuffleDataResult readShuffleData() {
+  public ShuffleDataResult doReadShuffleData() {
     if (shuffleDataSegments.isEmpty()) {
       ShuffleIndexResult shuffleIndexResult = readShuffleIndex();
       if (shuffleIndexResult == null || shuffleIndexResult.isEmpty()) {
@@ -93,8 +96,7 @@ public abstract class DataSkippableReadHandler extends AbstractClientReadHandler
       blocksOfSegment.and(expectBlockIds);
       if (!blocksOfSegment.isEmpty()) {
         // skip processed blockIds
-        blocksOfSegment.or(processBlockIds);
-        blocksOfSegment.xor(processBlockIds);
+        blocksOfSegment.andNot(processBlockIds);
         if (!blocksOfSegment.isEmpty()) {
           result = readShuffleData(segment);
           segmentIndex++;

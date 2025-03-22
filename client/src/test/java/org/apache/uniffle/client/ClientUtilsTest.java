@@ -87,10 +87,7 @@ public class ClientUtilsTest {
                   LOGGER.info("Finished index: " + index);
                   return true;
                 }
-                if (fail && index == 1) {
-                  return false;
-                }
-                return true;
+                return !fail || index != 1;
               },
               executorService);
       futures.add(future);

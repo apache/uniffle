@@ -25,7 +25,9 @@ import org.apache.uniffle.common.config.ConfigOption;
 import org.apache.uniffle.common.config.ConfigOptions;
 import org.apache.uniffle.common.config.ConfigUtils;
 import org.apache.uniffle.common.config.RssBaseConf;
+import org.apache.uniffle.server.block.DefaultShuffleBlockIdManager;
 import org.apache.uniffle.server.buffer.ShuffleBufferType;
+import org.apache.uniffle.server.storage.LocalStorageManager;
 
 public class ShuffleServerConf extends RssBaseConf {
 
@@ -158,8 +160,8 @@ public class ShuffleServerConf extends RssBaseConf {
           .defaultValue(10000L)
           .withDescription("Threshold for write slow defined");
 
-  public static final ConfigOption<Boolean> SERVER_AUDIT_LOG_ENABLED =
-      ConfigOptions.key("rss.server.audit.log.enabled")
+  public static final ConfigOption<Boolean> SERVER_STORAGE_AUDIT_LOG_ENABLED =
+      ConfigOptions.key("rss.server.storage.audit.log.enabled")
           .booleanType()
           .defaultValue(false)
           .withDescription(
@@ -168,6 +170,19 @@ public class ShuffleServerConf extends RssBaseConf {
                   + "removing all associated files and recording the deletion of the entire application ID or shuffle ID. "
                   + "For a write operation, it includes the size of the data written, the storage type and the specific disk to which it is written "
                   + "(for instance, in scenarios where multiple local disks are mounted).");
+  public static final ConfigOption<Boolean> SERVER_RPC_AUDIT_LOG_ENABLED =
+      ConfigOptions.key("rss.server.rpc.audit.log.enabled")
+          .booleanType()
+          .defaultValue(true)
+          .withDescription(
+              "When set to true, for auditing purposes, the server will log audit records for every rpc request operation. "
+                  + "Each file write is logged.");
+  public static final ConfigOption<List<String>> SERVER_RPC_RPC_AUDIT_LOG_EXCLUDE_LIST =
+      ConfigOptions.key("rss.server.rpc.audit.log.excludeList")
+          .stringType()
+          .asList()
+          .defaultValues("appHeartbeat")
+          .withDescription("Exclude record rpc audit operation list, separated by ','");
 
   public static final ConfigOption<Long> SERVER_EVENT_SIZE_THRESHOLD_L1 =
       ConfigOptions.key("rss.server.event.size.threshold.l1")
@@ -253,6 +268,13 @@ public class ShuffleServerConf extends RssBaseConf {
           .longType()
           .defaultValue(2 * 1024L * 1024L)
           .withDescription("The index file size hint");
+
+  public static final ConfigOption<Boolean> SERVER_UNHEALTHY_ONCE_STORAGE_CORRUPTION =
+      ConfigOptions.key("rss.server.health.markUnhealthyOnceStorageCorruption")
+          .booleanType()
+          .defaultValue(false)
+          .withDescription(
+              "Mark server unhealthy once any storage corrupted. Default value is false");
 
   public static final ConfigOption<Double> HEALTH_STORAGE_MAX_USAGE_PERCENTAGE =
       ConfigOptions.key("rss.server.health.max.storage.usage.percentage")
@@ -492,6 +514,27 @@ public class ShuffleServerConf extends RssBaseConf {
                   + HUGE_PARTITION_SIZE_THRESHOLD.key()
                   + "'");
 
+  public static final ConfigOption<Long> HUGE_PARTITION_SIZE_HARD_LIMIT =
+      ConfigOptions.key("rss.server.huge-partition.size.hard.limit")
+          .longType()
+          .defaultValue(Long.MAX_VALUE)
+          .withDescription(
+              "This option sets the maximum allowable partition size threshold. "
+                  + "If the partition size exceeds this threshold, the client will "
+                  + "receive an error message and the transmission of shuffle data "
+                  + "will be terminated. This helps to significantly improve the "
+                  + "stability of the cluster by preventing partitions from becoming too large.");
+
+  public static final ConfigOption<Long> HUGE_PARTITION_SPLIT_LIMIT =
+      ConfigOptions.key("rss.server.huge-partition.split.limit")
+          .longType()
+          .defaultValue(Long.MAX_VALUE)
+          .withDescription(
+              "This option sets the maximum partition slice size threshold. "
+                  + "If the partition size exceeds this threshold, the rss client will "
+                  + "receive the need split partition list and resend the failed blocks to "
+                  + "new servers through reassign mechanism.");
+
   public static final ConfigOption<Long> SERVER_DECOMMISSION_CHECK_INTERVAL =
       ConfigOptions.key("rss.server.decommission.check.interval")
           .longType()
@@ -628,6 +671,106 @@ public class ShuffleServerConf extends RssBaseConf {
           .withDescription(
               "A comma-separated block size list, where each value"
                   + " can be suffixed with a memory size unit, such as kb or k, mb or m, etc.");
+
+  public static final ConfigOption<Long> STORAGE_REMOVE_RESOURCE_OPERATION_TIMEOUT_SEC =
+      ConfigOptions.key("rss.server.storage.resourceRemoveOperationTimeoutSec")
+          .longType()
+          .defaultValue(10 * 60L)
+          .withDescription("The storage remove resource operation timeout.");
+
+  public static final ConfigOption<Long> STORAGE_FLUSH_OPERATION_TIMEOUT_SEC =
+      ConfigOptions.key("rss.server.storage.flushOperationTimeoutSec")
+          .longType()
+          .defaultValue(-1L)
+          .withDescription(
+              "The storage flush max timeout second, this will not be activated by default");
+
+  public static final ConfigOption<Boolean> SERVER_MERGE_ENABLE =
+      ConfigOptions.key("rss.server.merge.enable")
+          .booleanType()
+          .defaultValue(false)
+          .withDescription("Whether to enable remote merge");
+
+  public static final ConfigOption<Integer> SERVER_MERGE_THREAD_POOL_SIZE =
+      ConfigOptions.key("rss.server.merge.threadPoolSize")
+          .intType()
+          .defaultValue(10)
+          .withDescription("thread pool for merge");
+
+  public static final ConfigOption<Integer> SERVER_MERGE_THREAD_POOL_QUEUE_SIZE =
+      ConfigOptions.key("rss.server.merge.threadPoolQueueSize")
+          .intType()
+          .defaultValue(Integer.MAX_VALUE)
+          .withDescription("size of waiting queue for merge thread pool");
+
+  public static final ConfigOption<Integer> SERVER_MERGE_THREAD_ALIVE_TIME =
+      ConfigOptions.key("rss.server.merge.threadAliveTime")
+          .intType()
+          .defaultValue(120)
+          .withDescription("thread idle time in merge thread pool (s)");
+
+  public static final ConfigOption<String> SERVER_MERGE_DEFAULT_MERGED_BLOCK_SIZE =
+      ConfigOptions.key("rss.server.merge.defaultMergedBlockSize")
+          .stringType()
+          .defaultValue("14m")
+          .withDescription("The default merged block size.");
+
+  public static final ConfigOption<Long> SERVER_MERGE_CACHE_MERGED_BLOCK_INIT_SLEEP_MS =
+      ConfigOptions.key("rss.server.merge.cacheMergedBlockInitSleepMs")
+          .longType()
+          .defaultValue(100L)
+          .withDescription(
+              "When caching merged block, the minimum waiting event after failure to require memory");
+
+  public static final ConfigOption<Long> SERVER_MERGE_CACHE_MERGED_BLOCK_MAX_SLEEP_MS =
+      ConfigOptions.key("rss.server.merge.cacheMergedBlockMaxSleepMs")
+          .longType()
+          .defaultValue(2000L)
+          .withDescription(
+              "When caching merged block, the maximum waiting event after failure to require memory");
+
+  public static final ConfigOption<Integer> SERVER_MERGE_BLOCK_RING_BUFFER_SIZE =
+      ConfigOptions.key("rss.server.merge.blockRingBufferSize")
+          .intType()
+          .defaultValue(2)
+          .withDescription("The ring buffer size for read block when merge");
+
+  public static final ConfigOption<String> SERVER_MERGE_CLASS_LOADER_JARS_PATH =
+      ConfigOptions.key("rss.server.merge.classLoaderJarsPath")
+          .stringType()
+          .defaultValue(null)
+          .withDescription("The jars path for class loader when merge");
+  public static final ConfigOption<Boolean> SERVER_LOG_APP_DETAIL_WHILE_REMOVE_ENABLED =
+      ConfigOptions.key("rss.server.log.app.detail.while.remove.enabled")
+          .booleanType()
+          .defaultValue(false)
+          .withDescription("Whether to enable app detail log");
+  public static final ConfigOption<String> SERVER_BLOCK_ID_MANAGER_CLASS =
+      ConfigOptions.key("rss.server.blockIdManagerClass")
+          .stringType()
+          .defaultValue(DefaultShuffleBlockIdManager.class.getName())
+          .withDescription(
+              "The block id manager class, the implementation of this interface "
+                  + "to manage the shuffle block ids");
+  public static final ConfigOption<List<String>> SERVER_DISPLAY_METRICS_LIST =
+      ConfigOptions.key("rss.server.displayMetricsList")
+          .stringType()
+          .asList()
+          .defaultValues("app:app_num_with_node", "partition:partition_num_with_node")
+          .withDescription(
+              "A list of metrics will report to coordinator and dashboard, format in \"displayName:metricsName\", separated by ','");
+
+  public static final ConfigOption<String> SERVER_LOCAL_STORAGE_MANAGER_CLASS =
+      ConfigOptions.key("rss.server.localStorageManagerClass")
+          .stringType()
+          .defaultValue(LocalStorageManager.class.getName())
+          .withDescription("The class of local storage manager implementation");
+
+  public static final ConfigOption<Boolean> SERVER_HEARTBEAT_REPORT_ON_UNREGISTER_ENABLED =
+      ConfigOptions.key("rss.server.heartbeatReportOnUnregisterEnabled")
+          .booleanType()
+          .defaultValue(false)
+          .withDescription("Whether to trigger report while unregister");
 
   public ShuffleServerConf() {}
 

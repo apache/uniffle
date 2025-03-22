@@ -17,8 +17,9 @@
 
 package org.apache.uniffle.storage.handler.impl;
 
-import java.util.List;
+import java.util.Collection;
 import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -28,6 +29,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.uniffle.common.ShufflePartitionedBlock;
+import org.apache.uniffle.common.config.RssBaseConf;
 import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.storage.handler.api.ShuffleWriteHandler;
 import org.apache.uniffle.storage.util.ShuffleStorageUtils;
@@ -48,7 +50,7 @@ public class PooledHadoopShuffleWriteHandler implements ShuffleWriteHandler {
   private final int maxConcurrency;
   private final String basePath;
   private Function<Integer, ShuffleWriteHandler> createWriterFunc;
-  private volatile int initializedHandlerCnt = 0;
+  private AtomicInteger initializedHandlerCntRef = new AtomicInteger(0);
 
   // Only for tests
   @VisibleForTesting
@@ -70,6 +72,7 @@ public class PooledHadoopShuffleWriteHandler implements ShuffleWriteHandler {
   }
 
   public PooledHadoopShuffleWriteHandler(
+      RssBaseConf rssBaseConf,
       String appId,
       int shuffleId,
       int startPartition,
@@ -90,6 +93,7 @@ public class PooledHadoopShuffleWriteHandler implements ShuffleWriteHandler {
         index -> {
           try {
             return new HadoopShuffleWriteHandler(
+                rssBaseConf,
                 appId,
                 shuffleId,
                 startPartition,
@@ -105,11 +109,12 @@ public class PooledHadoopShuffleWriteHandler implements ShuffleWriteHandler {
   }
 
   @Override
-  public void write(List<ShufflePartitionedBlock> shuffleBlocks) throws Exception {
-    if (queue.isEmpty() && initializedHandlerCnt < maxConcurrency) {
+  public void write(Collection<ShufflePartitionedBlock> shuffleBlocks) throws Exception {
+    if (queue.isEmpty() && initializedHandlerCntRef.get() < maxConcurrency) {
       synchronized (this) {
-        if (initializedHandlerCnt < maxConcurrency) {
-          queue.add(createWriterFunc.apply(initializedHandlerCnt++));
+        if (initializedHandlerCntRef.get() < maxConcurrency) {
+          queue.add(createWriterFunc.apply(initializedHandlerCntRef.get()));
+          initializedHandlerCntRef.addAndGet(1);
         }
       }
     }
@@ -129,6 +134,6 @@ public class PooledHadoopShuffleWriteHandler implements ShuffleWriteHandler {
 
   @VisibleForTesting
   protected int getInitializedHandlerCnt() {
-    return initializedHandlerCnt;
+    return initializedHandlerCntRef.get();
   }
 }

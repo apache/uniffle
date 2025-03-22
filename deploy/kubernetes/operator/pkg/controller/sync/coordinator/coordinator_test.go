@@ -138,7 +138,23 @@ var (
 		"key1": "value1",
 		"key2": "value2",
 	}
+
+	testSvcAnnotationsList = []map[string]string{
+		{
+			"annotation1": "value1",
+		},
+		{
+			"annotation2": "value2",
+		},
+	}
 )
+
+func buildRssWithSvcAnnotations() *uniffleapi.RemoteShuffleService {
+	rss := utils.BuildRSSWithDefaultValue()
+	rss.Spec.Coordinator.NodePortServiceAnnotations = testSvcAnnotationsList
+	rss.Spec.Coordinator.HeadlessServiceAnnotations = testSvcAnnotationsList
+	return rss
+}
 
 func buildRssWithLabels() *uniffleapi.RemoteShuffleService {
 	rss := utils.BuildRSSWithDefaultValue()
@@ -542,6 +558,35 @@ func TestGenerateSvcForCoordinator(t *testing.T) {
 			_, _, services, _ := GenerateCoordinators(tt.rss)
 			result := generateServiceCountMap(services)
 			assertion.Equal(tt.serviceCntMap, result)
+		})
+	}
+}
+
+func TestGenerateSvcWithAnnotationsForCoordinator(t *testing.T) {
+	for _, tt := range []struct {
+		name                string
+		rss                 *uniffleapi.RemoteShuffleService
+		expectedAnnotations []map[string]string
+	}{
+		{
+			name: "nodeport and headless services with annotations",
+			rss:  buildRssWithSvcAnnotations(),
+			expectedAnnotations: []map[string]string{
+				{"annotation1": "value1"},
+				{"annotation1": "value1"},
+				{"annotation2": "value2"},
+				{"annotation2": "value2"}},
+		},
+	} {
+		t.Run(tt.name, func(tc *testing.T) {
+			_, _, services, _ := GenerateCoordinators(tt.rss)
+
+			for i, svc := range services {
+				match := reflect.DeepEqual(tt.expectedAnnotations[i], svc.Annotations)
+				if !match {
+					tc.Errorf("unexpected annotations: %v, expected: %v", svc.Annotations, tt.expectedAnnotations[i])
+				}
+			}
 		})
 	}
 }

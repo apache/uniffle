@@ -43,8 +43,10 @@ import org.slf4j.LoggerFactory;
 import org.apache.uniffle.client.api.ShuffleReadClient;
 import org.apache.uniffle.client.api.ShuffleWriteClient;
 import org.apache.uniffle.client.factory.ShuffleClientFactory;
+import org.apache.uniffle.client.util.RssClientConfig;
 import org.apache.uniffle.common.RemoteStorageInfo;
 import org.apache.uniffle.common.ShuffleServerInfo;
+import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.util.UnitConverter;
 
@@ -186,7 +188,15 @@ public class RssTezFetcherTask extends CallableWithNdc<FetchResult> {
       Configuration hadoopConf = getRemoteConf();
       LOG.info("RssTezFetcherTask storageType:{}", storageType);
       boolean expectedTaskIdsBitmapFilterEnable = serverInfoSet.size() > 1;
-
+      RssConf rssConf = RssTezConfig.toRssConf(this.conf);
+      int retryMax =
+          rssConf.getInteger(
+              RssClientConfig.RSS_CLIENT_RETRY_MAX,
+              RssClientConfig.RSS_CLIENT_RETRY_MAX_DEFAULT_VALUE);
+      long retryIntervalMax =
+          rssConf.getLong(
+              RssClientConfig.RSS_CLIENT_RETRY_INTERVAL_MAX,
+              RssClientConfig.RSS_CLIENT_RETRY_INTERVAL_MAX_DEFAULT_VALUE);
       ShuffleReadClient shuffleReadClient =
           ShuffleClientFactory.getInstance()
               .createShuffleReadClient(
@@ -203,7 +213,9 @@ public class RssTezFetcherTask extends CallableWithNdc<FetchResult> {
                       .hadoopConf(hadoopConf)
                       .idHelper(new TezIdHelper())
                       .expectedTaskIdsBitmapFilterEnable(expectedTaskIdsBitmapFilterEnable)
-                      .rssConf(RssTezConfig.toRssConf(this.conf)));
+                      .retryMax(retryMax)
+                      .retryIntervalMax(retryIntervalMax)
+                      .rssConf(rssConf));
       RssTezFetcher fetcher =
           new RssTezFetcher(
               fetcherCallback,

@@ -22,8 +22,11 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -32,15 +35,21 @@ import org.apache.commons.lang3.SystemUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.ExtensionContext;
 
 import org.apache.uniffle.common.ShufflePartitionedBlock;
+import org.apache.uniffle.common.log.TestLoggerExtension;
+import org.apache.uniffle.common.log.TestLoggerParamResolver;
 import org.apache.uniffle.common.storage.StorageInfo;
 import org.apache.uniffle.common.storage.StorageMedia;
 import org.apache.uniffle.common.storage.StorageStatus;
+import org.apache.uniffle.common.util.JavaUtils;
 import org.apache.uniffle.server.ShuffleDataFlushEvent;
 import org.apache.uniffle.server.ShuffleDataReadEvent;
 import org.apache.uniffle.server.ShuffleServerConf;
 import org.apache.uniffle.server.ShuffleServerMetrics;
+import org.apache.uniffle.server.ShuffleTaskInfo;
 import org.apache.uniffle.storage.common.LocalStorage;
 import org.apache.uniffle.storage.common.Storage;
 import org.apache.uniffle.storage.util.StorageType;
@@ -49,12 +58,16 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 import static uk.org.webcompere.systemstubs.SystemStubs.withEnvironmentVariables;
 
 /** The class is to test the {@link LocalStorageManager} */
+@ExtendWith(TestLoggerExtension.class)
+@ExtendWith(TestLoggerParamResolver.class)
 public class LocalStorageManagerTest {
 
   @BeforeAll
@@ -270,20 +283,39 @@ public class LocalStorageManagerTest {
   }
 
   @Test
-  public void testGetLocalStorageInfo() {
-    String[] storagePaths = {"/tmp/rss-data1", "/tmp/rss-data2", "/tmp/rss-data3"};
-
+  public void testGetLocalStorageInfo() throws IOException {
+    Path testBaseDir = Files.createTempDirectory("rss-test");
+    final Path storageBaseDir1 =
+        Files.createDirectory(Paths.get(testBaseDir.toString(), "rss-data-1"));
+    final Path storageBaseDir2 =
+        Files.createDirectory(Paths.get(testBaseDir.toString(), "rss-data-2"));
+    final Path storageBaseDir3 =
+        Files.createDirectory(Paths.get(testBaseDir.toString(), "rss-data-3"));
+    String[] storagePaths = {
+      storageBaseDir1.toString(), storageBaseDir2.toString(), storageBaseDir3.toString(),
+    };
     ShuffleServerConf conf = new ShuffleServerConf();
     conf.set(ShuffleServerConf.RSS_STORAGE_BASE_PATH, Arrays.asList(storagePaths));
     conf.setLong(ShuffleServerConf.DISK_CAPACITY, 1024L);
     conf.setString(
         ShuffleServerConf.RSS_STORAGE_TYPE.key(),
         org.apache.uniffle.storage.util.StorageType.LOCALFILE.name());
+    conf.setDouble(ShuffleServerConf.HEALTH_STORAGE_MAX_USAGE_PERCENTAGE, 100.0D);
     LocalStorageManager localStorageManager = new LocalStorageManager(conf);
+    // Create and write 3 files in each storage dir
+    final Path file1 = Files.createFile(Paths.get(storageBaseDir1.toString(), "partition1.data"));
+    final Path file2 = Files.createFile(Paths.get(storageBaseDir2.toString(), "partition2.data"));
+    final Path file3 = Files.createFile(Paths.get(storageBaseDir3.toString(), "partition3.data"));
+    FileUtils.writeByteArrayToFile(file1.toFile(), new byte[] {0x1});
+    FileUtils.writeByteArrayToFile(file2.toFile(), new byte[] {0x2});
+    FileUtils.writeByteArrayToFile(file3.toFile(), new byte[] {0x3});
+
+    boolean healthy = localStorageManager.getStorageChecker().checkIsHealthy();
+    assertTrue(healthy, "should be healthy");
     Map<String, StorageInfo> storageInfo = localStorageManager.getStorageInfo();
     assertEquals(1, storageInfo.size());
     try {
-      final String path = "/tmp";
+      final String path = testBaseDir.toString();
       final String mountPoint = Files.getFileStore(new File(path).toPath()).name();
       assertNotNull(storageInfo.get(mountPoint));
       // on Linux environment, it can detect SSD as local storage type
@@ -304,6 +336,7 @@ public class LocalStorageManagerTest {
         assertEquals(StorageMedia.HDD, storageInfo.get(mountPoint).getType());
       }
       assertEquals(StorageStatus.NORMAL, storageInfo.get(mountPoint).getStatus());
+      assertEquals(3L, storageInfo.get(mountPoint).getUsedBytes());
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
@@ -331,5 +364,39 @@ public class LocalStorageManagerTest {
               // by default, it should report HDD as local storage type
               assertEquals(StorageMedia.SSD, storageInfo.get(mountPoint).getType());
             });
+  }
+
+  @Test
+  public void testNewAppWhileCheckLeak(ExtensionContext context) {
+    String[] storagePaths = {"/tmp/rss-data1"};
+
+    ShuffleServerConf conf = new ShuffleServerConf();
+    conf.set(ShuffleServerConf.RSS_STORAGE_BASE_PATH, Arrays.asList(storagePaths));
+    conf.setLong(ShuffleServerConf.DISK_CAPACITY, 1024L);
+    conf.setString(
+        ShuffleServerConf.RSS_STORAGE_TYPE.key(),
+        org.apache.uniffle.storage.util.StorageType.LOCALFILE.name());
+    LocalStorageManager localStorageManager = new LocalStorageManager(conf);
+
+    List<LocalStorage> storages = localStorageManager.getStorages();
+    assertNotNull(storages);
+
+    // test normal case
+    Map<String, ShuffleTaskInfo> shuffleTaskInfos = JavaUtils.newConcurrentMap();
+    shuffleTaskInfos.put("app0", new ShuffleTaskInfo("app0"));
+    shuffleTaskInfos.put("app1", new ShuffleTaskInfo("app1"));
+    shuffleTaskInfos.put("app2", new ShuffleTaskInfo("app2"));
+    localStorageManager.checkAndClearLeakedShuffleData(shuffleTaskInfos::keySet);
+
+    // test race condition case, app 3 is new app
+    shuffleTaskInfos.put("3", new ShuffleTaskInfo("app3"));
+    LocalStorage mockLocalStorage = mock(LocalStorage.class);
+    when(mockLocalStorage.getAppIds()).thenReturn(Collections.singleton("app3"));
+    storages.add(mockLocalStorage);
+    localStorageManager.checkAndClearLeakedShuffleData(shuffleTaskInfos::keySet);
+
+    TestLoggerExtension testLogger = TestLoggerExtension.getTestLogger(context);
+    assertTrue(testLogger.wasLogged("Delete shuffle data for appId\\[app3\\]"));
+    System.out.println();
   }
 }

@@ -29,11 +29,17 @@ public class CoordinatorTestBase extends IntegrationTestBase {
   protected CoordinatorClientFactory factory = CoordinatorClientFactory.getInstance();
   protected CoordinatorGrpcClient coordinatorClient;
 
+  protected CoordinatorGrpcClient getCoordinatorClient() {
+    return (CoordinatorGrpcClient)
+        factory.createCoordinatorClient(
+            ClientType.GRPC, LOCALHOST, coordinators.get(0).getRpcListenPort());
+  }
+
   @BeforeEach
   public void createClient() {
-    coordinatorClient =
-        (CoordinatorGrpcClient)
-            factory.createCoordinatorClient(ClientType.GRPC, LOCALHOST, COORDINATOR_PORT_1);
+    if (!coordinators.isEmpty()) {
+      coordinatorClient = getCoordinatorClient();
+    }
   }
 
   @AfterEach

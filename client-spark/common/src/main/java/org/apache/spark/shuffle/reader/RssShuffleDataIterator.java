@@ -19,6 +19,7 @@ package org.apache.spark.shuffle.reader;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Optional;
 
 import scala.Product2;
 import scala.Tuple2;
@@ -59,7 +60,7 @@ public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C
   private long totalRawBytesLength = 0;
   private long unCompressedBytesLength = 0;
   private ByteBuffer uncompressedData;
-  private Codec codec;
+  private Optional<Codec> codec;
 
   public RssShuffleDataIterator(
       Serializer serializer,
@@ -74,7 +75,7 @@ public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C
             RssSparkConfig.SPARK_SHUFFLE_COMPRESS_KEY.substring(
                 RssSparkConfig.SPARK_RSS_CONFIG_PREFIX.length()),
             RssSparkConfig.SPARK_SHUFFLE_COMPRESS_DEFAULT);
-    this.codec = compress ? Codec.newInstance(rssConf) : null;
+    this.codec = compress ? Codec.newInstance(rssConf) : Optional.empty();
   }
 
   public Iterator<Tuple2<Object, Object>> createKVIterator(ByteBuffer data) {
@@ -131,7 +132,7 @@ public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C
         shuffleReadClient.checkProcessedBlockIds();
         shuffleReadClient.logStatics();
         String decInfo =
-            codec == null
+            !codec.isPresent()
                 ? "."
                 : (", "
                     + decompressTime
@@ -160,7 +161,7 @@ public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C
     shuffleReadMetrics.incRemoteBytesRead(rawDataLength);
 
     int uncompressedLen = rawBlock.getUncompressLength();
-    if (codec != null) {
+    if (codec.isPresent()) {
       if (uncompressedData == null
           || uncompressedData.capacity() < uncompressedLen
           || !isSameMemoryType(uncompressedData, rawData)) {
@@ -185,7 +186,7 @@ public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C
       }
       uncompressedData.clear();
       long startDecompress = System.currentTimeMillis();
-      codec.decompress(rawData, uncompressedLen, uncompressedData, 0);
+      codec.get().decompress(rawData, uncompressedLen, uncompressedData, 0);
       unCompressedBytesLength += uncompressedLen;
       long decompressDuration = System.currentTimeMillis() - startDecompress;
       decompressTime += decompressDuration;
@@ -210,7 +211,7 @@ public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C
     // Uncompressed data is released in this class, Compressed data is release in the class
     // ShuffleReadClientImpl
     // So if codec is null, we don't release the data when the stream is closed
-    if (codec != null) {
+    if (codec.isPresent()) {
       RssUtils.releaseByteBuffer(uncompressedData);
     }
     if (shuffleReadClient != null) {

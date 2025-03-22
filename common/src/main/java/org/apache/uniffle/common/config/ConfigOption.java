@@ -168,7 +168,7 @@ public class ConfigOption<T> {
   /**
    * Returns the class of value.
    *
-   * @return The option' value class
+   * @return The option value class
    */
   public Class<?> getClazz() {
     return clazz;

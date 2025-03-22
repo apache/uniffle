@@ -51,7 +51,7 @@ Note that the RssDAGAppMaster will automatically disable slow start (i.e., `tez.
 ### Remote Spill (Experimental)
 
 In cloud environment, VM may have very limited disk space and performance.
-This experimental feature allows reduce tasks to spill data to remote storage (e.g., hdfs)
+This experimental feature allows to reduce tasks to spill data to remote storage (e.g., hdfs)
 
 |Property Name|Default| Description                                                            |
 |---|---|------------------------------------------------------------------------|

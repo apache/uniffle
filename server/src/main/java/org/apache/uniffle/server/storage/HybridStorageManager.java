@@ -20,6 +20,7 @@ package org.apache.uniffle.server.storage;
 import java.lang.reflect.Constructor;
 import java.util.Collection;
 import java.util.Map;
+import java.util.function.Supplier;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,7 +46,7 @@ public class HybridStorageManager implements StorageManager {
   private final StorageManagerSelector storageManagerSelector;
 
   HybridStorageManager(ShuffleServerConf conf) {
-    warmStorageManager = new LocalStorageManager(conf);
+    warmStorageManager = LocalStorageManagerFactory.get(conf);
     coldStorageManager = new HadoopStorageManager(conf);
 
     try {
@@ -115,6 +116,11 @@ public class HybridStorageManager implements StorageManager {
   }
 
   @Override
+  public Storage selectStorageById(ShuffleDataReadEvent event) {
+    return warmStorageManager.selectStorageById(event);
+  }
+
+  @Override
   public void updateWriteMetrics(ShuffleDataFlushEvent event, long writeTime) {
     throw new UnsupportedOperationException();
   }
@@ -145,8 +151,8 @@ public class HybridStorageManager implements StorageManager {
   }
 
   @Override
-  public void checkAndClearLeakedShuffleData(Collection<String> appIds) {
-    warmStorageManager.checkAndClearLeakedShuffleData(appIds);
+  public void checkAndClearLeakedShuffleData(Supplier<Collection<String>> appIdsSupplier) {
+    warmStorageManager.checkAndClearLeakedShuffleData(appIdsSupplier);
   }
 
   @Override

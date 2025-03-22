@@ -20,6 +20,7 @@ package org.apache.spark.shuffle.reader;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import com.google.common.collect.Lists;
@@ -46,6 +47,7 @@ import org.apache.uniffle.client.factory.ShuffleClientFactory;
 import org.apache.uniffle.client.impl.ShuffleReadClientImpl;
 import org.apache.uniffle.common.ClientType;
 import org.apache.uniffle.common.ShuffleServerInfo;
+import org.apache.uniffle.common.compression.Codec;
 import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.util.BlockIdLayout;
 import org.apache.uniffle.common.util.ChecksumUtils;
@@ -321,11 +323,12 @@ public class RssShuffleDataIteratorTest extends AbstractRssReaderTest {
     RssShuffleDataIterator rssShuffleDataIterator =
         getDataIterator(
             basePath, blockIdBitmap, taskIdBitmap, Lists.newArrayList(ssi1, ssi2), compress);
-    Object codec = FieldUtils.readField(rssShuffleDataIterator, "codec", true);
+    Optional<Codec> codec =
+        (Optional<Codec>) FieldUtils.readField(rssShuffleDataIterator, "codec", true);
     if (compress) {
-      Assertions.assertNotNull(codec);
+      Assertions.assertTrue(codec.isPresent());
     } else {
-      Assertions.assertNull(codec);
+      Assertions.assertFalse(codec.isPresent());
     }
 
     validateResult(rssShuffleDataIterator, expectedData, 20);

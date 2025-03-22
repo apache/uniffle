@@ -86,7 +86,8 @@ public final class MessageEncoder extends MessageToMessageEncoder<Message> {
     header.writeInt(bodyLength);
     in.encode(header);
     if (header.writableBytes() != 0) {
-      throw new RssException("header's writable bytes should be 0");
+      throw new RssException(
+          "header's writable bytes should be 0, but it is " + header.writableBytes());
     }
 
     if (body != null) {

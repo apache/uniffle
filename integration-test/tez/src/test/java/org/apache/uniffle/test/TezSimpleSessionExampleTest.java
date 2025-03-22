@@ -31,17 +31,24 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.util.Tool;
 import org.apache.tez.dag.api.TezConfiguration;
 import org.apache.tez.examples.SimpleSessionExample;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import org.apache.uniffle.common.ClientType;
 import org.apache.uniffle.common.exception.RssException;
 
 public class TezSimpleSessionExampleTest extends TezIntegrationTestBase {
 
-  private String inputPath = "simple_session_input";
-  private String outputPath = "simple_session_output";
-  private List<String> wordTable =
+  private final String inputPath = "simple_session_input";
+  private final String outputPath = "simple_session_output";
+  private final List<String> wordTable =
       Lists.newArrayList(
           "apple", "banana", "fruit", "cherry", "Chinese", "America", "Japan", "tomato");
+
+  @BeforeAll
+  public static void setupServers() throws Exception {
+    TezIntegrationTestBase.setupServers(null);
+  }
 
   @Test
   public void simpleSessionExampleTest() throws Exception {
@@ -56,8 +63,8 @@ public class TezSimpleSessionExampleTest extends TezIntegrationTestBase {
   }
 
   @Override
-  public void updateRssConfiguration(Configuration appConf) throws Exception {
-    super.updateRssConfiguration(appConf);
+  public void updateRssConfiguration(Configuration appConf, ClientType clientType) {
+    super.updateRssConfiguration(appConf, clientType);
     appConf.setBoolean(TezConfiguration.TEZ_AM_SESSION_MODE, true);
   }
 
@@ -74,7 +81,7 @@ public class TezSimpleSessionExampleTest extends TezIntegrationTestBase {
     // To keep pace with verifyResults, here make sure summation of word is unique number.
     FSDataOutputStream outputStream = fs.create(new Path(inputPath));
     Random random = new Random();
-    Set<Integer> used = new HashSet();
+    Set<Integer> used = new HashSet<>();
     List<String> outputList = new ArrayList<>();
     int index = 0;
     while (index < wordTable.size()) {

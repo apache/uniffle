@@ -72,38 +72,23 @@ public class ShuffleServerWithLocalOfLocalOrderTest extends ShuffleReadWriteBase
 
   private ShuffleServerGrpcClient grpcShuffleServerClient;
   private ShuffleServerGrpcNettyClient nettyShuffleServerClient;
-  private static ShuffleServerConf grpcShuffleServerConfig;
-  private static ShuffleServerConf nettyShuffleServerConfig;
 
   @BeforeAll
   public static void setupServers(@TempDir File tmpDir) throws Exception {
-    CoordinatorConf coordinatorConf = getCoordinatorConf();
-    createCoordinatorServer(coordinatorConf);
+    CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
+    storeCoordinatorConf(coordinatorConf);
 
-    File dataDir1 = new File(tmpDir, "data1");
-    File dataDir2 = new File(tmpDir, "data2");
-    String grpcBasePath = dataDir1.getAbsolutePath() + "," + dataDir2.getAbsolutePath();
-    ShuffleServerConf grpcShuffleServerConf = buildShuffleServerConf(ServerType.GRPC, grpcBasePath);
-    createShuffleServer(grpcShuffleServerConf);
+    storeShuffleServerConf(buildShuffleServerConf(0, tmpDir, ServerType.GRPC));
+    storeShuffleServerConf(buildShuffleServerConf(1, tmpDir, ServerType.GRPC_NETTY));
 
-    File dataDir3 = new File(tmpDir, "data3");
-    File dataDir4 = new File(tmpDir, "data4");
-    String nettyBasePath = dataDir3.getAbsolutePath() + "," + dataDir4.getAbsolutePath();
-    ShuffleServerConf nettyShuffleServerConf =
-        buildShuffleServerConf(ServerType.GRPC_NETTY, nettyBasePath);
-    createShuffleServer(nettyShuffleServerConf);
-
-    startServers();
-
-    grpcShuffleServerConfig = grpcShuffleServerConf;
-    nettyShuffleServerConfig = nettyShuffleServerConf;
+    startServersWithRandomPorts();
   }
 
-  private static ShuffleServerConf buildShuffleServerConf(ServerType serverType, String basePath)
-      throws Exception {
-    ShuffleServerConf shuffleServerConf = getShuffleServerConf(serverType);
+  private static ShuffleServerConf buildShuffleServerConf(
+      int subDirIndex, File tempDir, ServerType serverType) {
+    ShuffleServerConf shuffleServerConf =
+        shuffleServerConfWithoutPort(subDirIndex, tempDir, serverType);
     shuffleServerConf.setString("rss.storage.type", StorageType.LOCALFILE.name());
-    shuffleServerConf.setString("rss.storage.basePath", basePath);
     shuffleServerConf.setString("rss.server.app.expired.withoutHeartbeat", "5000");
     return shuffleServerConf;
   }
@@ -111,13 +96,12 @@ public class ShuffleServerWithLocalOfLocalOrderTest extends ShuffleReadWriteBase
   @BeforeEach
   public void createClient() throws Exception {
     grpcShuffleServerClient =
-        new ShuffleServerGrpcClient(
-            LOCALHOST, grpcShuffleServerConfig.getInteger(ShuffleServerConf.RPC_SERVER_PORT));
+        new ShuffleServerGrpcClient(LOCALHOST, grpcShuffleServers.get(0).getGrpcPort());
     nettyShuffleServerClient =
         new ShuffleServerGrpcNettyClient(
             LOCALHOST,
-            nettyShuffleServerConfig.getInteger(ShuffleServerConf.RPC_SERVER_PORT),
-            nettyShuffleServerConfig.getInteger(ShuffleServerConf.NETTY_SERVER_PORT));
+            nettyShuffleServers.get(0).getGrpcPort(),
+            nettyShuffleServers.get(0).getNettyPort());
   }
 
   @AfterEach

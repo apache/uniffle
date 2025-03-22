@@ -40,6 +40,7 @@ import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
 import org.roaringbitmap.longlong.Roaring64NavigableMap;
 
@@ -49,6 +50,7 @@ import org.apache.uniffle.common.RemoteStorageInfo;
 import org.apache.uniffle.common.ShuffleDataResult;
 import org.apache.uniffle.common.ShufflePartitionedBlock;
 import org.apache.uniffle.common.ShufflePartitionedData;
+import org.apache.uniffle.common.config.RssBaseConf;
 import org.apache.uniffle.common.exception.InvalidRequestException;
 import org.apache.uniffle.common.exception.NoBufferForHugePartitionException;
 import org.apache.uniffle.common.exception.NoRegisterException;
@@ -57,9 +59,11 @@ import org.apache.uniffle.common.rpc.StatusCode;
 import org.apache.uniffle.common.util.BlockIdLayout;
 import org.apache.uniffle.common.util.ChecksumUtils;
 import org.apache.uniffle.common.util.RssUtils;
+import org.apache.uniffle.server.block.DefaultShuffleBlockIdManager;
 import org.apache.uniffle.server.buffer.PreAllocatedBufferInfo;
 import org.apache.uniffle.server.buffer.ShuffleBuffer;
 import org.apache.uniffle.server.buffer.ShuffleBufferManager;
+import org.apache.uniffle.server.event.PurgeEvent;
 import org.apache.uniffle.server.storage.LocalStorageManager;
 import org.apache.uniffle.server.storage.StorageManager;
 import org.apache.uniffle.storage.HadoopTestBase;
@@ -68,6 +72,7 @@ import org.apache.uniffle.storage.handler.impl.HadoopClientReadHandler;
 import org.apache.uniffle.storage.util.ShuffleStorageUtils;
 import org.apache.uniffle.storage.util.StorageType;
 
+import static org.apache.uniffle.common.StorageType.MEMORY_LOCALFILE;
 import static org.apache.uniffle.server.ShuffleServerConf.CLIENT_MAX_CONCURRENCY_LIMITATION_OF_ONE_PARTITION;
 import static org.apache.uniffle.server.ShuffleServerConf.SERVER_MAX_CONCURRENCY_OF_ONE_PARTITION;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -77,6 +82,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.spy;
 
 public class ShuffleTaskManagerTest extends HadoopTestBase {
 
@@ -186,7 +194,7 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
 
     // case1, expect NoRegisterException
     try {
-      shuffleTaskManager.requireBuffer(appId, 1, Arrays.asList(1), 500);
+      shuffleTaskManager.requireBuffer(appId, 1, Arrays.asList(1), Arrays.asList(500), 500);
       fail("Should thow NoRegisterException");
     } catch (Exception e) {
       assertTrue(e instanceof NoRegisterException);
@@ -201,7 +209,8 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
 
     // case2
     try {
-      long requiredId = shuffleTaskManager.requireBuffer(appId, 1, Arrays.asList(1), 500);
+      long requiredId =
+          shuffleTaskManager.requireBuffer(appId, 1, Arrays.asList(1), Arrays.asList(500), 500);
       assertNotEquals(-1, requiredId);
     } catch (Exception e) {
       fail("Should not throw Exception");
@@ -212,7 +221,8 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
     shuffleTaskManager.cacheShuffleData(appId, shuffleId, true, partitionedData0);
     shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, 1, partitionedData0.getBlockList());
     try {
-      long requiredId = shuffleTaskManager.requireBuffer(appId, 1, Arrays.asList(1), 500);
+      long requiredId =
+          shuffleTaskManager.requireBuffer(appId, 1, Arrays.asList(1), Arrays.asList(500), 500);
       assertNotEquals(-1, requiredId);
     } catch (Exception e) {
       fail("Should not throw Exception");
@@ -223,7 +233,30 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
     shuffleTaskManager.cacheShuffleData(appId, shuffleId, true, partitionedData0);
     shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, 1, partitionedData0.getBlockList());
     try {
-      shuffleTaskManager.requireBuffer(appId, 1, Arrays.asList(1), 500);
+      shuffleTaskManager.requireBuffer(appId, 1, Arrays.asList(1), Arrays.asList(500), 500);
+      fail("Should throw NoBufferForHugePartitionException");
+    } catch (Exception e) {
+      assertTrue(e instanceof NoBufferForHugePartitionException);
+    }
+
+    // test: to simulate the flush delay, it also will limit the huge partition if the partial data
+    // is in flush queue.
+    ShuffleFlushManager shuffleFlushManager = shuffleServer.getShuffleFlushManager();
+    ShuffleFlushManager spyFlushManager = spy(shuffleFlushManager);
+    doAnswer(
+            invocationOnMock -> {
+              Thread.sleep(10000);
+              return invocationOnMock.callRealMethod();
+            })
+        .when(spyFlushManager)
+        .addToFlushQueue(any(ShuffleDataFlushEvent.class));
+    shuffleTaskManager.setShuffleFlushManager(spyFlushManager);
+    shuffleServer.getShuffleBufferManager().setBufferFlushThreshold(1024);
+    partitionedData0 = createPartitionedData(1, 1, 500);
+    shuffleTaskManager.cacheShuffleData(appId, shuffleId, true, partitionedData0);
+    shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, 1, partitionedData0.getBlockList());
+    try {
+      shuffleTaskManager.requireBuffer(appId, 1, Arrays.asList(1), Arrays.asList(500), 500);
       fail("Should throw NoBufferForHugePartitionException");
     } catch (Exception e) {
       assertTrue(e instanceof NoBufferForHugePartitionException);
@@ -263,14 +296,14 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
 
     // case1
     ShufflePartitionedData partitionedData0 = createPartitionedData(1, 1, 35);
-    long size1 = partitionedData0.getTotalBlockSize();
+    long size1 = partitionedData0.getTotalBlockEncodedLength();
     shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, 1, partitionedData0.getBlockList());
 
     assertEquals(size1, shuffleTaskManager.getShuffleTaskInfo(appId).getTotalDataSize());
 
     // case2
     partitionedData0 = createPartitionedData(1, 1, 35);
-    long size2 = partitionedData0.getTotalBlockSize();
+    long size2 = partitionedData0.getTotalBlockEncodedLength();
     shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, 1, partitionedData0.getBlockList());
     assertEquals(size1 + size2, shuffleTaskManager.getShuffleTaskInfo(appId).getTotalDataSize());
     assertEquals(
@@ -625,12 +658,12 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
     shuffleTaskManager.refreshAppId("clearTest1");
     shuffleTaskManager.refreshAppId("clearTest2");
     assertEquals(2, shuffleTaskManager.getAppIds().size());
-    ShufflePartitionedData partitionedData0 = createPartitionedData(1, 1, 35);
 
     // keep refresh status of application "clearTest1"
     int retry = 0;
     while (retry < 10) {
       Thread.sleep(1000);
+      ShufflePartitionedData partitionedData0 = createPartitionedData(1, 1, 35);
       shuffleTaskManager.cacheShuffleData("clearTest1", shuffleId, false, partitionedData0);
       shuffleTaskManager.updateCachedBlockIds(
           "clearTest1", shuffleId, partitionedData0.getBlockList());
@@ -641,7 +674,7 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
     // application "clearTest2" was removed according to rss.server.app.expired.withoutHeartbeat
     assertEquals(Sets.newHashSet("clearTest1"), shuffleTaskManager.getAppIds());
     assertEquals(
-        1, shuffleTaskManager.getCachedBlockIds("clearTest1", shuffleId).getLongCardinality());
+        10, shuffleTaskManager.getCachedBlockIds("clearTest1", shuffleId).getLongCardinality());
 
     // register again
     shuffleTaskManager.registerShuffle(
@@ -784,7 +817,7 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
       }
     }
     Roaring64NavigableMap resultBlockIds =
-        shuffleTaskManager.getBlockIdsByPartitionId(
+        DefaultShuffleBlockIdManager.getBlockIdsByPartitionId(
             Sets.newHashSet(expectedPartitionId),
             bitmapBlockIds,
             Roaring64NavigableMap.bitmapOf(),
@@ -793,7 +826,7 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
 
     bitmapBlockIds.addLong(layout.getBlockId(0, 0, 0));
     resultBlockIds =
-        shuffleTaskManager.getBlockIdsByPartitionId(
+        DefaultShuffleBlockIdManager.getBlockIdsByPartitionId(
             Sets.newHashSet(0), bitmapBlockIds, Roaring64NavigableMap.bitmapOf(), layout);
     assertEquals(Roaring64NavigableMap.bitmapOf(0L), resultBlockIds);
 
@@ -801,7 +834,7 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
         layout.getBlockId(layout.maxSequenceNo, layout.maxPartitionId, layout.maxTaskAttemptId);
     bitmapBlockIds.addLong(expectedBlockId);
     resultBlockIds =
-        shuffleTaskManager.getBlockIdsByPartitionId(
+        DefaultShuffleBlockIdManager.getBlockIdsByPartitionId(
             Sets.newHashSet(layout.maxPartitionId),
             bitmapBlockIds,
             Roaring64NavigableMap.bitmapOf(),
@@ -840,12 +873,12 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
     }
 
     Roaring64NavigableMap resultBlockIds =
-        shuffleTaskManager.getBlockIdsByPartitionId(
+        DefaultShuffleBlockIdManager.getBlockIdsByPartitionId(
             requestPartitions, bitmapBlockIds, Roaring64NavigableMap.bitmapOf(), layout);
     assertEquals(expectedBlockIds, resultBlockIds);
     assertEquals(
         bitmapBlockIds,
-        shuffleTaskManager.getBlockIdsByPartitionId(
+        DefaultShuffleBlockIdManager.getBlockIdsByPartitionId(
             allPartitions, bitmapBlockIds, Roaring64NavigableMap.bitmapOf(), layout));
   }
 
@@ -999,12 +1032,11 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
     shuffleTaskManager.refreshAppId(appId);
     assertEquals(1, shuffleTaskManager.getAppIds().size());
 
-    ShufflePartitionedData shuffleData = createPartitionedData(1, 1, 48);
-
     // make sure shuffle data flush to disk
     int retry = 0;
     while (retry < 5) {
       Thread.sleep(1000);
+      ShufflePartitionedData shuffleData = createPartitionedData(1, 1, 48);
       shuffleTaskManager.cacheShuffleData(appId, shuffleId, false, shuffleData);
       shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, shuffleData.getBlockList());
       shuffleTaskManager.refreshAppId(appId);
@@ -1128,7 +1160,7 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
     for (ShufflePartitionedBlock block : blocks) {
       for (BufferSegment bs : bufferSegments) {
         if (bs.getBlockId() == block.getBlockId()) {
-          assertEquals(block.getLength(), bs.getLength());
+          assertEquals(block.getDataLength(), bs.getLength());
           assertEquals(block.getCrc(), bs.getCrc());
           matchNum++;
           break;
@@ -1152,6 +1184,54 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
 
     // case3: client max concurrency exceed 30
     assertEquals(30, ShuffleTaskManager.getMaxConcurrencyWriting(40, conf));
+  }
+
+  @Timeout(10)
+  @Test
+  public void testStorageRemoveResourceHang(@TempDir File tmpDir) throws Exception {
+    String confFile = ClassLoader.getSystemResource("server.conf").getFile();
+    ShuffleServerConf conf = new ShuffleServerConf(confFile);
+    final String storageBasePath = tmpDir.getAbsolutePath() + "rss/testStorageRemoveResourceHang";
+    conf.set(RssBaseConf.RSS_STORAGE_TYPE, MEMORY_LOCALFILE);
+    conf.set(ShuffleServerConf.RSS_TEST_MODE_ENABLE, true);
+    conf.set(ShuffleServerConf.RPC_SERVER_PORT, 1234);
+    conf.set(ShuffleServerConf.RSS_COORDINATOR_QUORUM, "localhost:9527");
+    conf.set(ShuffleServerConf.STORAGE_REMOVE_RESOURCE_OPERATION_TIMEOUT_SEC, 2L);
+
+    shuffleServer = new ShuffleServer(conf);
+    ShuffleTaskManager shuffleTaskManager = shuffleServer.getShuffleTaskManager();
+
+    String appId = "appId1";
+    shuffleTaskManager.registerShuffle(
+        appId,
+        1,
+        Lists.newArrayList(new PartitionRange(0, 1)),
+        new RemoteStorageInfo(storageBasePath, Maps.newHashMap()),
+        StringUtils.EMPTY);
+    shuffleTaskManager.refreshAppId(appId);
+    assertEquals(1, shuffleTaskManager.getAppIds().size());
+
+    ShufflePartitionedData partitionedData0 = createPartitionedData(1, 1, 35);
+    shuffleTaskManager.requireBuffer(35);
+    shuffleTaskManager.cacheShuffleData(appId, 0, false, partitionedData0);
+    shuffleTaskManager.updateCachedBlockIds(appId, 0, partitionedData0.getBlockList());
+    shuffleTaskManager.refreshAppId(appId);
+    shuffleTaskManager.checkResourceStatus();
+    assertEquals(1, shuffleTaskManager.getAppIds().size());
+
+    // get the underlying localfile storage manager to simulate hang
+    LocalStorageManager storageManager = (LocalStorageManager) shuffleServer.getStorageManager();
+    storageManager = spy(storageManager);
+    doAnswer(
+            x -> {
+              Thread.sleep(100000);
+              return null;
+            })
+        .when(storageManager)
+        .removeResources(any(PurgeEvent.class));
+    shuffleTaskManager.setStorageManager(storageManager);
+
+    shuffleTaskManager.removeResources(appId, false);
   }
 
   @Test
@@ -1208,7 +1288,8 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
     Thread.sleep(2000);
 
     // The NO_REGISTER status code should not appear.
-    assertTrue(shuffleTaskManager.requireBuffer(appId, 2, Arrays.asList(1), 35) != -4);
+    assertTrue(
+        shuffleTaskManager.requireBuffer(appId, 2, Arrays.asList(1), Arrays.asList(35), 35) != -4);
     shuffleTaskManager.removeResources(appId, false);
   }
 }

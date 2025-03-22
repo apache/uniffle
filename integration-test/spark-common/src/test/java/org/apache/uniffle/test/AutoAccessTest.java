@@ -17,6 +17,7 @@
 
 package org.apache.uniffle.test;
 
+import java.io.File;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.util.concurrent.TimeUnit;
@@ -31,6 +32,7 @@ import org.apache.spark.shuffle.RssSparkConfig;
 import org.apache.spark.shuffle.ShuffleManager;
 import org.apache.spark.shuffle.sort.SortShuffleManager;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import org.apache.uniffle.common.rpc.ServerType;
 import org.apache.uniffle.coordinator.CoordinatorConf;
@@ -46,14 +48,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class AutoAccessTest extends IntegrationTestBase {
 
   @Test
-  public void test() throws Exception {
+  public void test(@TempDir File tmpDir) throws Exception {
     SparkConf sparkConf = new SparkConf();
     sparkConf.set("spark.shuffle.manager", "org.apache.spark.shuffle.DelegationRssShuffleManager");
-    sparkConf.set(RssSparkConfig.RSS_COORDINATOR_QUORUM.key(), COORDINATOR_QUORUM);
+
     sparkConf.set("spark.mock.2", "no-overwrite-conf");
     sparkConf.set(RssSparkConfig.RSS_REMOTE_STORAGE_PATH.key(), "overwrite-path");
     sparkConf.set("spark.shuffle.service.enabled", "true");
-
     String cfgFile = HDFS_URI + "/test/client_conf";
     Path path = new Path(cfgFile);
     FSDataOutputStream out = fs.create(path);
@@ -75,7 +76,7 @@ public class AutoAccessTest extends IntegrationTestBase {
     printWriter1.flush();
     printWriter1.close();
 
-    CoordinatorConf coordinatorConf = getCoordinatorConf();
+    CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
     coordinatorConf.setBoolean("rss.coordinator.dynamicClientConf.enabled", true);
     coordinatorConf.setString("rss.coordinator.dynamicClientConf.path", cfgFile);
     coordinatorConf.setInteger("rss.coordinator.dynamicClientConf.updateIntervalSec", 1);
@@ -86,13 +87,14 @@ public class AutoAccessTest extends IntegrationTestBase {
         "rss.coordinator.access.checkers",
         "org.apache.uniffle.coordinator.access.checker.AccessCandidatesChecker,"
             + "org.apache.uniffle.coordinator.access.checker.AccessClusterLoadChecker");
-    createCoordinatorServer(coordinatorConf);
+    storeCoordinatorConf(coordinatorConf);
 
-    ShuffleServerConf shuffleServerConf = getShuffleServerConf(ServerType.GRPC);
-    createShuffleServer(shuffleServerConf);
-    startServers();
+    ShuffleServerConf shuffleServerConf = shuffleServerConfWithoutPort(0, tmpDir, ServerType.GRPC);
+    storeShuffleServerConf(shuffleServerConf);
+    startServersWithRandomPorts();
     Uninterruptibles.sleepUninterruptibly(2, TimeUnit.SECONDS);
 
+    sparkConf.set(RssSparkConfig.RSS_COORDINATOR_QUORUM.key(), getQuorum());
     assertFalse(sparkConf.contains("spark.mock.1"));
     assertEquals("no-overwrite-conf", sparkConf.get("spark.mock.2"));
     assertTrue(sparkConf.getBoolean("spark.shuffle.service.enabled", true));

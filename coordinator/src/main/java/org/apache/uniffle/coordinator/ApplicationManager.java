@@ -126,6 +126,11 @@ public class ApplicationManager implements Closeable {
   }
 
   public void registerApplicationInfo(String appId, String user) {
+    registerApplicationInfo(appId, user, "", "");
+  }
+
+  public void registerApplicationInfo(
+      String appId, String user, String version, String gitCommitId) {
     // using computeIfAbsent is just for MR and spark which is used RssShuffleManager as
     // implementation class
     // in such case by default, there is no currentUserAndApp, so a unified user implementation
@@ -137,9 +142,10 @@ public class ApplicationManager implements Closeable {
       CoordinatorMetrics.counterTotalAppNum.inc();
       LOG.info("New application is registered: {}", appId);
     }
-    AppInfo appInfo = AppInfo.createAppInfo(appId, System.currentTimeMillis());
+    AppInfo appInfo =
+        AppInfo.createAppInfo(appId, System.currentTimeMillis(), version, gitCommitId);
     if (quotaManager != null) {
-      quotaManager.registerApplicationInfo(appId, appAndTime);
+      quotaManager.registerApplicationInfo(appId, appAndTime, version, gitCommitId);
     } else {
       appAndTime.put(appId, appInfo);
     }
@@ -149,7 +155,7 @@ public class ApplicationManager implements Closeable {
     String user = appIdToUser.get(appId);
     // compatible with lower version clients
     if (user == null) {
-      registerApplicationInfo(appId, "");
+      registerApplicationInfo(appId, "", "", "");
     } else {
       Map<String, AppInfo> appAndTime = currentUserAndApp.get(user);
       AppInfo appInfo = appAndTime.get(appId);
@@ -157,7 +163,7 @@ public class ApplicationManager implements Closeable {
       if (appInfo != null) {
         appInfo.setUpdateTime(currentTimeMs);
       } else {
-        appInfo = new AppInfo(appId, currentTimeMs, currentTimeMs);
+        appInfo = new AppInfo(appId, currentTimeMs, currentTimeMs, "", "");
         appAndTime.put(appId, appInfo);
       }
     }

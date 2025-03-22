@@ -100,7 +100,6 @@ jobs:
         **/target/surefire-reports/*.xml
 
   docker:
-    needs: [integration]
     uses: ./.github/workflows/docker.yml
 
   kubernetes:
@@ -117,7 +116,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Upload
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: Event File
         path: ${{ github.event_path }}

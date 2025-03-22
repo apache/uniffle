@@ -28,7 +28,7 @@ public class AQESkewedJoinWithLocalOrderTest extends AQESkewedJoinTest {
 
   @Override
   public void updateSparkConfCustomer(SparkConf sparkConf) {
-    sparkConf.set(RssSparkConfig.RSS_STORAGE_TYPE.key(), StorageType.LOCALFILE.name());
+    sparkConf.set(RssSparkConfig.RSS_STORAGE_TYPE.key(), StorageType.MEMORY_LOCALFILE.name());
     sparkConf.set(
         "spark." + RssClientConf.DATA_DISTRIBUTION_TYPE.key(),
         ShuffleDataDistributionType.LOCAL_ORDER.name());

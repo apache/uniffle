@@ -34,6 +34,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -47,6 +48,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.uniffle.common.AuditType;
+import org.apache.uniffle.common.ReconfigurableRegistry;
 import org.apache.uniffle.common.RemoteStorageInfo;
 import org.apache.uniffle.common.UnionKey;
 import org.apache.uniffle.common.exception.RssException;
@@ -78,7 +80,8 @@ import static org.apache.uniffle.server.ShuffleServerConf.LOCAL_STORAGE_INITIALI
 
 public class LocalStorageManager extends SingleStorageManager {
   private static final Logger LOG = LoggerFactory.getLogger(LocalStorageManager.class);
-  private static final Logger AUDIT_LOGGER = LoggerFactory.getLogger("audit");
+  private static final Logger AUDIT_LOGGER =
+      LoggerFactory.getLogger("SHUFFLE_SERVER_STORAGE_AUDIT_LOG");
   private static final String UNKNOWN_USER_NAME = "unknown";
 
   private final List<LocalStorage> localStorages;
@@ -88,10 +91,10 @@ public class LocalStorageManager extends SingleStorageManager {
   private final ConcurrentSkipListMap<String, LocalStorage> sortedPartitionsOfStorageMap;
   private final List<StorageMediaProvider> typeProviders = Lists.newArrayList();
 
-  private final boolean isAuditLogEnabled;
+  private boolean isStorageAuditLogEnabled;
 
   @VisibleForTesting
-  LocalStorageManager(ShuffleServerConf conf) {
+  public LocalStorageManager(ShuffleServerConf conf) {
     super(conf);
     storageBasePaths = RssUtils.getConfiguredLocalDirs(conf);
     if (CollectionUtils.isEmpty(storageBasePaths)) {
@@ -133,6 +136,7 @@ public class LocalStorageManager extends SingleStorageManager {
                       .ratio(ratio)
                       .lowWaterMarkOfWrite(lowWaterMarkOfWrite)
                       .highWaterMarkOfWrite(highWaterMarkOfWrite)
+                      .setId(idx)
                       .localStorageMedia(storageType);
               if (isDiskCapacityWatermarkCheckEnabled) {
                 builder.enableDiskCapacityWatermarkCheck();
@@ -173,7 +177,20 @@ public class LocalStorageManager extends SingleStorageManager {
         StringUtils.join(
             localStorages.stream().map(LocalStorage::getBasePath).collect(Collectors.toList())));
     this.checker = new LocalStorageChecker(conf, localStorages);
-    isAuditLogEnabled = conf.getBoolean(ShuffleServerConf.SERVER_AUDIT_LOG_ENABLED);
+    isStorageAuditLogEnabled =
+        conf.getReconfigurableConf(ShuffleServerConf.SERVER_STORAGE_AUDIT_LOG_ENABLED).get();
+    ReconfigurableRegistry.register(
+        ShuffleServerConf.SERVER_STORAGE_AUDIT_LOG_ENABLED.toString(),
+        (rssConf, changedProperties) -> {
+          if (changedProperties == null || rssConf == null) {
+            return;
+          }
+          if (changedProperties.contains(
+              ShuffleServerConf.SERVER_STORAGE_AUDIT_LOG_ENABLED.key())) {
+            isStorageAuditLogEnabled =
+                rssConf.getBoolean(ShuffleServerConf.SERVER_STORAGE_AUDIT_LOG_ENABLED);
+          }
+        });
   }
 
   private StorageMedia getStorageTypeForBasePath(String basePath) {
@@ -188,6 +205,12 @@ public class LocalStorageManager extends SingleStorageManager {
 
   @Override
   public Storage selectStorage(ShuffleDataFlushEvent event) {
+    if (localStorages.size() == 1) {
+      if (event.getUnderStorage() == null) {
+        event.setUnderStorage(localStorages.get(0));
+      }
+      return localStorages.get(0);
+    }
     String appId = event.getAppId();
     int shuffleId = event.getShuffleId();
     int partitionId = event.getStartPartition();
@@ -238,6 +261,9 @@ public class LocalStorageManager extends SingleStorageManager {
 
   @Override
   public Storage selectStorage(ShuffleDataReadEvent event) {
+    if (localStorages.size() == 1) {
+      return localStorages.get(0);
+    }
     String appId = event.getAppId();
     int shuffleId = event.getShuffleId();
     int partitionId = event.getStartPartition();
@@ -250,11 +276,11 @@ public class LocalStorageManager extends SingleStorageManager {
     super.updateWriteMetrics(event, writeTime);
     ShuffleServerMetrics.counterTotalLocalFileWriteDataSize
         .labels(ShuffleServerMetrics.LOCAL_DISK_PATH_LABEL_ALL)
-        .inc(event.getSize());
+        .inc(event.getDataLength());
     if (event.getUnderStorage() != null) {
       ShuffleServerMetrics.counterTotalLocalFileWriteDataSize
           .labels(event.getUnderStorage().getStoragePath())
-          .inc(event.getSize());
+          .inc(event.getDataLength());
     }
   }
 
@@ -286,10 +312,12 @@ public class LocalStorageManager extends SingleStorageManager {
         ShuffleHandlerFactory.getInstance()
             .createShuffleDeleteHandler(
                 new CreateShuffleDeleteHandlerRequest(
-                    StorageType.LOCALFILE.name(), new Configuration()));
+                    StorageType.LOCALFILE.name(), new Configuration(), event.isRenameAndDelete()));
 
     List<String> deletePaths =
-        storageBasePaths.stream()
+        localStorages.stream()
+            .filter(x -> !x.isCorrupted())
+            .map(x -> x.getBasePath())
             .flatMap(
                 path -> {
                   String basicPath = ShuffleStorageUtils.getFullShuffleDataFolder(path, appId);
@@ -300,7 +328,7 @@ public class LocalStorageManager extends SingleStorageManager {
                           ShuffleStorageUtils.getFullShuffleDataFolder(
                               basicPath, String.valueOf(shuffleId)));
                     }
-                    if (isAuditLogEnabled) {
+                    if (isStorageAuditLogEnabled) {
                       AUDIT_LOGGER.info(
                           String.format(
                               "%s|%s|%s|%s|%s",
@@ -314,7 +342,7 @@ public class LocalStorageManager extends SingleStorageManager {
                     }
                     return paths.stream();
                   } else {
-                    if (isAuditLogEnabled) {
+                    if (isStorageAuditLogEnabled) {
                       AUDIT_LOGGER.info(
                           String.format(
                               "%s|%s|%s|%s",
@@ -325,7 +353,12 @@ public class LocalStorageManager extends SingleStorageManager {
                 })
             .collect(Collectors.toList());
 
-    deleteHandler.delete(deletePaths.toArray(new String[deletePaths.size()]), appId, user);
+    boolean isSuccess =
+        deleteHandler.delete(deletePaths.toArray(new String[deletePaths.size()]), appId, user);
+    if (!isSuccess && event.isRenameAndDelete()) {
+      ShuffleServerMetrics.counterLocalRenameAndDeletionFaileTd.inc();
+    }
+    removeAppStorageInfo(event);
   }
 
   private void cleanupStorageSelectionCache(PurgeEvent event) {
@@ -371,7 +404,7 @@ public class LocalStorageManager extends SingleStorageManager {
   }
 
   @Override
-  public void checkAndClearLeakedShuffleData(Collection<String> appIds) {
+  public void checkAndClearLeakedShuffleData(Supplier<Collection<String>> appIdsSupplier) {
     Set<String> appIdsOnStorages = new HashSet<>();
     for (LocalStorage localStorage : localStorages) {
       if (!localStorage.isCorrupted()) {
@@ -380,6 +413,7 @@ public class LocalStorageManager extends SingleStorageManager {
       }
     }
 
+    Collection<String> appIds = appIdsSupplier.get();
     for (String appId : appIdsOnStorages) {
       if (!appIds.contains(appId)) {
         ShuffleDeleteHandler deleteHandler =
@@ -402,8 +436,6 @@ public class LocalStorageManager extends SingleStorageManager {
     Map<String, StorageInfo> result = Maps.newHashMap();
     for (LocalStorage storage : localStorages) {
       String mountPoint = storage.getMountPoint();
-      long capacity = storage.getCapacity();
-      long wroteBytes = storage.getServiceUsedBytes();
       StorageStatus status = StorageStatus.NORMAL;
       if (storage.isCorrupted()) {
         status = StorageStatus.UNHEALTHY;
@@ -414,6 +446,13 @@ public class LocalStorageManager extends SingleStorageManager {
       if (media == null) {
         media = StorageMedia.UNKNOWN;
       }
+      StorageInfo existingMountPoint = result.get(mountPoint);
+      long wroteBytes = storage.getServiceUsedBytes();
+      // if there is already a storage on the mount point, we should sum up the used bytes.
+      if (existingMountPoint != null) {
+        wroteBytes += existingMountPoint.getUsedBytes();
+      }
+      long capacity = storage.getCapacity();
       StorageInfo info = new StorageInfo(mountPoint, media, capacity, wroteBytes, status);
       result.put(mountPoint, info);
     }
@@ -428,5 +467,11 @@ public class LocalStorageManager extends SingleStorageManager {
   @VisibleForTesting
   public Map<String, LocalStorage> getSortedPartitionsOfStorageMap() {
     return sortedPartitionsOfStorageMap;
+  }
+
+  @Override
+  public void stop() {
+    super.stop();
+    ReconfigurableRegistry.unregister(ShuffleServerConf.SERVER_STORAGE_AUDIT_LOG_ENABLED.key());
   }
 }

@@ -19,14 +19,17 @@ package org.apache.uniffle.common.compression;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.apache.commons.lang3.RandomUtils;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import org.apache.uniffle.common.config.RssConf;
+import org.apache.uniffle.common.util.ByteBufferUtils;
 
 import static org.apache.uniffle.common.config.RssClientConf.COMPRESSION_TYPE;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -56,7 +59,7 @@ public class CompressionTest {
     conf.set(COMPRESSION_TYPE, type);
 
     // case1: heap bytebuffer
-    Codec codec = Codec.newInstance(conf);
+    Codec codec = Codec.newInstance(conf).get();
     byte[] compressed = codec.compress(data);
 
     ByteBuffer dest = ByteBuffer.allocate(size);
@@ -146,5 +149,50 @@ public class CompressionTest {
     byte[] res = new byte[originData.length];
     dest.get(res);
     assertArrayEquals(originData, res);
+  }
+
+  @Test
+  public void checkDecompressBufferOffsets() {
+    byte[] data = RandomUtils.nextBytes(1024);
+    // Snappy decompression does not support non-zero offset for destination direct ByteBuffer
+    Codec.Type[] types = {Codec.Type.ZSTD, Codec.Type.LZ4, Codec.Type.NOOP};
+    Boolean[] isDirects = {true, false};
+    for (Boolean isDirect : isDirects) {
+      for (Codec.Type type : types) {
+        Codec codec = Codec.newInstance(new RssConf().set(COMPRESSION_TYPE, type)).get();
+        byte[] compressed = codec.compress(data);
+
+        ByteBuffer src;
+        if (isDirect) {
+          src = ByteBuffer.allocateDirect(compressed.length);
+        } else {
+          src = ByteBuffer.allocate(compressed.length);
+        }
+        src.put(compressed);
+        src.flip();
+
+        ByteBuffer dest;
+        if (isDirect) {
+          dest = ByteBuffer.allocateDirect(2048);
+        } else {
+          dest = ByteBuffer.allocate(2048);
+        }
+        codec.decompress(src, 1024, dest, 0);
+        assertEquals(0, src.position());
+        assertEquals(compressed.length, src.limit());
+        assertEquals(0, dest.position());
+        assertEquals(2048, dest.limit());
+        assertArrayEquals(
+            data, Arrays.copyOfRange(ByteBufferUtils.bufferToArray(dest.duplicate()), 0, 1024));
+
+        codec.decompress(src, 1024, dest, 1024);
+        assertEquals(0, src.position());
+        assertEquals(compressed.length, src.limit());
+        assertEquals(0, dest.position());
+        assertEquals(2048, dest.limit());
+        assertArrayEquals(
+            data, Arrays.copyOfRange(ByteBufferUtils.bufferToArray(dest.duplicate()), 1024, 2048));
+      }
+    }
   }
 }

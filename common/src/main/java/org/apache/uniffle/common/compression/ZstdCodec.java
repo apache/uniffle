@@ -20,22 +20,29 @@ package org.apache.uniffle.common.compression;
 import java.nio.ByteBuffer;
 
 import com.github.luben.zstd.Zstd;
+import com.github.luben.zstd.ZstdCompressCtx;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.exception.RssException;
+
+import static org.apache.uniffle.common.config.RssClientConf.ZSTD_COMPRESSION_LEVEL;
+import static org.apache.uniffle.common.config.RssClientConf.ZSTD_COMPRESSION_WORKER_NUMBER;
 
 public class ZstdCodec extends Codec {
   private static final Logger LOGGER = LoggerFactory.getLogger(ZstdCodec.class);
 
   private int compressionLevel;
+  private int workerNumber;
 
   private static class LazyHolder {
     static final ZstdCodec INSTANCE = new ZstdCodec();
   }
 
-  public static ZstdCodec getInstance(int level) {
-    LazyHolder.INSTANCE.compressionLevel = level;
+  public static ZstdCodec getInstance(RssConf conf) {
+    LazyHolder.INSTANCE.compressionLevel = conf.get(ZSTD_COMPRESSION_LEVEL);
+    LazyHolder.INSTANCE.workerNumber = conf.get(ZSTD_COMPRESSION_WORKER_NUMBER);
     return LazyHolder.INSTANCE;
   }
 
@@ -69,7 +76,16 @@ public class ZstdCodec extends Codec {
 
   @Override
   public byte[] compress(byte[] src) {
-    return Zstd.compress(src, compressionLevel);
+    ZstdCompressCtx ctx = new ZstdCompressCtx();
+    try {
+      ctx.setLevel(compressionLevel);
+      if (workerNumber > 0) {
+        ctx.setWorkers(workerNumber);
+      }
+      return ctx.compress(src);
+    } finally {
+      ctx.close();
+    }
   }
 
   @Override

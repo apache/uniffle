@@ -17,7 +17,6 @@
 
 package org.apache.uniffle.test;
 
-import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
@@ -131,12 +130,6 @@ public abstract class ShuffleReadWriteBase extends IntegrationTestBase {
 
   public static void validateResult(ShuffleReadClient readClient, Map<Long, byte[]> expectedData) {
     TestUtils.validateResult(readClient, expectedData);
-  }
-
-  public static String generateBasePath(File tmpDir) {
-    File dataDir1 = new File(tmpDir, "data1");
-    File dataDir2 = new File(tmpDir, "data2");
-    return dataDir1.getAbsolutePath() + "," + dataDir2.getAbsolutePath();
   }
 
   public static ShuffleDataResult readShuffleData(

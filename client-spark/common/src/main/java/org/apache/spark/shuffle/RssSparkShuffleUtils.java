@@ -17,7 +17,6 @@
 
 package org.apache.spark.shuffle;
 
-import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
@@ -25,6 +24,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 
 import scala.Option;
 import scala.reflect.ClassTag;
@@ -40,24 +40,21 @@ import org.apache.spark.storage.BlockManagerId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.apache.uniffle.client.api.CoordinatorClient;
 import org.apache.uniffle.client.api.ShuffleManagerClient;
 import org.apache.uniffle.client.factory.CoordinatorClientFactory;
-import org.apache.uniffle.client.factory.ShuffleManagerClientFactory;
+import org.apache.uniffle.client.impl.grpc.CoordinatorGrpcRetryableClient;
 import org.apache.uniffle.client.request.RssReportShuffleFetchFailureRequest;
 import org.apache.uniffle.client.response.RssReportShuffleFetchFailureResponse;
 import org.apache.uniffle.client.util.ClientUtils;
 import org.apache.uniffle.common.ClientType;
 import org.apache.uniffle.common.RemoteStorageInfo;
 import org.apache.uniffle.common.ShuffleServerInfo;
-import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.exception.RssFetchFailedException;
 import org.apache.uniffle.common.util.Constants;
 
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_RESUBMIT_STAGE_WITH_FETCH_FAILURE_ENABLED;
-import static org.apache.uniffle.common.util.Constants.DRIVER_HOST;
 
 public class RssSparkShuffleUtils {
 
@@ -106,12 +103,30 @@ public class RssSparkShuffleUtils {
     return instance;
   }
 
-  public static List<CoordinatorClient> createCoordinatorClients(SparkConf sparkConf) {
+  public static CoordinatorGrpcRetryableClient createCoordinatorClientsWithoutHeartbeat(
+      SparkConf sparkConf) {
     String clientType = sparkConf.get(RssSparkConfig.RSS_CLIENT_TYPE);
-    String coordinators = sparkConf.get(RssSparkConfig.RSS_COORDINATOR_QUORUM);
+    String coordinators = getCoordinatorQuorumStr(sparkConf);
+    long retryIntervalMs = sparkConf.get(RssSparkConfig.RSS_CLIENT_RETRY_INTERVAL_MAX);
+    int retryTimes = sparkConf.get(RssSparkConfig.RSS_CLIENT_RETRY_MAX);
     CoordinatorClientFactory coordinatorClientFactory = CoordinatorClientFactory.getInstance();
-    return coordinatorClientFactory.createCoordinatorClient(
-        ClientType.valueOf(clientType), coordinators);
+    return coordinatorClientFactory.createCoordinatorClientWithoutHeartbeat(
+        ClientType.valueOf(clientType), coordinators, retryIntervalMs, retryTimes);
+  }
+
+  public static CoordinatorGrpcRetryableClient createCoordinatorClientsForAccessCluster(
+      SparkConf sparkConf) {
+    String clientType = sparkConf.get(RssSparkConfig.RSS_CLIENT_TYPE);
+    String coordinators = getCoordinatorQuorumStr(sparkConf);
+    long retryIntervalMs = sparkConf.get(RssSparkConfig.RSS_CLIENT_ACCESS_RETRY_INTERVAL_MS);
+    int retryTimes = sparkConf.get(RssSparkConfig.RSS_CLIENT_ACCESS_RETRY_TIMES);
+    CoordinatorClientFactory coordinatorClientFactory = CoordinatorClientFactory.getInstance();
+    return coordinatorClientFactory.createCoordinatorClientWithoutHeartbeat(
+        ClientType.valueOf(clientType), coordinators, retryIntervalMs, retryTimes);
+  }
+
+  public static String getCoordinatorQuorumStr(SparkConf sparkConf) {
+    return sparkConf.get(RssSparkConfig.RSS_COORDINATOR_QUORUM);
   }
 
   public static void applyDynamicClientConf(SparkConf sparkConf, Map<String, String> confItems) {
@@ -346,6 +361,7 @@ public class RssSparkShuffleUtils {
   }
 
   public static RssException reportRssFetchFailedException(
+      Supplier<ShuffleManagerClient> managerClientSupplier,
       RssFetchFailedException rssFetchFailedException,
       SparkConf sparkConf,
       String appId,
@@ -355,32 +371,24 @@ public class RssSparkShuffleUtils {
     RssConf rssConf = RssSparkConfig.toRssConf(sparkConf);
     if (rssConf.getBoolean(RSS_RESUBMIT_STAGE_WITH_FETCH_FAILURE_ENABLED)
         && RssSparkShuffleUtils.isStageResubmitSupported()) {
-      String driver = rssConf.getString(DRIVER_HOST, "");
-      int port = rssConf.get(RssClientConf.SHUFFLE_MANAGER_GRPC_PORT);
-      try (ShuffleManagerClient client =
-          ShuffleManagerClientFactory.getInstance()
-              .createShuffleManagerClient(ClientType.GRPC, driver, port)) {
-        // todo: Create a new rpc interface to report failures in batch.
-        for (int partitionId : failedPartitions) {
-          RssReportShuffleFetchFailureRequest req =
-              new RssReportShuffleFetchFailureRequest(
-                  appId,
-                  shuffleId,
-                  stageAttemptId,
-                  partitionId,
-                  rssFetchFailedException.getMessage());
-          RssReportShuffleFetchFailureResponse response = client.reportShuffleFetchFailure(req);
-          if (response.getReSubmitWholeStage()) {
-            // since we are going to roll out the whole stage, mapIndex shouldn't matter, hence -1
-            // is provided.
-            FetchFailedException ffe =
-                RssSparkShuffleUtils.createFetchFailedException(
-                    shuffleId, -1, partitionId, rssFetchFailedException);
-            return new RssException(ffe);
-          }
+      for (int partitionId : failedPartitions) {
+        RssReportShuffleFetchFailureRequest req =
+            new RssReportShuffleFetchFailureRequest(
+                appId,
+                shuffleId,
+                stageAttemptId,
+                partitionId,
+                rssFetchFailedException.getMessage());
+        RssReportShuffleFetchFailureResponse response =
+            managerClientSupplier.get().reportShuffleFetchFailure(req);
+        if (response.getReSubmitWholeStage()) {
+          // since we are going to roll out the whole stage, mapIndex shouldn't matter, hence -1
+          // is provided.
+          FetchFailedException ffe =
+              RssSparkShuffleUtils.createFetchFailedException(
+                  shuffleId, -1, partitionId, rssFetchFailedException);
+          return new RssException(ffe);
         }
-      } catch (IOException ioe) {
-        LOG.info("Error closing shuffle manager client with error:", ioe);
       }
     }
     return rssFetchFailedException;

@@ -17,6 +17,7 @@
 
 package org.apache.hadoop.mapred;
 
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Iterator;
@@ -30,6 +31,8 @@ import org.apache.hadoop.io.serializer.Serializer;
 import org.apache.hadoop.util.Progress;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import org.apache.uniffle.common.serializer.SerializerInstance;
 
 public class SortWriteBuffer<K, V> extends OutputStream {
 
@@ -47,27 +50,44 @@ public class SortWriteBuffer<K, V> extends OutputStream {
   private int currentOffset = 0;
   private int currentIndex = 0;
 
+  private final boolean useUniffleSerializer;
+  private final SerializerInstance serializerInstance;
+  private DataOutputStream dataOutputStream;
+
   public SortWriteBuffer(
       int partitionId,
       RawComparator<K> comparator,
       long maxSegmentSize,
+      boolean useUniffleSerializer,
       Serializer<K> keySerializer,
-      Serializer<V> valueSerializer) {
+      Serializer<V> valueSerializer,
+      SerializerInstance serializerInstance) {
     this.partitionId = partitionId;
     this.comparator = comparator;
     this.maxSegmentSize = maxSegmentSize;
+    this.useUniffleSerializer = useUniffleSerializer;
     this.keySerializer = keySerializer;
     this.valSerializer = valueSerializer;
+    this.serializerInstance = serializerInstance;
+    if (useUniffleSerializer) {
+      this.dataOutputStream = new DataOutputStream(this);
+    }
   }
 
   public int addRecord(K key, V value) throws IOException {
-    keySerializer.open(this);
-    valSerializer.open(this);
+    if (!useUniffleSerializer) {
+      keySerializer.open(this);
+      valSerializer.open(this);
+    }
     int lastOffSet = currentOffset;
     int lastIndex = currentIndex;
     int lastDataLength = dataLength;
     int keyIndex = lastIndex;
-    keySerializer.serialize(key);
+    if (useUniffleSerializer) {
+      serializerInstance.serialize(key, this.dataOutputStream);
+    } else {
+      keySerializer.serialize(key);
+    }
     int keyLength = dataLength - lastDataLength;
     int keyOffset = lastOffSet;
     if (compact(lastIndex, lastOffSet, keyLength)) {
@@ -75,7 +95,11 @@ public class SortWriteBuffer<K, V> extends OutputStream {
       keyIndex = lastIndex;
     }
     lastDataLength = dataLength;
-    valSerializer.serialize(value);
+    if (useUniffleSerializer) {
+      serializerInstance.serialize(value, this.dataOutputStream);
+    } else {
+      valSerializer.serialize(value);
+    }
     int valueLength = dataLength - lastDataLength;
     records.add(new Record<K>(keyIndex, keyOffset, keyLength, valueLength));
     return keyLength + valueLength;

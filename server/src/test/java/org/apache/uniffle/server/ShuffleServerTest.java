@@ -38,6 +38,7 @@ import org.apache.uniffle.storage.util.StorageType;
 import static org.apache.uniffle.server.ShuffleServerConf.SERVER_DECOMMISSION_CHECK_INTERVAL;
 import static org.apache.uniffle.server.ShuffleServerConf.SERVER_DECOMMISSION_SHUTDOWN;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 public class ShuffleServerTest {
@@ -56,11 +57,11 @@ public class ShuffleServerTest {
     try {
       ss2.start();
     } catch (Exception e) {
-      assertEquals(expectMessage, e.getMessage());
+      assertTrue(e.getMessage().startsWith(expectMessage));
       assertEquals(expectStatus, ((ExitException) e).getStatus());
     }
 
-    serverConf.setInteger("rss.jetty.http.port", 9529);
+    serverConf.setInteger("rss.jetty.http.port", 0);
     ss2 = new ShuffleServer(serverConf);
     expectMessage = "Fail to start grpc server";
     try {

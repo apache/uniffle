@@ -62,7 +62,6 @@ import org.slf4j.LoggerFactory;
 import org.apache.uniffle.common.ClientType;
 import org.apache.uniffle.common.rpc.ServerType;
 import org.apache.uniffle.coordinator.CoordinatorConf;
-import org.apache.uniffle.server.ShuffleServerConf;
 import org.apache.uniffle.storage.util.StorageType;
 
 import static org.apache.tez.common.RssTezConfig.RSS_AVOID_RECOMPUTE_SUCCEEDED_TASK;
@@ -75,14 +74,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TezWordCountWithFailuresTest extends IntegrationTestBase {
 
-  private static final Logger LOG = LoggerFactory.getLogger(TezIntegrationTestBase.class);
-  private static String TEST_ROOT_DIR =
+  private static final Logger LOG = LoggerFactory.getLogger(TezWordCountWithFailuresTest.class);
+  private static final String TEST_ROOT_DIR =
       "target" + Path.SEPARATOR + TezWordCountWithFailuresTest.class.getName() + "-tmpDir";
 
   private Path remoteStagingDir = null;
-  private String inputPath = "word_count_input";
-  private String outputPath = "word_count_output";
-  private List<String> wordTable =
+  private final String inputPath = "word_count_input";
+  private final String outputPath = "word_count_output";
+  private final List<String> wordTable =
       Lists.newArrayList(
           "apple", "banana", "fruit", "cherry", "Chinese", "America", "Japan", "tomato");
 
@@ -96,20 +95,21 @@ public class TezWordCountWithFailuresTest extends IntegrationTestBase {
       miniTezCluster.init(conf);
       miniTezCluster.start();
     }
-    LOG.info("Starting corrdinators and shuffer servers");
-    CoordinatorConf coordinatorConf = getCoordinatorConf();
-    Map<String, String> dynamicConf = new HashMap();
+    LOG.info("Starting coordinators and shuffle servers");
+    CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
+    Map<String, String> dynamicConf = new HashMap<>();
     dynamicConf.put(CoordinatorConf.COORDINATOR_REMOTE_STORAGE_PATH.key(), HDFS_URI + "rss/test");
     dynamicConf.put(RssTezConfig.RSS_STORAGE_TYPE, StorageType.MEMORY_LOCALFILE_HDFS.name());
     addDynamicConf(coordinatorConf, dynamicConf);
-    createCoordinatorServer(coordinatorConf);
-    ShuffleServerConf shuffleServerConf = getShuffleServerConf(ServerType.GRPC);
-    createShuffleServer(shuffleServerConf);
-    startServers();
+    storeCoordinatorConf(coordinatorConf);
+
+    storeShuffleServerConf(shuffleServerConfWithoutPort(0, null, ServerType.GRPC));
+    storeShuffleServerConf(shuffleServerConfWithoutPort(0, null, ServerType.GRPC_NETTY));
+    startServersWithRandomPorts();
   }
 
   @AfterAll
-  public static void tearDown() throws Exception {
+  public static void tearDown() {
     if (miniTezCluster != null) {
       LOG.info("Stopping MiniTezCluster");
       miniTezCluster.stop();
@@ -155,89 +155,68 @@ public class TezWordCountWithFailuresTest extends IntegrationTestBase {
 
   @Test
   public void wordCountTestWithTaskFailureWhenAvoidRecomputeEnable() throws Exception {
-    // 1 Run Tez examples based on rss
-    TezConfiguration appConf = new TezConfiguration(miniTezCluster.getConfig());
-    updateRssConfiguration(appConf, 0, true, false, 1);
-    TezIntegrationTestBase.appendAndUploadRssJars(appConf);
-    runTezApp(appConf, getTestArgs("rss"), 0);
-    final String rssPath = getOutputDir("rss");
-
-    // 2 Run original Tez examples
-    appConf = new TezConfiguration(miniTezCluster.getConfig());
-    updateCommonConfiguration(appConf);
-    runTezApp(appConf, getTestArgs("origin"), -1);
-    final String originPath = getOutputDir("origin");
-
-    // 3 verify the results
-    TezIntegrationTestBase.verifyResultEqual(originPath, rssPath);
+    runWordCountTestForBothClientTypes(true, false, 1);
   }
 
   @Test
   public void wordCountTestWithTaskFailureWhenAvoidRecomputeDisable() throws Exception {
-    // 1 Run Tez examples based on rss
-    TezConfiguration appConf = new TezConfiguration(miniTezCluster.getConfig());
-    updateRssConfiguration(appConf, 0, false, false, 1);
-    TezIntegrationTestBase.appendAndUploadRssJars(appConf);
-    runTezApp(appConf, getTestArgs("rss"), 1);
-    final String rssPath = getOutputDir("rss");
-
-    // 2 Run original Tez examples
-    appConf = new TezConfiguration(miniTezCluster.getConfig());
-    updateCommonConfiguration(appConf);
-    runTezApp(appConf, getTestArgs("origin"), -1);
-    final String originPath = getOutputDir("origin");
-
-    // 3 verify the results
-    TezIntegrationTestBase.verifyResultEqual(originPath, rssPath);
+    runWordCountTestForBothClientTypes(false, false, 1);
   }
 
   @Test
   public void wordCountTestWithNodeUnhealthyWhenAvoidRecomputeEnable() throws Exception {
-    // 1 Run Tez examples based on rss
-    TezConfiguration appConf = new TezConfiguration(miniTezCluster.getConfig());
-    updateRssConfiguration(appConf, 1, true, true, 100);
-    TezIntegrationTestBase.appendAndUploadRssJars(appConf);
-    runTezApp(appConf, getTestArgs("rss"), 0);
-    final String rssPath = getOutputDir("rss");
-
-    // 2 Run original Tez examples
-    appConf = new TezConfiguration(miniTezCluster.getConfig());
-    updateCommonConfiguration(appConf);
-    runTezApp(appConf, getTestArgs("origin"), -1);
-    final String originPath = getOutputDir("origin");
-
-    // 3 verify the results
-    TezIntegrationTestBase.verifyResultEqual(originPath, rssPath);
+    runWordCountTestForBothClientTypes(true, true, 100);
   }
 
   @Test
   public void wordCountTestWithNodeUnhealthyWhenAvoidRecomputeDisable() throws Exception {
-    // 1 Run Tez examples based on rss
-    TezConfiguration appConf = new TezConfiguration(miniTezCluster.getConfig());
-    updateRssConfiguration(appConf, 1, false, true, 100);
-    TezIntegrationTestBase.appendAndUploadRssJars(appConf);
-    runTezApp(appConf, getTestArgs("rss"), 1);
-    final String rssPath = getOutputDir("rss");
+    runWordCountTestForBothClientTypes(false, true, 100);
+  }
 
-    // 2 Run original Tez examples
-    appConf = new TezConfiguration(miniTezCluster.getConfig());
-    updateCommonConfiguration(appConf);
-    runTezApp(appConf, getTestArgs("origin"), -1);
-    final String originPath = getOutputDir("origin");
+  private void runWordCountTestForBothClientTypes(
+      boolean avoidRecompute, boolean rescheduleWhenUnhealthy, int maxFailures) throws Exception {
+    String originPath = runOriginalWordCount();
+    runWordCountTest(
+        ClientType.GRPC, avoidRecompute, rescheduleWhenUnhealthy, maxFailures, originPath);
+    runWordCountTest(
+        ClientType.GRPC_NETTY, avoidRecompute, rescheduleWhenUnhealthy, maxFailures, originPath);
+  }
 
-    // 3 verify the results
+  private void runWordCountTest(
+      ClientType clientType,
+      boolean avoidRecompute,
+      boolean rescheduleWhenUnhealthy,
+      int maxFailures,
+      String originPath)
+      throws Exception {
+    int testMode = rescheduleWhenUnhealthy ? 1 : 0;
+    int expectedVerifyMode = avoidRecompute ? 0 : 1;
+    TezConfiguration rssConf = new TezConfiguration(miniTezCluster.getConfig());
+    updateRssConfiguration(
+        rssConf, testMode, avoidRecompute, rescheduleWhenUnhealthy, maxFailures, clientType);
+    TezIntegrationTestBase.appendAndUploadRssJars(rssConf);
+    String testName = "rss-" + clientType.name().toLowerCase();
+    runTezApp(rssConf, getTestArgs(testName), expectedVerifyMode);
+    String rssPath = getOutputDir(testName);
     TezIntegrationTestBase.verifyResultEqual(originPath, rssPath);
+  }
+
+  private String runOriginalWordCount() throws Exception {
+    TezConfiguration originalConf = new TezConfiguration(miniTezCluster.getConfig());
+    updateCommonConfiguration(originalConf);
+    runTezApp(originalConf, getTestArgs("origin"), -1);
+    return getOutputDir("origin");
   }
 
   /*
    * Two verify mode are supported:
    * (a) verifyMode 0
-   *     tez.rss.avoid.recompute.succeeded.task is enable, should not recompute the task when this node is
-   *     blacke-listed for unhealthy.
+   *     tez.rss.avoid.recompute.succeeded.task is enabled, should not recompute the task when this node is
+   *     black-listed for unhealthy.
    *
    * (b) verifyMode 1
    *     tez.rss.avoid.recompute.succeeded.task is disable, will recompute the task when this node is
-   *     blacke-listed for unhealthy.
+   *     black-listed for unhealthy.
    * */
   protected void runTezApp(TezConfiguration tezConf, String[] args, int verifyMode)
       throws Exception {
@@ -260,24 +239,24 @@ public class TezWordCountWithFailuresTest extends IntegrationTestBase {
   /*
    * In this integration test, mini cluster have three NM with 4G
    * (YarnConfiguration.DEFAULT_YARN_MINICLUSTER_NM_PMEM_MB). The request of am is 4G, the request of task is 2G.
-   * It means that one node only runs one am container so that won't lable the node which am container runs as
-   * black-list or uhealthy node.
+   * It means that one node only runs one am container so that won't label the node which am container runs as
+   * black-list or unhealthy node.
    * */
   public void updateRssConfiguration(
       Configuration appConf,
       int testMode,
       boolean avoidRecompute,
       boolean rescheduleWhenUnhealthy,
-      int maxFailures)
-      throws Exception {
+      int maxFailures,
+      ClientType clientType) {
     appConf.set(TezConfiguration.TEZ_AM_STAGING_DIR, remoteStagingDir.toString());
     appConf.setInt(TezConfiguration.TEZ_AM_RESOURCE_MEMORY_MB, 4096);
     appConf.setInt(TezConfiguration.TEZ_TASK_RESOURCE_MEMORY_MB, 4096);
     appConf.setBoolean(TEZ_AM_NODE_BLACKLISTING_ENABLED, true);
     appConf.setInt(TEZ_AM_NODE_BLACKLISTING_IGNORE_THRESHOLD, 99);
     appConf.setInt(TEZ_AM_MAX_TASK_FAILURES_PER_NODE, maxFailures);
-    appConf.set(RssTezConfig.RSS_COORDINATOR_QUORUM, COORDINATOR_QUORUM);
-    appConf.set(RssTezConfig.RSS_CLIENT_TYPE, ClientType.GRPC.name());
+    appConf.set(RssTezConfig.RSS_COORDINATOR_QUORUM, getQuorum());
+    appConf.set(RssTezConfig.RSS_CLIENT_TYPE, clientType.name());
     appConf.set(
         TezConfiguration.TEZ_AM_LAUNCH_CMD_OPTS,
         TezConfiguration.TEZ_AM_LAUNCH_CMD_OPTS_DEFAULT
@@ -297,11 +276,11 @@ public class TezWordCountWithFailuresTest extends IntegrationTestBase {
     appConf.set(TezConfiguration.TEZ_TASK_LAUNCH_CMD_OPTS, " -Xmx384m");
   }
 
-  public class WordCountWithFailures extends WordCount {
+  public static class WordCountWithFailures extends WordCount {
 
     TezClient tezClientInternal = null;
     private HadoopShim hadoopShim;
-    int verifyMode = -1;
+    int verifyMode;
 
     WordCountWithFailures(int assertMode) {
       this.verifyMode = assertMode;
@@ -353,7 +332,7 @@ public class TezWordCountWithFailuresTest extends IntegrationTestBase {
 
       DAGStatus dagStatus = dagClient.waitForCompletionWithStatusUpdates(getOpts);
       if (dagStatus.getState() != DAGStatus.State.SUCCEEDED) {
-        logger.info("DAG diagnostics: " + dagStatus.getDiagnostics());
+        logger.info("DAG diagnostics: {}", dagStatus.getDiagnostics());
         return -1;
       }
 

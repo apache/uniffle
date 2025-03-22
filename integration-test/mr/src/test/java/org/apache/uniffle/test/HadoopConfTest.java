@@ -25,7 +25,8 @@ import org.apache.hadoop.mapreduce.LargeSorter;
 import org.apache.hadoop.mapreduce.RssMRConfig;
 import org.apache.hadoop.util.Tool;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import org.apache.uniffle.common.ClientType;
 import org.apache.uniffle.storage.util.StorageType;
@@ -41,14 +42,15 @@ public class HadoopConfTest extends MRIntegrationTestBase {
     return new HashMap<>();
   }
 
-  @Test
-  public void hadoopConfTest() throws Exception {
-    run();
+  @ParameterizedTest
+  @MethodSource("clientTypeProvider")
+  public void hadoopConfTest(ClientType clientType) throws Exception {
+    run(clientType);
   }
 
   @Override
-  protected void updateRssConfiguration(Configuration jobConf) {
-    jobConf.set(RssMRConfig.RSS_CLIENT_TYPE, ClientType.GRPC.name());
+  protected void updateRssConfiguration(Configuration jobConf, ClientType clientType) {
+    jobConf.set(RssMRConfig.RSS_CLIENT_TYPE, clientType.name());
     jobConf.set(RssMRConfig.RSS_STORAGE_TYPE, StorageType.MEMORY_LOCALFILE_HDFS.name());
     jobConf.set(RssMRConfig.RSS_REMOTE_STORAGE_PATH, HDFS_URI + "rss/test");
     jobConf.setInt(LargeSorter.NUM_MAP_TASKS, 1);

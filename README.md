@@ -122,6 +122,8 @@ Build with dashboard
 
     ./mvnw -DskipTests clean package -Pdashboard
 
+> note: currently Uniffle build the project against Java 8. If you want to compile it against other Java versions, you can build the code with `-Dmaven.compiler.release=${release-version}`.
+
 To package the Uniffle, run:
 
     ./build_distribution.sh
@@ -151,11 +153,13 @@ If you have packaged tgz with hadoop jars, the env of `HADOOP_HOME` is needn't s
 ### Deploy Coordinator
 
 1. unzip package to RSS_HOME
-2. update RSS_HOME/bin/rss-env.sh, e.g.,
+2. update RSS_HOME/conf/rss-env.sh, e.g.,
    ```
      JAVA_HOME=<java_home>
      HADOOP_HOME=<hadoop home>
-     XMX_SIZE="16g"
+     COORDINATOR_XMX_SIZE="16g"
+     # You can set coordinator memory size by `XMX_SIZE` too, but it affects all components.
+     # XMX_SIZE="16g"
    ```
 3. update RSS_HOME/conf/coordinator.conf, e.g.,
    ```
@@ -202,11 +206,13 @@ Shuffle Server use GRPC to transfer data)
 
 Deploy Steps:
 1. unzip package to RSS_HOME
-2. update RSS_HOME/bin/rss-env.sh, e.g.,
+2. update RSS_HOME/conf/rss-env.sh, e.g.,
    ```
      JAVA_HOME=<java_home>
      HADOOP_HOME=<hadoop home>
-     XMX_SIZE="80g"
+     SHUFFLE_SERVER_XMX_SIZE="80g"
+     # You can set shuffle server memory size by `XMX_SIZE` too, but it affects all components.
+     # XMX_SIZE="80g"
    ```
 3. update RSS_HOME/conf/server.conf, e.g.,
    ```

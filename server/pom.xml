@@ -23,7 +23,7 @@
   <parent>
     <groupId>org.apache.uniffle</groupId>
     <artifactId>uniffle-parent</artifactId>
-    <version>0.10.0-SNAPSHOT</version>
+    <version>0.11.0-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -35,6 +35,10 @@
     <dependency>
       <groupId>org.apache.uniffle</groupId>
       <artifactId>shuffle-storage</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.uniffle</groupId>
+      <artifactId>rss-server-common</artifactId>
     </dependency>
     <dependency>
       <groupId>org.apache.uniffle</groupId>
@@ -155,6 +159,10 @@
         </exclusion>
       </exclusions>
     </dependency>
+    <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
+    </dependency>
   </dependencies>
 
   <build>
@@ -201,6 +209,7 @@
                   <artifact>*:*</artifact>
                   <excludes>
                     <exclude>LICENSE</exclude>
+                    <exclude>module-info.class</exclude>
                     <exclude>META-INF/*.SF</exclude>
                     <exclude>META-INF/*.DSA</exclude>
                     <exclude>META-INF/*.RSA</exclude>

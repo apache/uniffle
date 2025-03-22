@@ -35,6 +35,7 @@ import org.mockito.MockedStatic;
 
 import org.apache.uniffle.client.api.CoordinatorClient;
 import org.apache.uniffle.client.factory.CoordinatorClientFactory;
+import org.apache.uniffle.client.impl.grpc.CoordinatorGrpcRetryableClient;
 import org.apache.uniffle.client.request.RssFetchClientConfRequest;
 import org.apache.uniffle.client.response.RssFetchClientConfResponse;
 import org.apache.uniffle.common.ClientType;
@@ -647,6 +648,12 @@ public class RssShuffleManagerBaseTest {
     try (MockedStatic<CoordinatorClientFactory> mockFactoryStatic =
         mockStatic(CoordinatorClientFactory.class)) {
       mockFactoryStatic.when(CoordinatorClientFactory::getInstance).thenReturn(mockFactoryInstance);
+      long interval = conf.get(RssSparkConfig.RSS_CLIENT_RETRY_INTERVAL_MAX);
+      int retry = conf.get(RssSparkConfig.RSS_CLIENT_RETRY_MAX);
+      int num = conf.get(RssSparkConfig.RSS_CLIENT_HEARTBEAT_THREAD_NUM);
+      when(mockFactoryInstance.createCoordinatorClient(
+              clientType, coordinators, interval, retry, num))
+          .thenReturn(new CoordinatorGrpcRetryableClient(mockClients, interval, retry, num));
       RssShuffleManagerBase.fetchAndApplyDynamicConf(conf);
     }
 

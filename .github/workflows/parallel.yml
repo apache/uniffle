@@ -102,7 +102,7 @@ jobs:
       continue-on-error: true
     - name: Upload test reports
       if: always() && inputs.reports-path != ''
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: ${{ inputs.reports-name }}-${{ matrix.profile }}
         path: ${{ inputs.reports-path }}
@@ -111,7 +111,7 @@ jobs:
       uses: codecov/codecov-action@v3
     - name: Upload test logs
       if: failure()
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: ${{ inputs.tests-name }}-log-${{ matrix.profile }}
         path: |

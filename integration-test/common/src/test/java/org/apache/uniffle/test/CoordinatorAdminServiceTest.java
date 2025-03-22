@@ -34,8 +34,6 @@ import org.apache.uniffle.coordinator.CoordinatorConf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class CoordinatorAdminServiceTest extends IntegrationTestBase {
-
-  private static final Integer JETTY_HTTP_PORT = 12345;
   private static final String accessChecker =
       "org.apache.uniffle.test.AccessClusterTest$MockedAccessChecker";
 
@@ -45,18 +43,16 @@ public class CoordinatorAdminServiceTest extends IntegrationTestBase {
 
   @BeforeAll
   public static void setUp() throws Exception {
-    CoordinatorConf coordinatorConf = new CoordinatorConf();
-    coordinatorConf.set(RssBaseConf.JETTY_HTTP_PORT, JETTY_HTTP_PORT);
+    CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
     coordinatorConf.set(RssBaseConf.JETTY_CORE_POOL_SIZE, 128);
-    coordinatorConf.set(RssBaseConf.RPC_SERVER_PORT, 12346);
     coordinatorConf.setString(CoordinatorConf.COORDINATOR_ACCESS_CHECKERS.key(), accessChecker);
-    createCoordinatorServer(coordinatorConf);
-    startServers();
+    storeCoordinatorConf(coordinatorConf);
+    startServersWithRandomPorts();
   }
 
   @BeforeEach
   public void createClient() {
-    String hostUrl = String.format("http://%s:%d", LOCALHOST, JETTY_HTTP_PORT);
+    String hostUrl = String.format("http://%s:%d", LOCALHOST, coordinators.get(0).getJettyPort());
     adminRestApi = new AdminRestApi(UniffleRestClient.builder(hostUrl).build());
   }
 

@@ -27,11 +27,15 @@ import java.util.List;
 public class ShuffleDataSegment {
   private final long offset;
   private final int length;
+
+  private final int storageId;
   private final List<BufferSegment> bufferSegments;
 
-  public ShuffleDataSegment(long offset, int length, List<BufferSegment> bufferSegments) {
+  public ShuffleDataSegment(
+      long offset, int length, int storageId, List<BufferSegment> bufferSegments) {
     this.offset = offset;
     this.length = length;
+    this.storageId = storageId;
     this.bufferSegments = bufferSegments;
   }
 
@@ -45,5 +49,9 @@ public class ShuffleDataSegment {
 
   public List<BufferSegment> getBufferSegments() {
     return bufferSegments;
+  }
+
+  public int getStorageId() {
+    return storageId;
   }
 }

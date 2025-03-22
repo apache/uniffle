@@ -17,6 +17,8 @@
 
 package org.apache.uniffle.common.config;
 
+import java.util.List;
+
 import org.apache.uniffle.common.ClientType;
 import org.apache.uniffle.common.ShuffleDataDistributionType;
 import org.apache.uniffle.common.compression.Codec;
@@ -49,6 +51,13 @@ public class RssClientConf {
           .intType()
           .defaultValue(3)
           .withDescription("The zstd compression level, the default level is 3");
+
+  public static final ConfigOption<Integer> ZSTD_COMPRESSION_WORKER_NUMBER =
+      ConfigOptions.key("rss.client.io.compression.zstd.workerNumber")
+          .intType()
+          .defaultValue(-1)
+          .withDescription(
+              "Set the parallel compression worker number. This will not enabled by default");
 
   public static final ConfigOption<ShuffleDataDistributionType> DATA_DISTRIBUTION_TYPE =
       ConfigOptions.key("rss.client.shuffle.data.distribution.type")
@@ -100,7 +109,8 @@ public class RssClientConf {
       ConfigOptions.key("rss.client.rpc.timeout.ms")
           .longType()
           .defaultValue(60 * 1000L)
-          .withDescription("Timeout in milliseconds for RPC calls.");
+          .withDescription(
+              "The timeout value in milliseconds for gRPC and Netty Type RPC Clients, including ShuffleServerClient and ShuffleManagerClient.");
 
   public static final ConfigOption<Integer> RPC_MAX_ATTEMPTS =
       ConfigOptions.key("rss.client.rpc.maxAttempts")
@@ -155,6 +165,15 @@ public class RssClientConf {
           .intType()
           .defaultValue(0)
           .withDescription("Number of threads used in the client thread pool.");
+
+  public static final ConfigOption<Double> NETTY_CLIENT_THREADS_RATIO =
+      ConfigOptions.key("rss.client.netty.client.threads.ratio")
+          .doubleType()
+          .defaultValue(2.0)
+          .withDescription(
+              "The number of threads used in the client thread pool will be "
+                  + "(`rss.client.netty.client.connections.per.peer` * `rss.client.netty.client.threads.ratio`). "
+                  + "This is only effective when `rss.client.netty.client.threads` is not explicitly set");
 
   public static final ConfigOption<Boolean> NETTY_CLIENT_PREFER_DIRECT_BUFS =
       ConfigOptions.key("rss.client.netty.client.prefer.direct.bufs")
@@ -251,4 +270,82 @@ public class RssClientConf {
           .defaultValue(false)
           .withDescription(
               "Whether to support rss client block send failure retry, default value is false.");
+
+  public static final ConfigOption<Integer> RSS_CLIENT_REMOTE_MERGE_FETCH_INIT_SLEEP_MS =
+      ConfigOptions.key("rss.client.remote.merge.fetch.initSleepMs")
+          .intType()
+          .defaultValue(100)
+          .withDescription("the init sleep ms for fetch remote merge records");
+
+  public static final ConfigOption<Integer> RSS_CLIENT_REMOTE_MERGE_FETCH_MAX_SLEEP_MS =
+      ConfigOptions.key("rss.client.remote.merge.fetch.maxSleepMs")
+          .intType()
+          .defaultValue(5000)
+          .withDescription("the max sleep ms for fetch remote merge records");
+
+  public static final ConfigOption<Integer> RSS_CLIENT_REMOTE_MERGE_READER_MAX_BUFFER =
+      ConfigOptions.key("rss.client.remote.merge.reader.maxBuffer")
+          .intType()
+          .defaultValue(2)
+          .withDescription(
+              "the max size of buffer in queue for one partition when fetch remote merge records");
+
+  public static final ConfigOption<Integer> RSS_CLIENT_REMOTE_MERGE_READER_MAX_RECORDS_PER_BUFFER =
+      ConfigOptions.key("rss.client.remote.merge.reader.maxRecordsPerBuffer")
+          .intType()
+          .defaultValue(500)
+          .withDescription("the max size of records per buffer when fetch remote merge records");
+
+  public static final ConfigOption<List<String>> RSS_CLIENT_EXTRA_JAVA_SYSTEM_PROPERTIES =
+      ConfigOptions.key("rss.client.extraJavaSystemProperties")
+          .stringType()
+          .asList()
+          .noDefaultValue()
+          .withDescription("the extra java properties could be configured by this option");
+
+  public static final ConfigOption<String> RSS_CLIENT_BLOCK_ID_MANAGER_CLASS =
+      ConfigOptions.key("rss.client.blockIdManagerClass")
+          .stringType()
+          .noDefaultValue()
+          .withDescription(
+              "The block id manager class of server for this application, "
+                  + "the implementation of this interface to manage the shuffle block ids");
+
+  public static final ConfigOption<List<String>> RSS_CLIENT_REPORT_EXCLUDE_PROPERTIES =
+      ConfigOptions.key("rss.client.reportExcludeProperties")
+          .stringType()
+          .asList()
+          .defaultValues()
+          .withDescription("the report exclude properties could be configured by this option");
+
+  public static final ConfigOption<List<String>> RSS_CLIENT_REPORT_INCLUDE_PROPERTIES =
+      ConfigOptions.key("rss.client.reportIncludeProperties")
+          .stringType()
+          .asList()
+          .noDefaultValue()
+          .withDescription("the report include properties could be configured by this option");
+
+  public static final ConfigOption<Integer> RSS_CLIENT_GRPC_EVENT_LOOP_THREADS =
+      ConfigOptions.key("rss.client.grpc.nettyEventLoopThreads")
+          .intType()
+          .defaultValue(-1)
+          .withDescription("the event loop threads of netty impl for grpc");
+
+  public static final ConfigOption<Boolean> RSS_CLIENT_PREFETCH_ENABLED =
+      ConfigOptions.key("rss.client.read.prefetch.enabled")
+          .booleanType()
+          .defaultValue(false)
+          .withDescription("Read prefetch switch that will be disabled by default");
+
+  public static final ConfigOption<Integer> RSS_CLIENT_PREFETCH_CAPACITY =
+      ConfigOptions.key("rss.client.read.prefetch.capacity")
+          .intType()
+          .defaultValue(4)
+          .withDescription("Read prefetch capacity");
+
+  public static final ConfigOption<Integer> READ_CLIENT_PREFETCH_TIMEOUT_SEC =
+      ConfigOptions.key("rss.client.read.prefetch.timeoutSec")
+          .intType()
+          .defaultValue(120)
+          .withDescription("Read prefetch timeout seconds");
 }

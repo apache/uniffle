@@ -226,7 +226,7 @@ public class QuotaManagerTest {
       if (appInfo != null) {
         appInfo.setUpdateTime(currentTimeMs);
       } else {
-        appInfo = new AppInfo(appId, currentTimeMs, currentTimeMs);
+        appInfo = new AppInfo(appId, currentTimeMs, currentTimeMs, "", "");
         uuidAndTime.put(appId, appInfo);
       }
     }

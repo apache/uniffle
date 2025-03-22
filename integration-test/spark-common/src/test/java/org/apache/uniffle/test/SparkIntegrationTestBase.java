@@ -64,6 +64,7 @@ public abstract class SparkIntegrationTestBase extends IntegrationTestBase {
     verifyTestResult(resultWithoutRss, resultWithRssGrpc);
 
     updateSparkConfWithRssNetty(sparkConf);
+    updateSparkConfCustomer(sparkConf);
     start = System.currentTimeMillis();
     Map resultWithRssNetty = runSparkApp(sparkConf, fileName);
     final long durationWithRssNetty = System.currentTimeMillis() - start;
@@ -121,7 +122,7 @@ public abstract class SparkIntegrationTestBase extends IntegrationTestBase {
     sparkConf.set(RssSparkConfig.RSS_CLIENT_READ_BUFFER_SIZE.key(), "2m");
     sparkConf.set(RssSparkConfig.RSS_WRITER_SERIALIZER_BUFFER_SIZE.key(), "128k");
     sparkConf.set(RssSparkConfig.RSS_WRITER_BUFFER_SEGMENT_SIZE.key(), "256k");
-    sparkConf.set(RssSparkConfig.RSS_COORDINATOR_QUORUM.key(), COORDINATOR_QUORUM);
+    sparkConf.set(RssSparkConfig.RSS_COORDINATOR_QUORUM.key(), getQuorum());
     sparkConf.set(RssSparkConfig.RSS_CLIENT_SEND_CHECK_TIMEOUT_MS.key(), "30000");
     sparkConf.set(RssSparkConfig.RSS_CLIENT_RETRY_MAX.key(), "10");
     sparkConf.set(RssSparkConfig.RSS_CLIENT_SEND_CHECK_INTERVAL_MS.key(), "1000");
@@ -134,6 +135,24 @@ public abstract class SparkIntegrationTestBase extends IntegrationTestBase {
   }
 
   public void updateSparkConfWithRssNetty(SparkConf sparkConf) {
+    sparkConf.set("spark.shuffle.manager", "org.apache.spark.shuffle.RssShuffleManager");
+    sparkConf.set(
+        "spark.shuffle.sort.io.plugin.class", "org.apache.spark.shuffle.RssShuffleDataIo");
+    sparkConf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer");
+    sparkConf.set(RssSparkConfig.RSS_WRITER_BUFFER_SIZE.key(), "4m");
+    sparkConf.set(RssSparkConfig.RSS_WRITER_BUFFER_SPILL_SIZE.key(), "32m");
+    sparkConf.set(RssSparkConfig.RSS_CLIENT_READ_BUFFER_SIZE.key(), "2m");
+    sparkConf.set(RssSparkConfig.RSS_WRITER_SERIALIZER_BUFFER_SIZE.key(), "128k");
+    sparkConf.set(RssSparkConfig.RSS_WRITER_BUFFER_SEGMENT_SIZE.key(), "256k");
+    sparkConf.set(RssSparkConfig.RSS_COORDINATOR_QUORUM.key(), getQuorum());
+    sparkConf.set(RssSparkConfig.RSS_CLIENT_SEND_CHECK_TIMEOUT_MS.key(), "30000");
+    sparkConf.set(RssSparkConfig.RSS_CLIENT_RETRY_MAX.key(), "10");
+    sparkConf.set(RssSparkConfig.RSS_CLIENT_SEND_CHECK_INTERVAL_MS.key(), "1000");
+    sparkConf.set(RssSparkConfig.RSS_CLIENT_RETRY_INTERVAL_MAX.key(), "1000");
+    sparkConf.set(RssSparkConfig.RSS_INDEX_READ_LIMIT.key(), "100");
+    sparkConf.set(RssSparkConfig.RSS_CLIENT_READ_BUFFER_SIZE.key(), "1m");
+    sparkConf.set(RssSparkConfig.RSS_HEARTBEAT_INTERVAL.key(), "2000");
+    sparkConf.set(RssSparkConfig.RSS_TEST_MODE_ENABLE.key(), "true");
     sparkConf.set(RssSparkConfig.RSS_CLIENT_TYPE, ClientType.GRPC_NETTY.name());
   }
 

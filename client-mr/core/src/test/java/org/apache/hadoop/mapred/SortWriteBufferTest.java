@@ -57,7 +57,13 @@ public class SortWriteBufferTest {
         serializationFactory.getSerializer(BytesWritable.class);
     SortWriteBuffer<BytesWritable, BytesWritable> buffer =
         new SortWriteBuffer<BytesWritable, BytesWritable>(
-            1, WritableComparator.get(BytesWritable.class), 1024L, keySerializer, valSerializer);
+            1,
+            WritableComparator.get(BytesWritable.class),
+            1024L,
+            false,
+            keySerializer,
+            valSerializer,
+            null);
 
     long recordLength = buffer.addRecord(key, value);
     buffer.sort();
@@ -84,7 +90,13 @@ public class SortWriteBufferTest {
 
     buffer =
         new SortWriteBuffer<BytesWritable, BytesWritable>(
-            1, WritableComparator.get(BytesWritable.class), 528L, keySerializer, valSerializer);
+            1,
+            WritableComparator.get(BytesWritable.class),
+            528L,
+            false,
+            keySerializer,
+            valSerializer,
+            null);
     long start = buffer.getDataLength();
     assertEquals(0, start);
     keyStr = "key3";
@@ -168,7 +180,8 @@ public class SortWriteBufferTest {
         serializationFactory.getDeserializer(IntWritable.class);
 
     SortWriteBuffer<Text, IntWritable> buffer =
-        new SortWriteBuffer<Text, IntWritable>(1, null, 3072, keySerializer, valueSerializer);
+        new SortWriteBuffer<Text, IntWritable>(
+            1, null, 3072, false, keySerializer, valueSerializer, null);
 
     List<String> wordTable =
         Lists.newArrayList(

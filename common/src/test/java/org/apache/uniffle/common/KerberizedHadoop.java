@@ -32,8 +32,10 @@ import java.security.PrivilegedExceptionAction;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-import com.google.common.collect.Sets;
 import org.apache.commons.lang3.JavaVersion;
 import org.apache.commons.lang3.SystemUtils;
 import org.apache.hadoop.conf.Configuration;
@@ -190,6 +192,9 @@ public class KerberizedHadoop implements Serializable {
     hdfsConf.set("hadoop.proxyuser.hdfs.groups", "*");
     hdfsConf.set("hadoop.proxyuser.hdfs.users", "*");
 
+    Set<Class<? extends Throwable>> retrySet =
+        Stream.of(BindException.class).collect(Collectors.toSet());
+
     this.kerberizedDfsCluster =
         RetryUtils.retry(
             () -> {
@@ -217,7 +222,7 @@ public class KerberizedHadoop implements Serializable {
             },
             1000L,
             5,
-            Sets.newHashSet(BindException.class));
+            retrySet);
   }
 
   private void startKDC() throws Exception {

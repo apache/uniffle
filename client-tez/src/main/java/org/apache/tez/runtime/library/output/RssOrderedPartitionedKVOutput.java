@@ -30,9 +30,11 @@ import java.util.zip.Deflater;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
+import org.apache.commons.lang.ClassUtils;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceAudience.Public;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.io.WritableComparator;
 import org.apache.hadoop.ipc.RPC;
 import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.security.Credentials;
@@ -43,6 +45,7 @@ import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.tez.common.GetShuffleServerRequest;
 import org.apache.tez.common.GetShuffleServerResponse;
+import org.apache.tez.common.RssTezConfig;
 import org.apache.tez.common.RssTezUtils;
 import org.apache.tez.common.TezCommonUtils;
 import org.apache.tez.common.TezRemoteShuffleUmbilicalProtocol;
@@ -175,9 +178,29 @@ public class RssOrderedPartitionedKVOutput extends AbstractLogicalOutput {
     }
     this.shuffleId =
         RssTezUtils.computeShuffleId(tezDAGID.getId(), sourceVertexId, destinationVertexId);
+    String keyClassName = conf.get(TezRuntimeConfiguration.TEZ_RUNTIME_KEY_CLASS, "");
+    String valueClassName = conf.get(TezRuntimeConfiguration.TEZ_RUNTIME_VALUE_CLASS, "");
+    // For hive on tez, we use separate serializer and comparator, namely
+    // TezBytesWritableSerialization and TezBytesComparator. But in remote
+    // merge mode, we use separate serializers, so we should also use
+    // separate comparators.
+    String comparatorClassName =
+        WritableComparator.get(ClassUtils.getClass(keyClassName)).getClass().getName();
+    boolean remoteMergeEnable =
+        conf.getBoolean(
+            RssTezConfig.RSS_REMOTE_MERGE_ENABLE, RssTezConfig.RSS_REMOTE_MERGE_ENABLE_DEFAULT);
     GetShuffleServerRequest request =
-        new GetShuffleServerRequest(
-            this.taskAttemptId, this.mapNum, this.numOutputs, this.shuffleId);
+        remoteMergeEnable
+            ? new GetShuffleServerRequest(
+                this.taskAttemptId,
+                this.mapNum,
+                this.numOutputs,
+                this.shuffleId,
+                keyClassName,
+                valueClassName,
+                comparatorClassName)
+            : new GetShuffleServerRequest(
+                this.taskAttemptId, this.mapNum, this.numOutputs, this.shuffleId);
     GetShuffleServerResponse response = umbilical.getShuffleAssignments(request);
     this.partitionToServers =
         response

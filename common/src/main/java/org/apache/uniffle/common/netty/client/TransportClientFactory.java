@@ -85,18 +85,22 @@ public class TransportClientFactory implements Closeable {
 
     IOMode ioMode = conf.ioMode();
     this.socketChannelClass = NettyUtils.getClientChannelClass(ioMode);
-    this.workerGroup = NettyUtils.createEventLoop(ioMode, conf.clientThreads(), "netty-rpc-client");
+    int clientThreads =
+        conf.clientThreads() > 0
+            ? conf.clientThreads()
+            : (int) (numConnectionsPerPeer * conf.clientThreadsRatio());
+    this.workerGroup = NettyUtils.createEventLoop(ioMode, clientThreads, "netty-rpc-client");
     if (conf.isSharedAllocatorEnabled()) {
       this.byteBufAllocator =
           conf.isPooledAllocatorEnabled()
               ? NettyUtils.getSharedPooledByteBufAllocator(
-                  conf.preferDirectBufs(), false, conf.clientThreads())
+                  conf.preferDirectBufs(), false, clientThreads)
               : NettyUtils.getSharedUnpooledByteBufAllocator(conf.preferDirectBufs());
     } else {
       this.byteBufAllocator =
           conf.isPooledAllocatorEnabled()
               ? NettyUtils.createPooledByteBufAllocator(
-                  conf.preferDirectBufs(), false, conf.clientThreads())
+                  conf.preferDirectBufs(), false, clientThreads)
               : NettyUtils.createUnpooledByteBufAllocator(conf.preferDirectBufs());
     }
     if (logger.isDebugEnabled()) {
@@ -119,7 +123,7 @@ public class TransportClientFactory implements Closeable {
       throws IOException, InterruptedException {
     // Get connection from the connection pool first.
     // If it is not found or not active, create a new one.
-    // Use unresolved address here to avoid DNS resolution each time we creates a client.
+    // Use unresolved address here to avoid DNS resolution each time we create a client.
     final InetSocketAddress unresolvedAddress =
         InetSocketAddress.createUnresolved(remoteHost, remotePort);
 

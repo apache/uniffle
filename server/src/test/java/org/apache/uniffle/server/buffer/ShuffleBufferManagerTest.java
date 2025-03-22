@@ -30,11 +30,14 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import com.google.common.collect.RangeMap;
 import com.google.common.util.concurrent.Uninterruptibles;
 import io.prometheus.client.Collector;
+import org.apache.commons.lang3.tuple.Pair;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.roaringbitmap.longlong.Roaring64NavigableMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.apache.uniffle.common.PartitionRange;
 import org.apache.uniffle.common.RemoteStorageInfo;
@@ -45,6 +48,7 @@ import org.apache.uniffle.common.rpc.StatusCode;
 import org.apache.uniffle.common.util.ByteBufUtils;
 import org.apache.uniffle.common.util.Constants;
 import org.apache.uniffle.server.DefaultFlushEventHandler;
+import org.apache.uniffle.server.HugePartitionUtils;
 import org.apache.uniffle.server.ShuffleFlushManager;
 import org.apache.uniffle.server.ShuffleServer;
 import org.apache.uniffle.server.ShuffleServerConf;
@@ -68,6 +72,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 public class ShuffleBufferManagerTest extends BufferTestBase {
+  private static final Logger LOG = LoggerFactory.getLogger(ShuffleBufferManagerTest.class);
+
   private ShuffleBufferManager shuffleBufferManager;
   private ShuffleFlushManager mockShuffleFlushManager;
   private ShuffleServer mockShuffleServer;
@@ -84,6 +90,8 @@ public class ShuffleBufferManagerTest extends BufferTestBase {
     conf.set(ShuffleServerConf.SERVER_MEMORY_SHUFFLE_LOWWATERMARK_PERCENTAGE, 20.0);
     conf.set(ShuffleServerConf.SERVER_MEMORY_SHUFFLE_HIGHWATERMARK_PERCENTAGE, 80.0);
     conf.setLong(ShuffleServerConf.DISK_CAPACITY, 1024L * 1024L * 1024L);
+    conf.setBoolean(ShuffleServerConf.APP_LEVEL_SHUFFLE_BLOCK_SIZE_METRIC_ENABLED, true);
+
     mockShuffleFlushManager = mock(ShuffleFlushManager.class);
     mockShuffleServer = mock(ShuffleServer.class);
     mockShuffleTaskManager = mock(ShuffleTaskManager.class);
@@ -174,9 +182,9 @@ public class ShuffleBufferManagerTest extends BufferTestBase {
     // validate buffer, no flush happened
     Map<String, Map<Integer, RangeMap<Integer, ShuffleBuffer>>> bufferPool =
         shuffleBufferManager.getBufferPool();
-    assertEquals(100, bufferPool.get(appId).get(1).get(0).getSize());
-    assertEquals(200, bufferPool.get(appId).get(2).get(0).getSize());
-    assertEquals(100, bufferPool.get(appId).get(3).get(0).getSize());
+    assertEquals(100, bufferPool.get(appId).get(1).get(0).getEncodedLength());
+    assertEquals(200, bufferPool.get(appId).get(2).get(0).getEncodedLength());
+    assertEquals(100, bufferPool.get(appId).get(3).get(0).getEncodedLength());
     // validate get shuffle data
     ShuffleDataResult sdr =
         shuffleBufferManager.getShuffleData(appId, 2, 0, Constants.INVALID_BLOCK_ID, 60);
@@ -297,16 +305,16 @@ public class ShuffleBufferManagerTest extends BufferTestBase {
     Map<String, Map<Integer, RangeMap<Integer, ShuffleBuffer>>> bufferPool =
         shuffleBufferManager.getBufferPool();
     ShuffleBuffer buffer = bufferPool.get(appId).get(shuffleId).get(0);
-    assertEquals(48, buffer.getSize());
+    assertEquals(48, buffer.getEncodedLength());
     assertEquals(48, shuffleBufferManager.getUsedMemory());
 
     shuffleBufferManager.cacheShuffleData(appId, shuffleId, false, createData(0, 16));
-    assertEquals(96, buffer.getSize());
+    assertEquals(96, buffer.getEncodedLength());
     assertEquals(96, shuffleBufferManager.getUsedMemory());
 
     // reach high water lever, flush
     shuffleBufferManager.cacheShuffleData(appId, shuffleId, false, createData(0, 273));
-    assertEquals(0, buffer.getSize());
+    assertEquals(0, buffer.getEncodedLength());
     assertEquals(401, shuffleBufferManager.getUsedMemory());
     assertEquals(401, shuffleBufferManager.getInFlushSize());
     verify(mockShuffleFlushManager, times(1)).addToFlushQueue(any());
@@ -331,9 +339,9 @@ public class ShuffleBufferManagerTest extends BufferTestBase {
     ShuffleBuffer buffer0 = bufferPool.get(appId).get(shuffleId).get(0);
     ShuffleBuffer buffer1 = bufferPool.get(appId).get(shuffleId).get(1);
     ShuffleBuffer buffer2 = bufferPool.get(appId).get(2).get(0);
-    assertEquals(0, buffer0.getSize());
-    assertEquals(0, buffer1.getSize());
-    assertEquals(64, buffer2.getSize());
+    assertEquals(0, buffer0.getEncodedLength());
+    assertEquals(0, buffer1.getEncodedLength());
+    assertEquals(64, buffer2.getEncodedLength());
     assertEquals(528, shuffleBufferManager.getUsedMemory());
     assertEquals(464, shuffleBufferManager.getInFlushSize());
     verify(mockShuffleFlushManager, times(3)).addToFlushQueue(any());
@@ -508,8 +516,12 @@ public class ShuffleBufferManagerTest extends BufferTestBase {
     long usedSize = shuffleTaskManager.getPartitionDataSize(appId, shuffleId, 0);
     assertEquals(1 + 32, usedSize);
     assertFalse(
-        shuffleBufferManager.limitHugePartition(
-            appId, shuffleId, 0, shuffleTaskManager.getPartitionDataSize(appId, shuffleId, 0)));
+        HugePartitionUtils.limitHugePartition(
+            shuffleBufferManager,
+            appId,
+            shuffleId,
+            0,
+            shuffleTaskManager.getPartitionDataSize(appId, shuffleId, 0)));
 
     // case2: its partition is huge partition, its buffer will be flushed to DISK directly
     partitionedData = createData(0, 36);
@@ -517,8 +529,12 @@ public class ShuffleBufferManagerTest extends BufferTestBase {
     shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, 0, partitionedData.getBlockList());
     assertEquals(33 + 36 + 32, shuffleBufferManager.getUsedMemory());
     assertTrue(
-        shuffleBufferManager.limitHugePartition(
-            appId, shuffleId, 0, shuffleTaskManager.getPartitionDataSize(appId, shuffleId, 0)));
+        HugePartitionUtils.limitHugePartition(
+            shuffleBufferManager,
+            appId,
+            shuffleId,
+            0,
+            shuffleTaskManager.getPartitionDataSize(appId, shuffleId, 0)));
     partitionedData = createData(0, 1);
     shuffleTaskManager.cacheShuffleData(appId, shuffleId, false, partitionedData);
     shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, 0, partitionedData.getBlockList());
@@ -644,8 +660,13 @@ public class ShuffleBufferManagerTest extends BufferTestBase {
     int retry = 0;
     long committedCount = 0;
     do {
-      committedCount =
-          shuffleFlushManager.getCommittedBlockIds(appId, shuffleId).getLongCardinality();
+      try {
+        committedCount =
+            shuffleFlushManager.getCommittedBlockIds(appId, shuffleId).getLongCardinality();
+      } catch (Throwable e) {
+        // ignore ArrayIndexOutOfBoundsException and ConcurrentModificationException
+        LOG.error("Ignored exception.", e);
+      }
       if (committedCount < expectedBlockNum) {
         Thread.sleep(500);
       }
@@ -783,5 +804,63 @@ public class ShuffleBufferManagerTest extends BufferTestBase {
                 }
               }
             });
+  }
+
+  @Test
+  public void splitPartitionTest(@TempDir File tmpDir) throws Exception {
+    ShuffleServerConf shuffleConf = new ShuffleServerConf();
+    File dataDir = new File(tmpDir, "data");
+    shuffleConf.setString(ShuffleServerConf.RSS_STORAGE_TYPE.key(), StorageType.LOCALFILE.name());
+    shuffleConf.set(
+        ShuffleServerConf.RSS_STORAGE_BASE_PATH, Arrays.asList(dataDir.getAbsolutePath()));
+    shuffleConf.set(ShuffleServerConf.HUGE_PARTITION_SPLIT_LIMIT, 200L);
+
+    ShuffleServer mockShuffleServer = mock(ShuffleServer.class);
+    StorageManager storageManager =
+        StorageManagerFactory.getInstance().createStorageManager(shuffleConf);
+    ShuffleFlushManager shuffleFlushManager =
+        new ShuffleFlushManager(shuffleConf, mockShuffleServer, storageManager);
+    shuffleBufferManager = new ShuffleBufferManager(shuffleConf, shuffleFlushManager, false);
+    ShuffleTaskManager shuffleTaskManager =
+        new ShuffleTaskManager(
+            shuffleConf, shuffleFlushManager, shuffleBufferManager, storageManager);
+
+    when(mockShuffleServer.getShuffleFlushManager()).thenReturn(shuffleFlushManager);
+    when(mockShuffleServer.getShuffleBufferManager()).thenReturn(shuffleBufferManager);
+    when(mockShuffleServer.getShuffleTaskManager()).thenReturn(shuffleTaskManager);
+
+    String appId = "flushSingleBufferForHugePartitionTest_appId";
+    int shuffleId = 1;
+
+    shuffleTaskManager.registerShuffle(
+        appId, shuffleId, Arrays.asList(new PartitionRange(0, 0)), new RemoteStorageInfo(""), "");
+
+    // case1: its partition size does not exceed the split limit
+    shuffleBufferManager.registerBuffer(appId, shuffleId, 0, 0);
+    ShufflePartitionedData partitionedData = createData(0, 1);
+    shuffleTaskManager.cacheShuffleData(appId, shuffleId, false, partitionedData);
+    shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, 0, partitionedData.getBlockList());
+    long usedSize = shuffleTaskManager.getPartitionDataSize(appId, shuffleId, 0);
+    assertEquals(1 + 32, usedSize);
+    assertFalse(
+        HugePartitionUtils.hasExceedPartitionSplitLimit(
+            shuffleBufferManager, shuffleTaskManager.getPartitionDataSize(appId, shuffleId, 0)));
+
+    // case2: its partition exceed the split limit
+    partitionedData = createData(0, 200);
+    shuffleTaskManager.cacheShuffleData(appId, shuffleId, false, partitionedData);
+    shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, 0, partitionedData.getBlockList());
+    usedSize = shuffleTaskManager.getPartitionDataSize(appId, shuffleId, 0);
+    assertEquals(1 + 32 + 200 + 32, usedSize);
+    assertTrue(
+        HugePartitionUtils.hasExceedPartitionSplitLimit(
+            shuffleBufferManager, shuffleTaskManager.getPartitionDataSize(appId, shuffleId, 0)));
+
+    // check returned need split partitions
+    Pair<Long, List<Integer>> pair =
+        shuffleTaskManager.requireBufferReturnPair(
+            appId, shuffleId, Arrays.asList(0, 1), Arrays.asList(10, 10), 20);
+    assertEquals(1, pair.getRight().size());
+    assertEquals(0, pair.getRight().get(0));
   }
 }

@@ -31,6 +31,7 @@ import org.roaringbitmap.longlong.Roaring64NavigableMap;
 import org.apache.uniffle.common.BufferSegment;
 import org.apache.uniffle.common.ShuffleBlockInfo;
 import org.apache.uniffle.common.ShuffleServerInfo;
+import org.apache.uniffle.common.netty.buffer.ManagedBuffer;
 import org.apache.uniffle.common.netty.buffer.NettyManagedBuffer;
 import org.apache.uniffle.common.netty.protocol.GetLocalShuffleDataRequest;
 import org.apache.uniffle.common.netty.protocol.GetLocalShuffleDataResponse;
@@ -38,6 +39,8 @@ import org.apache.uniffle.common.netty.protocol.GetLocalShuffleIndexRequest;
 import org.apache.uniffle.common.netty.protocol.GetLocalShuffleIndexResponse;
 import org.apache.uniffle.common.netty.protocol.GetMemoryShuffleDataRequest;
 import org.apache.uniffle.common.netty.protocol.GetMemoryShuffleDataResponse;
+import org.apache.uniffle.common.netty.protocol.GetSortedShuffleDataRequest;
+import org.apache.uniffle.common.netty.protocol.GetSortedShuffleDataResponse;
 import org.apache.uniffle.common.netty.protocol.Message;
 import org.apache.uniffle.common.netty.protocol.RpcResponse;
 import org.apache.uniffle.common.netty.protocol.SendShuffleDataRequest;
@@ -96,6 +99,18 @@ public class TransportFrameDecoderTest {
     assertFalse(TransportFrameDecoder.shouldRelease(message4));
     // after processing some business logic in the code, and finally release the body buffer
     message4.body().release();
+
+    GetSortedShuffleDataResponse rpcResponse5 = generateGetSortedShuffleDataResponse();
+    int length5 = rpcResponse5.encodedLength();
+    byte[] body5 = generateBody();
+    ByteBuf byteBuf5 = Unpooled.buffer(length5 + body5.length);
+    rpcResponse5.encode(byteBuf5);
+    assertEquals(byteBuf5.readableBytes(), length5);
+    byteBuf5.writeBytes(body5);
+    Message message5 = Message.decode(rpcResponse5.type(), byteBuf5);
+    assertFalse(TransportFrameDecoder.shouldRelease(message5));
+    // after processing some business logic in the code, and finally release the body buffer
+    message5.body().release();
   }
 
   /** test if the RPC request should be released after decoding */
@@ -136,6 +151,15 @@ public class TransportFrameDecoderTest {
     Message message4 = Message.decode(rpcRequest4.type(), byteBuf4);
     assertTrue(TransportFrameDecoder.shouldRelease(message4));
     byteBuf4.release();
+
+    GetSortedShuffleDataRequest rpcRequest5 = generateGetSortedShuffleDataRequest();
+    int length5 = rpcRequest5.encodedLength();
+    ByteBuf byteBuf5 = Unpooled.buffer(length5);
+    rpcRequest5.encode(byteBuf5);
+    assertEquals(byteBuf5.readableBytes(), length5);
+    Message message5 = Message.decode(rpcRequest5.type(), byteBuf5);
+    assertTrue(TransportFrameDecoder.shouldRelease(message5));
+    byteBuf5.release();
   }
 
   private byte[] generateBody() {
@@ -249,5 +273,16 @@ public class TransportFrameDecoderTest {
     Roaring64NavigableMap expectedTaskIdsBitmap = Roaring64NavigableMap.bitmapOf(1, 2, 3, 4, 5);
     return new GetMemoryShuffleDataRequest(
         1, "test_app", 1, 1, 1, 64, System.currentTimeMillis(), expectedTaskIdsBitmap);
+  }
+
+  private GetSortedShuffleDataRequest generateGetSortedShuffleDataRequest() {
+    return new GetSortedShuffleDataRequest(1, "test_app", 2, 3, 4, 100, System.currentTimeMillis());
+  }
+
+  private GetSortedShuffleDataResponse generateGetSortedShuffleDataResponse() {
+    byte[] data = new byte[] {1, 2, 3, 4, 5};
+    ByteBuf byteBuf = Unpooled.wrappedBuffer(data);
+    ManagedBuffer managedBuffer = new NettyManagedBuffer(byteBuf);
+    return new GetSortedShuffleDataResponse(1, StatusCode.SUCCESS, "OK", 5L, 0, managedBuffer);
   }
 }

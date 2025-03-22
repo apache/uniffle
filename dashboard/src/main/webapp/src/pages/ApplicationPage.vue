@@ -28,6 +28,16 @@
           <div class="appcnt">{{ pageData.apptotal.appTotality }}</div>
         </el-card>
       </el-col>
+      <el-col :span="4">
+        <el-card class="box-card" shadow="hover">
+          <template #header>
+            <div class="card-header">
+              <span class="cardtile">APPS CURRENT TOTAL</span>
+            </div>
+          </template>
+          <div class="appcnt">{{ pageData.apptotal.appCurrent }}</div>
+        </el-card>
+      </el-col>
     </el-row>
     <el-divider />
     <el-tag>User App ranking</el-tag>
@@ -48,14 +58,14 @@
     <div>
       <el-table
         :data="pageData.appInfoData"
-        height="250"
+        height="700"
         style="width: 100%"
         :default-sort="sortApp"
         @sort-change="sortAppChangeEvent"
       >
         <el-table-column prop="appId" label="AppId" min-width="180" sortable fixed />
         <el-table-column prop="userName" label="UserName" min-width="180" sortable />
-        <el-table-columnsortable
+        <el-table-column
           prop="registrationTime"
           label="Registration Time"
           min-width="180"
@@ -69,6 +79,45 @@
           :formatter="dateFormatter"
           sortable
         />
+        <el-table-column label="Version" min-width="180">
+          <template v-slot="{ row }">
+            <div class="version">
+              {{ row.version }}_{{ row.gitCommitId }}
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column prop="partitionNum" label="PartitionNum" min-width="180" sortable />
+        <el-table-column
+            prop="memorySize"
+            label="MemorySize"
+            min-width="180"
+            :formatter="memFormatter"
+        />
+        <el-table-column label="LocalFile" min-width="180">
+          <template v-slot="{ row }">
+            <div class="mb-4">
+              {{ row.localFileNum }}({{
+                memFormatter(null, null, row.localTotalSize)
+              }})
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="HadoopFile" min-width="180">
+          <template v-slot="{ row }">
+            <div class="mb-4">
+              {{ row.hadoopFileNum }}({{
+                memFormatter(null, null, row.hadoopTotalSize)
+              }})
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column
+            prop="totalSize"
+            label="TotalSize"
+            min-width="180"
+            :formatter="memFormatter"
+            sortable
+        />
       </el-table>
     </div>
   </div>
@@ -77,7 +126,7 @@
 <script>
 import { getApplicationInfoList, getAppTotal, getTotalForUser } from '@/api/api'
 import { onMounted, reactive } from 'vue'
-import { dateFormatter } from '@/utils/common'
+import { dateFormatter, memFormatter } from '@/utils/common'
 import { useCurrentServerStore } from '@/store/useCurrentServerStore'
 
 export default {
@@ -144,7 +193,8 @@ export default {
       sortAppCollectChangeEvent,
       sortApp,
       sortAppChangeEvent,
-      dateFormatter
+      dateFormatter,
+      memFormatter
     }
   }
 }

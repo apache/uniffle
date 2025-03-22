@@ -68,9 +68,7 @@ public class ShuffleAssignmentsInfoWritable implements Writable {
         } else {
           dataOutput.writeInt(entry.getValue().size());
           for (ShuffleServerInfo serverInfo : entry.getValue()) {
-            dataOutput.writeUTF(serverInfo.getId());
-            dataOutput.writeUTF(serverInfo.getHost());
-            dataOutput.writeInt(serverInfo.getGrpcPort());
+            writeShuffleServerInfo(dataOutput, serverInfo);
           }
         }
       }
@@ -84,9 +82,7 @@ public class ShuffleAssignmentsInfoWritable implements Writable {
       dataOutput.writeInt(serverToPartitionRanges.size());
       for (Map.Entry<ShuffleServerInfo, List<PartitionRange>> entry :
           serverToPartitionRanges.entrySet()) {
-        dataOutput.writeUTF(entry.getKey().getId());
-        dataOutput.writeUTF(entry.getKey().getHost());
-        dataOutput.writeInt(entry.getKey().getGrpcPort());
+        writeShuffleServerInfo(dataOutput, entry.getKey());
         if (CollectionUtils.isEmpty(entry.getValue())) {
           dataOutput.writeInt(-1);
         } else {
@@ -110,18 +106,13 @@ public class ShuffleAssignmentsInfoWritable implements Writable {
     Map<Integer, List<ShuffleServerInfo>> partitionToServers = new HashMap<>();
     int partitionToServersSize = dataInput.readInt();
     if (partitionToServersSize != -1) {
-      Integer partitionId;
       for (int i = 0; i < partitionToServersSize; i++) {
-        partitionId = dataInput.readInt();
+        int partitionId = dataInput.readInt();
         List<ShuffleServerInfo> shuffleServerInfoList = new ArrayList<>();
         int shuffleServerInfoListSize = dataInput.readInt();
         if (shuffleServerInfoListSize != -1) {
           for (int i1 = 0; i1 < shuffleServerInfoListSize; i1++) {
-            String id = dataInput.readUTF();
-            String host = dataInput.readUTF();
-            int port = dataInput.readInt();
-            ShuffleServerInfo shuffleServerInfo = new ShuffleServerInfo(id, host, port);
-            shuffleServerInfoList.add(shuffleServerInfo);
+            shuffleServerInfoList.add(getShuffleServerInfo(dataInput));
           }
         }
 
@@ -133,14 +124,8 @@ public class ShuffleAssignmentsInfoWritable implements Writable {
     int serverToPartitionRangesSize = dataInput.readInt();
     if (serverToPartitionRangesSize != -1) {
       for (int i = 0; i < serverToPartitionRangesSize; i++) {
-        ShuffleServerInfo shuffleServerInfo;
         List<PartitionRange> partitionRangeList = new ArrayList<>();
-
-        String id = dataInput.readUTF();
-        String host = dataInput.readUTF();
-        int port = dataInput.readInt();
-        shuffleServerInfo = new ShuffleServerInfo(id, host, port);
-
+        ShuffleServerInfo shuffleServerInfo = getShuffleServerInfo(dataInput);
         int partitionRangeListSize = dataInput.readInt();
         if (partitionRangeListSize != -1) {
           for (int i1 = 0; i1 < partitionRangeListSize; i1++) {
@@ -156,6 +141,24 @@ public class ShuffleAssignmentsInfoWritable implements Writable {
 
     shuffleAssignmentsInfo =
         new ShuffleAssignmentsInfo(partitionToServers, serverToPartitionRanges);
+  }
+
+  private ShuffleServerInfo getShuffleServerInfo(DataInput dataInput) throws IOException {
+    ShuffleServerInfo shuffleServerInfo;
+    String id = dataInput.readUTF();
+    String host = dataInput.readUTF();
+    int grpcPort = dataInput.readInt();
+    int nettyPort = dataInput.readInt();
+    shuffleServerInfo = new ShuffleServerInfo(id, host, grpcPort, nettyPort);
+    return shuffleServerInfo;
+  }
+
+  private void writeShuffleServerInfo(DataOutput dataOutput, ShuffleServerInfo shuffleServerInfo)
+      throws IOException {
+    dataOutput.writeUTF(shuffleServerInfo.getId());
+    dataOutput.writeUTF(shuffleServerInfo.getHost());
+    dataOutput.writeInt(shuffleServerInfo.getGrpcPort());
+    dataOutput.writeInt(shuffleServerInfo.getNettyPort());
   }
 
   public ShuffleAssignmentsInfo getShuffleAssignmentsInfo() {

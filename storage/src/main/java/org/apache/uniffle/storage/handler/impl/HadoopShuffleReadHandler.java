@@ -20,6 +20,7 @@ package org.apache.uniffle.storage.handler.impl;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.Optional;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -57,7 +58,8 @@ public class HadoopShuffleReadHandler extends DataSkippableReadHandler {
       Configuration conf,
       ShuffleDataDistributionType distributionType,
       Roaring64NavigableMap expectTaskIds,
-      boolean offHeapEnabled)
+      boolean offHeapEnabled,
+      Optional<PrefetchOption> prefetchOption)
       throws Exception {
     super(
         appId,
@@ -67,7 +69,8 @@ public class HadoopShuffleReadHandler extends DataSkippableReadHandler {
         expectBlockIds,
         processBlockIds,
         distributionType,
-        expectTaskIds);
+        expectTaskIds,
+        prefetchOption);
     this.filePrefix = filePrefix;
     this.indexReader =
         createHadoopReader(ShuffleStorageUtils.generateIndexFileName(filePrefix), conf);
@@ -98,7 +101,8 @@ public class HadoopShuffleReadHandler extends DataSkippableReadHandler {
         conf,
         ShuffleDataDistributionType.NORMAL,
         Roaring64NavigableMap.bitmapOf(),
-        false);
+        false,
+        Optional.empty());
   }
 
   @Override

@@ -19,22 +19,26 @@ package org.apache.uniffle.common.metrics.prometheus;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Sets;
 import io.prometheus.client.CollectorRegistry;
 import io.prometheus.client.exporter.PushGateway;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.uniffle.common.ReconfigurableRegistry;
 import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.metrics.AbstractMetricReporter;
 import org.apache.uniffle.common.util.ThreadUtils;
 
-public class PrometheusPushGatewayMetricReporter extends AbstractMetricReporter {
+public class PrometheusPushGatewayMetricReporter extends AbstractMetricReporter
+    implements ReconfigurableRegistry.ReconfigureListener {
   private static final Logger LOG =
       LoggerFactory.getLogger(PrometheusPushGatewayMetricReporter.class);
   static final String PUSHGATEWAY_ADDR = "rss.metrics.prometheus.pushgateway.addr";
@@ -50,6 +54,11 @@ public class PrometheusPushGatewayMetricReporter extends AbstractMetricReporter 
 
   @Override
   public void start() {
+    startInternal();
+    ReconfigurableRegistry.register(Sets.newHashSet(REPORT_INTEVAL), this);
+  }
+
+  private void startInternal() {
     if (pushGateway == null) {
       String address = conf.getString(PUSHGATEWAY_ADDR, null);
       if (StringUtils.isEmpty(address)) {
@@ -83,9 +92,19 @@ public class PrometheusPushGatewayMetricReporter extends AbstractMetricReporter 
 
   @Override
   public void stop() {
+    stopInternal();
+    ReconfigurableRegistry.unregister(this);
+  }
+
+  private void stopInternal() {
     if (scheduledExecutorService != null) {
       scheduledExecutorService.shutdownNow();
     }
+  }
+
+  private void restart() {
+    stopInternal();
+    startInternal();
   }
 
   @VisibleForTesting
@@ -120,5 +139,15 @@ public class PrometheusPushGatewayMetricReporter extends AbstractMetricReporter 
     }
 
     return groupingKey;
+  }
+
+  @Override
+  public void update(RssConf conf, Set<String> changedProperties) {
+    if (changedProperties == null) {
+      return;
+    }
+    if (changedProperties.contains(REPORT_INTEVAL)) {
+      restart();
+    }
   }
 }

@@ -17,11 +17,14 @@
 
 package org.apache.uniffle.client.request;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import org.apache.uniffle.common.ServerStatus;
 import org.apache.uniffle.common.storage.StorageInfo;
+import org.apache.uniffle.proto.RssProtos;
 
 public class RssSendHeartBeatRequest {
 
@@ -37,6 +40,10 @@ public class RssSendHeartBeatRequest {
   private final ServerStatus serverStatus;
   private final Map<String, StorageInfo> storageInfo;
   private final int nettyPort;
+  private final int jettyPort;
+  private final long startTimeMs;
+  private final List<RssProtos.ApplicationInfo> appInfos;
+  private final Map<String, String> displayMetrics;
 
   public RssSendHeartBeatRequest(
       String shuffleServerId,
@@ -50,7 +57,11 @@ public class RssSendHeartBeatRequest {
       Set<String> tags,
       ServerStatus serverStatus,
       Map<String, StorageInfo> storageInfo,
-      int nettyPort) {
+      int nettyPort,
+      int jettyPort,
+      long startTimeMs,
+      List<RssProtos.ApplicationInfo> appInfos,
+      Map<String, String> displayMetrics) {
     this.shuffleServerId = shuffleServerId;
     this.shuffleServerIp = shuffleServerIp;
     this.shuffleServerPort = shuffleServerPort;
@@ -63,6 +74,10 @@ public class RssSendHeartBeatRequest {
     this.serverStatus = serverStatus;
     this.storageInfo = storageInfo;
     this.nettyPort = nettyPort;
+    this.jettyPort = jettyPort;
+    this.startTimeMs = startTimeMs;
+    this.appInfos = appInfos;
+    this.displayMetrics = displayMetrics;
   }
 
   public String getShuffleServerId() {
@@ -111,5 +126,21 @@ public class RssSendHeartBeatRequest {
 
   public int getNettyPort() {
     return nettyPort;
+  }
+
+  public int getJettyPort() {
+    return jettyPort;
+  }
+
+  public long getStartTimeMs() {
+    return startTimeMs;
+  }
+
+  public List<RssProtos.ApplicationInfo> getAppInfos() {
+    return appInfos;
+  }
+
+  public Map<String, String> getDisplayMetrics() {
+    return displayMetrics == null ? Collections.emptyMap() : displayMetrics;
   }
 }

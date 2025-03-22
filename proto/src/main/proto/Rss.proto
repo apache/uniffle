@@ -38,6 +38,8 @@ service ShuffleServer {
   rpc finishShuffle (FinishShuffleRequest) returns (FinishShuffleResponse);
   rpc requireBuffer (RequireBufferRequest) returns (RequireBufferResponse);
   rpc appHeartbeat(AppHeartBeatRequest) returns (AppHeartBeatResponse);
+  rpc startSortMerge (StartSortMergeRequest) returns (StartSortMergeResponse);
+  rpc getSortedShuffleData (GetSortedShuffleDataRequest) returns (GetSortedShuffleDataResponse);
 }
 
 message FinishShuffleRequest {
@@ -55,12 +57,15 @@ message RequireBufferRequest {
   string appId = 2;
   int32 shuffleId = 3;
   repeated int32 partitionIds = 4;
+  repeated int32 partitionRequireSizes = 5;
 }
 
 message RequireBufferResponse {
   int64 requireBufferId = 1;
   StatusCode status = 2;
   string retMsg = 3;
+  // need split partitions
+  repeated int32 needSplitPartitionIds = 4;
 }
 
 message ShuffleDataBlockSegment {
@@ -81,6 +86,7 @@ message GetLocalShuffleDataRequest {
   int64 offset = 6;
   int32 length = 7;
   int64 timestamp = 8;
+  int32 storageId = 9;
 }
 
 message GetLocalShuffleDataResponse {
@@ -119,6 +125,7 @@ message GetLocalShuffleIndexResponse {
   StatusCode status = 2;
   string retMsg = 3;
   int64 dataFileLen = 4;
+  repeated int32 storageIds = 5;
 }
 
 message ReportShuffleResultRequest {
@@ -176,6 +183,14 @@ message ShufflePartitionRange {
   int32 end = 2;
 }
 
+message MergeContext {
+  string keyClass = 1;
+  string valueClass = 2;
+  string comparatorClass = 3;
+  int32 mergedBlockSize = 4;
+  string mergeClassLoader = 5;
+}
+
 message ShuffleRegisterRequest {
   string appId = 1;
   int32 shuffleId = 2;
@@ -185,6 +200,8 @@ message ShuffleRegisterRequest {
   DataDistribution shuffleDataDistribution = 6;
   int32 maxConcurrencyPerPartitionToWrite = 7;
   int32 stageAttemptNumber = 8;
+  MergeContext mergeContext = 9;
+  map<string, string> properties = 10;
 }
 
 enum DataDistribution {
@@ -265,6 +282,17 @@ enum ServerStatus {
   // todo: more status, such as UPGRADING
 }
 
+message ApplicationInfo {
+  string appId = 1;
+  int64 partitionNum = 2;
+  int64 memorySize = 3;
+  int64 localFileNum = 4;
+  int64 localTotalSize = 5;
+  int64 hadoopFileNum = 6;
+  int64 hadoopTotalSize = 7;
+  int64 totalSize = 8;
+}
+
 message ShuffleServerHeartBeatRequest {
   ShuffleServerId serverId = 1;
   int64 usedMemory = 2;
@@ -275,6 +303,11 @@ message ShuffleServerHeartBeatRequest {
   google.protobuf.BoolValue isHealthy = 7;
   optional ServerStatus status = 8;
   map<string, StorageInfo> storageInfo = 21; // mount point to storage info mapping.
+  optional string version = 22;
+  optional string gitCommitId = 23;
+  optional int64 startTimeMs = 24;
+  repeated ApplicationInfo applicationInfo = 25;
+  map<string, string> displayMetrics = 26;
 }
 
 message ShuffleServerHeartBeatResponse {
@@ -287,6 +320,7 @@ message ShuffleServerId {
   string ip = 2;
   int32 port = 3;
   int32 netty_port = 4;
+  int32 jetty_port = 5;
 }
 
 message ShuffleServerResult {
@@ -308,6 +342,7 @@ enum StatusCode {
   INVALID_REQUEST = 9;
   NO_BUFFER_FOR_HUGE_PARTITION = 10;
   STAGE_RETRY_IGNORE = 11;
+  EXCEED_HUGE_PARTITION_HARD_LIMIT = 12;
   APP_NOT_FOUND = 13;
   INTERNAL_NOT_RETRY_ERROR = 14;
   // add more status
@@ -390,6 +425,8 @@ message AppHeartBeatResponse {
 message ApplicationInfoRequest {
   string appId = 1;
   string user = 2;
+  optional string version = 3;
+  optional string gitCommitId = 4;
 }
 
 message ApplicationInfoResponse {
@@ -542,8 +579,6 @@ service ShuffleManager {
   rpc getPartitionToShufflerServerWithBlockRetry(PartitionToShuffleServerRequest) returns (ReassignOnBlockSendFailureResponse);
   // Report write failures to ShuffleManager
   rpc reportShuffleWriteFailure (ReportShuffleWriteFailureRequest) returns (ReportShuffleWriteFailureResponse);
-  // Reassign on stage resubmit
-  rpc reassignOnStageResubmit(ReassignServersRequest) returns (ReassignServersResponse);
   // Reassign on block send failure that occurs in writer
   rpc reassignOnBlockSendFailure(RssReassignOnBlockSendFailureRequest) returns (ReassignOnBlockSendFailureResponse);
   rpc reportShuffleResult (ReportShuffleResultRequest) returns (ReportShuffleResultResponse);
@@ -570,7 +605,10 @@ message ReportShuffleFetchFailureResponse {
 }
 
 message PartitionToShuffleServerRequest {
-  int32 shuffleId = 2;
+  int32 stageAttemptId = 1;
+  int32 stageAttemptNumber = 2;
+  int32 shuffleId = 3;
+  bool isWritePhase = 4;
 }
 
 message ReassignOnStageRetryResponse {
@@ -606,7 +644,8 @@ message RemoteStorageInfo{
 message ReportShuffleWriteFailureRequest {
   string appId = 1;
   int32 shuffleId = 2;
-  int32 stageAttemptNumber = 3;
+  int32 stageAttemptId = 3;
+  int32 stageAttemptNumber = 4;
   repeated ShuffleServerId shuffleServerIds= 5;
   string exception = 6;
 }
@@ -617,19 +656,6 @@ message ReportShuffleWriteFailureResponse {
   string msg = 3;
 }
 
-message ReassignServersRequest{
-  int32 stageId = 1;
-  int32 stageAttemptNumber = 2;
-  int32 shuffleId = 3;
-  int32 numPartitions = 4;
-}
-
-message ReassignServersResponse {
-  StatusCode status = 1;
-  bool needReassign = 2;
-  string msg = 3;
-}
-
 message RssReassignOnBlockSendFailureRequest {
   int32 shuffleId  = 1;
   map<int32, ReceivingFailureServers> failurePartitionToServerIds = 2;
@@ -637,6 +663,7 @@ message RssReassignOnBlockSendFailureRequest {
   int32 stageId = 4;
   int32 stageAttemptNumber = 5;
   string executorId = 6;
+  optional bool partitionSplit = 7;
 }
 
 message ReceivingFailureServers {
@@ -654,4 +681,30 @@ message ReassignOnBlockSendFailureResponse {
   MutableShuffleHandleInfo handle = 3;
 }
 
+message StartSortMergeRequest {
+  string appId = 1;
+  int32 shuffleId = 2;
+  int32 partitionId = 3;
+  bytes uniqueBlocksBitmap = 4;
+}
 
+message StartSortMergeResponse {
+  StatusCode status = 1;
+  string retMsg = 2;
+}
+
+message GetSortedShuffleDataRequest {
+  string appId = 1;
+  int32 shuffleId = 2;
+  int32 partitionId = 3;
+  int64 mergedBlockId = 4;
+  int64 timestamp = 5;
+}
+
+message GetSortedShuffleDataResponse {
+  bytes data = 1;
+  StatusCode status = 2;
+  string retMsg = 3;
+  int64 nextBlockId = 4;
+  int32 mState = 5;
+}

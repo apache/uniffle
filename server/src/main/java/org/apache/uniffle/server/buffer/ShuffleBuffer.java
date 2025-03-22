@@ -17,8 +17,8 @@
 
 package org.apache.uniffle.server.buffer;
 
-import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Supplier;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -50,17 +50,25 @@ public interface ShuffleBuffer {
   ShuffleDataResult getShuffleData(
       long lastBlockId, int readBufferSize, Roaring64NavigableMap expectedTaskIds);
 
-  long getSize();
+  /** @return the buffer memory size include encoded length */
+  long getEncodedLength();
+
+  /** @return the buffer block data size */
+  long getDataLength();
+
+  long getInFlushSize();
 
   /** Only for test */
-  List<ShufflePartitionedBlock> getBlocks();
+  Set<ShufflePartitionedBlock> getBlocks();
 
   int getBlockCount();
 
-  void release();
+  long getInFlushBlockCount();
+
+  long release();
 
   void clearInFlushBuffer(long eventId);
 
   @VisibleForTesting
-  Map<Long, List<ShufflePartitionedBlock>> getInFlushBlockMap();
+  Map<Long, Set<ShufflePartitionedBlock>> getInFlushBlockMap();
 }

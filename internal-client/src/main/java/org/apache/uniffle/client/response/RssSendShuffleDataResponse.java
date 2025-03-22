@@ -18,6 +18,7 @@
 package org.apache.uniffle.client.response;
 
 import java.util.List;
+import java.util.Set;
 
 import org.apache.uniffle.common.rpc.StatusCode;
 
@@ -25,6 +26,7 @@ public class RssSendShuffleDataResponse extends ClientResponse {
 
   private List<Long> successBlockIds;
   private List<Long> failedBlockIds;
+  private Set<Integer> needSplitPartitionIds;
 
   public RssSendShuffleDataResponse(StatusCode statusCode) {
     super(statusCode);
@@ -44,5 +46,13 @@ public class RssSendShuffleDataResponse extends ClientResponse {
 
   public void setFailedBlockIds(List<Long> failedBlockIds) {
     this.failedBlockIds = failedBlockIds;
+  }
+
+  public void setNeedSplitPartitionIds(Set<Integer> needSplitPartitionIds) {
+    this.needSplitPartitionIds = needSplitPartitionIds;
+  }
+
+  public Set<Integer> getNeedSplitPartitionIds() {
+    return needSplitPartitionIds;
   }
 }

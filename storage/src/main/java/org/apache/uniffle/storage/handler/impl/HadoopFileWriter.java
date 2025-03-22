@@ -17,11 +17,12 @@
 
 package org.apache.uniffle.storage.handler.impl;
 
-import java.io.Closeable;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
+import com.google.common.annotations.VisibleForTesting;
+import io.netty.buffer.ByteBuf;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
@@ -30,10 +31,11 @@ import org.apache.hadoop.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.uniffle.common.util.ByteBufUtils;
 import org.apache.uniffle.storage.api.FileWriter;
 import org.apache.uniffle.storage.common.FileBasedShuffleSegment;
 
-public class HadoopFileWriter implements FileWriter, Closeable {
+public class HadoopFileWriter implements FileWriter {
 
   private static final Logger LOG = LoggerFactory.getLogger(HadoopFileWriter.class);
 
@@ -44,19 +46,26 @@ public class HadoopFileWriter implements FileWriter, Closeable {
   private FSDataOutputStream fsDataOutputStream;
   private long nextOffset;
 
+  @VisibleForTesting
   public HadoopFileWriter(FileSystem fileSystem, Path path, Configuration hadoopConf)
+      throws IOException {
+    this(fileSystem, path, hadoopConf, 8 * 1024);
+  }
+
+  public HadoopFileWriter(
+      FileSystem fileSystem, Path path, Configuration hadoopConf, int bufferSize)
       throws IOException {
     this.path = path;
     this.hadoopConf = hadoopConf;
     this.fileSystem = fileSystem;
-    initStream();
+    initStream(bufferSize);
   }
 
-  private void initStream() throws IOException, IllegalStateException {
+  private void initStream(int bufferSize) throws IOException, IllegalStateException {
     final FileSystem writerFs = fileSystem;
     if (writerFs.isFile(path)) {
       if (hadoopConf.getBoolean("dfs.support.append", true)) {
-        fsDataOutputStream = writerFs.append(path);
+        fsDataOutputStream = writerFs.append(path, bufferSize);
         nextOffset = fsDataOutputStream.getPos();
       } else {
         String msg = path + " exists but append mode is not support!";
@@ -68,7 +77,7 @@ public class HadoopFileWriter implements FileWriter, Closeable {
       LOG.error(msg);
       throw new IllegalStateException(msg);
     } else {
-      fsDataOutputStream = writerFs.create(path);
+      fsDataOutputStream = writerFs.create(path, true, bufferSize);
       nextOffset = fsDataOutputStream.getPos();
     }
   }
@@ -78,6 +87,11 @@ public class HadoopFileWriter implements FileWriter, Closeable {
       fsDataOutputStream.write(data);
       nextOffset = fsDataOutputStream.getPos();
     }
+  }
+
+  public void writeData(ByteBuf buf) throws IOException {
+    byte[] data = ByteBufUtils.readBytes(buf);
+    writeData(data);
   }
 
   public void writeData(ByteBuffer byteBuffer) throws IOException {

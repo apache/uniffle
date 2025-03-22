@@ -22,8 +22,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import com.google.common.base.Preconditions;
-import org.eclipse.jetty.client.api.Request;
-import org.eclipse.jetty.client.api.Response;
+import org.eclipse.jetty.http.HttpStatus;
 import org.eclipse.jetty.proxy.ProxyServlet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,7 +30,14 @@ import org.slf4j.LoggerFactory;
 public class WebProxyServlet extends ProxyServlet {
 
   private static final Logger LOG = LoggerFactory.getLogger(WebProxyServlet.class);
+  /** The key of the request header. */
+  private static final String HEADER_TARGET_ADDRESS = "targetAddress";
 
+  private static final String HEADER_REQUEST_SERVER_TYPE = "requestServerType";
+  /** The value of the request header. */
+  private static final String REQUEST_SERVER_TYPE_COORDINATOR = "coordinator";
+
+  private static final String REQUEST_SERVER_TYPE_SERVER = "server";
   private Map<String, String> coordinatorServerAddressesMap;
 
   public WebProxyServlet(Map<String, String> coordinatorServerAddressesMap) {
@@ -45,44 +51,57 @@ public class WebProxyServlet extends ProxyServlet {
     if (!validateDestination(clientRequest.getServerName(), clientRequest.getServerPort())) {
       return null;
     }
-    String targetAddress =
-        coordinatorServerAddressesMap.get(clientRequest.getHeader("targetAddress"));
-    if (targetAddress == null) {
-      // Get random one from coordinatorServerAddressesMap
-      targetAddress = coordinatorServerAddressesMap.values().iterator().next();
+    String targetAddress;
+    String requestServerType =
+        clientRequest.getHeader(HEADER_REQUEST_SERVER_TYPE) != null
+                && REQUEST_SERVER_TYPE_COORDINATOR.equalsIgnoreCase(
+                    clientRequest.getHeader(HEADER_REQUEST_SERVER_TYPE))
+            ? REQUEST_SERVER_TYPE_COORDINATOR
+            : REQUEST_SERVER_TYPE_SERVER;
+    if (requestServerType.equalsIgnoreCase(REQUEST_SERVER_TYPE_COORDINATOR)) {
+      targetAddress =
+          coordinatorServerAddressesMap.get(clientRequest.getHeader(HEADER_TARGET_ADDRESS));
+    } else {
+      targetAddress = clientRequest.getHeader(HEADER_TARGET_ADDRESS);
     }
     StringBuilder target = new StringBuilder();
-    if (targetAddress.endsWith("/")) {
-      targetAddress = targetAddress.substring(0, targetAddress.length() - 1);
-    }
     target.append(targetAddress).append("/api").append(clientRequest.getPathInfo());
     String query = clientRequest.getQueryString();
     if (query != null) {
       target.append("?").append(query);
     }
+    LOG.info(target.toString());
     return target.toString();
   }
 
-  @Override
-  protected void onProxyRewriteFailed(
-      HttpServletRequest clientRequest, HttpServletResponse clientResponse) {}
-
+  /**
+   * If the proxy address fails to be requested, 403 is returned and the front-end handles the
+   * exception.
+   *
+   * @param clientRequest
+   * @param proxyResponse
+   * @param serverResponse
+   * @param failure
+   */
   @Override
   protected void onProxyResponseFailure(
       HttpServletRequest clientRequest,
       HttpServletResponse proxyResponse,
-      Response serverResponse,
-      Throwable failure) {}
-
-  @Override
-  protected String filterServerResponseHeader(
-      HttpServletRequest clientRequest,
-      Response serverResponse,
-      String headerName,
-      String headerValue) {
-    return null;
+      org.eclipse.jetty.client.api.Response serverResponse,
+      Throwable failure) {
+    sendProxyResponseError(clientRequest, proxyResponse, HttpStatus.FORBIDDEN_403);
   }
 
+  /**
+   * If the proxy address fails to be rewritten, 403 is returned and the front-end handles the
+   * exception.
+   *
+   * @param clientRequest the client request
+   * @param proxyResponse the client response
+   */
   @Override
-  protected void addXForwardedHeaders(HttpServletRequest clientRequest, Request proxyRequest) {}
+  protected void onProxyRewriteFailed(
+      HttpServletRequest clientRequest, HttpServletResponse proxyResponse) {
+    sendProxyResponseError(clientRequest, proxyResponse, HttpStatus.FORBIDDEN_403);
+  }
 }

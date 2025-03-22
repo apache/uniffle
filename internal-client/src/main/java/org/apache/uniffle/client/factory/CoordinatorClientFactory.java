@@ -21,12 +21,14 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.uniffle.client.api.CoordinatorClient;
 import org.apache.uniffle.client.impl.grpc.CoordinatorGrpcClient;
+import org.apache.uniffle.client.impl.grpc.CoordinatorGrpcRetryableClient;
 import org.apache.uniffle.common.ClientType;
 import org.apache.uniffle.common.exception.RssException;
 
@@ -43,6 +45,7 @@ public class CoordinatorClientFactory {
     return LazyHolder.INSTANCE;
   }
 
+  @VisibleForTesting
   public synchronized CoordinatorClient createCoordinatorClient(
       ClientType clientType, String host, int port) {
     if (clientType.equals(ClientType.GRPC) || clientType.equals(ClientType.GRPC_NETTY)) {
@@ -52,6 +55,7 @@ public class CoordinatorClientFactory {
     }
   }
 
+  @VisibleForTesting
   public synchronized List<CoordinatorClient> createCoordinatorClient(
       ClientType clientType, String coordinators) {
     LOG.info("Start to create coordinator clients from {}", coordinators);
@@ -84,5 +88,22 @@ public class CoordinatorClientFactory {
             .map(CoordinatorClient::getDesc)
             .collect(Collectors.joining(", ")));
     return coordinatorClients;
+  }
+
+  public synchronized CoordinatorGrpcRetryableClient createCoordinatorClient(
+      ClientType clientType,
+      String coordinators,
+      long retryIntervalMs,
+      int retryTimes,
+      int heartBeatThreadNum) {
+    List<CoordinatorClient> coordinatorClients = createCoordinatorClient(clientType, coordinators);
+    return new CoordinatorGrpcRetryableClient(
+        coordinatorClients, retryIntervalMs, retryTimes, heartBeatThreadNum);
+  }
+
+  public synchronized CoordinatorGrpcRetryableClient createCoordinatorClientWithoutHeartbeat(
+      ClientType clientType, String coordinators, long retryIntervalMs, int retryTimes) {
+    List<CoordinatorClient> coordinatorClients = createCoordinatorClient(clientType, coordinators);
+    return new CoordinatorGrpcRetryableClient(coordinatorClients, retryIntervalMs, retryTimes, 0);
   }
 }

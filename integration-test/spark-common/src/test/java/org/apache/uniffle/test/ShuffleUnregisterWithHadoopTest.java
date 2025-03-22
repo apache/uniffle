@@ -17,6 +17,7 @@
 
 package org.apache.uniffle.test;
 
+import java.io.File;
 import java.util.Map;
 
 import scala.Tuple2;
@@ -31,6 +32,7 @@ import org.apache.spark.shuffle.RssSparkConfig;
 import org.apache.spark.sql.SparkSession;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import org.apache.uniffle.common.rpc.ServerType;
 import org.apache.uniffle.coordinator.CoordinatorConf;
@@ -43,20 +45,24 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class ShuffleUnregisterWithHadoopTest extends SparkIntegrationTestBase {
 
   @BeforeAll
-  public static void setupServers() throws Exception {
-    CoordinatorConf coordinatorConf = getCoordinatorConf();
+  public static void setupServers(@TempDir File tmpDir) throws Exception {
+    CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
     Map<String, String> dynamicConf = Maps.newHashMap();
     dynamicConf.put(CoordinatorConf.COORDINATOR_REMOTE_STORAGE_PATH.key(), HDFS_URI + "rss/test");
     dynamicConf.put(RssSparkConfig.RSS_STORAGE_TYPE.key(), StorageType.HDFS.name());
     addDynamicConf(coordinatorConf, dynamicConf);
-    createCoordinatorServer(coordinatorConf);
-    ShuffleServerConf grpcShuffleServerConf = getShuffleServerConf(ServerType.GRPC);
+    storeCoordinatorConf(coordinatorConf);
+
+    ShuffleServerConf grpcShuffleServerConf =
+        shuffleServerConfWithoutPort(0, tmpDir, ServerType.GRPC);
+    storeShuffleServerConf(grpcShuffleServerConf);
     grpcShuffleServerConf.setString("rss.storage.type", StorageType.HDFS.name());
-    ShuffleServerConf nettyShuffleServerConf = getShuffleServerConf(ServerType.GRPC_NETTY);
+    ShuffleServerConf nettyShuffleServerConf =
+        shuffleServerConfWithoutPort(1, tmpDir, ServerType.GRPC_NETTY);
     nettyShuffleServerConf.setString("rss.storage.type", StorageType.HDFS.name());
-    createShuffleServer(grpcShuffleServerConf);
-    createShuffleServer(nettyShuffleServerConf);
-    startServers();
+    storeShuffleServerConf(nettyShuffleServerConf);
+
+    startServersWithRandomPorts();
   }
 
   @Override

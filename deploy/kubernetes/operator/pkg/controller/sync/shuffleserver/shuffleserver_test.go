@@ -245,6 +245,12 @@ func withCustomVolumeClaimTemplates(volumeClaimTemplates []corev1.PersistentVolu
 	return rss
 }
 
+func withPodManagementPolicy(policy appsv1.PodManagementPolicyType) *uniffleapi.RemoteShuffleService {
+	rss := utils.BuildRSSWithDefaultValue()
+	rss.Spec.ShuffleServer.PodManagementPolicy = policy
+	return rss
+}
+
 func buildRssWithHPA() *uniffleapi.RemoteShuffleService {
 	rss := utils.BuildRSSWithDefaultValue()
 	rss.Spec.ShuffleServer.Autoscaler.Enable = true
@@ -561,6 +567,26 @@ func TestGenerateSts(t *testing.T) {
 					}
 				} else {
 					return false, fmt.Errorf("generated deploy should include annotations: %v", testAnnotations)
+				}
+				return true, nil
+			},
+		},
+		{
+			name: "set OrderedReady pod management policy",
+			rss:  withPodManagementPolicy(appsv1.OrderedReadyPodManagement),
+			IsValidSts: func(sts *appsv1.StatefulSet, rss *uniffleapi.RemoteShuffleService) (bool, error) {
+				if sts.Spec.PodManagementPolicy != appsv1.OrderedReadyPodManagement {
+					return false, fmt.Errorf("expected OrderedReady pod management policy, got: %v", sts.Spec.PodManagementPolicy)
+				}
+				return true, nil
+			},
+		},
+		{
+			name: "set Parallel pod management policy",
+			rss:  withPodManagementPolicy(appsv1.ParallelPodManagement),
+			IsValidSts: func(sts *appsv1.StatefulSet, rss *uniffleapi.RemoteShuffleService) (bool, error) {
+				if sts.Spec.PodManagementPolicy != appsv1.ParallelPodManagement {
+					return false, fmt.Errorf("expected Parallel pod management policy, got: %v", sts.Spec.PodManagementPolicy)
 				}
 				return true, nil
 			},

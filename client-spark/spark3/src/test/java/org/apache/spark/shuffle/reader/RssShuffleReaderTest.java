@@ -36,10 +36,12 @@ import org.apache.spark.shuffle.RssShuffleHandle;
 import org.junit.jupiter.api.Test;
 import org.roaringbitmap.longlong.Roaring64NavigableMap;
 
+import org.apache.uniffle.client.api.ShuffleManagerClient;
 import org.apache.uniffle.common.ShuffleDataDistributionType;
 import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.common.config.RssConf;
+import org.apache.uniffle.common.util.ExpiringCloseableSupplier;
 import org.apache.uniffle.storage.handler.impl.HadoopShuffleWriteHandler;
 import org.apache.uniffle.storage.util.StorageType;
 
@@ -93,6 +95,7 @@ public class RssShuffleReaderTest extends AbstractRssReaderTest {
     rssConf.set(RssClientConf.RSS_STORAGE_TYPE, StorageType.HDFS.name());
     rssConf.set(RssClientConf.RSS_INDEX_READ_LIMIT, 1000);
     rssConf.set(RssClientConf.RSS_CLIENT_READ_BUFFER_SIZE, "1000");
+    ShuffleManagerClient mockShuffleManagerClient = mock(ShuffleManagerClient.class);
     RssShuffleReader<String, String> rssShuffleReaderSpy =
         spy(
             new RssShuffleReader<>(
@@ -108,6 +111,7 @@ public class RssShuffleReaderTest extends AbstractRssReaderTest {
                 partitionToExpectBlocks,
                 taskIdBitmap,
                 new ShuffleReadMetrics(),
+                ExpiringCloseableSupplier.of(() -> mockShuffleManagerClient),
                 rssConf,
                 ShuffleDataDistributionType.NORMAL,
                 partitionToServers));
@@ -131,6 +135,7 @@ public class RssShuffleReaderTest extends AbstractRssReaderTest {
                 partitionToExpectBlocks,
                 taskIdBitmap,
                 new ShuffleReadMetrics(),
+                ExpiringCloseableSupplier.of(() -> mockShuffleManagerClient),
                 rssConf,
                 ShuffleDataDistributionType.NORMAL,
                 partitionToServers));
@@ -151,6 +156,7 @@ public class RssShuffleReaderTest extends AbstractRssReaderTest {
                 partitionToExpectBlocks,
                 Roaring64NavigableMap.bitmapOf(),
                 new ShuffleReadMetrics(),
+                ExpiringCloseableSupplier.of(() -> mockShuffleManagerClient),
                 rssConf,
                 ShuffleDataDistributionType.NORMAL,
                 partitionToServers));

@@ -47,6 +47,7 @@ import org.apache.uniffle.common.config.RssBaseConf;
 import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.rpc.ServerInterface;
 
+import static org.apache.uniffle.common.config.RssClientConf.RSS_CLIENT_EXTRA_JAVA_SYSTEM_PROPERTIES;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -278,6 +279,18 @@ public class RssUtilsTest {
     assertEquals(serverToPartitions.get(server2), Sets.newHashSet(1, 3));
     assertEquals(serverToPartitions.get(server3), Sets.newHashSet(2, 4));
     assertEquals(serverToPartitions.get(server4), Sets.newHashSet(2, 4));
+  }
+
+  @Test
+  public void testSettingProperties() {
+    RssConf conf = new RssConf();
+    conf.set(RSS_CLIENT_EXTRA_JAVA_SYSTEM_PROPERTIES, Arrays.asList("k1=v1", "k2=v2"));
+
+    assertNull(System.getProperty("k1"));
+    assertNull(System.getProperty("k2"));
+    RssUtils.setExtraJavaProperties(conf);
+    assertEquals("v1", System.getProperty("k1"));
+    assertEquals("v2", System.getProperty("k2"));
   }
 
   @Test

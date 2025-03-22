@@ -32,6 +32,7 @@ import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.proto.RssProtos;
 
 public class StageAttemptShuffleHandleInfo extends ShuffleHandleInfoBase {
+  private static final long serialVersionUID = 0L;
   private static final Logger LOGGER = LoggerFactory.getLogger(StageAttemptShuffleHandleInfo.class);
 
   private ShuffleHandleInfo current;

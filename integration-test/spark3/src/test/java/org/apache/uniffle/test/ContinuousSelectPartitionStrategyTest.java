@@ -45,7 +45,6 @@ import org.apache.uniffle.coordinator.strategy.assignment.AbstractAssignmentStra
 import org.apache.uniffle.server.MockedGrpcServer;
 import org.apache.uniffle.server.MockedShuffleServerGrpcService;
 import org.apache.uniffle.server.ShuffleServer;
-import org.apache.uniffle.server.ShuffleServerConf;
 import org.apache.uniffle.storage.util.StorageType;
 
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_BLOCK_ID_SELF_MANAGEMENT_ENABLED;
@@ -57,11 +56,9 @@ public class ContinuousSelectPartitionStrategyTest extends SparkIntegrationTestB
   private static final int replicateWrite = 3;
   private static final int replicateRead = 2;
 
-  static @TempDir File tempDir;
-
   @BeforeAll
-  public static void setupServers() throws Exception {
-    CoordinatorConf coordinatorConf = getCoordinatorConf();
+  public static void setupServers(@TempDir File tmpDir) throws Exception {
+    CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
     Map<String, String> dynamicConf = Maps.newHashMap();
     dynamicConf.put(CoordinatorConf.COORDINATOR_REMOTE_STORAGE_PATH.key(), HDFS_URI + "rss/test");
     dynamicConf.put(
@@ -71,47 +68,21 @@ public class ContinuousSelectPartitionStrategyTest extends SparkIntegrationTestB
         CoordinatorConf.COORDINATOR_SELECT_PARTITION_STRATEGY,
         AbstractAssignmentStrategy.SelectPartitionStrategyName.CONTINUOUS);
     addDynamicConf(coordinatorConf, dynamicConf);
-    createCoordinatorServer(coordinatorConf);
+    storeCoordinatorConf(coordinatorConf);
     // Create multi shuffle servers
-    createShuffleServers();
-    startServers();
-  }
+    createShuffleServers(tmpDir);
+    startServersWithRandomPorts();
 
-  private static void createShuffleServers() throws Exception {
-    for (int i = 0; i < 3; i++) {
-      // Copy from IntegrationTestBase#getShuffleServerConf
-      ShuffleServerConf grpcServerConf = buildShuffleServerConf(i, ServerType.GRPC);
-      createMockedShuffleServer(grpcServerConf);
-      ShuffleServerConf nettyServerConf = buildShuffleServerConf(i, ServerType.GRPC_NETTY);
-      createMockedShuffleServer(nettyServerConf);
-    }
     enableRecordGetShuffleResult();
   }
 
-  private static ShuffleServerConf buildShuffleServerConf(int i, ServerType serverType) {
-    ShuffleServerConf serverConf = new ShuffleServerConf();
-    serverConf.setInteger("rss.rpc.server.port", IntegrationTestBase.getNextRpcServerPort());
-    serverConf.setString("rss.storage.type", StorageType.MEMORY_LOCALFILE_HDFS.name());
-    serverConf.setString("rss.storage.basePath", tempDir.getAbsolutePath());
-    serverConf.setString("rss.server.buffer.capacity", String.valueOf(671088640 - i));
-    serverConf.setString("rss.server.memory.shuffle.highWaterMark", "50.0");
-    serverConf.setString("rss.server.memory.shuffle.lowWaterMark", "0.0");
-    serverConf.setString("rss.server.read.buffer.capacity", "335544320");
-    serverConf.setString("rss.coordinator.quorum", COORDINATOR_QUORUM);
-    serverConf.setString("rss.server.heartbeat.delay", "1000");
-    serverConf.setString("rss.server.heartbeat.interval", "1000");
-    serverConf.setInteger("rss.jetty.http.port", IntegrationTestBase.getNextJettyServerPort());
-    serverConf.setInteger("rss.jetty.corePool.size", 64);
-    serverConf.setInteger("rss.rpc.executor.size", 10);
-    serverConf.setString("rss.server.hadoop.dfs.replication", "2");
-    serverConf.setLong("rss.server.disk.capacity", 10L * 1024L * 1024L * 1024L);
-    serverConf.setBoolean("rss.server.health.check.enable", false);
-    serverConf.set(ShuffleServerConf.RPC_SERVER_TYPE, serverType);
-    if (serverType == ServerType.GRPC_NETTY) {
-      serverConf.setInteger(
-          ShuffleServerConf.NETTY_SERVER_PORT, IntegrationTestBase.getNextNettyServerPort());
+  private static void createShuffleServers(File tmpDir) {
+    int index = 0;
+    for (int i = 0; i < 3; i++) {
+      storeMockShuffleServerConf(shuffleServerConfWithoutPort(index++, tmpDir, ServerType.GRPC));
+      storeMockShuffleServerConf(
+          shuffleServerConfWithoutPort(index++, tmpDir, ServerType.GRPC_NETTY));
     }
-    return serverConf;
   }
 
   private static void enableRecordGetShuffleResult() {

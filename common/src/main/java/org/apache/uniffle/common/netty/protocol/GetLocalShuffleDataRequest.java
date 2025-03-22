@@ -30,6 +30,7 @@ public class GetLocalShuffleDataRequest extends RequestMessage {
   private long offset;
   private int length;
   private long timestamp;
+  private int storageId;
 
   public GetLocalShuffleDataRequest(
       long requestId,
@@ -41,6 +42,30 @@ public class GetLocalShuffleDataRequest extends RequestMessage {
       long offset,
       int length,
       long timestamp) {
+    this(
+        requestId,
+        appId,
+        shuffleId,
+        partitionId,
+        partitionNumPerRange,
+        partitionNum,
+        offset,
+        length,
+        -1,
+        timestamp);
+  }
+
+  protected GetLocalShuffleDataRequest(
+      long requestId,
+      String appId,
+      int shuffleId,
+      int partitionId,
+      int partitionNumPerRange,
+      int partitionNum,
+      long offset,
+      int length,
+      int storageId,
+      long timestamp) {
     super(requestId);
     this.appId = appId;
     this.shuffleId = shuffleId;
@@ -49,6 +74,7 @@ public class GetLocalShuffleDataRequest extends RequestMessage {
     this.partitionNum = partitionNum;
     this.offset = offset;
     this.length = length;
+    this.storageId = storageId;
     this.timestamp = timestamp;
   }
 
@@ -130,6 +156,10 @@ public class GetLocalShuffleDataRequest extends RequestMessage {
 
   public long getTimestamp() {
     return timestamp;
+  }
+
+  public int getStorageId() {
+    return storageId;
   }
 
   @Override

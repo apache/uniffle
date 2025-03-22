@@ -19,6 +19,7 @@ package org.apache.uniffle.server.buffer;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 import com.google.common.collect.Lists;
@@ -37,12 +38,21 @@ import org.apache.uniffle.server.ShuffleDataFlushEvent;
 
 public abstract class AbstractShuffleBuffer implements ShuffleBuffer {
 
-  private static final Logger LOG = LoggerFactory.getLogger(AbstractShuffleBuffer.class);
+  protected static final Logger LOG = LoggerFactory.getLogger(AbstractShuffleBuffer.class);
 
-  protected long size;
+  /** The memory cost size include encoded length */
+  protected long encodedLength;
+  /** The data size of this shuffle block */
+  protected long dataLength;
+
+  protected AtomicLong inFlushSize = new AtomicLong();
+
+  protected volatile boolean evicted;
+  public static final long BUFFER_EVICTED = -1L;
 
   public AbstractShuffleBuffer() {
-    this.size = 0;
+    this.encodedLength = 0;
+    this.evicted = false;
   }
 
   /** Only for test */
@@ -63,8 +73,13 @@ public abstract class AbstractShuffleBuffer implements ShuffleBuffer {
   }
 
   @Override
-  public long getSize() {
-    return size;
+  public long getEncodedLength() {
+    return encodedLength;
+  }
+
+  @Override
+  public long getDataLength() {
+    return dataLength;
   }
 
   @Override
@@ -123,7 +138,7 @@ public abstract class AbstractShuffleBuffer implements ShuffleBuffer {
       } catch (Exception e) {
         LOG.error(
             "Unexpected exception for System.arraycopy, length["
-                + block.getLength()
+                + block.getDataLength()
                 + "], offset["
                 + offset
                 + "], dataLength["
@@ -132,7 +147,7 @@ public abstract class AbstractShuffleBuffer implements ShuffleBuffer {
             e);
         throw e;
       }
-      offset += block.getLength();
+      offset += block.getDataLength();
     }
   }
 
@@ -165,17 +180,22 @@ public abstract class AbstractShuffleBuffer implements ShuffleBuffer {
           new BufferSegment(
               block.getBlockId(),
               currentOffset,
-              block.getLength(),
+              block.getDataLength(),
               block.getUncompressLength(),
               block.getCrc(),
               block.getTaskAttemptId()));
       readBlocks.add(block);
       // update offset
-      currentOffset += block.getLength();
+      currentOffset += block.getDataLength();
       // check if length >= request buffer size
       if (currentOffset >= readBufferSize) {
         break;
       }
     }
+  }
+
+  @Override
+  public long getInFlushSize() {
+    return inFlushSize.get();
   }
 }

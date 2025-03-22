@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
@@ -46,6 +47,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.uniffle.common.ShuffleBlockInfo;
+import org.apache.uniffle.common.compression.Codec;
 import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.util.BlockIdLayout;
@@ -122,11 +124,11 @@ public class WriteBufferManagerTest {
       conf.set(RssSparkConfig.SPARK_SHUFFLE_COMPRESS_KEY, String.valueOf(false));
     }
     WriteBufferManager wbm = createManager(conf);
-    Object codec = FieldUtils.readField(wbm, "codec", true);
+    Optional<Codec> codec = (Optional<Codec>) FieldUtils.readField(wbm, "codec", true);
     if (compress) {
-      Assertions.assertNotNull(codec);
+      Assertions.assertTrue(codec.isPresent());
     } else {
-      Assertions.assertNull(codec);
+      Assertions.assertFalse(codec.isPresent());
     }
     wbm.setShuffleWriteMetrics(new ShuffleWriteMetrics());
     String testKey = "Key";
@@ -331,7 +333,8 @@ public class WriteBufferManagerTest {
             mockTaskMemoryManager,
             new ShuffleWriteMetrics(),
             RssSparkConfig.toRssConf(conf),
-            null);
+            null,
+            0);
 
     WriteBufferManager spyManager = spy(wbm);
     doReturn(512L).when(spyManager).acquireMemory(anyLong());
@@ -364,7 +367,8 @@ public class WriteBufferManagerTest {
             mockTaskMemoryManager,
             new ShuffleWriteMetrics(),
             RssSparkConfig.toRssConf(conf),
-            null);
+            null,
+            0);
 
     Function<List<ShuffleBlockInfo>, List<CompletableFuture<Long>>> spillFunc =
         blocks -> {
@@ -474,7 +478,8 @@ public class WriteBufferManagerTest {
             mockTaskMemoryManager,
             new ShuffleWriteMetrics(),
             RssSparkConfig.toRssConf(conf),
-            null);
+            null,
+            0);
 
     Function<List<ShuffleBlockInfo>, List<CompletableFuture<Long>>> spillFunc =
         blocks -> {
@@ -482,7 +487,12 @@ public class WriteBufferManagerTest {
           List<AddBlockEvent> events = wbm.buildBlockEvents(blocks);
           for (AddBlockEvent event : events) {
             event.getProcessedCallbackChain().stream().forEach(x -> x.run());
-            sum += event.getShuffleDataInfoList().stream().mapToLong(x -> x.getFreeMemory()).sum();
+            // simulate: the block for partition 2 send failed
+            sum +=
+                event.getShuffleDataInfoList().stream()
+                    .filter(x -> x.getPartitionId() <= 1)
+                    .mapToLong(x -> x.getFreeMemory())
+                    .sum();
           }
           return Arrays.asList(CompletableFuture.completedFuture(sum));
         };
@@ -497,10 +507,11 @@ public class WriteBufferManagerTest {
     wbm.addRecord(1, testKey, testValue);
     wbm.addRecord(1, testKey, testValue);
     wbm.addRecord(1, testKey, testValue);
+    wbm.addRecord(2, testKey, testValue);
 
     long releasedSize = wbm.spill(1000, wbm);
     assertEquals(64, releasedSize);
-    assertEquals(96, wbm.getUsedBytes());
+    assertEquals(128, wbm.getUsedBytes());
     assertEquals(0, wbm.getBuffers().keySet().toArray()[0]);
   }
 
@@ -563,7 +574,8 @@ public class WriteBufferManagerTest {
             fakedTaskMemoryManager,
             new ShuffleWriteMetrics(),
             RssSparkConfig.toRssConf(conf),
-            null);
+            null,
+            0);
 
     List<ShuffleBlockInfo> blockList = new ArrayList<>();
 

@@ -100,10 +100,7 @@ public class DataPusher implements Closeable {
                 putFailedBlockSendTracker(
                     taskToFailedBlockSendTracker, taskId, result.getFailedBlockSendTracker());
               } finally {
-                Set<Long> succeedBlockIds =
-                    result.getSuccessBlockIds() == null
-                        ? Collections.emptySet()
-                        : result.getSuccessBlockIds();
+                Set<Long> succeedBlockIds = getSucceedBlockIds(result);
                 for (ShuffleBlockInfo block : shuffleBlockInfoList) {
                   block.executeCompletionCallback(succeedBlockIds.contains(block.getBlockId()));
                 }
@@ -114,7 +111,9 @@ public class DataPusher implements Closeable {
                   runnable.run();
                 }
               }
+              Set<Long> succeedBlockIds = getSucceedBlockIds(result);
               return shuffleBlockInfoList.stream()
+                  .filter(x -> succeedBlockIds.contains(x.getBlockId()))
                   .map(x -> x.getFreeMemory())
                   .reduce((a, b) -> a + b)
                   .get();
@@ -125,6 +124,13 @@ public class DataPusher implements Closeable {
               LOGGER.error("Unexpected exceptions occurred while sending shuffle data", ex);
               return null;
             });
+  }
+
+  private Set<Long> getSucceedBlockIds(SendShuffleDataResult result) {
+    if (result == null || result.getSuccessBlockIds() == null) {
+      return Collections.emptySet();
+    }
+    return result.getSuccessBlockIds();
   }
 
   private synchronized void putBlockId(

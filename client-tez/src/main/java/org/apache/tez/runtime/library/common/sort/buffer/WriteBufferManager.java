@@ -23,6 +23,7 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -37,6 +38,8 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Uninterruptibles;
 import org.apache.hadoop.io.RawComparator;
+import org.apache.hadoop.io.WritableComparable;
+import org.apache.hadoop.io.WritableComparator;
 import org.apache.hadoop.io.serializer.Serializer;
 import org.apache.tez.common.RssTezUtils;
 import org.apache.tez.common.counters.TezCounter;
@@ -53,6 +56,8 @@ import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.compression.Codec;
 import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.exception.RssException;
+import org.apache.uniffle.common.serializer.SerializerFactory;
+import org.apache.uniffle.common.serializer.SerializerInstance;
 import org.apache.uniffle.common.util.BlockIdLayout;
 import org.apache.uniffle.common.util.ChecksumUtils;
 import org.apache.uniffle.common.util.ThreadUtils;
@@ -84,7 +89,7 @@ public class WriteBufferManager<K, V> {
   private final double memoryThreshold;
   private final double sendThreshold;
   private final int batch;
-  private final Codec codec;
+  private final Optional<Codec> codec;
   private final Map<Integer, List<ShuffleServerInfo>> partitionToServers;
   private final Set<Long> allBlockIds = Sets.newConcurrentHashSet();
   // server -> partitionId -> blockIds
@@ -103,6 +108,9 @@ public class WriteBufferManager<K, V> {
   private final boolean isNeedSorted;
   private final TezCounter mapOutputByteCounter;
   private final TezCounter mapOutputRecordCounter;
+
+  private final boolean useUniffleSerializer;
+  private SerializerInstance serializerInstance;
 
   /** WriteBufferManager */
   public WriteBufferManager(
@@ -132,7 +140,10 @@ public class WriteBufferManager<K, V> {
       int shuffleId,
       boolean isNeedSorted,
       TezCounter mapOutputByteCounter,
-      TezCounter mapOutputRecordCounter) {
+      TezCounter mapOutputRecordCounter,
+      boolean useUniffleSerializer,
+      Class<K> keyClass,
+      Class<V> valClass) {
     this.tezTaskAttemptID = tezTaskAttemptID;
     this.maxMemSize = maxMemSize;
     this.appId = appId;
@@ -141,7 +152,14 @@ public class WriteBufferManager<K, V> {
     this.successBlockIds = successBlockIds;
     this.failedBlockIds = failedBlockIds;
     this.shuffleWriteClient = shuffleWriteClient;
-    this.comparator = comparator;
+    // For hive on tez, we use separate serializer and comparator, namely
+    // TezBytesWritableSerialization and TezBytesComparator. But in remote
+    // merge mode, we use separate serializers, so we should also use
+    // separate comparators.
+    this.comparator =
+        useUniffleSerializer
+            ? WritableComparator.get((Class<? extends WritableComparable>) keyClass)
+            : comparator;
     this.maxSegmentSize = maxSegmentSize;
     this.keySerializer = keySerializer;
     this.valSerializer = valSerializer;
@@ -161,6 +179,13 @@ public class WriteBufferManager<K, V> {
     this.isNeedSorted = isNeedSorted;
     this.mapOutputByteCounter = mapOutputByteCounter;
     this.mapOutputRecordCounter = mapOutputRecordCounter;
+    this.useUniffleSerializer = useUniffleSerializer;
+    if (useUniffleSerializer) {
+      SerializerFactory factory = new SerializerFactory(rssConf);
+      org.apache.uniffle.common.serializer.Serializer serializer = factory.getSerializer(keyClass);
+      this.serializerInstance = serializer.newInstance();
+      assert factory.getSerializer(valClass).getClass().equals(serializer.getClass());
+    }
     this.sendExecutorService =
         Executors.newFixedThreadPool(sendThreadNum, ThreadUtils.getThreadFactory("send-thread"));
   }
@@ -187,7 +212,14 @@ public class WriteBufferManager<K, V> {
     if (!buffers.containsKey(partitionId)) {
       WriteBuffer<K, V> sortWriterBuffer =
           new WriteBuffer(
-              isNeedSorted, partitionId, comparator, maxSegmentSize, keySerializer, valSerializer);
+              isNeedSorted,
+              partitionId,
+              comparator,
+              maxSegmentSize,
+              useUniffleSerializer,
+              keySerializer,
+              valSerializer,
+              serializerInstance);
       buffers.putIfAbsent(partitionId, sortWriterBuffer);
       waitSendBuffers.add(sortWriterBuffer);
     }
@@ -370,7 +402,8 @@ public class WriteBufferManager<K, V> {
     final int uncompressLength = data.length;
     long start = System.currentTimeMillis();
 
-    final byte[] compressed = codec.compress(data);
+    final byte[] compressed =
+        useUniffleSerializer ? data : codec.map(c -> c.compress(data)).orElse(data);
     final long crc32 = ChecksumUtils.getCrc32(compressed);
     compressTime += System.currentTimeMillis() - start;
     final long blockId =

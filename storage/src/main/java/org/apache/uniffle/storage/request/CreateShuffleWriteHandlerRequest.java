@@ -17,10 +17,14 @@
 
 package org.apache.uniffle.storage.request;
 
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.hadoop.conf.Configuration;
+
+import org.apache.uniffle.common.config.RssBaseConf;
 
 public class CreateShuffleWriteHandlerRequest {
 
+  private RssBaseConf rssBaseConf;
   private String storageType;
   private String appId;
   private int shuffleId;
@@ -33,6 +37,7 @@ public class CreateShuffleWriteHandlerRequest {
   private String user;
   private int maxFileNumber;
 
+  @VisibleForTesting
   public CreateShuffleWriteHandlerRequest(
       String storageType,
       String appId,
@@ -45,6 +50,7 @@ public class CreateShuffleWriteHandlerRequest {
       int storageDataReplica,
       String user) {
     this(
+        new RssBaseConf(),
         storageType,
         appId,
         shuffleId,
@@ -59,6 +65,7 @@ public class CreateShuffleWriteHandlerRequest {
   }
 
   public CreateShuffleWriteHandlerRequest(
+      RssBaseConf rssBaseConf,
       String storageType,
       String appId,
       int shuffleId,
@@ -70,6 +77,7 @@ public class CreateShuffleWriteHandlerRequest {
       int storageDataReplica,
       String user,
       int maxFileNumber) {
+    this.rssBaseConf = rssBaseConf;
     this.storageType = storageType;
     this.appId = appId;
     this.shuffleId = shuffleId;
@@ -81,6 +89,10 @@ public class CreateShuffleWriteHandlerRequest {
     this.storageDataReplica = storageDataReplica;
     this.user = user;
     this.maxFileNumber = maxFileNumber;
+  }
+
+  public RssBaseConf getRssBaseConf() {
+    return rssBaseConf;
   }
 
   public String getStorageType() {

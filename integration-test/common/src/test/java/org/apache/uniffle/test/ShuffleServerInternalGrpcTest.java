@@ -18,7 +18,6 @@
 package org.apache.uniffle.test;
 
 import java.io.File;
-import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
 import com.google.common.collect.Lists;
@@ -54,28 +53,26 @@ public class ShuffleServerInternalGrpcTest extends IntegrationTestBase {
   private ShuffleServerGrpcClient shuffleServerClient;
   private ShuffleServerInternalGrpcClient shuffleServerInternalClient;
 
-  private static int rpcPort1;
-
   @BeforeAll
   public static void setupServers(@TempDir File tmpDir) throws Exception {
-    CoordinatorConf coordinatorConf = getCoordinatorConf();
+    CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
     coordinatorConf.setLong(CoordinatorConf.COORDINATOR_APP_EXPIRED, 2000);
-    createCoordinatorServer(coordinatorConf);
-    ShuffleServerConf shuffleServerConf = getShuffleServerConf(ServerType.GRPC);
-    File dataDir1 = new File(tmpDir, "data1");
-    String basePath = dataDir1.getAbsolutePath();
-    shuffleServerConf.set(ShuffleServerConf.RSS_STORAGE_BASE_PATH, Arrays.asList(basePath));
+    storeCoordinatorConf(coordinatorConf);
+
+    ShuffleServerConf shuffleServerConf = shuffleServerConfWithoutPort(0, tmpDir, ServerType.GRPC);
     shuffleServerConf.set(ShuffleServerConf.SERVER_APP_EXPIRED_WITHOUT_HEARTBEAT, 5000L);
     shuffleServerConf.set(ShuffleServerConf.SERVER_DECOMMISSION_CHECK_INTERVAL, 500L);
-    rpcPort1 = shuffleServerConf.getInteger(ShuffleServerConf.RPC_SERVER_PORT);
-    createShuffleServer(shuffleServerConf);
-    startServers();
+    storeShuffleServerConf(shuffleServerConf);
+
+    startServersWithRandomPorts();
   }
 
   @BeforeEach
   public void createClient() {
-    shuffleServerClient = new ShuffleServerGrpcClient(LOCALHOST, rpcPort1);
-    shuffleServerInternalClient = new ShuffleServerInternalGrpcClient(LOCALHOST, rpcPort1);
+    shuffleServerClient =
+        new ShuffleServerGrpcClient(LOCALHOST, grpcShuffleServers.get(0).getGrpcPort());
+    shuffleServerInternalClient =
+        new ShuffleServerInternalGrpcClient(LOCALHOST, grpcShuffleServers.get(0).getGrpcPort());
   }
 
   @AfterEach

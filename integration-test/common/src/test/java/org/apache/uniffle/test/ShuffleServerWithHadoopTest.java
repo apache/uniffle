@@ -17,6 +17,7 @@
 
 package org.apache.uniffle.test;
 
+import java.io.File;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -27,6 +28,7 @@ import com.google.common.collect.Maps;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -62,40 +64,35 @@ public class ShuffleServerWithHadoopTest extends ShuffleReadWriteBase {
 
   protected ShuffleServerGrpcClient grpcShuffleServerClient;
   protected ShuffleServerGrpcNettyClient nettyShuffleServerClient;
-  protected static ShuffleServerConf grpcShuffleServerConfig;
-  protected static ShuffleServerConf nettyShuffleServerConfig;
 
   @BeforeAll
-  public static void setupServers() throws Exception {
-    CoordinatorConf coordinatorConf = getCoordinatorConf();
-    createCoordinatorServer(coordinatorConf);
+  public static void setupServers(@TempDir File tmpDir) throws Exception {
+    CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
+    storeCoordinatorConf(coordinatorConf);
 
-    ShuffleServerConf grpcShuffleServerConf = getShuffleServerConf(ServerType.GRPC);
-    grpcShuffleServerConf.setString(
-        ShuffleServerConf.RSS_STORAGE_TYPE.key(), StorageType.HDFS.name());
-    createShuffleServer(grpcShuffleServerConf);
+    storeShuffleServerConf(buildShuffleServerConf(0, tmpDir, ServerType.GRPC));
+    storeShuffleServerConf(buildShuffleServerConf(1, tmpDir, ServerType.GRPC_NETTY));
 
-    ShuffleServerConf nettyShuffleServerConf = getShuffleServerConf(ServerType.GRPC_NETTY);
-    nettyShuffleServerConf.setString(
-        ShuffleServerConf.RSS_STORAGE_TYPE.key(), StorageType.HDFS.name());
-    createShuffleServer(nettyShuffleServerConf);
+    startServersWithRandomPorts();
+  }
 
-    startServers();
-
-    grpcShuffleServerConfig = grpcShuffleServerConf;
-    nettyShuffleServerConfig = nettyShuffleServerConf;
+  private static ShuffleServerConf buildShuffleServerConf(
+      int subDirIndex, File tempDir, ServerType serverType) {
+    ShuffleServerConf shuffleServerConf =
+        shuffleServerConfWithoutPort(subDirIndex, tempDir, serverType);
+    shuffleServerConf.setString("rss.storage.type", StorageType.LOCALFILE.name());
+    return shuffleServerConf;
   }
 
   @BeforeEach
   public void createClient() throws Exception {
     grpcShuffleServerClient =
-        new ShuffleServerGrpcClient(
-            LOCALHOST, grpcShuffleServerConfig.getInteger(ShuffleServerConf.RPC_SERVER_PORT));
+        new ShuffleServerGrpcClient(LOCALHOST, grpcShuffleServers.get(0).getGrpcPort());
     nettyShuffleServerClient =
         new ShuffleServerGrpcNettyClient(
             LOCALHOST,
-            nettyShuffleServerConfig.getInteger(ShuffleServerConf.RPC_SERVER_PORT),
-            nettyShuffleServerConfig.getInteger(ShuffleServerConf.NETTY_SERVER_PORT));
+            nettyShuffleServers.get(0).getGrpcPort(),
+            nettyShuffleServers.get(0).getNettyPort());
   }
 
   @AfterEach
@@ -162,10 +159,9 @@ public class ShuffleServerWithHadoopTest extends ShuffleReadWriteBase {
         isNettyMode
             ? new ShuffleServerInfo(
                 LOCALHOST,
-                nettyShuffleServerConfig.getInteger(ShuffleServerConf.RPC_SERVER_PORT),
-                nettyShuffleServerConfig.getInteger(ShuffleServerConf.NETTY_SERVER_PORT))
-            : new ShuffleServerInfo(
-                LOCALHOST, grpcShuffleServerConfig.getInteger(ShuffleServerConf.RPC_SERVER_PORT));
+                nettyShuffleServers.get(0).getGrpcPort(),
+                nettyShuffleServers.get(0).getNettyPort())
+            : new ShuffleServerInfo(LOCALHOST, grpcShuffleServers.get(0).getGrpcPort());
 
     ShuffleReadClientImpl readClient =
         baseReadBuilder(isNettyMode)

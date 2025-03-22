@@ -30,20 +30,15 @@ public class TezHashJoinTest extends TezJoinIntegrationTestBase {
   public void hashJoinTest() throws Exception {
     generateInputFile();
     fs.delete(new Path(HASH_JOIN_OUTPUT_PATH), true);
-    run(getTestArgs(HASH_JOIN_OUTPUT_PATH));
+    run(HASH_JOIN_OUTPUT_PATH);
   }
 
   @Test
   public void hashJoinDoBroadcastTest() throws Exception {
     generateInputFile();
-    String[] orignal = getTestArgs(HASH_JOIN_OUTPUT_PATH);
-    String[] args = new String[orignal.length + 1];
-    for (int i = 0; i < orignal.length; i++) {
-      args[i] = orignal[i];
-    }
-    args[orignal.length] = "doBroadcast";
-    fs.delete(new Path(HASH_JOIN_OUTPUT_PATH), true);
-    run(args);
+    String path = HASH_JOIN_OUTPUT_PATH + "_broadcast";
+    fs.delete(new Path(path), true);
+    run(path);
   }
 
   @Override
@@ -53,11 +48,17 @@ public class TezHashJoinTest extends TezJoinIntegrationTestBase {
 
   @Override
   public String[] getTestArgs(String uniqueOutputName) {
-    return new String[] {STREAM_INPUT_PATH, HASH_INPUT_PATH, "2", HASH_JOIN_OUTPUT_PATH};
+    if (uniqueOutputName.contains("broadcast")) {
+      return new String[] {
+        STREAM_INPUT_PATH, HASH_INPUT_PATH, "2", uniqueOutputName, "doBroadcast"
+      };
+    } else {
+      return new String[] {STREAM_INPUT_PATH, HASH_INPUT_PATH, "2", uniqueOutputName};
+    }
   }
 
   @Override
   public String getOutputDir(String uniqueOutputName) {
-    return HASH_JOIN_OUTPUT_PATH;
+    return uniqueOutputName;
   }
 }

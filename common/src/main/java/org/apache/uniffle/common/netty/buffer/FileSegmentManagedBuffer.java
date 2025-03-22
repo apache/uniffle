@@ -39,6 +39,8 @@ public class FileSegmentManagedBuffer extends ManagedBuffer {
   private final File file;
   private final long offset;
   private final int length;
+  private volatile boolean isFilled;
+  private ByteBuffer cachedBuffer;
 
   public FileSegmentManagedBuffer(File file, long offset, int length) {
     this.file = file;
@@ -58,27 +60,35 @@ public class FileSegmentManagedBuffer extends ManagedBuffer {
 
   @Override
   public ByteBuffer nioByteBuffer() {
+    if (isFilled) {
+      return cachedBuffer;
+    }
     FileChannel channel = null;
     try {
       channel = new RandomAccessFile(file, "r").getChannel();
-      ByteBuffer buf = ByteBuffer.allocate(length);
+      cachedBuffer = ByteBuffer.allocate(length);
       channel.position(offset);
-      while (buf.remaining() != 0) {
-        if (channel.read(buf) == -1) {
+      while (cachedBuffer.remaining() != 0) {
+        if (channel.read(cachedBuffer) == -1) {
           throw new IOException(
               String.format(
                   "Reached EOF before filling buffer.offset=%s,file=%s,buf.remaining=%s",
-                  offset, file.getAbsoluteFile(), buf.remaining()));
+                  offset, file.getAbsoluteFile(), cachedBuffer.remaining()));
         }
       }
-      buf.flip();
-      return buf;
+      cachedBuffer.flip();
+      isFilled = true;
+      return cachedBuffer;
     } catch (IOException e) {
-      String errorMessage = "Error in reading " + this;
+      String fileName = file.getAbsolutePath();
+      String errorMessage =
+          String.format(
+              "Errors on reading localfile data with offset[%s] length[%s] from [%s]. ",
+              offset, length, fileName);
       try {
         if (channel != null) {
           long size = channel.size();
-          errorMessage = "Error in reading " + this + " (actual file length " + size + ")";
+          errorMessage += String.format("The actual file length: %s", size);
         }
       } catch (IOException ignored) {
         // ignore
@@ -98,6 +108,8 @@ public class FileSegmentManagedBuffer extends ManagedBuffer {
 
   @Override
   public ManagedBuffer release() {
+    cachedBuffer = null;
+    isFilled = false;
     return this;
   }
 
@@ -107,7 +119,7 @@ public class FileSegmentManagedBuffer extends ManagedBuffer {
     try {
       fileChannel = FileChannel.open(file.toPath(), StandardOpenOption.READ);
     } catch (IOException e) {
-      throw new RssException("Error in reading " + file);
+      throw new RssException("Errors on reading " + file.getAbsolutePath(), e);
     }
     return new DefaultFileRegion(fileChannel, offset, length);
   }

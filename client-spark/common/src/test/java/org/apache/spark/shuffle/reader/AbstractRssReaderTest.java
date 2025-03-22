@@ -19,6 +19,7 @@ package org.apache.spark.shuffle.reader;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -171,8 +172,9 @@ public abstract class AbstractRssReaderTest extends HadoopTestBase {
   protected ShufflePartitionedBlock createShuffleBlock(
       byte[] data, long blockId, boolean compress) {
     byte[] compressData = data;
-    if (compress) {
-      compressData = Codec.newInstance(new RssConf()).compress(data);
+    Optional<Codec> codec = Codec.newInstance(new RssConf());
+    if (compress && codec.isPresent()) {
+      compressData = codec.get().compress(data);
     }
     long crc = ChecksumUtils.getCrc32(compressData);
     return new ShufflePartitionedBlock(

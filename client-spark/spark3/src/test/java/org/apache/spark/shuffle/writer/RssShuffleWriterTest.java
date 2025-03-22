@@ -55,12 +55,14 @@ import org.apache.spark.shuffle.handle.SimpleShuffleHandleInfo;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Test;
 
+import org.apache.uniffle.client.api.ShuffleManagerClient;
 import org.apache.uniffle.client.api.ShuffleWriteClient;
 import org.apache.uniffle.client.impl.FailedBlockSendTracker;
 import org.apache.uniffle.common.RemoteStorageInfo;
 import org.apache.uniffle.common.ShuffleBlockInfo;
 import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.rpc.StatusCode;
+import org.apache.uniffle.common.util.ExpiringCloseableSupplier;
 import org.apache.uniffle.common.util.JavaUtils;
 import org.apache.uniffle.storage.util.StorageType;
 
@@ -133,6 +135,7 @@ public class RssShuffleWriterTest {
     Serializer kryoSerializer = new KryoSerializer(conf);
     Partitioner mockPartitioner = mock(Partitioner.class);
     final ShuffleWriteClient mockShuffleWriteClient = mock(ShuffleWriteClient.class);
+    final ShuffleManagerClient mockShuffleManagerClient = mock(ShuffleManagerClient.class);
     ShuffleDependency<String, String, String> mockDependency = mock(ShuffleDependency.class);
     RssShuffleHandle<String, String, String> mockHandle = mock(RssShuffleHandle.class);
     when(mockHandle.getDependency()).thenReturn(mockDependency);
@@ -179,6 +182,7 @@ public class RssShuffleWriterTest {
             manager,
             conf,
             mockShuffleWriteClient,
+            ExpiringCloseableSupplier.of(() -> mockShuffleManagerClient),
             mockHandle,
             shuffleHandle,
             contextMock);
@@ -385,6 +389,7 @@ public class RssShuffleWriterTest {
     Serializer kryoSerializer = new KryoSerializer(conf);
     Partitioner mockPartitioner = mock(Partitioner.class);
     final ShuffleWriteClient mockShuffleWriteClient = mock(ShuffleWriteClient.class);
+    final ShuffleManagerClient mockShuffleManagerClient = mock(ShuffleManagerClient.class);
     ShuffleDependency<String, String, String> mockDependency = mock(ShuffleDependency.class);
     RssShuffleHandle<String, String, String> mockHandle = mock(RssShuffleHandle.class);
     when(mockHandle.getDependency()).thenReturn(mockDependency);
@@ -450,6 +455,7 @@ public class RssShuffleWriterTest {
             manager,
             conf,
             mockShuffleWriteClient,
+            ExpiringCloseableSupplier.of(() -> mockShuffleManagerClient),
             mockHandle,
             shuffleHandleInfo,
             contextMock);
@@ -552,6 +558,7 @@ public class RssShuffleWriterTest {
             conf, false, null, successBlocks, taskToFailedBlockSendTracker);
 
     ShuffleWriteClient mockShuffleWriteClient = mock(ShuffleWriteClient.class);
+    ShuffleManagerClient mockShuffleManagerClient = mock(ShuffleManagerClient.class);
     Partitioner mockPartitioner = mock(Partitioner.class);
     RssShuffleHandle<String, String, String> mockHandle = mock(RssShuffleHandle.class);
     ShuffleDependency<String, String, String> mockDependency = mock(ShuffleDependency.class);
@@ -587,6 +594,7 @@ public class RssShuffleWriterTest {
             manager,
             conf,
             mockShuffleWriteClient,
+            ExpiringCloseableSupplier.of(() -> mockShuffleManagerClient),
             mockHandle,
             mockShuffleHandleInfo,
             contextMock);
@@ -709,11 +717,13 @@ public class RssShuffleWriterTest {
             fakedTaskMemoryManager,
             new ShuffleWriteMetrics(),
             RssSparkConfig.toRssConf(conf),
-            null);
+            null,
+            0);
 
     Serializer kryoSerializer = new KryoSerializer(conf);
     Partitioner mockPartitioner = mock(Partitioner.class);
     final ShuffleWriteClient mockShuffleWriteClient = mock(ShuffleWriteClient.class);
+    final ShuffleManagerClient mockShuffleManagerClient = mock(ShuffleManagerClient.class);
     ShuffleDependency<String, String, String> mockDependency = mock(ShuffleDependency.class);
     RssShuffleHandle<String, String, String> mockHandle = mock(RssShuffleHandle.class);
     when(mockHandle.getDependency()).thenReturn(mockDependency);
@@ -734,6 +744,7 @@ public class RssShuffleWriterTest {
             manager,
             conf,
             mockShuffleWriteClient,
+            ExpiringCloseableSupplier.of(() -> mockShuffleManagerClient),
             mockHandle,
             mockShuffleHandleInfo,
             contextMock);
@@ -794,6 +805,7 @@ public class RssShuffleWriterTest {
     Serializer kryoSerializer = new KryoSerializer(conf);
     Partitioner mockPartitioner = mock(Partitioner.class);
     final ShuffleWriteClient mockShuffleWriteClient = mock(ShuffleWriteClient.class);
+    final ShuffleManagerClient mockShuffleManagerClient = mock(ShuffleManagerClient.class);
     ShuffleDependency<String, String, String> mockDependency = mock(ShuffleDependency.class);
     RssShuffleHandle<String, String, String> mockHandle = mock(RssShuffleHandle.class);
     when(mockHandle.getDependency()).thenReturn(mockDependency);
@@ -857,6 +869,7 @@ public class RssShuffleWriterTest {
             manager,
             conf,
             mockShuffleWriteClient,
+            ExpiringCloseableSupplier.of(() -> mockShuffleManagerClient),
             mockHandle,
             mockShuffleHandleInfo,
             contextMock);
@@ -958,6 +971,7 @@ public class RssShuffleWriterTest {
     TaskContext contextMock = mock(TaskContext.class);
     SimpleShuffleHandleInfo mockShuffleHandleInfo = mock(SimpleShuffleHandleInfo.class);
     ShuffleWriteClient mockWriteClient = mock(ShuffleWriteClient.class);
+    ShuffleManagerClient mockShuffleManagerClient = mock(ShuffleManagerClient.class);
 
     List<ShuffleBlockInfo> shuffleBlockInfoList = createShuffleBlockList(1, 31);
     RssShuffleWriter<String, String, String> writer =
@@ -971,6 +985,7 @@ public class RssShuffleWriterTest {
             mockShuffleManager,
             conf,
             mockWriteClient,
+            ExpiringCloseableSupplier.of(() -> mockShuffleManagerClient),
             mockHandle,
             mockShuffleHandleInfo,
             contextMock);

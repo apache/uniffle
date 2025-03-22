@@ -37,10 +37,10 @@ USER rssadmin
 COPY rss-${RSS_VERSION}-hadoop${HADOOP_SHORT_VERSION}.tgz /data/rssadmin
 RUN tar -xvf /data/rssadmin/rss-${RSS_VERSION}-hadoop${HADOOP_SHORT_VERSION}.tgz -C /data/rssadmin
 RUN mv /data/rssadmin/rss-${RSS_VERSION}-hadoop${HADOOP_SHORT_VERSION} /data/rssadmin/rss
-RUN rm /data/rssadmin/rss/bin/rss-env.sh
+RUN rm /data/rssadmin/rss/conf/rss-env.sh
 RUN rm -rf /data/rssadmin/rss-${RSS_VERSION}-hadoop${HADOOP_SHORT_VERSION}.tgz
 
-COPY rss-env.sh /data/rssadmin/rss/bin
+COPY rss-env.sh /data/rssadmin/rss/conf
 
 COPY start.sh /data/rssadmin/rss/bin
 

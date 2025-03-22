@@ -39,7 +39,7 @@ public class DefaultStorageManagerSelector extends FallbackBasedStorageManagerSe
   @Override
   StorageManager regularSelect(ShuffleDataFlushEvent flushEvent) {
     StorageManager storageManager = warmStorageManager;
-    if (flushEvent.getSize() > flushColdStorageThresholdSize) {
+    if (flushEvent.getEncodedLength() > flushColdStorageThresholdSize) {
       storageManager = coldStorageManager;
     }
     return storageManager;

@@ -18,7 +18,6 @@
 package org.apache.uniffle.test;
 
 import java.io.File;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -68,34 +67,28 @@ public class ShuffleServerWithMemoryTest extends ShuffleReadWriteBase {
 
   private ShuffleServerGrpcClient grpcShuffleServerClient;
   private ShuffleServerGrpcNettyClient nettyShuffleServerClient;
-  private static ShuffleServerConf grpcShuffleServerConfig;
-  private static ShuffleServerConf nettyShuffleServerConfig;
 
   @BeforeAll
   public static void setupServers(@TempDir File tmpDir) throws Exception {
-    CoordinatorConf coordinatorConf = getCoordinatorConf();
-    createCoordinatorServer(coordinatorConf);
-    File dataDir = new File(tmpDir, "data");
-    String basePath = dataDir.getAbsolutePath();
+    CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
+    storeCoordinatorConf(coordinatorConf);
 
-    ShuffleServerConf grpcShuffleServerConf = buildShuffleServerConf(ServerType.GRPC, basePath);
-    createShuffleServer(grpcShuffleServerConf);
+    ShuffleServerConf grpcShuffleServerConf = buildShuffleServerConf(0, tmpDir, ServerType.GRPC);
+    storeShuffleServerConf(grpcShuffleServerConf);
 
     ShuffleServerConf nettyShuffleServerConf =
-        buildShuffleServerConf(ServerType.GRPC_NETTY, basePath);
-    createShuffleServer(nettyShuffleServerConf);
+        buildShuffleServerConf(0, tmpDir, ServerType.GRPC_NETTY);
+    storeShuffleServerConf(nettyShuffleServerConf);
 
-    startServers();
-    grpcShuffleServerConfig = grpcShuffleServerConf;
-    nettyShuffleServerConfig = nettyShuffleServerConf;
+    startServersWithRandomPorts();
   }
 
-  private static ShuffleServerConf buildShuffleServerConf(ServerType serverType, String basePath)
-      throws Exception {
-    ShuffleServerConf shuffleServerConf = getShuffleServerConf(serverType);
+  private static ShuffleServerConf buildShuffleServerConf(
+      int subDirIndex, File tempDir, ServerType serverType) {
+    ShuffleServerConf shuffleServerConf =
+        shuffleServerConfWithoutPort(subDirIndex, tempDir, serverType);
     shuffleServerConf.setString(
         ShuffleServerConf.RSS_STORAGE_TYPE.key(), StorageType.LOCALFILE.name());
-    shuffleServerConf.set(ShuffleServerConf.RSS_STORAGE_BASE_PATH, Arrays.asList(basePath));
     shuffleServerConf.set(ShuffleServerConf.SERVER_APP_EXPIRED_WITHOUT_HEARTBEAT, 5000L);
     shuffleServerConf.set(ShuffleServerConf.SERVER_MEMORY_SHUFFLE_LOWWATERMARK_PERCENTAGE, 5.0);
     shuffleServerConf.set(ShuffleServerConf.SERVER_MEMORY_SHUFFLE_HIGHWATERMARK_PERCENTAGE, 15.0);
@@ -107,13 +100,12 @@ public class ShuffleServerWithMemoryTest extends ShuffleReadWriteBase {
   @BeforeEach
   public void createClient() throws Exception {
     grpcShuffleServerClient =
-        new ShuffleServerGrpcClient(
-            LOCALHOST, grpcShuffleServerConfig.getInteger(ShuffleServerConf.RPC_SERVER_PORT));
+        new ShuffleServerGrpcClient(LOCALHOST, grpcShuffleServers.get(0).getGrpcPort());
     nettyShuffleServerClient =
         new ShuffleServerGrpcNettyClient(
             LOCALHOST,
-            nettyShuffleServerConfig.getInteger(ShuffleServerConf.RPC_SERVER_PORT),
-            nettyShuffleServerConfig.getInteger(ShuffleServerConf.NETTY_SERVER_PORT));
+            nettyShuffleServers.get(0).getGrpcPort(),
+            nettyShuffleServers.get(0).getNettyPort());
   }
 
   @AfterEach
@@ -221,10 +213,9 @@ public class ShuffleServerWithMemoryTest extends ShuffleReadWriteBase {
         isNettyMode
             ? new ShuffleServerInfo(
                 LOCALHOST,
-                nettyShuffleServerConfig.getInteger(ShuffleServerConf.RPC_SERVER_PORT),
-                nettyShuffleServerConfig.getInteger(ShuffleServerConf.NETTY_SERVER_PORT))
-            : new ShuffleServerInfo(
-                LOCALHOST, grpcShuffleServerConfig.getInteger(ShuffleServerConf.RPC_SERVER_PORT));
+                nettyShuffleServers.get(0).getGrpcPort(),
+                nettyShuffleServers.get(0).getNettyPort())
+            : new ShuffleServerInfo(LOCALHOST, grpcShuffleServers.get(0).getGrpcPort());
     ComposedClientReadHandler composedClientReadHandler =
         new ComposedClientReadHandler(ssi, handlers);
     // read from memory with ComposedClientReadHandler
@@ -431,10 +422,9 @@ public class ShuffleServerWithMemoryTest extends ShuffleReadWriteBase {
         isNettyMode
             ? new ShuffleServerInfo(
                 LOCALHOST,
-                nettyShuffleServerConfig.getInteger(ShuffleServerConf.RPC_SERVER_PORT),
-                nettyShuffleServerConfig.getInteger(ShuffleServerConf.NETTY_SERVER_PORT))
-            : new ShuffleServerInfo(
-                LOCALHOST, grpcShuffleServerConfig.getInteger(ShuffleServerConf.RPC_SERVER_PORT));
+                nettyShuffleServers.get(0).getGrpcPort(),
+                nettyShuffleServers.get(0).getNettyPort())
+            : new ShuffleServerInfo(LOCALHOST, grpcShuffleServers.get(0).getGrpcPort());
     ComposedClientReadHandler composedClientReadHandler =
         new ComposedClientReadHandler(ssi, handlers);
     Map<Long, byte[]> expectedData = Maps.newHashMap();

@@ -105,10 +105,19 @@ func GenerateHeadlessSvc(rss *unifflev1alpha1.RemoteShuffleService, index int) *
 	name := GenerateNameByIndex(rss, index)
 	serviceName := appendHeadless(name)
 
+	annotations := map[string]string{}
+
+	if len(rss.Spec.Coordinator.HeadlessServiceAnnotations) > index {
+		for key, value := range rss.Spec.Coordinator.HeadlessServiceAnnotations[index] {
+			annotations[key] = value
+		}
+	}
+
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      serviceName,
-			Namespace: rss.Namespace,
+			Name:        serviceName,
+			Namespace:   rss.Namespace,
+			Annotations: annotations,
 		},
 		Spec: corev1.ServiceSpec{
 			ClusterIP: corev1.ClusterIPNone,
@@ -140,10 +149,20 @@ func GenerateHeadlessSvc(rss *unifflev1alpha1.RemoteShuffleService, index int) *
 //	this function is skipped.
 func GenerateSvc(rss *unifflev1alpha1.RemoteShuffleService, index int) *corev1.Service {
 	name := GenerateNameByIndex(rss, index)
+
+	annotations := map[string]string{}
+
+	if len(rss.Spec.Coordinator.NodePortServiceAnnotations) > index {
+		for key, value := range rss.Spec.Coordinator.NodePortServiceAnnotations[index] {
+			annotations[key] = value
+		}
+	}
+
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: rss.Namespace,
+			Name:        name,
+			Namespace:   rss.Namespace,
+			Annotations: annotations,
 		},
 		Spec: corev1.ServiceSpec{
 			Type: corev1.ServiceTypeNodePort,

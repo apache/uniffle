@@ -26,13 +26,15 @@ import io.prometheus.client.Counter;
 import io.prometheus.client.Gauge;
 import org.apache.commons.lang3.StringUtils;
 
+import org.apache.uniffle.common.metrics.CommonMetrics;
 import org.apache.uniffle.common.metrics.MetricsManager;
 import org.apache.uniffle.common.util.Constants;
 import org.apache.uniffle.common.util.JavaUtils;
 import org.apache.uniffle.common.util.RssUtils;
 
 public class CoordinatorMetrics {
-
+  private static final String ACTIVE_SERVER_NUM = "active_server_num";
+  private static final String LOST_SERVER_NUM = "lost_server_num";
   private static final String TOTAL_SERVER_NUM = "total_server_num";
   private static final String RUNNING_APP_NUM = "running_app_num";
   private static final String TOTAL_APP_NUM = "total_app_num";
@@ -45,7 +47,8 @@ public class CoordinatorMetrics {
   public static final String REMOTE_STORAGE_IN_USED_PREFIX = "remote_storage_in_used_";
   public static final String APP_NUM_TO_USER = "app_num";
   public static final String USER_LABEL = "user_name";
-
+  public static Gauge gaugeLostServerNum;
+  public static Gauge gaugeActiveServerNum;
   public static Gauge gaugeTotalServerNum;
   public static Gauge gaugeExcludeServerNum;
   public static Gauge gaugeUnhealthyServerNum;
@@ -68,6 +71,7 @@ public class CoordinatorMetrics {
       metricsManager = new MetricsManager(collectorRegistry, labels);
       isRegister = true;
       setUpMetrics();
+      CommonMetrics.register(collectorRegistry, Constants.COORDINATOR_TAG);
     }
   }
 
@@ -81,6 +85,7 @@ public class CoordinatorMetrics {
     isRegister = false;
     GAUGE_USED_REMOTE_STORAGE.clear();
     CollectorRegistry.defaultRegistry.clear();
+    CommonMetrics.clear();
   }
 
   public static CollectorRegistry getCollectorRegistry() {
@@ -104,6 +109,8 @@ public class CoordinatorMetrics {
   }
 
   private static void setUpMetrics() {
+    gaugeLostServerNum = metricsManager.addGauge(LOST_SERVER_NUM);
+    gaugeActiveServerNum = metricsManager.addGauge(ACTIVE_SERVER_NUM);
     gaugeTotalServerNum = metricsManager.addGauge(TOTAL_SERVER_NUM);
     gaugeExcludeServerNum = metricsManager.addGauge(EXCLUDE_SERVER_NUM);
     gaugeUnhealthyServerNum = metricsManager.addGauge(UNHEALTHY_SERVER_NUM);

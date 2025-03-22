@@ -23,7 +23,7 @@
 
   <groupId>org.apache.uniffle</groupId>
   <artifactId>uniffle-parent</artifactId>
-  <version>0.10.0-SNAPSHOT</version>
+  <version>0.11.0-SNAPSHOT</version>
   <packaging>pom</packaging>
   <name>Apache Uniffle</name>
   <description>A high performance, general purpose Remote Shuffle Service.</description>
@@ -79,6 +79,7 @@
     <junit.platform.version>1.8.2</junit.platform.version>
     <system.stubs.version>2.0.1</system.stubs.version>
     <log4j.version>2.23.0</log4j.version>
+    <lombok.version>1.18.34</lombok.version>
     <maven-checkstyle-plugin.version>3.1.2</maven-checkstyle-plugin.version>
     <maven.compiler.source>${java.version}</maven.compiler.source>
     <maven.compiler.target>${java.version}</maven.compiler.target>
@@ -105,6 +106,7 @@
     <skipITs>${skipTests}</skipITs>
     <skipBuildImage>true</skipBuildImage>
     <snakeyaml.version>2.2</snakeyaml.version>
+    <kryo.version>4.0.2</kryo.version>
   </properties>
 
   <repositories>
@@ -142,6 +144,8 @@
     <module>client</module>
     <module>integration-test/common</module>
     <module>cli</module>
+    <module>server-common</module>
+    <module>tools/client-simulation-yarn</module>
   </modules>
 
   <dependencies>
@@ -293,6 +297,11 @@
 
       <dependency>
         <groupId>org.apache.uniffle</groupId>
+        <artifactId>rss-server-common</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.uniffle</groupId>
         <artifactId>shuffle-server</artifactId>
         <version>${project.version}</version>
       </dependency>
@@ -363,6 +372,20 @@
       <dependency>
         <groupId>org.apache.uniffle</groupId>
         <artifactId>rss-common</artifactId>
+        <version>${project.version}</version>
+        <scope>test</scope>
+        <type>test-jar</type>
+        <exclusions>
+          <exclusion>
+            <groupId>io.prometheus</groupId>
+            <artifactId>simpleclient_jetty</artifactId>
+          </exclusion>
+        </exclusions>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.uniffle</groupId>
+        <artifactId>rss-server-common</artifactId>
         <version>${project.version}</version>
         <scope>test</scope>
         <type>test-jar</type>
@@ -779,6 +802,23 @@
         <artifactId>log4j-core</artifactId>
         <version>${log4j.version}</version>
       </dependency>
+      <dependency>
+        <groupId>org.projectlombok</groupId>
+        <artifactId>lombok</artifactId>
+        <version>${lombok.version}</version>
+        <scope>provided</scope>
+      </dependency>
+      <dependency>
+        <groupId>com.esotericsoftware</groupId>
+        <artifactId>kryo-shaded</artifactId>
+        <version>${kryo.version}</version>
+        <exclusions>
+          <exclusion>
+            <groupId>org.objenesis</groupId>
+            <artifactId>objenesis</artifactId>
+          </exclusion>
+        </exclusions>
+      </dependency>
       <!-- end -->
     </dependencies>
   </dependencyManagement>
@@ -904,6 +944,21 @@
           <artifactId>build-helper-maven-plugin</artifactId>
           <version>1.10</version>
         </plugin>
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>templating-maven-plugin</artifactId>
+          <version>1.0.0</version>
+        </plugin>
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>buildnumber-maven-plugin</artifactId>
+          <version>1.4</version>
+        </plugin>
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>properties-maven-plugin</artifactId>
+          <version>1.1.0</version>
+        </plugin>
 
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -916,13 +971,13 @@
           <artifactId>maven-surefire-plugin</artifactId>
           <version>2.22.2</version>
           <configuration>
-            <systemProperties>
+            <systemPropertyVariables>
               <java.awt.headless>true</java.awt.headless>
               <java.io.tmpdir>${project.build.directory}/tmp</java.io.tmpdir>
               <project.version>${project.version}</project.version>
               <jacoco-agent.destfile>target/jacoco.exec</jacoco-agent.destfile>
               <test.mode>true</test.mode>
-            </systemProperties>
+            </systemPropertyVariables>
             <redirectTestOutputToFile>${test.redirectToFile}</redirectTestOutputToFile>
             <useFile>${test.redirectToFile}</useFile>
             <argLine>${argLine} -ea -Xmx5g -Xss4m -XX:MaxMetaspaceSize=2g -XX:ReservedCodeCacheSize=1g</argLine>
@@ -1176,7 +1231,7 @@
         <configuration>
           <excludes>
             <exclude>LICENSE</exclude>
-            <exclude>DISCLAIMER-WIP</exclude>
+            <exclude>DISCLAIMER</exclude>
             <exclude>NOTICE</exclude>
             <exclude>**/target/**</exclude>
             <exclude>**/src/main/resources/META-INF/services/*</exclude>
@@ -1213,6 +1268,16 @@
   </reporting>
 
   <profiles>
+    <profile>
+      <id>set-compiler-release</id>
+      <activation>
+        <jdk>[9,)</jdk>
+      </activation>
+      <properties>
+        <maven.compiler.release>8</maven.compiler.release>
+      </properties>
+    </profile>
+
     <profile>
       <id>dashboard</id>
       <modules>

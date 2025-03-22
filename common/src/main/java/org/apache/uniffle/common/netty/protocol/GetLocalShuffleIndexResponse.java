@@ -24,6 +24,7 @@ import org.apache.uniffle.common.netty.buffer.ManagedBuffer;
 import org.apache.uniffle.common.netty.buffer.NettyManagedBuffer;
 import org.apache.uniffle.common.rpc.StatusCode;
 import org.apache.uniffle.common.util.ByteBufUtils;
+import org.apache.uniffle.common.util.Constants;
 
 public class GetLocalShuffleIndexResponse extends RpcResponse {
 
@@ -91,5 +92,9 @@ public class GetLocalShuffleIndexResponse extends RpcResponse {
 
   public long getFileLength() {
     return fileLength;
+  }
+
+  public int[] getStorageIds() {
+    return Constants.EMPTY_INT_ARRAY;
   }
 }

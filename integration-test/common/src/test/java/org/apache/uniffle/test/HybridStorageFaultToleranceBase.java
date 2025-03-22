@@ -51,7 +51,6 @@ import org.apache.uniffle.common.PartitionRange;
 import org.apache.uniffle.common.ShuffleBlockInfo;
 import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.rpc.StatusCode;
-import org.apache.uniffle.server.ShuffleServerConf;
 import org.apache.uniffle.storage.util.StorageType;
 
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -60,21 +59,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public abstract class HybridStorageFaultToleranceBase extends ShuffleReadWriteBase {
   protected ShuffleServerGrpcClient grpcShuffleServerClient;
   protected ShuffleServerGrpcNettyClient nettyShuffleServerClient;
-  protected static ShuffleServerConf grpcShuffleServerConfig;
-  protected static ShuffleServerConf nettyShuffleServerConfig;
   private static String REMOTE_STORAGE = HDFS_URI + "rss/multi_storage_fault_%s";
 
   @BeforeEach
   public void createClient() throws Exception {
     ShuffleServerClientFactory.getInstance().cleanupCache();
     grpcShuffleServerClient =
-        new ShuffleServerGrpcClient(
-            LOCALHOST, grpcShuffleServerConfig.getInteger(ShuffleServerConf.RPC_SERVER_PORT));
+        new ShuffleServerGrpcClient(LOCALHOST, grpcShuffleServers.get(0).getGrpcPort());
     nettyShuffleServerClient =
         new ShuffleServerGrpcNettyClient(
             LOCALHOST,
-            nettyShuffleServerConfig.getInteger(ShuffleServerConf.RPC_SERVER_PORT),
-            nettyShuffleServerConfig.getInteger(ShuffleServerConf.NETTY_SERVER_PORT));
+            nettyShuffleServers.get(0).getGrpcPort(),
+            nettyShuffleServers.get(0).getNettyPort());
   }
 
   @AfterEach
@@ -164,10 +160,9 @@ public abstract class HybridStorageFaultToleranceBase extends ShuffleReadWriteBa
         isNettyMode
             ? new ShuffleServerInfo(
                 LOCALHOST,
-                nettyShuffleServerConfig.getInteger(ShuffleServerConf.RPC_SERVER_PORT),
-                nettyShuffleServerConfig.getInteger(ShuffleServerConf.NETTY_SERVER_PORT))
-            : new ShuffleServerInfo(
-                LOCALHOST, grpcShuffleServerConfig.getInteger(ShuffleServerConf.RPC_SERVER_PORT));
+                nettyShuffleServers.get(0).getGrpcPort(),
+                nettyShuffleServers.get(0).getNettyPort())
+            : new ShuffleServerInfo(LOCALHOST, grpcShuffleServers.get(0).getGrpcPort());
     ShuffleReadClientImpl readClient =
         ShuffleClientFactory.newReadBuilder()
             .clientType(isNettyMode ? ClientType.GRPC_NETTY : ClientType.GRPC)

@@ -36,7 +36,6 @@ import org.junit.jupiter.api.Test;
 
 import org.apache.uniffle.common.rpc.ServerType;
 import org.apache.uniffle.coordinator.CoordinatorConf;
-import org.apache.uniffle.server.ShuffleServerConf;
 import org.apache.uniffle.storage.util.StorageType;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -45,18 +44,17 @@ public class AQERepartitionTest extends SparkIntegrationTestBase {
 
   @BeforeAll
   public static void setupServers() throws Exception {
-    CoordinatorConf coordinatorConf = getCoordinatorConf();
+    CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
     Map<String, String> dynamicConf = Maps.newHashMap();
     dynamicConf.put(CoordinatorConf.COORDINATOR_REMOTE_STORAGE_PATH.key(), HDFS_URI + "rss/test");
     dynamicConf.put(
         RssSparkConfig.RSS_STORAGE_TYPE.key(), StorageType.MEMORY_LOCALFILE_HDFS.name());
     addDynamicConf(coordinatorConf, dynamicConf);
-    createCoordinatorServer(coordinatorConf);
-    ShuffleServerConf grpcShuffleServerConf = getShuffleServerConf(ServerType.GRPC);
-    createShuffleServer(grpcShuffleServerConf);
-    ShuffleServerConf nettyShuffleServerConf = getShuffleServerConf(ServerType.GRPC_NETTY);
-    createShuffleServer(nettyShuffleServerConf);
-    startServers();
+    storeCoordinatorConf(coordinatorConf);
+
+    storeShuffleServerConf(shuffleServerConfWithoutPort(0, null, ServerType.GRPC));
+    storeShuffleServerConf(shuffleServerConfWithoutPort(1, null, ServerType.GRPC_NETTY));
+    startServersWithRandomPorts();
   }
 
   @Override

@@ -31,7 +31,6 @@ import org.apache.uniffle.coordinator.CoordinatorConf;
 import org.apache.uniffle.coordinator.strategy.assignment.AssignmentStrategyFactory;
 import org.apache.uniffle.server.MockedGrpcServer;
 import org.apache.uniffle.server.ShuffleServer;
-import org.apache.uniffle.server.ShuffleServerConf;
 import org.apache.uniffle.server.buffer.ShuffleBufferManager;
 import org.apache.uniffle.storage.util.StorageType;
 
@@ -46,7 +45,7 @@ public class PartitionBlockDataReassignMultiTimesTest extends PartitionBlockData
   @BeforeAll
   public static void setupServers(@TempDir File tmpDir) throws Exception {
     // for coordinator
-    CoordinatorConf coordinatorConf = getCoordinatorConf();
+    CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
     coordinatorConf.setLong("rss.coordinator.app.expired", 5000);
     coordinatorConf.set(
         COORDINATOR_ASSIGNMENT_STRATEGY, AssignmentStrategyFactory.StrategyName.BASIC);
@@ -54,31 +53,20 @@ public class PartitionBlockDataReassignMultiTimesTest extends PartitionBlockData
     Map<String, String> dynamicConf = Maps.newHashMap();
     dynamicConf.put(RssSparkConfig.RSS_STORAGE_TYPE.key(), StorageType.MEMORY_LOCALFILE.name());
     addDynamicConf(coordinatorConf, dynamicConf);
-    createCoordinatorServer(coordinatorConf);
+    storeCoordinatorConf(coordinatorConf);
 
     // for shuffle-server
     File dataDir1 = new File(tmpDir, "data1");
     File dataDir2 = new File(tmpDir, "data2");
     basePath = dataDir1.getAbsolutePath() + "," + dataDir2.getAbsolutePath();
 
-    // grpc server.
-    ShuffleServerConf grpcShuffleServerConf1 = buildShuffleServerConf(ServerType.GRPC);
-    createMockedShuffleServer(grpcShuffleServerConf1);
-
-    ShuffleServerConf grpcShuffleServerConf2 = buildShuffleServerConf(ServerType.GRPC);
-    createMockedShuffleServer(grpcShuffleServerConf2);
-
-    ShuffleServerConf grpcShuffleServerConf3 = buildShuffleServerConf(ServerType.GRPC);
-    createMockedShuffleServer(grpcShuffleServerConf3);
-
-    // netty server.
-    ShuffleServerConf grpcShuffleServerConf4 = buildShuffleServerConf(ServerType.GRPC_NETTY);
-    createShuffleServer(grpcShuffleServerConf4);
-
-    ShuffleServerConf grpcShuffleServerConf5 = buildShuffleServerConf(ServerType.GRPC_NETTY);
-    createShuffleServer(grpcShuffleServerConf5);
-
-    startServers();
+    for (int i = 0; i < 3; i++) {
+      storeMockShuffleServerConf(buildShuffleServerConf(ServerType.GRPC));
+    }
+    for (int i = 0; i < 2; i++) {
+      storeShuffleServerConf(buildShuffleServerConf(ServerType.GRPC_NETTY));
+    }
+    startServersWithRandomPorts();
   }
 
   @Override

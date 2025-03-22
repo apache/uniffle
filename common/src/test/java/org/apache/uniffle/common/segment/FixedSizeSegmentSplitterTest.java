@@ -20,13 +20,16 @@ package org.apache.uniffle.common.segment;
 import java.nio.ByteBuffer;
 import java.util.List;
 
+import io.netty.buffer.Unpooled;
 import org.apache.commons.lang3.tuple.Pair;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import org.apache.uniffle.common.ShuffleDataSegment;
 import org.apache.uniffle.common.ShuffleIndexResult;
+import org.apache.uniffle.common.netty.buffer.NettyManagedBuffer;
 
 import static org.apache.uniffle.common.segment.LocalOrderSegmentSplitterTest.generateData;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -89,5 +92,53 @@ public class FixedSizeSegmentSplitterTest {
       // ignore
       assertTrue(e.getMessage().contains("Read index data under flow"));
     }
+  }
+
+  @Test
+  @DisplayName("Test splitting with storage ID changes")
+  void testSplitContainsStorageId() {
+    SegmentSplitter splitter = new FixedSizeSegmentSplitter(50);
+    int[] storageIds = new int[] {1, 2, 3};
+    byte[] data0 =
+        generateData(Pair.of(32, 0), Pair.of(16, 0), Pair.of(10, 0), Pair.of(32, 6), Pair.of(6, 0));
+    byte[] data1 =
+        generateData(Pair.of(32, 1), Pair.of(16, 0), Pair.of(10, 0), Pair.of(32, 6), Pair.of(6, 0));
+    byte[] data2 =
+        generateData(Pair.of(32, 1), Pair.of(16, 0), Pair.of(10, 0), Pair.of(32, 6), Pair.of(6, 0));
+
+    ByteBuffer dataCombined =
+        ByteBuffer.allocate(data0.length + data1.length + data2.length)
+            .put(data0)
+            .put(data1)
+            .put(data2);
+    dataCombined.flip();
+    List<ShuffleDataSegment> shuffleDataSegments =
+        splitter.split(
+            new ShuffleIndexResult(
+                new NettyManagedBuffer(Unpooled.wrappedBuffer(dataCombined)), -1L, "", storageIds));
+    assertEquals(6, shuffleDataSegments.size(), "Expected 6 segments");
+    assertSegment(shuffleDataSegments.get(0), 0, 58, 3, storageIds[0]);
+    // split while previous data segments over read buffer size
+    assertSegment(shuffleDataSegments.get(1), 58, 38, 2, storageIds[0]);
+    // split while storage id changed, which offset less than previous offset
+    assertSegment(shuffleDataSegments.get(2), 0, 58, 3, storageIds[1]);
+    // split while previous data segments over read buffer size
+    assertSegment(shuffleDataSegments.get(3), 58, 38, 2, storageIds[1]);
+    // split while storage id changed, which offset less than previous offset
+    assertSegment(shuffleDataSegments.get(4), 0, 58, 3, storageIds[2]);
+    // split while previous data segments over read buffer size
+    assertSegment(shuffleDataSegments.get(5), 58, 38, 2, storageIds[2]);
+  }
+
+  private void assertSegment(
+      ShuffleDataSegment segment,
+      int expectedOffset,
+      int expectedLength,
+      int expectedSize,
+      int expectedStorageId) {
+    assertEquals(expectedOffset, segment.getOffset(), "Incorrect offset");
+    assertEquals(expectedLength, segment.getLength(), "Incorrect length");
+    assertEquals(expectedSize, segment.getBufferSegments().size(), "Incorrect buffer segment size");
+    assertEquals(expectedStorageId, segment.getStorageId(), "Incorrect storage ID");
   }
 }

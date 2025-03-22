@@ -23,6 +23,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.apache.uniffle.client.factory.ShuffleManagerClientFactory;
 import org.apache.uniffle.client.impl.grpc.ShuffleManagerGrpcClient;
 import org.apache.uniffle.common.ClientType;
+import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.rpc.GrpcServer;
 import org.apache.uniffle.shuffle.manager.DummyRssShuffleManager;
@@ -36,12 +37,17 @@ public class ShuffleServerManagerTestBase {
   protected ShuffleManagerGrpcClient client;
   protected static final String LOCALHOST = "localhost";
   protected GrpcServer shuffleManagerServer;
+  protected RssConf rssConf;
 
   protected RssShuffleManagerInterface getShuffleManager() {
     return new DummyRssShuffleManager();
   }
 
-  protected RssConf getConf() {
+  protected ShuffleServerManagerTestBase() {
+    this.rssConf = getRssConf();
+  }
+
+  private RssConf getRssConf() {
     RssConf conf = new RssConf();
     // use a random port
     conf.set(RPC_SERVER_PORT, 0);
@@ -49,7 +55,7 @@ public class ShuffleServerManagerTestBase {
   }
 
   protected GrpcServer createShuffleManagerServer() {
-    return new ShuffleManagerServerFactory(getShuffleManager(), getConf()).getServer();
+    return new ShuffleManagerServerFactory(getShuffleManager(), rssConf).getServer();
   }
 
   @BeforeEach
@@ -57,7 +63,8 @@ public class ShuffleServerManagerTestBase {
     shuffleManagerServer = createShuffleManagerServer();
     shuffleManagerServer.start();
     int port = shuffleManagerServer.getPort();
-    client = factory.createShuffleManagerClient(ClientType.GRPC, LOCALHOST, port);
+    long rpcTimeout = rssConf.getLong(RssClientConf.RPC_TIMEOUT_MS);
+    client = factory.createShuffleManagerClient(ClientType.GRPC, LOCALHOST, port, rpcTimeout);
   }
 
   @AfterEach

@@ -28,12 +28,15 @@ import java.util.stream.Collectors;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import org.apache.hadoop.conf.Configuration;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import org.apache.uniffle.common.PartitionRange;
 import org.apache.uniffle.coordinator.CoordinatorConf;
 import org.apache.uniffle.coordinator.ServerNode;
 import org.apache.uniffle.coordinator.SimpleClusterManager;
+import org.apache.uniffle.coordinator.metric.CoordinatorMetrics;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -44,6 +47,16 @@ public class BasicAssignmentStrategyTest {
 
   Set<String> tags = Sets.newHashSet("test");
   private int shuffleNodesMax = 7;
+
+  @BeforeEach
+  public void setUp() {
+    CoordinatorMetrics.register();
+  }
+
+  @AfterEach
+  public void clear() {
+    CoordinatorMetrics.clear();
+  }
 
   @Test
   public void testAssign() throws Exception {

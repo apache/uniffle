@@ -17,17 +17,20 @@
 
 package org.apache.uniffle.client.impl;
 
-import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 
 import org.apache.uniffle.common.ShuffleBlockInfo;
 import org.apache.uniffle.common.ShuffleServerInfo;
+import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.rpc.StatusCode;
 
 public class FailedBlockSendTracker {
@@ -40,8 +43,11 @@ public class FailedBlockSendTracker {
    */
   private Map<Long, List<TrackingBlockStatus>> trackingBlockStatusMap;
 
+  private final BlockingQueue<TrackingPartitionStatus> trackingNeedSplitPartitionStatusQueue;
+
   public FailedBlockSendTracker() {
     this.trackingBlockStatusMap = Maps.newConcurrentMap();
+    this.trackingNeedSplitPartitionStatusQueue = new LinkedBlockingQueue<>();
   }
 
   public void add(
@@ -49,12 +55,15 @@ public class FailedBlockSendTracker {
       ShuffleServerInfo shuffleServerInfo,
       StatusCode statusCode) {
     trackingBlockStatusMap
-        .computeIfAbsent(shuffleBlockInfo.getBlockId(), s -> Lists.newLinkedList())
+        .computeIfAbsent(
+            shuffleBlockInfo.getBlockId(), s -> Collections.synchronizedList(Lists.newArrayList()))
         .add(new TrackingBlockStatus(shuffleBlockInfo, shuffleServerInfo, statusCode));
   }
 
   public void merge(FailedBlockSendTracker failedBlockSendTracker) {
     this.trackingBlockStatusMap.putAll(failedBlockSendTracker.trackingBlockStatusMap);
+    this.trackingNeedSplitPartitionStatusQueue.addAll(
+        failedBlockSendTracker.trackingNeedSplitPartitionStatusQueue);
   }
 
   public void remove(long blockId) {
@@ -62,10 +71,16 @@ public class FailedBlockSendTracker {
   }
 
   public void clearAndReleaseBlockResources() {
-    trackingBlockStatusMap.values().stream()
-        .flatMap(x -> x.stream())
-        .forEach(x -> x.getShuffleBlockInfo().executeCompletionCallback(true));
+    trackingBlockStatusMap
+        .values()
+        .forEach(
+            l -> {
+              synchronized (l) {
+                l.forEach(x -> x.getShuffleBlockInfo().executeCompletionCallback(false));
+              }
+            });
     trackingBlockStatusMap.clear();
+    trackingNeedSplitPartitionStatusQueue.clear();
   }
 
   public Set<Long> getFailedBlockIds() {
@@ -77,9 +92,31 @@ public class FailedBlockSendTracker {
   }
 
   public Set<ShuffleServerInfo> getFaultyShuffleServers() {
-    return trackingBlockStatusMap.values().stream()
-        .flatMap(Collection::stream)
-        .map(s -> s.getShuffleServerInfo())
-        .collect(Collectors.toSet());
+    Set<ShuffleServerInfo> shuffleServerInfos = Sets.newHashSet();
+    trackingBlockStatusMap.values().stream()
+        .forEach(
+            l -> {
+              synchronized (l) {
+                l.stream()
+                    .forEach((status) -> shuffleServerInfos.add(status.getShuffleServerInfo()));
+              }
+            });
+    return shuffleServerInfos;
+  }
+
+  public void addNeedSplitPartition(int partitionId, ShuffleServerInfo shuffleServerInfo) {
+    try {
+      trackingNeedSplitPartitionStatusQueue.put(
+          new TrackingPartitionStatus(partitionId, shuffleServerInfo));
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new RssException(e);
+    }
+  }
+
+  public List<TrackingPartitionStatus> removeAllTrackedPartitions() {
+    List<TrackingPartitionStatus> trackingPartitionStatusList = Lists.newArrayList();
+    trackingNeedSplitPartitionStatusQueue.drainTo(trackingPartitionStatusList);
+    return trackingPartitionStatusList;
   }
 }

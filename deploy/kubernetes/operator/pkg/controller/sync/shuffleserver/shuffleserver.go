@@ -162,6 +162,7 @@ func GenerateSts(kubeClient kubernetes.Interface, rss *unifflev1alpha1.RemoteShu
 			Selector: &metav1.LabelSelector{
 				MatchLabels: defaultLabels,
 			},
+			PodManagementPolicy: rss.Spec.ShuffleServer.PodManagementPolicy,
 			UpdateStrategy: appsv1.StatefulSetUpdateStrategy{
 				Type: appsv1.RollingUpdateStatefulSetStrategyType,
 				RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{

@@ -17,7 +17,7 @@
 
 package org.apache.uniffle.storage.handler.api;
 
-import java.util.List;
+import java.util.Collection;
 
 import org.apache.uniffle.common.ShufflePartitionedBlock;
 
@@ -29,5 +29,5 @@ public interface ShuffleWriteHandler {
    * @param shuffleBlocks blocks to storage
    * @throws Exception
    */
-  void write(List<ShufflePartitionedBlock> shuffleBlocks) throws Exception;
+  void write(Collection<ShufflePartitionedBlock> shuffleBlocks) throws Exception;
 }

@@ -30,7 +30,7 @@ public class LocalFileDeleteHandler implements ShuffleDeleteHandler {
   private static final Logger LOG = LoggerFactory.getLogger(LocalFileDeleteHandler.class);
 
   @Override
-  public void delete(String[] shuffleDataStoredPath, String appId, String user) {
+  public boolean delete(String[] shuffleDataStoredPath, String appId, String user) {
     for (String basePath : shuffleDataStoredPath) {
       final String shufflePath = basePath;
       long start = System.currentTimeMillis();
@@ -47,7 +47,9 @@ public class LocalFileDeleteHandler implements ShuffleDeleteHandler {
                 + " ms");
       } catch (Exception e) {
         LOG.warn("Can't delete shuffle data for appId[" + appId + "] with " + shufflePath, e);
+        return false;
       }
     }
+    return true;
   }
 }

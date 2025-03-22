@@ -40,11 +40,12 @@ public class BlockIdManager {
   }
 
   public void add(int shuffleId, int partitionId, List<Long> ids) {
+
     if (CollectionUtils.isEmpty(ids)) {
       return;
     }
     Map<Integer, Roaring64NavigableMap> partitionedBlockIds =
-        blockIds.computeIfAbsent(shuffleId, (k) -> JavaUtils.newConcurrentMap());
+        blockIds.computeIfAbsent(shuffleId, k -> JavaUtils.newConcurrentMap());
     partitionedBlockIds.compute(
         partitionId,
         (id, bitmap) -> {

@@ -20,6 +20,7 @@ package org.apache.hadoop.mapreduce.task.reduce;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.text.DecimalFormat;
+import java.util.Optional;
 
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.hadoop.mapred.Counters;
@@ -38,6 +39,7 @@ import org.apache.uniffle.client.response.CompressedShuffleBlock;
 import org.apache.uniffle.common.compression.Codec;
 import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.exception.RssException;
+import org.apache.uniffle.common.util.ByteBufferUtils;
 import org.apache.uniffle.common.util.ByteUnit;
 
 public class RssFetcher<K, V> {
@@ -90,7 +92,7 @@ public class RssFetcher<K, V> {
   private int waitCount = 0;
   private byte[] uncompressedData = null;
   private RssConf rssConf;
-  private Codec codec;
+  private Optional<Codec> codec;
 
   RssFetcher(
       JobConf job,
@@ -161,14 +163,19 @@ public class RssFetcher<K, V> {
 
     // uncompress the block
     if (!hasPendingData && compressedData != null) {
-      final long startDecompress = System.currentTimeMillis();
-      int uncompressedLen = compressedBlock.getUncompressLength();
-      ByteBuffer decompressedBuffer = ByteBuffer.allocate(uncompressedLen);
-      codec.decompress(compressedData, uncompressedLen, decompressedBuffer, 0);
-      uncompressedData = decompressedBuffer.array();
-      unCompressionLength += compressedBlock.getUncompressLength();
-      long decompressDuration = System.currentTimeMillis() - startDecompress;
-      decompressTime += decompressDuration;
+      if (codec.isPresent()) {
+        final long startDecompress = System.currentTimeMillis();
+        int uncompressedLen = compressedBlock.getUncompressLength();
+        ByteBuffer decompressedBuffer = ByteBuffer.allocate(uncompressedLen);
+        codec.get().decompress(compressedData, uncompressedLen, decompressedBuffer, 0);
+        uncompressedData = decompressedBuffer.array();
+        unCompressionLength += compressedBlock.getUncompressLength();
+        long decompressDuration = System.currentTimeMillis() - startDecompress;
+        decompressTime += decompressDuration;
+      } else {
+        uncompressedData = ByteBufferUtils.bufferToArray(compressedData);
+        unCompressionLength += uncompressedData.length;
+      }
     }
 
     if (uncompressedData != null) {

@@ -44,7 +44,7 @@ public class HadoopShuffleDeleteHandler implements ShuffleDeleteHandler {
   }
 
   @Override
-  public void delete(String[] storageBasePaths, String appId, String user) {
+  public boolean delete(String[] storageBasePaths, String appId, String user) {
     for (String deletePath : storageBasePaths) {
       final Path path = new Path(deletePath);
       boolean isSuccess = false;
@@ -64,7 +64,7 @@ public class HadoopShuffleDeleteHandler implements ShuffleDeleteHandler {
         } catch (Exception e) {
           if (e instanceof FileNotFoundException) {
             LOG.info("[{}] doesn't exist, ignore it.", path);
-            return;
+            return false;
           }
           times++;
           LOG.warn(
@@ -96,6 +96,7 @@ public class HadoopShuffleDeleteHandler implements ShuffleDeleteHandler {
                 + " ms");
       }
     }
+    return true;
   }
 
   private void delete(FileSystem fileSystem, Path path, String filePrefix) throws IOException {

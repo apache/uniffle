@@ -19,10 +19,12 @@ package org.apache.uniffle.common.metrics;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.Map;
 
 public class TestUtils {
 
@@ -30,16 +32,9 @@ public class TestUtils {
 
   public static String httpGet(String urlString) throws IOException {
     URL url = new URL(urlString);
-    HttpURLConnection con = (HttpURLConnection) url.openConnection();
-    con.setRequestMethod("GET");
-    StringBuilder content = new StringBuilder();
-    try (BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream())); ) {
-      String inputLine;
-      while ((inputLine = in.readLine()) != null) {
-        content.append(inputLine);
-      }
-    }
-    return content.toString();
+    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+    conn.setRequestMethod("GET");
+    return getResponseStr(conn);
   }
 
   public static String httpPost(String urlString) throws IOException {
@@ -47,24 +42,39 @@ public class TestUtils {
   }
 
   public static String httpPost(String urlString, String postData) throws IOException {
+    return httpPost(urlString, postData, null);
+  }
+
+  public static String httpPost(String urlString, String postData, Map<String, String> headers)
+      throws IOException {
     URL url = new URL(urlString);
-    HttpURLConnection con = (HttpURLConnection) url.openConnection();
-    con.setDoOutput(true);
-    con.setRequestMethod("POST");
-    con.setRequestProperty("Content-type", "application/json");
-    StringBuilder content = new StringBuilder();
-    try (OutputStream outputStream = con.getOutputStream()) {
+    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+    conn.setDoOutput(true);
+    conn.setRequestMethod("POST");
+    conn.setRequestProperty("Content-type", "application/json");
+    if (headers != null) {
+      for (Map.Entry<String, String> entry : headers.entrySet()) {
+        conn.setRequestProperty(entry.getKey(), entry.getValue());
+      }
+    }
+    try (OutputStream outputStream = conn.getOutputStream()) {
       if (postData != null) {
         outputStream.write(postData.getBytes());
       }
-      try (BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream())); ) {
-        String inputLine;
-        while ((inputLine = in.readLine()) != null) {
-          content.append(inputLine);
-        }
+      return getResponseStr(conn);
+    }
+  }
+
+  private static String getResponseStr(HttpURLConnection conn) throws IOException {
+    StringBuilder responseContent = new StringBuilder();
+    InputStream inputStream =
+        conn.getResponseCode() == 200 ? conn.getInputStream() : conn.getErrorStream();
+    try (BufferedReader in = new BufferedReader(new InputStreamReader(inputStream))) {
+      String inputLine;
+      while ((inputLine = in.readLine()) != null) {
+        responseContent.append(inputLine);
       }
     }
-
-    return content.toString();
+    return responseContent.toString();
   }
 }

@@ -17,9 +17,20 @@
 
 package org.apache.uniffle.common.util;
 
+import org.apache.uniffle.common.ProjectConstants;
+
 public final class Constants {
 
   private Constants() {}
+
+  /** The version of this Uniffle instance. */
+  public static final String VERSION = ProjectConstants.VERSION;
+
+  public static final String REVISION_SHORT =
+      ProjectConstants.REVISION.length() > 8
+          ? ProjectConstants.REVISION.substring(0, 8)
+          : ProjectConstants.REVISION;
+  public static final String VERSION_AND_REVISION_SHORT = VERSION + "-" + REVISION_SHORT;
 
   // the value is used for client/server compatible, eg, online upgrade
   public static final String SHUFFLE_SERVER_VERSION = "ss_v5";
@@ -78,4 +89,9 @@ public final class Constants {
   // We are accessing this configuration through RssConf, the spark prefix is stripped, hence, this
   // field.
   public static final String DRIVER_HOST = "driver.host";
+
+  public static final String DATE_PATTERN = "yyyy-MM-dd HH:mm:ss";
+
+  public static final String SPARK_RSS_CONFIG_PREFIX = "spark.";
+  public static final int[] EMPTY_INT_ARRAY = new int[0];
 }

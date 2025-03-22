@@ -20,14 +20,22 @@ package org.apache.uniffle.common;
 import java.nio.ByteBuffer;
 
 import io.netty.buffer.Unpooled;
+import io.netty.util.IllegalReferenceCountException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.apache.uniffle.common.netty.buffer.ManagedBuffer;
 import org.apache.uniffle.common.netty.buffer.NettyManagedBuffer;
 import org.apache.uniffle.common.util.ByteBufUtils;
 
 public class ShuffleIndexResult {
+  private static final Logger LOG = LoggerFactory.getLogger(ShuffleIndexResult.class);
+  private static final int[] DEFAULT_STORAGE_IDS = new int[] {0};
+
   private final ManagedBuffer buffer;
+  private final int[] storageIds;
   private long dataFileLen;
+  private String dataFileName;
 
   public ShuffleIndexResult() {
     this(ByteBuffer.wrap(new byte[0]), -1);
@@ -38,14 +46,28 @@ public class ShuffleIndexResult {
   }
 
   public ShuffleIndexResult(ByteBuffer data, long dataFileLen) {
-    this.buffer =
-        new NettyManagedBuffer(data != null ? Unpooled.wrappedBuffer(data) : Unpooled.EMPTY_BUFFER);
-    this.dataFileLen = dataFileLen;
+    this(
+        new NettyManagedBuffer(data != null ? Unpooled.wrappedBuffer(data) : Unpooled.EMPTY_BUFFER),
+        dataFileLen,
+        null,
+        DEFAULT_STORAGE_IDS);
   }
 
-  public ShuffleIndexResult(ManagedBuffer buffer, long dataFileLen) {
+  public ShuffleIndexResult(ManagedBuffer buffer, long dataFileLen, String dataFileName) {
+    this(buffer, dataFileLen, dataFileName, DEFAULT_STORAGE_IDS);
+  }
+
+  public ShuffleIndexResult(
+      ManagedBuffer buffer, long dataFileLen, String dataFileName, int storageId) {
+    this(buffer, dataFileLen, dataFileName, new int[] {storageId});
+  }
+
+  public ShuffleIndexResult(
+      ManagedBuffer buffer, long dataFileLen, String dataFileName, int[] storageIds) {
     this.buffer = buffer;
     this.dataFileLen = dataFileLen;
+    this.dataFileName = dataFileName;
+    this.storageIds = storageIds;
   }
 
   public byte[] getData() {
@@ -72,11 +94,28 @@ public class ShuffleIndexResult {
 
   public void release() {
     if (this.buffer != null) {
-      this.buffer.release();
+      try {
+        this.buffer.release();
+      } catch (IllegalReferenceCountException e) {
+        LOG.warn(
+            "Failed to release shuffle index result with length {} of {}. "
+                + "Maybe it has been released by others.",
+            dataFileLen,
+            dataFileName,
+            e);
+      }
     }
   }
 
   public ManagedBuffer getManagedBuffer() {
     return buffer;
+  }
+
+  public String getDataFileName() {
+    return dataFileName;
+  }
+
+  public int[] getStorageIds() {
+    return storageIds;
   }
 }

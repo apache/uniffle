@@ -17,9 +17,12 @@
 
 package org.apache.uniffle.server;
 
+import com.google.common.annotations.VisibleForTesting;
+
 public abstract class Checker {
 
   Checker(ShuffleServerConf conf) {}
 
-  abstract boolean checkIsHealthy();
+  @VisibleForTesting
+  public abstract boolean checkIsHealthy();
 }

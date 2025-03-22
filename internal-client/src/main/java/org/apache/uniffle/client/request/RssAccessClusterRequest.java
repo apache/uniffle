@@ -33,12 +33,11 @@ public class RssAccessClusterRequest {
    */
   private final Map<String, String> extraProperties;
 
+  private final long retryIntervalMs;
+  private final int retryTimes;
+
   public RssAccessClusterRequest(String accessId, Set<String> tags, int timeoutMs, String user) {
-    this.accessId = accessId;
-    this.tags = tags;
-    this.timeoutMs = timeoutMs;
-    this.extraProperties = Collections.emptyMap();
-    this.user = user;
+    this(accessId, tags, timeoutMs, Collections.emptyMap(), user, 0, 0);
   }
 
   public RssAccessClusterRequest(
@@ -47,11 +46,24 @@ public class RssAccessClusterRequest {
       int timeoutMs,
       Map<String, String> extraProperties,
       String user) {
+    this(accessId, tags, timeoutMs, extraProperties, user, 0, 0);
+  }
+
+  public RssAccessClusterRequest(
+      String accessId,
+      Set<String> tags,
+      int timeoutMs,
+      Map<String, String> extraProperties,
+      String user,
+      long retryInterval,
+      int retryTimes) {
     this.accessId = accessId;
     this.tags = tags;
     this.timeoutMs = timeoutMs;
     this.extraProperties = extraProperties;
     this.user = user;
+    this.retryIntervalMs = retryInterval;
+    this.retryTimes = retryTimes;
   }
 
   public String getAccessId() {
@@ -72,5 +84,13 @@ public class RssAccessClusterRequest {
 
   public String getUser() {
     return user;
+  }
+
+  public long getRetryIntervalMs() {
+    return retryIntervalMs;
+  }
+
+  public int getRetryTimes() {
+    return retryTimes;
   }
 }

@@ -57,7 +57,6 @@ import org.apache.uniffle.common.RemoteStorageInfo;
 import org.apache.uniffle.common.rpc.ServerType;
 import org.apache.uniffle.common.util.Constants;
 import org.apache.uniffle.coordinator.CoordinatorConf;
-import org.apache.uniffle.server.ShuffleServerConf;
 import org.apache.uniffle.storage.util.StorageType;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -73,7 +72,6 @@ public class GetReaderTest extends IntegrationTestBase {
     sparkConf.set(
         "spark.shuffle.sort.io.plugin.class", "org.apache.spark.shuffle.RssShuffleDataIo");
     sparkConf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer");
-    sparkConf.set(RssSparkConfig.RSS_COORDINATOR_QUORUM.key(), COORDINATOR_QUORUM);
     sparkConf.setMaster("local[4]");
     final String remoteStorage1 = "hdfs://h1/p1";
     final String remoteStorage2 = "hdfs://h2/p2";
@@ -92,7 +90,7 @@ public class GetReaderTest extends IntegrationTestBase {
     printWriter.flush();
     printWriter.close();
 
-    CoordinatorConf coordinatorConf = getCoordinatorConf();
+    CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
     coordinatorConf.setBoolean("rss.coordinator.dynamicClientConf.enabled", true);
     coordinatorConf.setString("rss.coordinator.dynamicClientConf.path", cfgFile);
     coordinatorConf.setInteger("rss.coordinator.dynamicClientConf.updateIntervalSec", 1);
@@ -100,12 +98,12 @@ public class GetReaderTest extends IntegrationTestBase {
     coordinatorConf.setInteger("rss.coordinator.access.loadChecker.serverNum.threshold", 1);
     coordinatorConf.setLong("rss.coordinator.remote.storage.schedule.time", 200);
     coordinatorConf.setInteger("rss.coordinator.remote.storage.schedule.access.times", 1);
-    createCoordinatorServer(coordinatorConf);
+    storeCoordinatorConf(coordinatorConf);
 
-    ShuffleServerConf shuffleServerConf = getShuffleServerConf(ServerType.GRPC);
-    createShuffleServer(shuffleServerConf);
-    startServers();
+    storeShuffleServerConf(shuffleServerConfWithoutPort(0, null, ServerType.GRPC));
+    startServersWithRandomPorts();
     Uninterruptibles.sleepUninterruptibly(2, TimeUnit.SECONDS);
+    sparkConf.set(RssSparkConfig.RSS_COORDINATOR_QUORUM.key(), getQuorum());
 
     SparkSession sparkSession = SparkSession.builder().config(sparkConf).getOrCreate();
     JavaSparkContext jsc1 = new JavaSparkContext(sparkSession.sparkContext());

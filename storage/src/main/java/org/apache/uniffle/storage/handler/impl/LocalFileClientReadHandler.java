@@ -17,6 +17,8 @@
 
 package org.apache.uniffle.storage.handler.impl;
 
+import java.util.Optional;
+
 import com.google.common.annotations.VisibleForTesting;
 import org.roaringbitmap.longlong.Roaring64NavigableMap;
 import org.slf4j.Logger;
@@ -55,7 +57,8 @@ public class LocalFileClientReadHandler extends DataSkippableReadHandler {
       ShuffleDataDistributionType distributionType,
       Roaring64NavigableMap expectTaskIds,
       int retryMax,
-      long retryIntervalMax) {
+      long retryIntervalMax,
+      Optional<PrefetchOption> prefetchOption) {
     super(
         appId,
         shuffleId,
@@ -64,7 +67,8 @@ public class LocalFileClientReadHandler extends DataSkippableReadHandler {
         expectBlockIds,
         processBlockIds,
         distributionType,
-        expectTaskIds);
+        expectTaskIds,
+        prefetchOption);
     this.shuffleServerClient = shuffleServerClient;
     this.partitionNumPerRange = partitionNumPerRange;
     this.partitionNum = partitionNum;
@@ -98,7 +102,8 @@ public class LocalFileClientReadHandler extends DataSkippableReadHandler {
         ShuffleDataDistributionType.NORMAL,
         Roaring64NavigableMap.bitmapOf(),
         1,
-        0);
+        0,
+        Optional.empty());
   }
 
   @Override
@@ -157,6 +162,7 @@ public class LocalFileClientReadHandler extends DataSkippableReadHandler {
             partitionNum,
             shuffleDataSegment.getOffset(),
             expectedLength,
+            shuffleDataSegment.getStorageId(),
             retryMax,
             retryIntervalMax);
     try {
@@ -170,9 +176,9 @@ public class LocalFileClientReadHandler extends DataSkippableReadHandler {
     if (result.getDataBuffer().remaining() != expectedLength) {
       throw new RssException(
           "Wrong data length expect "
-              + result.getDataBuffer().remaining()
+              + expectedLength
               + " but actual is "
-              + expectedLength);
+              + result.getDataBuffer().remaining());
     }
     return result;
   }

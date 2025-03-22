@@ -20,6 +20,7 @@ package org.apache.uniffle.storage.handler.impl;
 import java.io.FileNotFoundException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import com.google.common.collect.Lists;
@@ -55,6 +56,7 @@ public class HadoopClientReadHandler extends AbstractClientReadHandler {
   private ShuffleDataDistributionType distributionType;
   private Roaring64NavigableMap expectTaskIds;
   private boolean offHeapEnable = false;
+  private Optional<PrefetchableClientReadHandler.PrefetchOption> prefetchOption;
 
   public HadoopClientReadHandler(
       String appId,
@@ -71,7 +73,8 @@ public class HadoopClientReadHandler extends AbstractClientReadHandler {
       ShuffleDataDistributionType distributionType,
       Roaring64NavigableMap expectTaskIds,
       String shuffleServerId,
-      boolean offHeapEnable) {
+      boolean offHeapEnable,
+      Optional<PrefetchableClientReadHandler.PrefetchOption> prefetchOption) {
     this.appId = appId;
     this.shuffleId = shuffleId;
     this.partitionId = partitionId;
@@ -87,6 +90,7 @@ public class HadoopClientReadHandler extends AbstractClientReadHandler {
     this.expectTaskIds = expectTaskIds;
     this.shuffleServerId = shuffleServerId;
     this.offHeapEnable = offHeapEnable;
+    this.prefetchOption = prefetchOption;
   }
 
   // Only for test
@@ -117,7 +121,8 @@ public class HadoopClientReadHandler extends AbstractClientReadHandler {
         ShuffleDataDistributionType.NORMAL,
         Roaring64NavigableMap.bitmapOf(),
         null,
-        false);
+        false,
+        Optional.empty());
   }
 
   protected void init(String fullShufflePath) {
@@ -174,7 +179,8 @@ public class HadoopClientReadHandler extends AbstractClientReadHandler {
                   hadoopConf,
                   distributionType,
                   expectTaskIds,
-                  offHeapEnable);
+                  offHeapEnable,
+                  prefetchOption);
           readHandlers.add(handler);
         } catch (Exception e) {
           LOG.warn("Can't create ShuffleReaderHandler for " + filePrefix, e);

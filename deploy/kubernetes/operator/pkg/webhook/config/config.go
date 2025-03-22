@@ -38,12 +38,14 @@ const (
 	flagServerCertFile       = "server-cert-file"
 	flagServerPrivateKeyFile = "server-private-key-file"
 	flagCACertFile           = "ca-cert-file"
+	flagLeaderElection       = "leader-election"
 )
 
 // Config contains all configurations.
 type Config struct {
 	IgnoreLastApps bool
 	IgnoreRSS      bool
+	LeaderElection bool
 	HTTPConfig
 	utils.GenericConfig
 }
@@ -113,6 +115,7 @@ func (c *Config) AddFlags() {
 		"Used when debugging, it means we will ignore checking last apps.")
 	flag.BoolVar(&c.IgnoreRSS, flagIgnoreRSS, false,
 		"Used when debugging, it means we will ignore checking rss objects.")
+	flag.BoolVar(&c.LeaderElection, flagLeaderElection, false, "whether we need to enable leader election.")
 	c.HTTPConfig.AddFlags()
 	c.GenericConfig.AddFlags()
 }

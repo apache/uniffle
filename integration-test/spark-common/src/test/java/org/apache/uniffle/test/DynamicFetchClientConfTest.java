@@ -42,7 +42,6 @@ public class DynamicFetchClientConfTest extends IntegrationTestBase {
   public void test() throws Exception {
     SparkConf sparkConf = new SparkConf();
     sparkConf.set("spark.shuffle.manager", "org.apache.spark.shuffle.RssShuffleManager");
-    sparkConf.set(RssSparkConfig.RSS_COORDINATOR_QUORUM.key(), COORDINATOR_QUORUM);
     sparkConf.set("spark.mock.2", "no-overwrite-conf");
     sparkConf.set("spark.shuffle.service.enabled", "true");
 
@@ -62,14 +61,15 @@ public class DynamicFetchClientConfTest extends IntegrationTestBase {
     }
     sparkConf.set("spark.mock.2", "no-overwrite-conf");
 
-    CoordinatorConf coordinatorConf = getCoordinatorConf();
+    CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
     coordinatorConf.setBoolean("rss.coordinator.dynamicClientConf.enabled", true);
     coordinatorConf.setString("rss.coordinator.dynamicClientConf.path", cfgFile);
     coordinatorConf.setInteger("rss.coordinator.dynamicClientConf.updateIntervalSec", 10);
-    createCoordinatorServer(coordinatorConf);
-    startServers();
+    storeCoordinatorConf(coordinatorConf);
+    startServersWithRandomPorts();
 
     Uninterruptibles.sleepUninterruptibly(3, TimeUnit.SECONDS);
+    sparkConf.set(RssSparkConfig.RSS_COORDINATOR_QUORUM.key(), getQuorum());
 
     assertFalse(sparkConf.contains("spark.mock.1"));
     assertEquals("no-overwrite-conf", sparkConf.get("spark.mock.2"));
@@ -95,7 +95,6 @@ public class DynamicFetchClientConfTest extends IntegrationTestBase {
     shutdownServers();
     sparkConf = new SparkConf();
     sparkConf.set("spark.shuffle.manager", "org.apache.spark.shuffle.RssShuffleManager");
-    sparkConf.set(RssSparkConfig.RSS_COORDINATOR_QUORUM.key(), COORDINATOR_QUORUM);
     sparkConf.set("spark.mock.2", "no-overwrite-conf");
     sparkConf.set("spark.shuffle.service.enabled", "true");
 
@@ -106,13 +105,14 @@ public class DynamicFetchClientConfTest extends IntegrationTestBase {
     printWriter.println(" spark.mock.3 true ");
     printWriter.flush();
     printWriter.close();
-    coordinatorConf = getCoordinatorConf();
+    coordinatorConf = coordinatorConfWithoutPort();
     coordinatorConf.setBoolean("rss.coordinator.dynamicClientConf.enabled", true);
     coordinatorConf.setString("rss.coordinator.dynamicClientConf.path", cfgFile);
     coordinatorConf.setInteger("rss.coordinator.dynamicClientConf.updateIntervalSec", 10);
-    createCoordinatorServer(coordinatorConf);
-    startServers();
+    storeCoordinatorConf(coordinatorConf);
+    startServersWithRandomPorts();
     Uninterruptibles.sleepUninterruptibly(3, TimeUnit.SECONDS);
+    sparkConf.set(RssSparkConfig.RSS_COORDINATOR_QUORUM.key(), getQuorum());
 
     Exception expectException = null;
     try {

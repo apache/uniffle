@@ -48,9 +48,9 @@ public class ShufflePartitionedDataTest {
             + Arrays.toString(data1.getBlockList())
             + "}",
         data1.toString());
-    ShufflePartitionedData data2 = new ShufflePartitionedData(0, null);
-    assertEquals("ShufflePartitionedData{partitionId=0, blockList=null}", data2.toString());
+    ShufflePartitionedData data2 = new ShufflePartitionedData(0, (ShufflePartitionedBlock[]) null);
+    assertEquals("ShufflePartitionedData{partitionId=0, blockList=[]}", data2.toString());
     data2.setPartitionId(1);
-    assertEquals("ShufflePartitionedData{partitionId=1, blockList=null}", data2.toString());
+    assertEquals("ShufflePartitionedData{partitionId=1, blockList=[]}", data2.toString());
   }
 }
