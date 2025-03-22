@@ -159,7 +159,9 @@ Once the huge partition reaches the hard limit size, which is set by the configu
 For example, if the hard limit is set to 50g, the server will reject the request if the partition size is greater than 50g, causing the job to eventually fail.
 
 ### Netty
-In version 0.8.0, we introduced Netty. Enabling Netty on ShuffleServer can significantly reduce GC time in high-throughput scenarios. We can enable Netty through the parameters `rss.server.netty.port` and `rss.rpc.server.type`. Note: After setting the parameter `rss.rpc.server.type` to `GRPC_NETTY`, ShuffleServer will be tagged with `GRPC_NETTY`, that is, the node can only be assigned to clients with `spark.rss.client.type=GRPC_NETTY`. In version 0.10.0, Netty is enabled by default.
+In version 0.8.0, we introduced Netty. Enabling Netty on ShuffleServer can significantly reduce GC time in high-throughput scenarios. We can enable Netty through the parameters `rss.server.netty.port` and `rss.rpc.server.type`. Note: After setting the parameter `rss.rpc.server.type` to `GRPC_NETTY`, ShuffleServer will be tagged with `GRPC_NETTY`, that is, the node can only be assigned to clients with `spark.rss.client.type=GRPC_NETTY`. 
+
+In version 0.10.0, Netty is enabled by default.
 
 When enabling Netty, we should also consider memory related configurations.
 
