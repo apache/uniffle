@@ -15,7 +15,7 @@
   ~ limitations under the License.
   -->
 
-# Apache Uniffle (Incubating)
+# Apache Uniffle
 
 Uniffle is a high performance, general purpose remote shuffle service for distributed computing engines.
 It provides the ability to push shuffle data into centralized storage service,

@@ -54,8 +54,8 @@ upload_svn_staging() {
   mkdir -p "${SVN_STAGING_DIR}/${RELEASE_TAG}"
   rm -f "${SVN_STAGING_DIR}/${RELEASE_TAG}/*"
 
-  SRC_TGZ_FILE="apache-uniffle-${RELEASE_VERSION}-incubating-src.tar.gz"
-  BIN_TGZ_FILE="apache-uniffle-${RELEASE_VERSION}-incubating-bin.tar.gz"
+  SRC_TGZ_FILE="apache-uniffle-${RELEASE_VERSION}-src.tar.gz"
+  BIN_TGZ_FILE="apache-uniffle-${RELEASE_VERSION}-bin.tar.gz"
 
   echo "Copying release tarballs"
   cp "${RELEASE_DIR}/${SRC_TGZ_FILE}"        "${SVN_STAGING_DIR}/${RELEASE_TAG}/${SRC_TGZ_FILE}"
