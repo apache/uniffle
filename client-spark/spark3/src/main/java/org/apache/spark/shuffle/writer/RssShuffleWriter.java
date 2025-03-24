@@ -88,6 +88,7 @@ import org.apache.uniffle.storage.util.StorageType;
 
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_CLIENT_MAP_SIDE_COMBINE_ENABLED;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_PARTITION_REASSIGN_BLOCK_RETRY_MAX_TIMES;
+import static org.apache.spark.shuffle.RssSparkConfig.RSS_REMOTE_MERGE_ENABLE;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_RESUBMIT_STAGE_WITH_WRITE_FAILURE_ENABLED;
 
 public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
@@ -261,20 +262,38 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
         context);
     this.taskAttemptAssignment = new TaskAttemptAssignment(taskAttemptId, shuffleHandleInfo);
     BufferManagerOptions bufferOptions = new BufferManagerOptions(sparkConf);
-    final WriteBufferManager bufferManager =
-        new WriteBufferManager(
-            shuffleId,
-            taskId,
-            taskAttemptId,
-            bufferOptions,
-            rssHandle.getDependency().serializer(),
-            context.taskMemoryManager(),
-            shuffleWriteMetrics,
-            RssSparkConfig.toRssConf(sparkConf),
-            this::processShuffleBlockInfos,
-            this::getPartitionAssignedServers,
-            context.stageAttemptNumber());
-    this.bufferManager = bufferManager;
+    if (sparkConf.get(RSS_REMOTE_MERGE_ENABLE)) {
+      final WriteBufferManager bufferManager =
+          new RMWriteBufferManager(
+              shuffleId,
+              taskId,
+              taskAttemptId,
+              bufferOptions,
+              rssHandle.getDependency().serializer(),
+              context.taskMemoryManager(),
+              shuffleWriteMetrics,
+              RssSparkConfig.toRssConf(sparkConf),
+              this::processShuffleBlockInfos,
+              this::getPartitionAssignedServers,
+              context.stageAttemptNumber(),
+              shuffleDependency.keyOrdering().getOrElse(() -> null));
+      this.bufferManager = bufferManager;
+    } else {
+      final WriteBufferManager bufferManager =
+          new WriteBufferManager(
+              shuffleId,
+              taskId,
+              taskAttemptId,
+              bufferOptions,
+              rssHandle.getDependency().serializer(),
+              context.taskMemoryManager(),
+              shuffleWriteMetrics,
+              RssSparkConfig.toRssConf(sparkConf),
+              this::processShuffleBlockInfos,
+              this::getPartitionAssignedServers,
+              context.stageAttemptNumber());
+      this.bufferManager = bufferManager;
+    }
   }
 
   @VisibleForTesting

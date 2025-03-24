@@ -85,28 +85,6 @@ public interface ShuffleWriteClient {
       RemoteStorageInfo remoteStorage,
       ShuffleDataDistributionType dataDistributionType,
       int maxConcurrencyPerPartitionToWrite,
-      Map<String, String> properties) {
-    registerShuffle(
-        shuffleServerInfo,
-        appId,
-        shuffleId,
-        partitionRanges,
-        remoteStorage,
-        dataDistributionType,
-        maxConcurrencyPerPartitionToWrite,
-        0,
-        null,
-        properties);
-  }
-
-  default void registerShuffle(
-      ShuffleServerInfo shuffleServerInfo,
-      String appId,
-      int shuffleId,
-      List<PartitionRange> partitionRanges,
-      RemoteStorageInfo remoteStorage,
-      ShuffleDataDistributionType dataDistributionType,
-      int maxConcurrencyPerPartitionToWrite,
       int stageAttemptNumber,
       MergeContext mergeContext) {
     registerShuffle(

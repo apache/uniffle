@@ -447,6 +447,27 @@ public class RssSparkConfig {
                           + "sequence number, the partition id and the task attempt id."))
           .createWithDefault(1048576);
 
+  public static final ConfigEntry<Boolean> RSS_REMOTE_MERGE_ENABLE =
+      createBooleanBuilder(
+              new ConfigBuilder(SPARK_RSS_CONFIG_PREFIX + RssClientConfig.RSS_REMOTE_MERGE_ENABLE)
+                  .doc("Whether to enable remote merge"))
+          .createWithDefault(false);
+
+  public static final ConfigEntry<Integer> RSS_MERGED_BLOCK_SZIE =
+      createIntegerBuilder(
+              new ConfigBuilder(SPARK_RSS_CONFIG_PREFIX + RssClientConfig.RSS_MERGED_BLOCK_SZIE)
+                  .internal()
+                  .doc("The merged block size."))
+          .createWithDefault(RssClientConfig.RSS_MERGED_BLOCK_SZIE_DEFAULT);
+
+  public static final ConfigEntry<String> RSS_REMOTE_MERGE_CLASS_LOADER =
+      createStringBuilder(
+              new ConfigBuilder(
+                      SPARK_RSS_CONFIG_PREFIX + RssClientConfig.RSS_REMOTE_MERGE_CLASS_LOADER)
+                  .internal()
+                  .doc("The class loader label for remote merge"))
+          .createWithDefault(null);
+
   // spark2 doesn't have this key defined
   public static final String SPARK_SHUFFLE_COMPRESS_KEY = "spark.shuffle.compress";
 

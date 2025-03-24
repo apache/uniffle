@@ -45,6 +45,7 @@ import org.apache.spark.shuffle.handle.MutableShuffleHandleInfo;
 import org.apache.spark.shuffle.handle.ShuffleHandleInfo;
 import org.apache.spark.shuffle.handle.SimpleShuffleHandleInfo;
 import org.apache.spark.shuffle.handle.StageAttemptShuffleHandleInfo;
+import org.apache.spark.shuffle.reader.RMRssShuffleReader;
 import org.apache.spark.shuffle.reader.RssShuffleReader;
 import org.apache.spark.shuffle.writer.DataPusher;
 import org.apache.spark.shuffle.writer.RssShuffleWriter;
@@ -150,6 +151,7 @@ public class RssShuffleManager extends RssShuffleManagerBase {
       return new RssShuffleHandle<>(
           shuffleId, id.get(), dependency.rdd().getNumPartitions(), dependency, hdlInfoBd);
     }
+    dependencies.put(shuffleId, dependency);
 
     String storageType = sparkConf.get(RssSparkConfig.RSS_STORAGE_TYPE.key());
     RemoteStorageInfo defaultRemoteStorage = getDefaultRemoteStorageInfo(sparkConf);
@@ -173,7 +175,10 @@ public class RssShuffleManager extends RssShuffleManagerBase {
             requiredShuffleServerNumber,
             estimateTaskConcurrency,
             rssStageResubmitManager.getServerIdBlackList(),
-            0);
+            -1,
+            0,
+            false,
+            buildMergeContext(dependency));
     startHeartbeat();
     shuffleIdToPartitionNum.putIfAbsent(shuffleId, dependency.partitioner().numPartitions());
     shuffleIdToNumMapTasks.putIfAbsent(shuffleId, dependency.rdd().partitions().length);
@@ -396,6 +401,22 @@ public class RssShuffleManager extends RssShuffleManagerBase {
     Configuration readerHadoopConf =
         RssSparkShuffleUtils.getRemoteStorageHadoopConf(sparkConf, shuffleRemoteStorageInfo);
 
+    if (remoteMergeEnable) {
+      return new RMRssShuffleReader<>(
+          startPartition,
+          endPartition,
+          context,
+          rssShuffleHandle,
+          shuffleWriteClient,
+          shuffleHandleInfo.getAllPartitionServersForReader(),
+          RssUtils.generatePartitionToBitmap(
+              blockIdBitmap, startPartition, endPartition, blockIdLayout),
+          taskIdBitmap,
+          readMetrics,
+          managerClientSupplier,
+          RssSparkConfig.toRssConf(sparkConf),
+          clientType);
+    }
     return new RssShuffleReader<K, C>(
         startPartition,
         endPartition,
