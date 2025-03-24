@@ -17,7 +17,10 @@
 
 package org.apache.uniffle.common;
 
+/** The partition split mode for the partition split mechanism */
 public enum PartitionSplitMode {
+  // Reassign multi servers for one time to write for load balance
   LOAD_BALANCE,
+  // Reassign server one by one once partition split
   PIPELINE,
 }
