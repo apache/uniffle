@@ -92,6 +92,9 @@ public class TransportClient implements Closeable {
     sendRpc(message, callback);
     try {
       return result.get(timeoutMs, TimeUnit.MILLISECONDS);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new RssException(e);
     } catch (Exception e) {
       throw new RssException(e);
     }

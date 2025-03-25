@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -1558,7 +1559,7 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
     return taskToFailedBlockSendTracker;
   }
 
-  public CompletableFuture<Long> sendData(AddBlockEvent event) {
+  public Future<Long> sendData(AddBlockEvent event) {
     if (dataPusher != null && event != null) {
       return dataPusher.send(event);
     }
