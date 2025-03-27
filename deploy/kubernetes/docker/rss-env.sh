@@ -21,7 +21,10 @@ set -o pipefail
 set -o nounset   # exit the script if you try to use an uninitialised variable
 set -o errexit   # exit the script if any statement returns a non-true return value
 
-HADOOP_HOME="/data/rssadmin/hadoop"
+if [ -d "/data/rssadmin/hadoop" ]; then
+  export HADOOP_HOME="/data/rssadmin/hadoop"
+fi
+
 RUNNER="${JAVA_HOME}/bin/java"
 JPS="${JAVA_HOME}/bin/jps"
 
