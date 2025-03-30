@@ -1464,6 +1464,9 @@
 
     <profile>
       <id>spark3</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
       <properties>
         <scala.binary.version>2.12</scala.binary.version>
         <spark.version>3.1.2</spark.version>
