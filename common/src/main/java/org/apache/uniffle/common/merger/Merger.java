@@ -76,15 +76,15 @@ public class Merger {
 
     @Override
     protected boolean lessThan(Object o1, Object o2) {
+      Segment s1 = (Segment) o1;
+      Segment s2 = (Segment) o2;
       if (raw) {
         if (buffered) {
-          Segment s1 = (Segment) o1;
-          Segment s2 = (Segment) o2;
           ByteBuf key1 = (ByteBuf) s1.getCurrentKey();
           ByteBuf key2 = (ByteBuf) s2.getCurrentKey();
           // make sure key buffer is in heap, avoid byte array copy
           int c =
-              ((RawComparator) comparator)
+              ((RawComparator<?>) comparator)
                   .compare(
                       key1.array(),
                       key1.arrayOffset() + key1.readerIndex(),
@@ -94,28 +94,30 @@ public class Merger {
                       key2.readableBytes());
           return c < 0 || ((c == 0) && s1.getId() < s2.getId());
         } else {
-          Segment s1 = (Segment) o1;
-          Segment s2 = (Segment) o2;
           DataOutputBuffer key1 = (DataOutputBuffer) s1.getCurrentKey();
           DataOutputBuffer key2 = (DataOutputBuffer) s2.getCurrentKey();
           int c =
-              ((RawComparator) comparator)
+              ((RawComparator<?>) comparator)
                   .compare(
                       key1.getData(), 0, key1.getLength(), key2.getData(), 0, key2.getLength());
           return c < 0 || ((c == 0) && s1.getId() < s2.getId());
         }
       } else {
-        Segment s1 = (Segment) o1;
-        Segment s2 = (Segment) o2;
+        Comparator<Object> cpt =
+            (object1, object2) -> {
+              int h1 = (object1 == null) ? 0 : object1.hashCode();
+              int h2 = (object2 == null) ? 0 : object2.hashCode();
+              return Integer.compare(h1, h2);
+            };
         Object key1 = s1.getCurrentKey();
         Object key2 = s2.getCurrentKey();
-        int c = comparator.compare(key1, key2);
+        int c = cpt.compare(key1, key2);
         return c < 0 || ((c == 0) && s1.getId() < s2.getId());
       }
     }
 
     public void init() throws IOException {
-      List<Segment> segmentsToMerge = new ArrayList();
+      List<Segment> segmentsToMerge = new ArrayList<>();
       for (Segment segment : segments) {
         boolean hasNext = segment.next();
         if (hasNext) {
@@ -189,7 +191,7 @@ public class Merger {
 
     public void merge(SerOutputStream output) throws IOException {
       RecordsWriter<K, V> writer =
-          new RecordsWriter<K, V>(rssConf, output, keyClass, valueClass, raw, buffered);
+          new RecordsWriter<>(rssConf, output, keyClass, valueClass, raw, buffered);
       try {
         writer.init();
         while (this.next()) {
@@ -202,7 +204,9 @@ public class Merger {
     }
 
     @Override
-    public void close() throws IOException {}
+    public void close() throws IOException {
+      // ignore
+    }
   }
 
   public static void merge(

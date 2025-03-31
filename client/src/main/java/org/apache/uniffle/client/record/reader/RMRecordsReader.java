@@ -152,17 +152,7 @@ public class RMRecordsReader<K, V, C> {
     if (raw && comparator == null) {
       throw new RssException("RawComparator must be set!");
     }
-    this.comparator =
-        comparator != null
-            ? comparator
-            : new Comparator<K>() {
-              @Override
-              public int compare(K o1, K o2) {
-                int h1 = (o1 == null) ? 0 : o1.hashCode();
-                int h2 = (o2 == null) ? 0 : o2.hashCode();
-                return h1 < h2 ? -1 : h1 == h2 ? 0 : 1;
-              }
-            };
+    this.comparator = comparator;
     this.combiner = combiner;
     this.isMapCombine = isMapCombine;
     this.metrics = metrics;
@@ -234,7 +224,7 @@ public class RMRecordsReader<K, V, C> {
     if (raw) {
       ComparativeOutputBuffer buffer1 = (ComparativeOutputBuffer) k1;
       ComparativeOutputBuffer buffer2 = (ComparativeOutputBuffer) k2;
-      return ((RawComparator) this.comparator)
+      return ((RawComparator<?>) this.comparator)
               .compare(
                   buffer1.getData(),
                   0,
@@ -244,7 +234,13 @@ public class RMRecordsReader<K, V, C> {
                   buffer2.getLength())
           == 0;
     } else {
-      return this.comparator.compare(k1, k2) == 0;
+      Comparator<Object> cpt =
+          (o1, o2) -> {
+            int h1 = (o1 == null) ? 0 : o1.hashCode();
+            int h2 = (o2 == null) ? 0 : o2.hashCode();
+            return Integer.compare(h1, h2);
+          };
+      return cpt.compare(k1, k2) == 0;
     }
   }
 
