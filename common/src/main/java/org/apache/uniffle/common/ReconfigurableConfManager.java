@@ -149,9 +149,7 @@ public class ReconfigurableConfManager<T> {
    * @param rssConfFilePath the rss conf file path for reloading
    */
   public static void init(RssConf rssConf, String rssConfFilePath) {
-    ReconfigurableConfManager manager =
-        new ReconfigurableConfManager(rssConf, rssConfFilePath, rssConf.getClass());
-    reconfigurableConfManager = manager;
+    reconfigurableConfManager = new ReconfigurableConfManager<>(rssConf, rssConfFilePath, rssConf.getClass());
   }
 
   /**
@@ -162,8 +160,7 @@ public class ReconfigurableConfManager<T> {
    */
   @VisibleForTesting
   protected static void initForTest(RssConf rssConf, Supplier<RssConf> confSupplier) {
-    ReconfigurableConfManager manager = new ReconfigurableConfManager(rssConf, confSupplier);
-    reconfigurableConfManager = manager;
+    reconfigurableConfManager = new ReconfigurableConfManager<>(rssConf, confSupplier);
   }
 
   /**
@@ -180,9 +177,7 @@ public class ReconfigurableConfManager<T> {
     }
 
     reconfigurableConfManager.registerInternal(configOption);
-    Reconfigurable<T> reconfigurable =
-        new Reconfigurable<T>(reconfigurableConfManager, configOption);
-    return reconfigurable;
+    return new Reconfigurable<>(reconfigurableConfManager, configOption);
   }
 
   public static class FixedReconfigurable<T> extends Reconfigurable<T> {
