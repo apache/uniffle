@@ -24,13 +24,11 @@ import java.io.OutputStreamWriter;
 import java.io.Serializable;
 import java.lang.reflect.Method;
 import java.net.BindException;
-import java.net.ServerSocket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.PrivilegedExceptionAction;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Comparator;
 import java.util.Properties;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -99,6 +97,9 @@ public class KerberizedHadoop implements Serializable {
   protected void setup() throws Exception {
     tempDir = Files.createTempDirectory("tempDir").toFile().toPath();
     kerberizedDfsBaseDir = Files.createTempDirectory("kerberizedDfsBaseDir").toFile().toPath();
+
+    registerShutdownCleanup(tempDir);
+    registerShutdownCleanup(kerberizedDfsBaseDir);
 
     startKDC();
     try {
@@ -198,27 +199,23 @@ public class KerberizedHadoop implements Serializable {
     this.kerberizedDfsCluster =
         RetryUtils.retry(
             () -> {
-              List<Integer> ports = findAvailablePorts(5);
-              LOGGER.info("Find available ports: {}", ports);
+              hdfsConf.set("dfs.datanode.ipc.address", "0.0.0.0:0");
+              hdfsConf.set("dfs.datanode.address", "0.0.0.0:0");
+              hdfsConf.set("dfs.datanode.http.address", "0.0.0.0:0");
 
-              hdfsConf.set("dfs.datanode.ipc.address", "0.0.0.0:" + ports.get(0));
-              hdfsConf.set("dfs.datanode.address", "0.0.0.0:" + ports.get(1));
-              hdfsConf.set("dfs.datanode.http.address", "0.0.0.0:" + ports.get(2));
-              hdfsConf.set("dfs.datanode.http.address", "0.0.0.0:" + ports.get(3));
+              MiniDFSCluster cluster = ugi.doAs((PrivilegedExceptionAction<MiniDFSCluster>) () ->
+                      new MiniDFSCluster.Builder(hdfsConf)
+                              .numDataNodes(1)
+                              .clusterId("kerberized-cluster-1")
+                              .checkDataNodeAddrConfig(true)
+                              .format(true)
+                              .build()
+              );
 
-              return ugi.doAs(
-                  new PrivilegedExceptionAction<MiniDFSCluster>() {
+              LOGGER.info("NameNode: {}", cluster.getNameNode().getHttpAddress());
+              LOGGER.info("DataNode: {}", cluster.getDataNodes().get(0).getXferAddress());
 
-                    @Override
-                    public MiniDFSCluster run() throws Exception {
-                      return new MiniDFSCluster.Builder(hdfsConf)
-                          .nameNodePort(ports.get(4))
-                          .numDataNodes(1)
-                          .clusterId("kerberized-cluster-1")
-                          .checkDataNodeAddrConfig(true)
-                          .build();
-                    }
-                  });
+              return cluster;
             },
             1000L,
             5,
@@ -263,21 +260,25 @@ public class KerberizedHadoop implements Serializable {
     UserGroupInformation.reset();
   }
 
-  private List<Integer> findAvailablePorts(int num) throws IOException {
-    List<ServerSocket> sockets = new ArrayList<>();
-    List<Integer> ports = new ArrayList<>();
-
-    for (int i = 0; i < num; i++) {
-      ServerSocket socket = new ServerSocket(0);
-      ports.add(socket.getLocalPort());
-      sockets.add(socket);
+  private void registerShutdownCleanup(Path dir) {
+    if (dir != null) {
+      Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+        try {
+          deleteDirectory(dir);
+        } catch (IOException e) {
+          LOGGER.warn("Failed to delete temp dir on shutdown: {}", dir, e);
+        }
+      }));
     }
+  }
 
-    for (ServerSocket socket : sockets) {
-      socket.close();
+  private void deleteDirectory(Path dir) throws IOException {
+    if (dir != null && Files.exists(dir)) {
+      Files.walk(dir)
+              .sorted(Comparator.reverseOrder())
+              .map(Path::toFile)
+              .forEach(File::delete);
     }
-
-    return ports;
   }
 
   public String getSchemeAndAuthorityPrefix() {
