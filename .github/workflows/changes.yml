@@ -34,31 +34,14 @@ jobs:
     steps:
       - name: Checkout project
         uses: actions/checkout@v3
-      - name: Get changed files
-        id: changed-files
-        run: |
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            echo "FILES=$(gh api /repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files --jq '[.[].filename]')" >> $GITHUB_OUTPUT
-          else
-            echo "FILES=$(git diff --name-only HEAD^ HEAD | jq -R -s -c 'split("\n")')" >> $GITHUB_OUTPUT
-          fi
-      - name: Set path flags
+      - uses: dorny/paths-filter@v2
         id: filter
-        run: |
-          files=${{ fromJSON(steps.changed-files.outputs.FILES) }}
-          kubernetes_flag="false"
-          docker_flag="false"
-          for file in "${files[@]}"; do
-            if [[ "$file" == deploy/kubernetes/* ]]; then
-              kubernetes_flag="true"
-              if [[ "$file" == deploy/kubernetes/docker/* ]]; then
-                docker_flag="true"
-              fi
-            fi
-          done
-          echo "kubernetes=$kubernetes_flag" >> $GITHUB_OUTPUT
-          echo "rss_server_docker=$docker_flag" >> $GITHUB_OUTPUT
+        with:
+          filters: |
+            kubernetes:
+              - 'deploy/kubernetes/**'
+            rss_server_docker:
+              - 'deploy/kubernetes/docker/**'
     outputs:
       kubernetes: ${{ steps.filter.outputs.kubernetes }}
       rss_server_docker: ${{ steps.filter.outputs.rss_server_docker }}
-
