@@ -22,8 +22,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.function.Supplier;
 
 import com.google.common.collect.Maps;
@@ -119,7 +119,7 @@ public class DataPusherTest {
         new ShuffleBlockInfo(1, 1, 1, 1, 1, new byte[1], null, 1, 100, 1);
     AddBlockEvent event = new AddBlockEvent("taskId", Arrays.asList(shuffleBlockInfo));
     // sync send
-    CompletableFuture<Long> future = dataPusher.send(event);
+    Future<Long> future = dataPusher.send(event);
     long memoryFree = future.get();
     assertEquals(100, memoryFree);
     assertTrue(taskToSuccessBlockIds.get("taskId").contains(1L));

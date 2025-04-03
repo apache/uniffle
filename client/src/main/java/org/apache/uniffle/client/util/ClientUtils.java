@@ -17,14 +17,18 @@
 
 package org.apache.uniffle.client.util;
 
-import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.apache.uniffle.client.api.ShuffleWriteClient;
 import org.apache.uniffle.common.ClientType;
@@ -32,6 +36,7 @@ import org.apache.uniffle.common.RemoteStorageInfo;
 import org.apache.uniffle.storage.util.StorageType;
 
 public class ClientUtils {
+  private static final Logger LOG = LoggerFactory.getLogger(ClientUtils.class);
 
   public static RemoteStorageInfo fetchRemoteStorage(
       String appId,
@@ -54,42 +59,50 @@ public class ClientUtils {
   }
 
   @SuppressWarnings("rawtypes")
-  public static boolean waitUntilDoneOrFail(
-      List<CompletableFuture<Boolean>> futures, boolean allowFastFail) {
-    int expected = futures.size();
+  public static boolean waitUntilDoneOrFail(List<Future<Boolean>> list, boolean allowFastFail) {
+    int expected = list.size();
     int failed = 0;
+    int finished = 0;
+    List<Future<Boolean>> futures = new LinkedList<>(list);
 
-    CompletableFuture allFutures =
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
-
-    List<Future> finished = new ArrayList<>();
     while (true) {
-      for (Future<Boolean> future : futures) {
-        if (future.isDone() && !finished.contains(future)) {
-          finished.add(future);
+      Iterator<Future<Boolean>> iterator = futures.iterator();
+      while (iterator.hasNext()) {
+        Future<Boolean> future = iterator.next();
+        if (future.isDone()) {
+          iterator.remove();
           try {
             if (!future.get()) {
               failed++;
+            } else {
+              finished++;
             }
           } catch (Exception e) {
+            // cancel or execution exception
             failed++;
           }
         }
       }
 
-      if (expected == finished.size()) {
+      if (expected == finished || futures.isEmpty()) {
         return failed <= 0;
       }
 
       if (failed > 0 && allowFastFail) {
-        futures.stream().filter(x -> !x.isDone()).forEach(x -> x.cancel(true));
+        futures.forEach(x -> x.cancel(true));
         return false;
       }
-
       try {
-        allFutures.get(10, TimeUnit.MILLISECONDS);
-      } catch (Exception e) {
+        futures.get(0).get(10, TimeUnit.MILLISECONDS);
+      } catch (InterruptedException e) {
+        futures.forEach(x -> x.cancel(true));
+        Thread.currentThread().interrupt();
+        return false;
+      } catch (TimeoutException e) {
         // ignore
+      } catch (Exception e) {
+        LOG.warn("Exception in waitUntilDoneOrFail", e);
+        // ignore timeout or execution err
       }
     }
   }

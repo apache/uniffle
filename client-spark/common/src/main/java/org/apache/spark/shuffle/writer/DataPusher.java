@@ -24,8 +24,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -80,11 +81,12 @@ public class DataPusher implements Closeable {
             ThreadUtils.getThreadFactory(this.getClass().getName()));
   }
 
-  public CompletableFuture<Long> send(AddBlockEvent event) {
+  public Future<Long> send(AddBlockEvent event) {
     if (rssAppId == null) {
       throw new RssException("RssAppId should be set.");
     }
-    return CompletableFuture.supplyAsync(
+    FutureTask<Long> future =
+        new FutureTask(
             () -> {
               String taskId = event.getTaskId();
               List<ShuffleBlockInfo> shuffleBlockInfoList = event.getShuffleDataInfoList();
@@ -116,14 +118,11 @@ public class DataPusher implements Closeable {
                   .filter(x -> succeedBlockIds.contains(x.getBlockId()))
                   .map(x -> x.getFreeMemory())
                   .reduce((a, b) -> a + b)
-                  .get();
-            },
-            executorService)
-        .exceptionally(
-            ex -> {
-              LOGGER.error("Unexpected exceptions occurred while sending shuffle data", ex);
-              return null;
+                  .orElseGet(() -> 0L);
             });
+    event.doPrepare(future);
+    executorService.submit(future);
+    return future;
   }
 
   private Set<Long> getSucceedBlockIds(SendShuffleDataResult result) {

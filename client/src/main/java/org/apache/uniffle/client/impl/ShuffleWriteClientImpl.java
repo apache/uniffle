@@ -25,9 +25,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.Future;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -179,87 +180,76 @@ public class ShuffleWriteClientImpl implements ShuffleWriteClient {
     }
 
     // If one or more servers is failed, the sending is not totally successful.
-    List<CompletableFuture<Boolean>> futures = new ArrayList<>();
+    List<Future<Boolean>> futures = new ArrayList<>();
     for (Map.Entry<ShuffleServerInfo, Map<Integer, Map<Integer, List<ShuffleBlockInfo>>>> entry :
         serverToBlocks.entrySet()) {
-      CompletableFuture<Boolean> future =
-          CompletableFuture.supplyAsync(
-                  () -> {
-                    if (needCancelRequest.get()) {
-                      LOG.info("The upstream task has been failed. Abort this data send.");
-                      return true;
-                    }
-                    ShuffleServerInfo ssi = entry.getKey();
-                    try {
-                      Map<Integer, Map<Integer, List<ShuffleBlockInfo>>> shuffleIdToBlocks =
-                          entry.getValue();
-                      // todo: compact unnecessary blocks that reach replicaWrite
-                      RssSendShuffleDataRequest request =
-                          new RssSendShuffleDataRequest(
-                              appId,
-                              stageAttemptNumber,
-                              retryMax,
-                              retryIntervalMax,
-                              shuffleIdToBlocks);
-                      long s = System.currentTimeMillis();
-                      RssSendShuffleDataResponse response =
-                          getShuffleServerClient(ssi).sendShuffleData(request);
+      FutureTask<Boolean> future =
+          new FutureTask<Boolean>(
+              () -> {
+                if (needCancelRequest.get()) {
+                  LOG.info("The upstream task has been failed. Abort this data send.");
+                  return true;
+                }
+                ShuffleServerInfo ssi = entry.getKey();
+                try {
+                  Map<Integer, Map<Integer, List<ShuffleBlockInfo>>> shuffleIdToBlocks =
+                      entry.getValue();
+                  // todo: compact unnecessary blocks that reach replicaWrite
+                  RssSendShuffleDataRequest request =
+                      new RssSendShuffleDataRequest(
+                          appId, stageAttemptNumber, retryMax, retryIntervalMax, shuffleIdToBlocks);
+                  long s = System.currentTimeMillis();
+                  RssSendShuffleDataResponse response =
+                      getShuffleServerClient(ssi).sendShuffleData(request);
 
-                      String logMsg =
-                          String.format(
-                              "ShuffleWriteClientImpl sendShuffleData with %s blocks to %s cost: %s(ms)",
-                              serverToBlockIds.get(ssi).size(),
-                              ssi.getId(),
-                              System.currentTimeMillis() - s);
+                  String logMsg =
+                      String.format(
+                          "ShuffleWriteClientImpl sendShuffleData with %s blocks to %s cost: %s(ms)",
+                          serverToBlockIds.get(ssi).size(),
+                          ssi.getId(),
+                          System.currentTimeMillis() - s);
 
-                      if (response.getStatusCode() == StatusCode.SUCCESS) {
-                        // mark a replica of block that has been sent
-                        serverToBlockIds
-                            .get(ssi)
-                            .forEach(
-                                blockId ->
-                                    blockIdsSendSuccessTracker.get(blockId).incrementAndGet());
-                        recordNeedSplitPartition(
-                            failedBlockSendTracker, ssi, response.getNeedSplitPartitionIds());
-                        if (defectiveServers != null) {
-                          defectiveServers.remove(ssi);
-                        }
-                        if (LOG.isDebugEnabled()) {
-                          LOG.debug("{} successfully.", logMsg);
-                        }
-                      } else {
-                        recordFailedBlocks(
-                            failedBlockSendTracker, serverToBlocks, ssi, response.getStatusCode());
-                        if (defectiveServers != null) {
-                          defectiveServers.add(ssi);
-                        }
-                        LOG.warn(
-                            "{}, it failed wth statusCode[{}]", logMsg, response.getStatusCode());
-                        return false;
-                      }
-                    } catch (Exception e) {
-                      recordFailedBlocks(
-                          failedBlockSendTracker, serverToBlocks, ssi, StatusCode.INTERNAL_ERROR);
-                      if (defectiveServers != null) {
-                        defectiveServers.add(ssi);
-                      }
-                      LOG.warn(
-                          "Send: "
-                              + serverToBlockIds.get(ssi).size()
-                              + " blocks to ["
-                              + ssi.getId()
-                              + "] failed.",
-                          e);
-                      return false;
+                  if (response.getStatusCode() == StatusCode.SUCCESS) {
+                    // mark a replica of block that has been sent
+                    serverToBlockIds
+                        .get(ssi)
+                        .forEach(
+                            blockId -> blockIdsSendSuccessTracker.get(blockId).incrementAndGet());
+                    recordNeedSplitPartition(
+                        failedBlockSendTracker, ssi, response.getNeedSplitPartitionIds());
+                    if (defectiveServers != null) {
+                      defectiveServers.remove(ssi);
                     }
-                    return true;
-                  },
-                  dataTransferPool)
-              .exceptionally(
-                  ex -> {
-                    LOG.error("Unexpected exceptions occurred while sending shuffle data", ex);
+                    if (LOG.isDebugEnabled()) {
+                      LOG.debug("{} successfully.", logMsg);
+                    }
+                  } else {
+                    recordFailedBlocks(
+                        failedBlockSendTracker, serverToBlocks, ssi, response.getStatusCode());
+                    if (defectiveServers != null) {
+                      defectiveServers.add(ssi);
+                    }
+                    LOG.warn("{}, it failed wth statusCode[{}]", logMsg, response.getStatusCode());
                     return false;
-                  });
+                  }
+                } catch (Exception e) {
+                  recordFailedBlocks(
+                      failedBlockSendTracker, serverToBlocks, ssi, StatusCode.INTERNAL_ERROR);
+                  if (defectiveServers != null) {
+                    defectiveServers.add(ssi);
+                  }
+                  LOG.warn(
+                      "Send: "
+                          + serverToBlockIds.get(ssi).size()
+                          + " blocks to ["
+                          + ssi.getId()
+                          + "] failed.",
+                      e);
+                  return false;
+                }
+                return true;
+              });
+      dataTransferPool.submit(future);
       futures.add(future);
     }
 
@@ -443,7 +433,10 @@ public class ShuffleWriteClientImpl implements ShuffleWriteClient {
     // Even though the secondary round may send blocks more than replicaWrite replicas,
     // we do not apply complicated skipping logic, because server crash is rare in production
     // environment.
-    if (!isAllSuccess && !secondaryServerToBlocks.isEmpty() && !needCancelRequest.get()) {
+    if (!isAllSuccess
+        && !secondaryServerToBlocks.isEmpty()
+        && !needCancelRequest.get()
+        && !Thread.currentThread().isInterrupted()) {
       LOG.info("The sending of primary round is failed partially, so start the secondary round");
       sendShuffleDataAsync(
           appId,

@@ -19,22 +19,31 @@ package org.apache.spark.shuffle.writer;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Future;
+import java.util.function.Consumer;
 
 import org.apache.uniffle.common.ShuffleBlockInfo;
 
 public class AddBlockEvent {
 
+  private Long eventId;
   private String taskId;
   private int stageAttemptNumber;
   private List<ShuffleBlockInfo> shuffleDataInfoList;
   private List<Runnable> processedCallbackChain;
 
+  private Consumer<Future> prepare;
+
   public AddBlockEvent(String taskId, List<ShuffleBlockInfo> shuffleDataInfoList) {
-    this(taskId, 0, shuffleDataInfoList);
+    this(-1L, taskId, 0, shuffleDataInfoList);
   }
 
   public AddBlockEvent(
-      String taskId, int stageAttemptNumber, List<ShuffleBlockInfo> shuffleDataInfoList) {
+      Long eventId,
+      String taskId,
+      int stageAttemptNumber,
+      List<ShuffleBlockInfo> shuffleDataInfoList) {
+    this.eventId = eventId;
     this.taskId = taskId;
     this.stageAttemptNumber = stageAttemptNumber;
     this.shuffleDataInfoList = shuffleDataInfoList;
@@ -46,8 +55,22 @@ public class AddBlockEvent {
     processedCallbackChain.add(callback);
   }
 
+  public void addPrepare(Consumer<Future> prepare) {
+    this.prepare = prepare;
+  }
+
+  public void doPrepare(Future future) {
+    if (prepare != null) {
+      prepare.accept(future);
+    }
+  }
+
   public String getTaskId() {
     return taskId;
+  }
+
+  public Long getEventId() {
+    return eventId;
   }
 
   public int getStageAttemptNumber() {
