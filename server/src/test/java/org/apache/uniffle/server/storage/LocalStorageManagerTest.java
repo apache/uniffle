@@ -323,16 +323,19 @@ public class LocalStorageManagerTest {
         try {
           Process dfProc = new ProcessBuilder("df", "--output=source", path).start();
           String mountDevice;
-          try (BufferedReader reader = new BufferedReader(new InputStreamReader(dfProc.getInputStream()))) {
+          try (BufferedReader reader =
+              new BufferedReader(new InputStreamReader(dfProc.getInputStream()))) {
             reader.readLine();
             mountDevice = reader.readLine();
           }
 
           if (mountDevice != null && !mountDevice.trim().isEmpty()) {
             String deviceName = new File(mountDevice.trim()).getName();
-            Process lsblkProc = new ProcessBuilder("lsblk", "-no", "ROTA", "/dev/" + deviceName).start();
+            Process lsblkProc =
+                new ProcessBuilder("lsblk", "-no", "ROTA", "/dev/" + deviceName).start();
             String rotaValue;
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(lsblkProc.getInputStream()))) {
+            try (BufferedReader reader =
+                new BufferedReader(new InputStreamReader(lsblkProc.getInputStream()))) {
               rotaValue = reader.readLine();
             }
 
