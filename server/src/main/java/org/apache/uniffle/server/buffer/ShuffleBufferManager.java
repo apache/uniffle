@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -65,6 +66,7 @@ public class ShuffleBufferManager {
   private static final Logger LOG = LoggerFactory.getLogger(ShuffleBufferManager.class);
 
   private final ShuffleBufferType shuffleBufferType;
+  private final int flushTryLockTimeout;
   private ShuffleTaskManager shuffleTaskManager;
   private final ShuffleFlushManager shuffleFlushManager;
   private long capacity;
@@ -150,7 +152,7 @@ public class ShuffleBufferManager {
     appBlockSizeMetricEnabled =
         conf.getBoolean(ShuffleServerConf.APP_LEVEL_SHUFFLE_BLOCK_SIZE_METRIC_ENABLED);
     shuffleBufferType = conf.get(ShuffleServerConf.SERVER_SHUFFLE_BUFFER_TYPE);
-
+    flushTryLockTimeout = conf.get(ShuffleServerConf.SERVER_SHUFFLE_FLUSH_TRYLOCK_TIMEOUT);
     ShuffleServerMetrics.addLabeledCacheGauge(
         BLOCK_COUNT_IN_BUFFER_POOL,
         () ->
@@ -597,29 +599,46 @@ public class ShuffleBufferManager {
         bufferPool.entrySet()) {
       String appId = appIdToBuffers.getKey();
       if (requiredFlush.containsKey(appId)) {
-        for (Map.Entry<Integer, RangeMap<Integer, ShuffleBuffer>> shuffleIdToBuffers :
-            appIdToBuffers.getValue().entrySet()) {
-          int shuffleId = shuffleIdToBuffers.getKey();
-          Set<Integer> requiredShuffleId = requiredFlush.get(appId);
-          if (requiredShuffleId != null && requiredShuffleId.contains(shuffleId)) {
-            for (Map.Entry<Range<Integer>, ShuffleBuffer> rangeEntry :
-                shuffleIdToBuffers.getValue().asMapOfRanges().entrySet()) {
-              Range<Integer> range = rangeEntry.getKey();
-              ShuffleBuffer shuffleBuffer = rangeEntry.getValue();
-              pickedFlushSize += shuffleBuffer.getEncodedLength();
-              flushBuffer(
-                  shuffleBuffer,
-                  appId,
-                  shuffleId,
-                  range.lowerEndpoint(),
-                  range.upperEndpoint(),
-                  HugePartitionUtils.isHugePartition(
-                      shuffleTaskManager, appId, shuffleId, range.lowerEndpoint()));
-              if (pickedFlushSize > expectedFlushSize) {
-                LOG.info("Already picked enough buffers to flush {} bytes", pickedFlushSize);
-                return;
+        if (shuffleTaskManager.isAppExpired(appId)) {
+          continue;
+        }
+        ReentrantReadWriteLock.ReadLock readLock = shuffleTaskManager.getAppReadLock(appId);
+        boolean lockAcquired = false;
+        try {
+          lockAcquired = readLock.tryLock(flushTryLockTimeout, TimeUnit.MILLISECONDS);
+          if (!lockAcquired) {
+            continue;
+          }
+          for (Map.Entry<Integer, RangeMap<Integer, ShuffleBuffer>> shuffleIdToBuffers :
+              appIdToBuffers.getValue().entrySet()) {
+            int shuffleId = shuffleIdToBuffers.getKey();
+            Set<Integer> requiredShuffleId = requiredFlush.get(appId);
+            if (requiredShuffleId != null && requiredShuffleId.contains(shuffleId)) {
+              for (Map.Entry<Range<Integer>, ShuffleBuffer> rangeEntry :
+                  shuffleIdToBuffers.getValue().asMapOfRanges().entrySet()) {
+                Range<Integer> range = rangeEntry.getKey();
+                ShuffleBuffer shuffleBuffer = rangeEntry.getValue();
+                pickedFlushSize += shuffleBuffer.getEncodedLength();
+                flushBuffer(
+                    shuffleBuffer,
+                    appId,
+                    shuffleId,
+                    range.lowerEndpoint(),
+                    range.upperEndpoint(),
+                    HugePartitionUtils.isHugePartition(
+                        shuffleTaskManager, appId, shuffleId, range.lowerEndpoint()));
+                if (pickedFlushSize > expectedFlushSize) {
+                  LOG.info("Already picked enough buffers to flush {} bytes", pickedFlushSize);
+                  return;
+                }
               }
             }
+          }
+        } catch (InterruptedException e) {
+          LOG.warn("Ignore the InterruptedException which should be caused by internal killed");
+        } finally {
+          if (lockAcquired) {
+            readLock.unlock();
           }
         }
       }
