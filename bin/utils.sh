@@ -185,17 +185,15 @@ function load_rss_env {
   fi
 
   # export default value
-  set +o nounset
-  if [ -z "$HADOOP_CONF_DIR" ] && [ "$HADOOP_HOME" ]; then
+  if [ -z "${HADOOP_CONF_DIR:-}" ] && [ -n "${HADOOP_HOME:-}" ]; then
     HADOOP_CONF_DIR="${HADOOP_HOME}/etc/hadoop"
   fi
-  if [ -z "$RSS_LOG_DIR" ]; then
+  if [ -z "${RSS_LOG_DIR:-}" ]; then
     RSS_LOG_DIR="${RSS_HOME}/logs"
   fi
-  if [ -z "$RSS_PID_DIR" ]; then
+  if [ -z "${RSS_PID_DIR:-}" ]; then
     RSS_PID_DIR="${RSS_HOME}"
   fi
-  set -o nounset
 
   RUNNER="${JAVA_HOME}/bin/java"
   JPS="${JAVA_HOME}/bin/jps"
@@ -208,14 +206,12 @@ function load_rss_env {
     echo "Using RSS from ${RSS_HOME}"
     echo "Using RSS conf from ${RSS_CONF_DIR}"
 
-    set +u
-    if [ $HADOOP_HOME ]; then
+    if [ -n "${HADOOP_HOME:-}" ]; then
       echo "Using Hadoop from ${HADOOP_HOME}"
     fi
-    if [ $HADOOP_CONF_DIR ]; then
+    if [ -n "${HADOOP_CONF_DIR:-}" ]; then
       echo "Using Hadoop conf from ${HADOOP_CONF_DIR}"
     fi
-    set -u
 
     echo "Write log file to ${RSS_LOG_DIR}"
     echo "Write pid file to ${RSS_PID_DIR}"
