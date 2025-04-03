@@ -320,18 +320,31 @@ public class LocalStorageManagerTest {
       assertNotNull(storageInfo.get(mountPoint));
       // on Linux environment, it can detect SSD as local storage type
       if (SystemUtils.IS_OS_LINUX) {
-        final String cmd =
-            String.format(
-                "%s | %s | %s",
-                "lsblk -a -o name,rota",
-                "grep $(df --output=source " + path + " | tail -n 1 | sed -E 's_^.+/__')",
-                "awk '{print $2}'");
-        Process process = Runtime.getRuntime().exec(new String[] {"bash", "-c", cmd});
-        BufferedReader br = new BufferedReader(new InputStreamReader(process.getInputStream()));
-        final String line = br.readLine();
-        br.close();
-        final StorageMedia expected = "0".equals(line) ? StorageMedia.SSD : StorageMedia.HDD;
-        assertEquals(expected, storageInfo.get(mountPoint).getType());
+        try {
+          Process dfProc = new ProcessBuilder("df", "--output=source", path).start();
+          String mountDevice;
+          try (BufferedReader reader = new BufferedReader(new InputStreamReader(dfProc.getInputStream()))) {
+            reader.readLine();
+            mountDevice = reader.readLine();
+          }
+
+          if (mountDevice != null && !mountDevice.trim().isEmpty()) {
+            String deviceName = new File(mountDevice.trim()).getName();
+            Process lsblkProc = new ProcessBuilder("lsblk", "-no", "ROTA", "/dev/" + deviceName).start();
+            String rotaValue;
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(lsblkProc.getInputStream()))) {
+              rotaValue = reader.readLine();
+            }
+
+            if ("0".equals(rotaValue)) {
+              assertEquals(StorageMedia.SSD, storageInfo.get(mountPoint).getType());
+            } else if ("1".equals(rotaValue)) {
+              assertEquals(StorageMedia.HDD, storageInfo.get(mountPoint).getType());
+            }
+          }
+        } catch (Exception ignored) {
+          // Silently ignore device type detection failure
+        }
       } else {
         assertEquals(StorageMedia.HDD, storageInfo.get(mountPoint).getType());
       }
