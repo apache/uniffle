@@ -203,14 +203,16 @@ public class KerberizedHadoop implements Serializable {
               hdfsConf.set("dfs.datanode.address", "0.0.0.0:0");
               hdfsConf.set("dfs.datanode.http.address", "0.0.0.0:0");
 
-              MiniDFSCluster cluster = ugi.doAs((PrivilegedExceptionAction<MiniDFSCluster>) () ->
-                      new MiniDFSCluster.Builder(hdfsConf)
-                              .numDataNodes(1)
-                              .clusterId("kerberized-cluster-1")
-                              .checkDataNodeAddrConfig(true)
-                              .format(true)
-                              .build()
-              );
+              MiniDFSCluster cluster =
+                  ugi.doAs(
+                      (PrivilegedExceptionAction<MiniDFSCluster>)
+                          () ->
+                              new MiniDFSCluster.Builder(hdfsConf)
+                                  .numDataNodes(1)
+                                  .clusterId("kerberized-cluster-1")
+                                  .checkDataNodeAddrConfig(true)
+                                  .format(true)
+                                  .build());
 
               LOGGER.info("NameNode: {}", cluster.getNameNode().getHttpAddress());
               LOGGER.info("DataNode: {}", cluster.getDataNodes().get(0).getXferAddress());
@@ -262,22 +264,22 @@ public class KerberizedHadoop implements Serializable {
 
   private void registerShutdownCleanup(Path dir) {
     if (dir != null) {
-      Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-        try {
-          deleteDirectory(dir);
-        } catch (IOException e) {
-          LOGGER.warn("Failed to delete temp dir on shutdown: {}", dir, e);
-        }
-      }));
+      Runtime.getRuntime()
+          .addShutdownHook(
+              new Thread(
+                  () -> {
+                    try {
+                      deleteDirectory(dir);
+                    } catch (IOException e) {
+                      LOGGER.warn("Failed to delete temp dir on shutdown: {}", dir, e);
+                    }
+                  }));
     }
   }
 
   private void deleteDirectory(Path dir) throws IOException {
     if (dir != null && Files.exists(dir)) {
-      Files.walk(dir)
-              .sorted(Comparator.reverseOrder())
-              .map(Path::toFile)
-              .forEach(File::delete);
+      Files.walk(dir).sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
     }
   }
 
