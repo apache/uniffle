@@ -23,7 +23,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -70,6 +70,8 @@ public class WriteBufferManager extends MemoryConsumer {
   private AtomicLong recordCounter = new AtomicLong(0);
   /** An atomic counter used to keep track of the number of blocks */
   private AtomicLong blockCounter = new AtomicLong(0);
+
+  private AtomicLong eventIdGenerator = new AtomicLong(0);
   // it's part of blockId
   private Map<Integer, AtomicInteger> partitionToSeqNo = Maps.newHashMap();
   private long askExecutorMemory;
@@ -96,7 +98,7 @@ public class WriteBufferManager extends MemoryConsumer {
   private long requireMemoryInterval;
   private int requireMemoryRetryMax;
   private Optional<Codec> codec;
-  private Function<List<ShuffleBlockInfo>, List<CompletableFuture<Long>>> spillFunc;
+  private Function<List<ShuffleBlockInfo>, List<Future<Long>>> spillFunc;
   private long sendSizeLimit;
   private boolean memorySpillEnabled;
   private int memorySpillTimeoutSec;
@@ -138,7 +140,7 @@ public class WriteBufferManager extends MemoryConsumer {
       TaskMemoryManager taskMemoryManager,
       ShuffleWriteMetrics shuffleWriteMetrics,
       RssConf rssConf,
-      Function<List<ShuffleBlockInfo>, List<CompletableFuture<Long>>> spillFunc,
+      Function<List<ShuffleBlockInfo>, List<Future<Long>>> spillFunc,
       Function<Integer, List<ShuffleServerInfo>> partitionAssignmentRetrieveFunc) {
     this(
         shuffleId,
@@ -163,7 +165,7 @@ public class WriteBufferManager extends MemoryConsumer {
       TaskMemoryManager taskMemoryManager,
       ShuffleWriteMetrics shuffleWriteMetrics,
       RssConf rssConf,
-      Function<List<ShuffleBlockInfo>, List<CompletableFuture<Long>>> spillFunc,
+      Function<List<ShuffleBlockInfo>, List<Future<Long>>> spillFunc,
       Function<Integer, List<ShuffleServerInfo>> partitionAssignmentRetrieveFunc,
       int stageAttemptNumber) {
     super(taskMemoryManager, taskMemoryManager.pageSizeBytes(), MemoryMode.ON_HEAP);
@@ -212,7 +214,7 @@ public class WriteBufferManager extends MemoryConsumer {
       TaskMemoryManager taskMemoryManager,
       ShuffleWriteMetrics shuffleWriteMetrics,
       RssConf rssConf,
-      Function<List<ShuffleBlockInfo>, List<CompletableFuture<Long>>> spillFunc,
+      Function<List<ShuffleBlockInfo>, List<Future<Long>>> spillFunc,
       int stageAttemptNumber) {
     this(
         shuffleId,
@@ -528,7 +530,12 @@ public class WriteBufferManager extends MemoryConsumer {
                   + totalSize
                   + " bytes");
         }
-        events.add(new AddBlockEvent(taskId, stageAttemptNumber, shuffleBlockInfosPerEvent));
+        events.add(
+            new AddBlockEvent(
+                eventIdGenerator.incrementAndGet(),
+                taskId,
+                stageAttemptNumber,
+                shuffleBlockInfosPerEvent));
         shuffleBlockInfosPerEvent = Lists.newArrayList();
         totalSize = 0;
       }
@@ -543,7 +550,12 @@ public class WriteBufferManager extends MemoryConsumer {
                 + " bytes");
       }
       // Use final temporary variables for closures
-      events.add(new AddBlockEvent(taskId, stageAttemptNumber, shuffleBlockInfosPerEvent));
+      events.add(
+          new AddBlockEvent(
+              eventIdGenerator.incrementAndGet(),
+              taskId,
+              stageAttemptNumber,
+              shuffleBlockInfosPerEvent));
     }
     return events;
   }
@@ -555,15 +567,19 @@ public class WriteBufferManager extends MemoryConsumer {
       return 0L;
     }
 
-    List<CompletableFuture<Long>> futures = spillFunc.apply(clear(bufferSpillRatio));
-    CompletableFuture<Void> allOfFutures =
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture[futures.size()]));
+    List<Future<Long>> futures = spillFunc.apply(clear(bufferSpillRatio));
+    long end = System.currentTimeMillis() + memorySpillTimeoutSec * 1000;
     try {
-      allOfFutures.get(memorySpillTimeoutSec, TimeUnit.SECONDS);
+      for (Future f : futures) {
+        f.get(end - System.currentTimeMillis(), TimeUnit.MILLISECONDS);
+      }
     } catch (TimeoutException timeoutException) {
       // A best effort strategy to wait.
       // If timeout exception occurs, the underlying tasks won't be cancelled.
       LOG.warn("[taskId: {}] Spill tasks timeout after {} seconds", taskId, memorySpillTimeoutSec);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      LOG.warn("[taskId: {}] Spill interrupted due to kill", taskId);
     } catch (Exception e) {
       LOG.warn("[taskId: {}] Failed to spill buffers due to ", taskId, e);
     } finally {
@@ -606,6 +622,10 @@ public class WriteBufferManager extends MemoryConsumer {
 
   public long getBlockCount() {
     return blockCounter.get();
+  }
+
+  public Long getLastEventId() {
+    return eventIdGenerator.get();
   }
 
   public void freeAllocatedMemory(long freeMemory) {
@@ -671,8 +691,7 @@ public class WriteBufferManager extends MemoryConsumer {
   }
 
   @VisibleForTesting
-  public void setSpillFunc(
-      Function<List<ShuffleBlockInfo>, List<CompletableFuture<Long>>> spillFunc) {
+  public void setSpillFunc(Function<List<ShuffleBlockInfo>, List<Future<Long>>> spillFunc) {
     this.spillFunc = spillFunc;
   }
 
