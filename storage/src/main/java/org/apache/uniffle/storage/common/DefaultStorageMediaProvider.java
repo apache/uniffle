@@ -24,6 +24,7 @@ import java.net.URISyntaxException;
 import java.nio.file.FileStore;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 
@@ -40,6 +41,7 @@ public class DefaultStorageMediaProvider implements StorageMediaProvider {
   private static final String NUMBERIC_STRING = "0123456789";
   private static final String BLOCK_PATH_FORMAT = "/sys/block/%s/queue/rotational";
   private static final String HDFS = "hdfs";
+  private static final String FILE = "file";
   private static final List<String> OBJECT_STORE_SCHEMAS =
       Arrays.asList("s3", "oss", "cos", "gcs", "obs", "daos");
 
@@ -65,6 +67,13 @@ public class DefaultStorageMediaProvider implements StorageMediaProvider {
         File baseFile = new File(baseDir);
         FileStore store = getFileStore(baseFile.toPath());
         if (store == null) {
+          URI uri = new URI(baseDir);
+          String scheme = uri.getScheme();
+          if (FILE.equals(scheme)) {
+            store = getFileStore(Paths.get(uri));
+          }
+        }
+        if (store == null) {
           throw new IOException("Can't get FileStore for path:" + baseFile.getAbsolutePath());
         }
         String deviceName = getDeviceName(store.name());
@@ -81,8 +90,8 @@ public class DefaultStorageMediaProvider implements StorageMediaProvider {
             }
           }
         }
-      } catch (IOException ioe) {
-        logger.warn("Get storage type failed with exception", ioe);
+      } catch (IOException | URISyntaxException e) {
+        logger.warn("Get storage type failed with exception", e);
       }
     }
     logger.info("Default storage type provider returns HDD by default");

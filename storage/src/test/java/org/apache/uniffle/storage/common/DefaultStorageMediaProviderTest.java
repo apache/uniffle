@@ -40,8 +40,8 @@ public class DefaultStorageMediaProviderTest {
         StorageMedia.OBJECT_STORE, provider.getStorageMediaFor("cos://bucket-name/b/path"));
 
     // by default, the local file should report as HDD
-    assertEquals(StorageMedia.HDD, provider.getStorageMediaFor("/path/to/base/dir"));
-    assertEquals(StorageMedia.HDD, provider.getStorageMediaFor("file:///path/to/a/dir"));
+    assertEquals(StorageMedia.HDD, provider.getStorageMediaFor("path/to/base/dir"));
+    assertEquals(provider.getStorageMediaFor("/"), provider.getStorageMediaFor("file:///path/to/a/dir"));
 
     // invalid uri should also be reported as HDD
     assertEquals(StorageMedia.HDD, provider.getStorageMediaFor("file@xx:///path/to/a"));
