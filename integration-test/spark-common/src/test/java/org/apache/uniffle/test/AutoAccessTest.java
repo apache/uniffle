@@ -89,7 +89,7 @@ public class AutoAccessTest extends IntegrationTestBase {
             + "org.apache.uniffle.coordinator.access.checker.AccessClusterLoadChecker");
     storeCoordinatorConf(coordinatorConf);
 
-    ShuffleServerConf shuffleServerConf = shuffleServerConfWithoutPort(0, tmpDir, ServerType.GRPC);
+    ShuffleServerConf shuffleServerConf = shuffleServerConfWithoutPort(0, tmpDir, ServerType.GRPC_NETTY);
     storeShuffleServerConf(shuffleServerConf);
     startServersWithRandomPorts();
     Uninterruptibles.sleepUninterruptibly(2, TimeUnit.SECONDS);

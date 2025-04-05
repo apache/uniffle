@@ -69,7 +69,7 @@ public class CoordinatorAssignmentTest extends CoordinatorTestBase {
 
     for (int i = 0; i < SERVER_NUM; i++) {
       ShuffleServerConf shuffleServerConf =
-          shuffleServerConfWithoutPort(i, tmpDir, ServerType.GRPC);
+          shuffleServerConfWithoutPort(i, tmpDir, ServerType.GRPC_NETTY);
       shuffleServerConf.setString(
           ShuffleServerConf.RSS_STORAGE_TYPE.key(), StorageType.MEMORY_LOCALFILE_HDFS.name());
       shuffleServerConf.set(RssBaseConf.RPC_METRICS_ENABLED, true);

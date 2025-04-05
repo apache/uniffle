@@ -35,6 +35,7 @@ import org.apache.uniffle.client.factory.ShuffleClientFactory;
 import org.apache.uniffle.client.impl.ShuffleWriteClientImpl;
 import org.apache.uniffle.common.ClientType;
 import org.apache.uniffle.common.ShuffleAssignmentsInfo;
+import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.rpc.ServerType;
 import org.apache.uniffle.common.util.Constants;
 import org.apache.uniffle.coordinator.CoordinatorConf;
@@ -59,7 +60,7 @@ public class AssignmentWithTagsTest extends CoordinatorTestBase {
 
   private static void prepareShuffleServerConf(int subDirIndex, Set<String> tags, File tmpDir) {
     ShuffleServerConf shuffleServerConf =
-        shuffleServerConfWithoutPort(subDirIndex, tmpDir, ServerType.GRPC);
+        shuffleServerConfWithoutPort(subDirIndex, tmpDir, ServerType.GRPC_NETTY);
     shuffleServerConf.setLong("rss.server.app.expired.withoutHeartbeat", 4000);
     shuffleServerConf.setString("rss.storage.type", StorageType.LOCALFILE.name());
     shuffleServerConf.setString("rss.server.tags", StringUtils.join(tags, ","));
@@ -85,16 +86,16 @@ public class AssignmentWithTagsTest extends CoordinatorTestBase {
 
     startServersWithRandomPorts();
     List<Integer> collect =
-        grpcShuffleServers.stream().map(ShuffleServer::getGrpcPort).collect(Collectors.toList());
+        nettyShuffleServers.stream().map(ShuffleServer::getNettyPort).collect(Collectors.toList());
     tagOfShufflePorts.put(Constants.SHUFFLE_SERVER_VERSION, collect);
     tagOfShufflePorts.put(
         tag1,
         Arrays.asList(
-            grpcShuffleServers.get(2).getGrpcPort(), grpcShuffleServers.get(3).getGrpcPort()));
+            nettyShuffleServers.get(2).getNettyPort(), nettyShuffleServers.get(3).getNettyPort()));
     tagOfShufflePorts.put(
         tag2,
         Arrays.asList(
-            grpcShuffleServers.get(4).getGrpcPort(), grpcShuffleServers.get(5).getGrpcPort()));
+            nettyShuffleServers.get(4).getNettyPort(), nettyShuffleServers.get(5).getNettyPort()));
 
     // Wait all shuffle servers registering to coordinator
     long startTimeMS = System.currentTimeMillis();
@@ -137,7 +138,7 @@ public class AssignmentWithTagsTest extends CoordinatorTestBase {
     List<Integer> assignedServerPorts =
         assignmentsInfo.getPartitionToServers().values().stream()
             .flatMap(x -> x.stream())
-            .map(x -> x.getGrpcPort())
+            .map(ShuffleServerInfo::getNettyPort)
             .collect(Collectors.toList());
     assertEquals(1, assignedServerPorts.size());
     assertTrue(
@@ -161,7 +162,7 @@ public class AssignmentWithTagsTest extends CoordinatorTestBase {
     assignedServerPorts =
         assignmentsInfo.getPartitionToServers().values().stream()
             .flatMap(x -> x.stream())
-            .map(x -> x.getGrpcPort())
+            .map(ShuffleServerInfo::getNettyPort)
             .collect(Collectors.toList());
     assertEquals(1, assignedServerPorts.size());
     assertTrue(tagOfShufflePorts.get(tag1).contains(assignedServerPorts.get(0)));
@@ -173,7 +174,7 @@ public class AssignmentWithTagsTest extends CoordinatorTestBase {
     assignedServerPorts =
         assignmentsInfo.getPartitionToServers().values().stream()
             .flatMap(x -> x.stream())
-            .map(x -> x.getGrpcPort())
+            .map(ShuffleServerInfo::getNettyPort)
             .collect(Collectors.toList());
     assertEquals(1, assignedServerPorts.size());
     assertTrue(tagOfShufflePorts.get(tag1).contains(assignedServerPorts.get(0)));

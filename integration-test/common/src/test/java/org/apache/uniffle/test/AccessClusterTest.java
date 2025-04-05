@@ -151,7 +151,7 @@ public class AccessClusterTest extends CoordinatorTestBase {
             + "org.apache.uniffle.coordinator.access.checker.AccessClusterLoadChecker");
     storeCoordinatorConf(coordinatorConf);
 
-    storeShuffleServerConf(shuffleServerConfWithoutPort(0, tempDir, ServerType.GRPC));
+    storeShuffleServerConf(shuffleServerConfWithoutPort(0, tempDir, ServerType.GRPC_NETTY));
     startServersWithRandomPorts();
     Uninterruptibles.sleepUninterruptibly(3, TimeUnit.SECONDS);
     String accessId = "111111";
@@ -170,7 +170,7 @@ public class AccessClusterTest extends CoordinatorTestBase {
     response = coordinatorClient.accessCluster(request);
     assertEquals(StatusCode.ACCESS_DENIED, response.getStatusCode());
     assertTrue(response.getMessage().startsWith("Denied by AccessClusterLoadChecker"));
-    ShuffleServerConf shuffleServerConf = shuffleServerConfWithoutPort(0, tempDir, ServerType.GRPC);
+    ShuffleServerConf shuffleServerConf = shuffleServerConfWithoutPort(0, tempDir, ServerType.GRPC_NETTY);
     shuffleServerConf.setString("rss.coordinator.quorum", getQuorum());
     ShuffleServer shuffleServer = new ShuffleServer(shuffleServerConf);
     shuffleServer.start();

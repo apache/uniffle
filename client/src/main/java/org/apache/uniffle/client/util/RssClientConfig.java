@@ -20,7 +20,7 @@ package org.apache.uniffle.client.util;
 public class RssClientConfig {
 
   public static final String RSS_CLIENT_TYPE = "rss.client.type";
-  public static final String RSS_CLIENT_TYPE_DEFAULT_VALUE = "GRPC";
+  public static final String RSS_CLIENT_TYPE_DEFAULT_VALUE = "GRPC_NETTY";
   public static final String RSS_CLIENT_RETRY_MAX = "rss.client.retry.max";
   public static final int RSS_CLIENT_RETRY_MAX_DEFAULT_VALUE = 50;
   public static final String RSS_CLIENT_RETRY_INTERVAL_MAX = "rss.client.retry.interval.max";

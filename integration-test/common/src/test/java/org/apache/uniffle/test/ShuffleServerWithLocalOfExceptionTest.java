@@ -47,7 +47,7 @@ public class ShuffleServerWithLocalOfExceptionTest extends ShuffleReadWriteBase 
     CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
     storeCoordinatorConf(coordinatorConf);
 
-    ShuffleServerConf shuffleServerConf = shuffleServerConfWithoutPort(0, tmpDir, ServerType.GRPC);
+    ShuffleServerConf shuffleServerConf = shuffleServerConfWithoutPort(0, tmpDir, ServerType.GRPC_NETTY);
     shuffleServerConf.setString("rss.server.app.expired.withoutHeartbeat", "5000");
     storeShuffleServerConf(shuffleServerConf);
 
@@ -78,7 +78,7 @@ public class ShuffleServerWithLocalOfExceptionTest extends ShuffleReadWriteBase 
             150,
             shuffleServerClient,
             Roaring64NavigableMap.bitmapOf());
-    grpcShuffleServers.get(0).stopServer();
+    nettyShuffleServers.get(0).stopServer();
     try {
       memoryClientReadHandler.readShuffleData();
       fail("Should throw connection exception directly.");

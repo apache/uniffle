@@ -39,7 +39,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import org.apache.uniffle.client.impl.grpc.ShuffleServerGrpcClient;
+import org.apache.uniffle.client.impl.grpc.ShuffleServerGrpcNettyClient;
 import org.apache.uniffle.client.request.RssRegisterShuffleRequest;
 import org.apache.uniffle.common.PartitionRange;
 import org.apache.uniffle.common.ServerStatus;
@@ -82,7 +82,7 @@ public class ServletTest extends IntegrationTestBase {
 
   private static void prepareShuffleServerConf(int subDirIndex, File tmpDir) throws Exception {
     ShuffleServerConf shuffleServerConf =
-        shuffleServerConfWithoutPort(subDirIndex, tmpDir, ServerType.GRPC);
+        shuffleServerConfWithoutPort(subDirIndex, tmpDir, ServerType.GRPC_NETTY);
     shuffleServerConf.set(ShuffleServerConf.SERVER_DECOMMISSION_SHUTDOWN, false);
     storeShuffleServerConf(shuffleServerConf);
   }
@@ -110,7 +110,7 @@ public class ServletTest extends IntegrationTestBase {
 
   @Test
   public void testGetSingleNode() throws Exception {
-    ShuffleServer shuffleServer = grpcShuffleServers.get(0);
+    ShuffleServer shuffleServer = nettyShuffleServers.get(0);
     String content =
         TestUtils.httpGet(
             String.format(SINGLE_NODE_URL, coordinatorHttpPort, shuffleServer.getId()));
@@ -119,8 +119,8 @@ public class ServletTest extends IntegrationTestBase {
     HashMap<String, Object> server = response.getData();
     assertEquals(0, response.getCode());
     assertEquals(
-        grpcShuffleServers.get(0).getGrpcPort(),
-        Integer.parseInt(server.get("grpcPort").toString()));
+        nettyShuffleServers.get(0).getNettyPort(),
+        Integer.parseInt(server.get("nettyPort").toString()));
     assertEquals(ServerStatus.ACTIVE.toString(), server.get("status"));
   }
 
@@ -134,10 +134,10 @@ public class ServletTest extends IntegrationTestBase {
     assertEquals(0, response.getCode());
     assertEquals(4, serverList.size());
     Set<Integer> portSet =
-        grpcShuffleServers.stream().map(server -> server.getGrpcPort()).collect(Collectors.toSet());
+        nettyShuffleServers.stream().map(ShuffleServer::getNettyPort).collect(Collectors.toSet());
     for (int i = 0; i < serverList.size(); i++) {
       assertEquals(ServerStatus.ACTIVE.toString(), serverList.get(i).get("status"));
-      assertTrue(portSet.contains(Integer.parseInt(serverList.get(i).get("grpcPort").toString())));
+      assertTrue(portSet.contains(Integer.parseInt(serverList.get(i).get("nettyPort").toString())));
     }
   }
 
@@ -145,8 +145,8 @@ public class ServletTest extends IntegrationTestBase {
   public void testLostNodesServlet() throws IOException {
     try (SimpleClusterManager clusterManager =
         (SimpleClusterManager) coordinatorServer.getClusterManager()) {
-      ShuffleServer shuffleServer3 = grpcShuffleServers.get(2);
-      ShuffleServer shuffleServer4 = grpcShuffleServers.get(3);
+      ShuffleServer shuffleServer3 = nettyShuffleServers.get(2);
+      ShuffleServer shuffleServer4 = nettyShuffleServers.get(3);
       Map<String, ServerNode> servers = clusterManager.getServers();
       servers.get(shuffleServer3.getId()).setTimestamp(System.currentTimeMillis() - 40000);
       servers.get(shuffleServer4.getId()).setTimestamp(System.currentTimeMillis() - 40000);
@@ -168,7 +168,7 @@ public class ServletTest extends IntegrationTestBase {
 
   @Test
   public void testDecommissionedNodeServlet() {
-    ShuffleServer shuffleServer = grpcShuffleServers.get(1);
+    ShuffleServer shuffleServer = nettyShuffleServers.get(1);
     shuffleServer.decommission();
     Awaitility.await()
         .atMost(30, TimeUnit.SECONDS)
@@ -191,8 +191,8 @@ public class ServletTest extends IntegrationTestBase {
 
   @Test
   public void testUnhealthyNodesServlet() {
-    ShuffleServer shuffleServer3 = grpcShuffleServers.get(2);
-    ShuffleServer shuffleServer4 = grpcShuffleServers.get(3);
+    ShuffleServer shuffleServer3 = nettyShuffleServers.get(2);
+    ShuffleServer shuffleServer4 = nettyShuffleServers.get(3);
     shuffleServer3.markUnhealthy();
     shuffleServer4.markUnhealthy();
     List<String> expectShuffleIds = Arrays.asList(shuffleServer3.getId(), shuffleServer4.getId());
@@ -221,7 +221,7 @@ public class ServletTest extends IntegrationTestBase {
 
   @Test
   public void testDecommissionServlet() throws Exception {
-    ShuffleServer shuffleServer = grpcShuffleServers.get(0);
+    ShuffleServer shuffleServer = nettyShuffleServers.get(0);
     assertEquals(ServerStatus.ACTIVE, shuffleServer.getServerStatus());
     DecommissionRequest decommissionRequest = new DecommissionRequest();
     decommissionRequest.setServerIds(Sets.newHashSet("not_exist_serverId"));
@@ -244,8 +244,8 @@ public class ServletTest extends IntegrationTestBase {
     assertEquals(0, response.getCode());
 
     // Register shuffle, avoid server exiting immediately.
-    ShuffleServerGrpcClient shuffleServerClient =
-        new ShuffleServerGrpcClient(LOCALHOST, grpcShuffleServers.get(0).getGrpcPort());
+    ShuffleServerGrpcNettyClient shuffleServerClient =
+        new ShuffleServerGrpcNettyClient(LOCALHOST, nettyShuffleServers.get(0).getGrpcPort(), nettyShuffleServers.get(0).getNettyPort());
     shuffleServerClient.registerShuffle(
         new RssRegisterShuffleRequest(
             "testDecommissionServlet_appId", 0, Lists.newArrayList(new PartitionRange(0, 1)), ""));
@@ -282,7 +282,7 @@ public class ServletTest extends IntegrationTestBase {
 
   @Test
   public void testDecommissionSingleNode() throws Exception {
-    ShuffleServer shuffleServer = grpcShuffleServers.get(0);
+    ShuffleServer shuffleServer = nettyShuffleServers.get(0);
     assertEquals(ServerStatus.ACTIVE, shuffleServer.getServerStatus());
     String content =
         TestUtils.httpPost(
@@ -303,8 +303,8 @@ public class ServletTest extends IntegrationTestBase {
     assertEquals(0, response.getCode());
 
     // Register shuffle, avoid server exiting immediately.
-    ShuffleServerGrpcClient shuffleServerClient =
-        new ShuffleServerGrpcClient(LOCALHOST, grpcShuffleServers.get(0).getGrpcPort());
+    ShuffleServerGrpcNettyClient shuffleServerClient =
+        new ShuffleServerGrpcNettyClient(LOCALHOST, nettyShuffleServers.get(0).getGrpcPort(), nettyShuffleServers.get(0).getNettyPort());
     shuffleServerClient.registerShuffle(
         new RssRegisterShuffleRequest(
             "testDecommissionServlet_appId", 0, Lists.newArrayList(new PartitionRange(0, 1)), ""));
