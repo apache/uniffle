@@ -235,7 +235,16 @@ public class ShuffleServerGrpcNettyClient extends ShuffleServerGrpcClient {
             null,
             request.getRetryIntervalMax(),
             maxRetryAttempts,
-            t -> !(t instanceof OutOfMemoryError) && !(t instanceof NotRetryException));
+            t ->
+                !(t instanceof OutOfMemoryError)
+                    && !(t instanceof NotRetryException)
+                    && !(t instanceof InterruptedException)
+                    && !Thread.currentThread().isInterrupted());
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        LOG.warn("cancel send shuffle data, since interrupted");
+        isSuccessful = false;
+        break;
       } catch (Throwable throwable) {
         LOG.warn("Failed to send shuffle data due to ", throwable);
         isSuccessful = false;
