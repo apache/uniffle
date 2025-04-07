@@ -149,7 +149,8 @@ public class ReconfigurableConfManager<T> {
    * @param rssConfFilePath the rss conf file path for reloading
    */
   public static void init(RssConf rssConf, String rssConfFilePath) {
-    reconfigurableConfManager = new ReconfigurableConfManager<>(rssConf, rssConfFilePath, rssConf.getClass());
+    reconfigurableConfManager =
+        new ReconfigurableConfManager<>(rssConf, rssConfFilePath, rssConf.getClass());
   }
 
   /**
