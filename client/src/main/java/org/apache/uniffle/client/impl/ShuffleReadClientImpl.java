@@ -310,9 +310,6 @@ public class ShuffleReadClientImpl implements ShuffleReadClient {
     if (sdr == null) {
       return 0;
     }
-    if (readBuffer != null) {
-      RssUtils.releaseByteBuffer(readBuffer);
-    }
     readBuffer = sdr.getDataBuffer();
     if (readBuffer == null || readBuffer.capacity() == 0) {
       return 0;
@@ -330,9 +327,6 @@ public class ShuffleReadClientImpl implements ShuffleReadClient {
   public void close() {
     if (sdr != null) {
       sdr.release();
-    }
-    if (readBuffer != null) {
-      RssUtils.releaseByteBuffer(readBuffer);
     }
     if (clientReadHandler != null) {
       clientReadHandler.close();
