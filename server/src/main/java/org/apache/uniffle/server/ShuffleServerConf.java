@@ -484,9 +484,10 @@ public class ShuffleServerConf extends RssBaseConf {
       ConfigOptions.key("rss.server.flush.tryLockTimeoutMs")
           .intType()
           .defaultValue(100)
-          .withDescription("Before the shuffle buffers of the application flush, "
-              + "it will try to get the lock of the application. If the time to wait for the lock"
-              + " is too long, the rpc threads will be blocked for a long time.");
+          .withDescription(
+              "Before the shuffle buffers of the application flush, "
+                  + "it will try to get the lock of the application. If the time to wait for the lock"
+                  + " is too long, the rpc threads will be blocked for a long time.");
 
   public static final ConfigOption<Long> SERVER_SHUFFLE_FLUSH_THRESHOLD =
       ConfigOptions.key("rss.server.shuffle.flush.threshold")
