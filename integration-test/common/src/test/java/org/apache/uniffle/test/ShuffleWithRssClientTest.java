@@ -475,8 +475,10 @@ public class ShuffleWithRssClientTest extends ShuffleReadWriteBase {
                                 if (ss.getId().equals(entry.getKey().getId())) {
                                   try {
                                     ss.stopServer();
-                                    coordinators.forEach(c ->
-                                        c.getClusterManager().addExcludedNodes(Lists.newArrayList(ss.getId())));
+                                    coordinators.forEach(
+                                        c ->
+                                            c.getClusterManager()
+                                                .addExcludedNodes(Lists.newArrayList(ss.getId())));
                                   } catch (Exception e) {
                                     e.printStackTrace();
                                   }
