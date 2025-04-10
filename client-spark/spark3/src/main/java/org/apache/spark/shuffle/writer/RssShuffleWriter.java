@@ -231,6 +231,34 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
     this.recordReportFailedShuffleservers = Sets.newConcurrentHashSet();
   }
 
+  // Gluten needs this method
+  public RssShuffleWriter(
+      String appId,
+      int shuffleId,
+      String taskId,
+      long taskAttemptId,
+      ShuffleWriteMetrics shuffleWriteMetrics,
+      RssShuffleManager shuffleManager,
+      SparkConf sparkConf,
+      ShuffleWriteClient shuffleWriteClient,
+      RssShuffleHandle<K, V, C> rssHandle,
+      Function<String, Boolean> taskFailureCallback,
+      TaskContext context) {
+    this(
+        appId,
+        shuffleId,
+        taskId,
+        taskAttemptId,
+        shuffleWriteMetrics,
+        shuffleManager,
+        sparkConf,
+        shuffleWriteClient,
+        shuffleManager.getShuffleManagerClientSupplier(),
+        rssHandle,
+        taskFailureCallback,
+        context);
+  }
+
   public RssShuffleWriter(
       String appId,
       int shuffleId,

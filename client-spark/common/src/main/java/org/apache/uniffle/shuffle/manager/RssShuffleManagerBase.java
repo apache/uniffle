@@ -928,6 +928,10 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
     return managerClientSupplier;
   }
 
+  public Supplier<ShuffleManagerClient> getShuffleManagerClientSupplier() {
+    return managerClientSupplier;
+  }
+
   @Override
   public ShuffleHandleInfo getShuffleHandleInfoByShuffleId(int shuffleId) {
     return shuffleHandleInfoManager.get(shuffleId);
