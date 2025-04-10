@@ -48,7 +48,7 @@ public class ShuffleServerClientTest {
     assertEquals(3, clientMap.size());
     HashSet<ShuffleServerInfo> remainShuffleServers =
         Sets.newHashSet(shuffleServerInfo1, shuffleServerInfo2);
-    shuffleServerClientFactory.cleanUselessShuffleServerClients(remainShuffleServers);
+    shuffleServerClientFactory.closeClients(remainShuffleServers);
     assertEquals(2, clientMap.size());
     assertTrue(CollectionUtils.isEqualCollection(clientMap.keySet(), remainShuffleServers));
   }

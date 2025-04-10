@@ -80,15 +80,14 @@ public class ShuffleServerClientFactory {
     return serverToClients.get(shuffleServerInfo);
   }
 
-  public synchronized void cleanUselessShuffleServerClients(
-      Set<ShuffleServerInfo> usefulShuffleServerInfos) {
+  public synchronized void closeClients(Set<ShuffleServerInfo> candidates) {
     clients
         .values()
         .forEach(
             (serverToClients -> {
               serverToClients.forEach(
                   (shuffleServerInfo, client) -> {
-                    if (!usefulShuffleServerInfos.contains(shuffleServerInfo)) {
+                    if (!candidates.contains(shuffleServerInfo)) {
                       LOG.info("Clean useless shuffle server client for " + shuffleServerInfo);
                       client.close();
                       serverToClients.remove(shuffleServerInfo);
