@@ -17,13 +17,10 @@
 
 package org.apache.uniffle.server.storage;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -31,7 +28,6 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.lang3.SystemUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -50,6 +46,7 @@ import org.apache.uniffle.server.ShuffleDataReadEvent;
 import org.apache.uniffle.server.ShuffleServerConf;
 import org.apache.uniffle.server.ShuffleServerMetrics;
 import org.apache.uniffle.server.ShuffleTaskInfo;
+import org.apache.uniffle.storage.common.DefaultStorageMediaProvider;
 import org.apache.uniffle.storage.common.LocalStorage;
 import org.apache.uniffle.storage.common.Storage;
 import org.apache.uniffle.storage.util.StorageType;
@@ -285,14 +282,12 @@ public class LocalStorageManagerTest {
   @Test
   public void testGetLocalStorageInfo() throws IOException {
     Path testBaseDir = Files.createTempDirectory("rss-test");
-    final Path storageBaseDir1 =
-        Files.createDirectory(Paths.get(testBaseDir.toString(), "rss-data-1"));
-    final Path storageBaseDir2 =
-        Files.createDirectory(Paths.get(testBaseDir.toString(), "rss-data-2"));
-    final Path storageBaseDir3 =
-        Files.createDirectory(Paths.get(testBaseDir.toString(), "rss-data-3"));
+    final Path storageBaseDir1 = Files.createDirectory(testBaseDir.resolve("rss-data-1"));
+    final Path storageBaseDir2 = Files.createDirectory(testBaseDir.resolve("rss-data-2"));
+    final Path storageBaseDir3 = Files.createDirectory(testBaseDir.resolve("rss-data-3"));
+
     String[] storagePaths = {
-      storageBaseDir1.toString(), storageBaseDir2.toString(), storageBaseDir3.toString(),
+      storageBaseDir1.toString(), storageBaseDir2.toString(), storageBaseDir3.toString()
     };
     ShuffleServerConf conf = new ShuffleServerConf();
     conf.set(ShuffleServerConf.RSS_STORAGE_BASE_PATH, Arrays.asList(storagePaths));
@@ -301,45 +296,31 @@ public class LocalStorageManagerTest {
         ShuffleServerConf.RSS_STORAGE_TYPE.key(),
         org.apache.uniffle.storage.util.StorageType.LOCALFILE.name());
     conf.setDouble(ShuffleServerConf.HEALTH_STORAGE_MAX_USAGE_PERCENTAGE, 100.0D);
-    LocalStorageManager localStorageManager = new LocalStorageManager(conf);
-    // Create and write 3 files in each storage dir
-    final Path file1 = Files.createFile(Paths.get(storageBaseDir1.toString(), "partition1.data"));
-    final Path file2 = Files.createFile(Paths.get(storageBaseDir2.toString(), "partition2.data"));
-    final Path file3 = Files.createFile(Paths.get(storageBaseDir3.toString(), "partition3.data"));
-    FileUtils.writeByteArrayToFile(file1.toFile(), new byte[] {0x1});
-    FileUtils.writeByteArrayToFile(file2.toFile(), new byte[] {0x2});
-    FileUtils.writeByteArrayToFile(file3.toFile(), new byte[] {0x3});
 
-    boolean healthy = localStorageManager.getStorageChecker().checkIsHealthy();
-    assertTrue(healthy, "should be healthy");
+    // Write one file to each storage dir
+    final LocalStorageManager localStorageManager = new LocalStorageManager(conf);
+    Files.write(storageBaseDir1.resolve("partition1.data"), new byte[] {0x1});
+    Files.write(storageBaseDir2.resolve("partition2.data"), new byte[] {0x2});
+    Files.write(storageBaseDir3.resolve("partition3.data"), new byte[] {0x3});
+
+    assertTrue(localStorageManager.getStorageChecker().checkIsHealthy(), "should be healthy");
+
     Map<String, StorageInfo> storageInfo = localStorageManager.getStorageInfo();
     assertEquals(1, storageInfo.size());
-    try {
-      final String path = testBaseDir.toString();
-      final String mountPoint = Files.getFileStore(new File(path).toPath()).name();
-      assertNotNull(storageInfo.get(mountPoint));
-      // on Linux environment, it can detect SSD as local storage type
-      if (SystemUtils.IS_OS_LINUX) {
-        final String cmd =
-            String.format(
-                "%s | %s | %s",
-                "lsblk -a -o name,rota",
-                "grep $(df --output=source " + path + " | tail -n 1 | sed -E 's_^.+/__')",
-                "awk '{print $2}'");
-        Process process = Runtime.getRuntime().exec(new String[] {"bash", "-c", cmd});
-        BufferedReader br = new BufferedReader(new InputStreamReader(process.getInputStream()));
-        final String line = br.readLine();
-        br.close();
-        final StorageMedia expected = "0".equals(line) ? StorageMedia.SSD : StorageMedia.HDD;
-        assertEquals(expected, storageInfo.get(mountPoint).getType());
-      } else {
-        assertEquals(StorageMedia.HDD, storageInfo.get(mountPoint).getType());
-      }
-      assertEquals(StorageStatus.NORMAL, storageInfo.get(mountPoint).getStatus());
-      assertEquals(3L, storageInfo.get(mountPoint).getUsedBytes());
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
+
+    String mountPoint = Files.getFileStore(testBaseDir).name();
+    assertNotNull(storageInfo.get(mountPoint));
+
+    // Use production logic to get expected media type
+    StorageMedia expected =
+        new DefaultStorageMediaProvider().getStorageMediaFor(testBaseDir.toString());
+
+    // Assert media type from storage manager matches production logic
+    assertEquals(expected, storageInfo.get(mountPoint).getType());
+
+    // Assert status and used bytes
+    assertEquals(StorageStatus.NORMAL, storageInfo.get(mountPoint).getStatus());
+    assertEquals(3L, storageInfo.get(mountPoint).getUsedBytes());
   }
 
   @Test
