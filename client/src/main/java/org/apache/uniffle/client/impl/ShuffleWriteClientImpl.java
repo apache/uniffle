@@ -1078,7 +1078,8 @@ public class ShuffleWriteClientImpl implements ShuffleWriteClient {
         executorService.shutdownNow();
       }
       shuffleServerInfoMap.remove(appId);
-      ShuffleServerClientFactory.getInstance().closeClients(getAllShuffleServers());
+      ShuffleServerClientFactory.getInstance()
+          .cleanUselessShuffleServerClients(getAllShuffleServers());
     }
   }
 
@@ -1188,7 +1189,8 @@ public class ShuffleWriteClientImpl implements ShuffleWriteClient {
     if (appServerMap != null) {
       Set<ShuffleServerInfo> removed = appServerMap.remove(shuffleId);
       if (removed != null) {
-        ShuffleServerClientFactory.getInstance().closeClients(getAllShuffleServers());
+        ShuffleServerClientFactory.getInstance()
+            .cleanUselessShuffleServerClients(getAllShuffleServers());
       }
     }
   }
