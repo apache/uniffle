@@ -18,6 +18,10 @@
 package org.apache.uniffle.client.factory;
 
 import java.util.Map;
+import java.util.Set;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.apache.uniffle.client.api.ShuffleServerClient;
 import org.apache.uniffle.client.impl.grpc.ShuffleServerGrpcClient;
@@ -28,6 +32,7 @@ import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.util.JavaUtils;
 
 public class ShuffleServerClientFactory {
+  private static final Logger LOG = LoggerFactory.getLogger(ShuffleServerClientFactory.class);
 
   private Map<String, Map<ShuffleServerInfo, ShuffleServerClient>> clients;
 
@@ -75,9 +80,30 @@ public class ShuffleServerClientFactory {
     return serverToClients.get(shuffleServerInfo);
   }
 
+  public synchronized void cleanUselessShuffleServerClients(
+      Set<ShuffleServerInfo> usefulShuffleServerInfos) {
+    clients
+        .values()
+        .forEach(
+            (serverToClients -> {
+              serverToClients.forEach(
+                  (shuffleServerInfo, client) -> {
+                    if (!usefulShuffleServerInfos.contains(shuffleServerInfo)) {
+                      LOG.info("Clean useless shuffle server client for " + shuffleServerInfo);
+                      client.close();
+                      serverToClients.remove(shuffleServerInfo);
+                    }
+                  });
+            }));
+  }
+
   // Only for tests
   public synchronized void cleanupCache() {
     clients.values().stream().flatMap(x -> x.values().stream()).forEach(ShuffleServerClient::close);
     this.clients = JavaUtils.newConcurrentMap();
+  }
+
+  public Map<String, Map<ShuffleServerInfo, ShuffleServerClient>> getClients() {
+    return clients;
   }
 }
