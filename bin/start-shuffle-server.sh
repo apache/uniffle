@@ -69,17 +69,15 @@ done
 mkdir -p "${RSS_LOG_DIR}"
 mkdir -p "${RSS_PID_DIR}"
 
-set +u
-if [ $HADOOP_HOME ]; then
+if [ -n "${HADOOP_HOME:-}" ]; then
   HADOOP_DEPENDENCY="$("$HADOOP_HOME/bin/hadoop" classpath --glob)"
   CLASSPATH=$CLASSPATH:$HADOOP_DEPENDENCY
   JAVA_LIB_PATH="-Djava.library.path=$HADOOP_HOME/lib/native"
 fi
 
-if [ "$HADOOP_CONF_DIR" ]; then
+if [ -n "${HADOOP_CONF_DIR:-}" ]; then
   CLASSPATH=$CLASSPATH:$HADOOP_CONF_DIR
 fi
-set -u
 
 echo "class path is $CLASSPATH"
 

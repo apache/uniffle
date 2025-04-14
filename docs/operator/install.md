@@ -34,6 +34,10 @@ Run the following command:
 cd deploy/kubernetes/docker && sh build.sh --registry ${our-registry}
 ```
 
+This compiles RSS with Hadoop 2.8 support und add the Hadoop binaries to the Docker image.
+Use `--hadoop-version x.y.z` to choose a different Hadoop version. Use `--hadoop-provided false` to **not**
+include the Hadoop installation in the image.
+
 ## Creating or Updating CRD
 
 We can refer

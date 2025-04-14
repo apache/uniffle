@@ -26,17 +26,19 @@ function exit_with_usage() {
   echo "./build.sh - Tool for building docker images of Remote Shuffle Service"
   echo ""
   echo "Usage:"
-  echo "+------------------------------------------------------------------------------------------------------+"
-  echo "| ./build.sh [--hadoop-version <hadoop version>] [--registry <registry url>] [--author <author name>]  |"
-  echo "|            [--base-os-distribution <os distribution>] [--base-image <base image url>]                |"
-  echo "|            [--push-image <true|false>] [--apache-mirror <apache mirror url>]                         |"
-  echo "+------------------------------------------------------------------------------------------------------+"
+  echo "+---------------------------------------------------------------------------------------+"
+  echo "| ./build.sh [--hadoop-version <hadoop version>] [--hadoop-provided <true|false>]       |"
+  echo "|            [--registry <registry url>] [--author <author name>]                       |"
+  echo "|            [--base-os-distribution <os distribution>] [--base-image <base image url>] |"
+  echo "|            [--push-image <true|false>] [--apache-mirror <apache mirror url>]          |"
+  echo "+---------------------------------------------------------------------------------------+"
   exit 1
 }
 
 REGISTRY="docker.io/library"
 HADOOP_VERSION=2.8.5
 HADOOP_SHORT_VERSION=$(echo $HADOOP_VERSION | awk -F "." '{print $1"."$2}')
+HADOOP_PROVIDED="true"
 AUTHOR=$(whoami)
 # If you are based in China, you could pass --apache-mirror <a_mirror_url> when building this.
 APACHE_MIRROR="https://dlcdn.apache.org"
@@ -52,6 +54,11 @@ while (( "$#" )); do
       ;;
     --hadoop-version)
       HADOOP_VERSION="$2"
+      HADOOP_SHORT_VERSION=$(echo $HADOOP_VERSION | awk -F "." '{print $1"."$2}')
+      shift
+      ;;
+    --hadoop-provided)
+      HADOOP_PROVIDED="$2"
       shift
       ;;
     --author)
@@ -101,14 +108,15 @@ else
   echo "using base image(${BASE_IMAGE}) to build rss server"
 fi
 
-
-HADOOP_FILE=hadoop-${HADOOP_VERSION}.tar.gz
-ARCHIVE_HADOOP_URL=https://archive.apache.org/dist/hadoop/core/hadoop-${HADOOP_VERSION}/${HADOOP_FILE}
-HADOOP_URL=${APACHE_MIRROR}/hadoop/core/hadoop-${HADOOP_VERSION}/${HADOOP_FILE}
-echo "HADOOP_URL is either ${HADOOP_URL} or ${ARCHIVE_HADOOP_URL}"
-if [ ! -e "$HADOOP_FILE" ]; \
-  then wget "${HADOOP_URL}" || wget "$ARCHIVE_HADOOP_URL"; \
-  else echo "${HADOOP_FILE} has been downloaded"; \
+if [ "$HADOOP_PROVIDED" == "true" ]; then
+  HADOOP_FILE=hadoop-${HADOOP_VERSION}.tar.gz
+  ARCHIVE_HADOOP_URL=https://archive.apache.org/dist/hadoop/core/hadoop-${HADOOP_VERSION}/${HADOOP_FILE}
+  HADOOP_URL=${APACHE_MIRROR}/hadoop/core/hadoop-${HADOOP_VERSION}/${HADOOP_FILE}
+  echo "HADOOP_URL is either ${HADOOP_URL} or ${ARCHIVE_HADOOP_URL}"
+  if [ ! -e "$HADOOP_FILE" ]; \
+    then wget "${HADOOP_URL}" || wget "$ARCHIVE_HADOOP_URL"; \
+    else echo "${HADOOP_FILE} has been downloaded"; \
+  fi
 fi
 
 RSS_DIR=../../..
@@ -117,12 +125,39 @@ RSS_VERSION=$(./mvnw help:evaluate -Dexpression=project.version 2>/dev/null | gr
 RSS_FILE=rss-${RSS_VERSION}-hadoop${HADOOP_SHORT_VERSION}.tgz
 echo "RSS_VERSION: $RSS_VERSION"
 echo "RSS_FILE: $RSS_FILE"
-if [ ! -e "$RSS_FILE" ]; \
-  then bash ./build_distribution.sh; \
-  else echo "$RSS_FILE has been built"; \
+if [ ! -e "$RSS_FILE" ]; then
+  if [ "$HADOOP_PROVIDED" == "true" ]; then
+    if [ "$HADOOP_SHORT_VERSION" == "3.2" ]; then
+      HADOOP_PROFILE="-Phadoop-dependencies-provided -Pnetty-4.1.68.Final"
+    else
+      HADOOP_PROFILE="-Phadoop-dependencies-provided"
+    fi
+  else
+    HADOOP_PROFILE="-Phadoop-dependencies-included"
+  fi
+  bash ./build_distribution.sh --hadoop-profile hadoop${HADOOP_SHORT_VERSION} ${HADOOP_PROFILE:-}
+else
+  echo "$RSS_FILE has been built"
 fi
 cd "$OLDPWD" || exit
 cp "$RSS_DIR/$RSS_FILE" .
+
+# prepare rss.tgz, which will become the content of /data/rssadmin
+if [ ! -e rss.tgz ]; then
+  rm -rf tmp; mkdir -p tmp; cd tmp
+  tar -xzf "../$RSS_FILE"
+  mv "${RSS_FILE/%.tgz/}" rss
+
+  # add hadoop binaries to tgz
+  if [ "$HADOOP_PROVIDED" == "true" ]; then
+    tar -xzf "../hadoop-${HADOOP_VERSION}.tar.gz"
+    mv "hadoop-${HADOOP_VERSION}" hadoop
+    cp -r ../hadoopconfig/ hadoop/etc/hadoop
+  fi
+  tar -czf ../rss.tgz *
+  cd "$OLDPWD" || exit
+fi
+
 
 GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 GIT_COMMIT=$(git describe --dirty --always --tags | sed 's/-/./g')
@@ -133,6 +168,7 @@ docker build --network=host -t "$IMAGE" \
              --build-arg RSS_VERSION="$RSS_VERSION" \
              --build-arg HADOOP_VERSION="$HADOOP_VERSION" \
              --build-arg HADOOP_SHORT_VERSION="$HADOOP_SHORT_VERSION" \
+             --build-arg HADOOP_PROVIDED="$HADOOP_PROVIDED" \
              --build-arg AUTHOR="$AUTHOR" \
              --build-arg GIT_COMMIT="$GIT_COMMIT" \
              --build-arg GIT_BRANCH="$GIT_BRANCH" \
