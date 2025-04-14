@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -370,7 +371,7 @@ public class WriteBufferManagerTest {
             null,
             0);
 
-    Function<List<ShuffleBlockInfo>, List<CompletableFuture<Long>>> spillFunc =
+    Function<List<ShuffleBlockInfo>, List<Future<Long>>> spillFunc =
         blocks -> {
           long sum = 0L;
           List<AddBlockEvent> events = wbm.buildBlockEvents(blocks);
@@ -481,7 +482,7 @@ public class WriteBufferManagerTest {
             null,
             0);
 
-    Function<List<ShuffleBlockInfo>, List<CompletableFuture<Long>>> spillFunc =
+    Function<List<ShuffleBlockInfo>, List<Future<Long>>> spillFunc =
         blocks -> {
           long sum = 0L;
           List<AddBlockEvent> events = wbm.buildBlockEvents(blocks);
@@ -579,7 +580,7 @@ public class WriteBufferManagerTest {
 
     List<ShuffleBlockInfo> blockList = new ArrayList<>();
 
-    Function<List<ShuffleBlockInfo>, List<CompletableFuture<Long>>> spillFunc =
+    Function<List<ShuffleBlockInfo>, List<Future<Long>>> spillFunc =
         blocks -> {
           blockList.addAll(blocks);
           long sum = 0L;
