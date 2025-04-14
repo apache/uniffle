@@ -69,7 +69,8 @@ public class ShuffleServerClientFactory {
     Map<ShuffleServerInfo, ShuffleServerClient> serverToClients =
         clients.computeIfAbsent(clientType, key -> JavaUtils.newConcurrentMap());
     return serverToClients.computeIfAbsent(
-        shuffleServerInfo, key -> createShuffleServerClient(clientType, shuffleServerInfo, rssConf));
+        shuffleServerInfo,
+        key -> createShuffleServerClient(clientType, shuffleServerInfo, rssConf));
   }
 
   // Only for tests
