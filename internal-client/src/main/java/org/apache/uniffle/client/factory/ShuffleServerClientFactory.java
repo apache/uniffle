@@ -59,20 +59,17 @@ public class ShuffleServerClientFactory {
     }
   }
 
-  public synchronized ShuffleServerClient getShuffleServerClient(
+  public ShuffleServerClient getShuffleServerClient(
       String clientType, ShuffleServerInfo shuffleServerInfo) {
     return getShuffleServerClient(clientType, shuffleServerInfo, new RssConf());
   }
 
-  public synchronized ShuffleServerClient getShuffleServerClient(
+  public ShuffleServerClient getShuffleServerClient(
       String clientType, ShuffleServerInfo shuffleServerInfo, RssConf rssConf) {
-    clients.putIfAbsent(clientType, JavaUtils.newConcurrentMap());
-    Map<ShuffleServerInfo, ShuffleServerClient> serverToClients = clients.get(clientType);
-    if (serverToClients.get(shuffleServerInfo) == null) {
-      serverToClients.put(
-          shuffleServerInfo, createShuffleServerClient(clientType, shuffleServerInfo, rssConf));
-    }
-    return serverToClients.get(shuffleServerInfo);
+    Map<ShuffleServerInfo, ShuffleServerClient> serverToClients =
+        clients.computeIfAbsent(clientType, key -> JavaUtils.newConcurrentMap());
+    return serverToClients.computeIfAbsent(
+        shuffleServerInfo, key -> createShuffleServerClient(clientType, shuffleServerInfo, rssConf));
   }
 
   // Only for tests
