@@ -93,22 +93,13 @@ public class LocalStorageMeta {
     this.size.set(diskSize);
   }
 
-  /**
-   * If the method is implemented as below:
-   *
-   * <p>if (shuffleMetaMap.contains(shuffleId)) { // `Time A` return shuffleMetaMap.get(shuffleId) }
-   * else { shuffleMetaMap.putIfAbsent(shuffleId, newMeta) return newMeta }
-   *
-   * <p>Because if shuffleMetaMap remove shuffleId at `Time A` in another thread,
-   * shuffleMetaMap.get(shuffleId) will return null. We need to guarantee that this method is thread
-   * safe, and won't return null.
-   */
   public void createMetadataIfNotExist(String shuffleKey) {
-    ShuffleMeta meta = new ShuffleMeta();
-    ShuffleMeta oldMeta = shuffleMetaMap.putIfAbsent(shuffleKey, meta);
-    if (oldMeta == null) {
-      LOG.info("Create metadata of shuffle {}.", shuffleKey);
-    }
+    shuffleMetaMap.computeIfAbsent(
+        shuffleKey,
+        key -> {
+          LOG.info("Create metadata of shuffle {}.", key);
+          return new ShuffleMeta();
+        });
   }
 
   private ShuffleMeta getShuffleMeta(String shuffleKey) {

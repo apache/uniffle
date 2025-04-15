@@ -67,13 +67,17 @@ public class Shuffle<K, V> {
     this.classLoader = classLoader;
   }
 
-  public void startSortMerge(int partitionId, Roaring64NavigableMap expectedBlockIdMap)
+  public synchronized void startSortMerge(int partitionId, Roaring64NavigableMap expectedBlockIdMap)
       throws IOException {
-    this.partitions.putIfAbsent(partitionId, new Partition<K, V>(this, partitionId));
-    this.partitions.get(partitionId).startSortMerge(expectedBlockIdMap);
+    Partition<K, V> partition = this.partitions.get(partitionId);
+    if (partition == null) {
+      partition = new Partition<K, V>(this, partitionId);
+      this.partitions.put(partitionId, partition);
+    }
+    partition.startSortMerge(expectedBlockIdMap);
   }
 
-  void cleanup() {
+  synchronized void cleanup() {
     for (Partition partition : this.partitions.values()) {
       partition.cleanup();
     }

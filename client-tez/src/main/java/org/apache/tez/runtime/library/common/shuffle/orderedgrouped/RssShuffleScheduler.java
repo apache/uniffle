@@ -1299,7 +1299,7 @@ class RssShuffleScheduler extends ShuffleScheduler {
     partitionIdToSuccessMapTaskAttempts.get(partitionId).add(srcAttempt);
     String pathComponent = srcAttempt.getPathComponent();
     TezTaskAttemptID tezTaskAttemptId = IdUtils.convertTezTaskAttemptID(pathComponent);
-    partitionIdToSuccessTezTasks.putIfAbsent(partitionId, new HashSet<>());
+    partitionIdToSuccessTezTasks.computeIfAbsent(partitionId, key -> new HashSet<>());
     partitionIdToSuccessTezTasks.get(partitionId).add(tezTaskAttemptId.getTaskID());
 
     uniqueHosts.add(new HostPort(inputHostName, port));

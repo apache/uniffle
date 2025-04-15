@@ -870,7 +870,7 @@ public class RssShuffleManager extends ShuffleManager {
           pendingPartition.add(p);
         }
         allRssPartition.add(p);
-        partitionToInput.putIfAbsent(p, new ArrayList<>());
+        partitionToInput.computeIfAbsent(p, key -> new ArrayList<>());
         partitionToInput.get(p).add(srcAttemptIdentifier);
         LOG.info("Add partition:{}, after add, now partition:{}", p, allRssPartition);
       }

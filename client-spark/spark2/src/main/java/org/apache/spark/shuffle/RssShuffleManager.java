@@ -115,7 +115,8 @@ public class RssShuffleManager extends RssShuffleManagerBase {
 
     if (dependency.partitioner().numPartitions() == 0) {
       shuffleIdToPartitionNum.putIfAbsent(shuffleId, 0);
-      shuffleIdToNumMapTasks.putIfAbsent(shuffleId, dependency.rdd().partitions().length);
+      shuffleIdToNumMapTasks.computeIfAbsent(
+          shuffleId, key -> dependency.rdd().partitions().length);
       LOG.info(
           "RegisterShuffle with ShuffleId["
               + shuffleId
@@ -158,8 +159,9 @@ public class RssShuffleManager extends RssShuffleManagerBase {
 
     startHeartbeat();
 
-    shuffleIdToPartitionNum.putIfAbsent(shuffleId, dependency.partitioner().numPartitions());
-    shuffleIdToNumMapTasks.putIfAbsent(shuffleId, dependency.rdd().partitions().length);
+    shuffleIdToPartitionNum.computeIfAbsent(
+        shuffleId, key -> dependency.partitioner().numPartitions());
+    shuffleIdToNumMapTasks.computeIfAbsent(shuffleId, key -> dependency.rdd().partitions().length);
     if (shuffleManagerRpcServiceEnabled && rssStageRetryForWriteFailureEnabled) {
       ShuffleHandleInfo handleInfo =
           new MutableShuffleHandleInfo(shuffleId, partitionToServers, remoteStorage);

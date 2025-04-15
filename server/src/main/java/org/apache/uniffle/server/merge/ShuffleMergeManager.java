@@ -163,22 +163,23 @@ public class ShuffleMergeManager {
       } else {
         comparator = defaultComparator;
       }
-      this.shuffles.putIfAbsent(appId, JavaUtils.newConcurrentMap());
+      this.shuffles.computeIfAbsent(appId, key -> JavaUtils.newConcurrentMap());
       this.shuffles
           .get(appId)
-          .putIfAbsent(
+          .computeIfAbsent(
               shuffleId,
-              new Shuffle(
-                  serverConf,
-                  eventHandler,
-                  shuffleServer,
-                  appId,
-                  shuffleId,
-                  kClass,
-                  vClass,
-                  comparator,
-                  mergeContext.getMergedBlockSize(),
-                  classLoader));
+              key ->
+                  new Shuffle(
+                      serverConf,
+                      eventHandler,
+                      shuffleServer,
+                      appId,
+                      shuffleId,
+                      kClass,
+                      vClass,
+                      comparator,
+                      mergeContext.getMergedBlockSize(),
+                      classLoader));
     } catch (ClassNotFoundException
         | InstantiationException
         | IllegalAccessException

@@ -276,7 +276,7 @@ public class ApplicationManager implements Closeable {
         }
       } else {
         LOG.warn("Can't find counter for remote storage: {}", storagePath);
-        remoteStoragePathRankValue.putIfAbsent(storagePath, new RankValue(0));
+        remoteStoragePathRankValue.computeIfAbsent(storagePath, key -> new RankValue(0));
       }
       if (remoteStoragePathRankValue.get(storagePath).getAppNum().get() == 0
           && !availableRemoteStorageInfo.containsKey(storagePath)) {
