@@ -71,14 +71,17 @@ public class Shuffle<K, V> {
   public void startSortMerge(int partitionId, Roaring64NavigableMap expectedBlockIdMap)
       throws IOException {
     AtomicReference<IOException> exception = new AtomicReference<>();
-    Partition<K, V> partition = this.partitions.computeIfAbsent(partitionId, key -> {
-      try {
-        return new Partition<K, V>(this, partitionId);
-      } catch (IOException e) {
-        exception.set(e);
-      }
-      return null;
-    });
+    Partition<K, V> partition =
+        this.partitions.computeIfAbsent(
+            partitionId,
+            key -> {
+              try {
+                return new Partition<K, V>(this, partitionId);
+              } catch (IOException e) {
+                exception.set(e);
+              }
+              return null;
+            });
     if (exception.get() != null) {
       throw exception.get();
     }
