@@ -605,9 +605,9 @@ public class RssDAGAppMaster extends DAGAppMaster {
           // rename input class name
           InputDescriptor inputDescriptor = edge.getEdgeProperty().getEdgeDestination();
           Field inputClassNameField =
-              outputDescriptor.getClass().getSuperclass().getDeclaredField("className");
+              inputDescriptor.getClass().getSuperclass().getDeclaredField("className");
           inputClassNameField.setAccessible(true);
-          String inputClassName = (String) outputClassNameField.get(inputDescriptor);
+          String inputClassName = (String) inputClassNameField.get(inputDescriptor);
           String rssInputClassName =
               RssTezUtils.replaceRssInputClassName(
                   inputClassName,
@@ -616,7 +616,7 @@ public class RssDAGAppMaster extends DAGAppMaster {
                       .getBoolean(
                           RssTezConfig.RSS_REMOTE_MERGE_ENABLE,
                           RssTezConfig.RSS_REMOTE_MERGE_ENABLE_DEFAULT));
-          outputClassNameField.set(inputDescriptor, rssInputClassName);
+          inputClassNameField.set(inputDescriptor, rssInputClassName);
         }
       } catch (IOException | IllegalAccessException | NoSuchFieldException e) {
         LOG.error("Reconfigure failed after dag was inited, caused by {}", e);
