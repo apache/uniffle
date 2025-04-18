@@ -31,7 +31,7 @@ on:
 
 jobs:
   docker:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     name: speculate fail tasks
     steps:
     - name: Checkout project

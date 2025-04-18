@@ -54,7 +54,7 @@ on:
 
 jobs:
   maven:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     name: java ${{ inputs.java-version }} + go ${{ inputs.go-version }}
     steps:
     - name: Checkout project

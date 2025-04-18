@@ -50,7 +50,7 @@ on:
 
 jobs:
   maven:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         profile:
