@@ -52,6 +52,7 @@ while (( "$#" )); do
       ;;
     --hadoop-version)
       HADOOP_VERSION="$2"
+      HADOOP_SHORT_VERSION=$(echo "$HADOOP_VERSION" | awk -F "." '{print $1"."$2}')
       shift
       ;;
     --author)
