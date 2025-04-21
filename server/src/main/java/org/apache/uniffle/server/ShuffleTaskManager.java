@@ -117,7 +117,9 @@ public class ShuffleTaskManager {
   private final ShuffleBufferManager shuffleBufferManager;
   private Map<String, ShuffleTaskInfo> shuffleTaskInfos = JavaUtils.newConcurrentMap();
   private Map<Long, PreAllocatedBufferInfo> requireBufferIds = JavaUtils.newConcurrentMap();
-  private Map<String, Long> removingApps = JavaUtils.newConcurrentMap();
+
+  private final Map<String, Long> appsWaitingToBeRemoved = JavaUtils.newConcurrentMap();
+  private final Map<String, Long> removingApps = JavaUtils.newConcurrentMap();
   private Thread clearResourceThread;
   private BlockingQueue<PurgeEvent> expiredAppIdQueue = Queues.newLinkedBlockingQueue();
   private final Cache<String, ReentrantReadWriteLock> appLocks;
@@ -766,14 +768,14 @@ public class ShuffleTaskManager {
       Set<String> appNames = Sets.newHashSet(shuffleTaskInfos.keySet());
       // remove applications which is timeout according to rss.server.app.expired.withoutHeartbeat
       for (String appId : appNames) {
-        if (isAppExpired(appId) && !isAppRemoving(appId)) {
+        if (isAppExpired(appId) && !isAppWaitingToBeRemoved(appId)) {
           LOG.info(
               "Detect expired appId["
                   + appId
                   + "] according "
                   + "to rss.server.app.expired.withoutHeartbeat");
           expiredAppIdQueue.add(new AppPurgeEvent(appId, getUserByAppId(appId)));
-          removingApps.computeIfAbsent(appId, key -> System.currentTimeMillis());
+          appsWaitingToBeRemoved.put(appId, System.currentTimeMillis());
         }
       }
       ShuffleServerMetrics.gaugeAppNum.set(shuffleTaskInfos.size());
@@ -792,6 +794,10 @@ public class ShuffleTaskManager {
 
   public boolean isAppRemoving(String appId) {
     return removingApps.containsKey(appId);
+  }
+
+  public boolean isAppWaitingToBeRemoved(String appId) {
+    return appsWaitingToBeRemoved.containsKey(appId);
   }
 
   /**
@@ -872,6 +878,7 @@ public class ShuffleTaskManager {
     Lock lock = getAppWriteLock(appId);
     lock.lock();
     try {
+      appsWaitingToBeRemoved.remove(appId);
       LOG.info("Start remove resource for appId[" + appId + "]");
       if (checkAppExpired && !isAppExpired(appId)) {
         LOG.info(
