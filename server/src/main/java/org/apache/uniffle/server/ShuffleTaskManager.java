@@ -887,7 +887,7 @@ public class ShuffleTaskManager {
         return;
       }
       final long start = System.currentTimeMillis();
-      removingApps.putIfAbsent(appId, start);
+      removingApps.put(appId, start);
       ShuffleTaskInfo shuffleTaskInfo = shuffleTaskInfos.remove(appId);
       if (shuffleTaskInfo == null) {
         LOG.info("Resource for appId[" + appId + "] had been removed before.");
@@ -934,6 +934,7 @@ public class ShuffleTaskManager {
                     checkAppExpired));
             return null;
           },
+
           storageRemoveOperationTimeoutSec,
           operationMsg);
       if (shuffleMergeManager != null) {
