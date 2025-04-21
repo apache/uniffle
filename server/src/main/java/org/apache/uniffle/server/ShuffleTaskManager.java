@@ -320,34 +320,28 @@ public class ShuffleTaskManager {
       ShuffleDataDistributionType dataDistType,
       int maxConcurrencyPerPartitionToWrite,
       Map<String, String> properties) {
-    ReentrantReadWriteLock.WriteLock lock = getAppWriteLock(appId);
-    lock.lock();
-    try {
-      refreshAppId(appId);
+    refreshAppId(appId);
 
-      ShuffleTaskInfo taskInfo = shuffleTaskInfos.get(appId);
-      taskInfo.setProperties(properties);
-      taskInfo.setUser(user);
-      taskInfo.setSpecification(
-          ShuffleSpecification.builder()
-              .maxConcurrencyPerPartitionToWrite(
-                  getMaxConcurrencyWriting(maxConcurrencyPerPartitionToWrite, conf))
-              .dataDistributionType(dataDistType)
-              .build());
-      taskInfo.setShuffleBlockIdManagerIfNeeded(shuffleBlockIdManager);
-      taskInfo.refreshLatestStageAttemptNumber(shuffleId, stageAttemptNumber);
-      taskInfo.getShuffleBlockIdManager().registerAppId(appId);
-      for (PartitionRange partitionRange : partitionRanges) {
-        shuffleBufferManager.registerBuffer(
-            appId, shuffleId, partitionRange.getStart(), partitionRange.getEnd());
-      }
-      if (!remoteStorageInfo.isEmpty()) {
-        storageManager.registerRemoteStorage(appId, remoteStorageInfo);
-      }
-      return StatusCode.SUCCESS;
-    } finally {
-      lock.unlock();
+    ShuffleTaskInfo taskInfo = shuffleTaskInfos.get(appId);
+    taskInfo.setProperties(properties);
+    taskInfo.setUser(user);
+    taskInfo.setSpecification(
+        ShuffleSpecification.builder()
+            .maxConcurrencyPerPartitionToWrite(
+                getMaxConcurrencyWriting(maxConcurrencyPerPartitionToWrite, conf))
+            .dataDistributionType(dataDistType)
+            .build());
+    taskInfo.setShuffleBlockIdManagerIfNeeded(shuffleBlockIdManager);
+    taskInfo.refreshLatestStageAttemptNumber(shuffleId, stageAttemptNumber);
+    taskInfo.getShuffleBlockIdManager().registerAppId(appId);
+    for (PartitionRange partitionRange : partitionRanges) {
+      shuffleBufferManager.registerBuffer(
+          appId, shuffleId, partitionRange.getStart(), partitionRange.getEnd());
     }
+    if (!remoteStorageInfo.isEmpty()) {
+      storageManager.registerRemoteStorage(appId, remoteStorageInfo);
+    }
+    return StatusCode.SUCCESS;
   }
 
   @VisibleForTesting
