@@ -1056,9 +1056,7 @@ public class ShuffleTaskManager {
   }
 
   private void triggerFlush() {
-    synchronized (this.shuffleBufferManager) {
-      this.shuffleBufferManager.flushIfNecessary();
-    }
+    this.shuffleBufferManager.flushIfFlushWaterMarkReached();
   }
 
   public Map<String, ShuffleTaskInfo> getShuffleTaskInfos() {

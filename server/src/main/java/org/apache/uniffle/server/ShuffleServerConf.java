@@ -364,7 +364,18 @@ public class ShuffleServerConf extends RssBaseConf {
               ConfigUtils.PERCENTAGE_DOUBLE_VALIDATOR,
               "The highWaterMark for memory percentage must be between 0.0 and 100.0")
           .defaultValue(75.0)
-          .withDescription("HighWaterMark of memory in percentage style");
+          .withDescription("HighWaterMark of memory in percentage style. When this watermark is reached,"
+              + " the thread receiving data will be blocked");
+
+  public static final ConfigOption<Double> SERVER_MEMORY_SHUFFLE_FLUSHWATERMARK_PERCENTAGE =
+      ConfigOptions.key("rss.server.memory.shuffle.flushWaterMark.percentage")
+          .doubleType()
+          .checkValue(
+              ConfigUtils.PERCENTAGE_DOUBLE_VALIDATOR,
+              "The flushWaterMark for memory percentage must be between 0.0 and 100.0")
+          .defaultValue(65.0)
+          .withDescription("FLushWaterMark of memory in percentage style. When this watermark is reached,"
+              + " the thread receiving data will not be blocked");
 
   public static final ConfigOption<Long> FLUSH_COLD_STORAGE_THRESHOLD_SIZE =
       ConfigOptions.key("rss.server.flush.cold.storage.threshold.size")
