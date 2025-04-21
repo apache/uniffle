@@ -117,7 +117,6 @@ public class ShuffleTaskManager {
   private final ShuffleBufferManager shuffleBufferManager;
   private Map<String, ShuffleTaskInfo> shuffleTaskInfos = JavaUtils.newConcurrentMap();
   private Map<Long, PreAllocatedBufferInfo> requireBufferIds = JavaUtils.newConcurrentMap();
-
   private final Map<String, Long> appsWaitingToBeRemoved = JavaUtils.newConcurrentMap();
   private final Map<String, Long> removingApps = JavaUtils.newConcurrentMap();
   private Thread clearResourceThread;
@@ -327,7 +326,6 @@ public class ShuffleTaskManager {
       return StatusCode.INVALID_REQUEST;
     }
     refreshAppId(appId);
-
     ShuffleTaskInfo taskInfo = shuffleTaskInfos.get(appId);
     taskInfo.setProperties(properties);
     taskInfo.setUser(user);
@@ -801,7 +799,7 @@ public class ShuffleTaskManager {
   }
 
   /**
-   * * Clear up the partial resources of shuffleIds of App.
+   * Clear up the partial resources of shuffleIds of App.
    *
    * @param appId
    * @param shuffleIds
