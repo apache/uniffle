@@ -934,7 +934,6 @@ public class ShuffleTaskManager {
                     checkAppExpired));
             return null;
           },
-
           storageRemoveOperationTimeoutSec,
           operationMsg);
       if (shuffleMergeManager != null) {
