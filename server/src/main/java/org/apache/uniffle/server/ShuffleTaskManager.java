@@ -117,6 +117,7 @@ public class ShuffleTaskManager {
   private final ShuffleBufferManager shuffleBufferManager;
   private Map<String, ShuffleTaskInfo> shuffleTaskInfos = JavaUtils.newConcurrentMap();
   private Map<Long, PreAllocatedBufferInfo> requireBufferIds = JavaUtils.newConcurrentMap();
+  private Map<String, Long> removingApps = JavaUtils.newConcurrentMap();
   private Thread clearResourceThread;
   private BlockingQueue<PurgeEvent> expiredAppIdQueue = Queues.newLinkedBlockingQueue();
   private final Cache<String, ReentrantReadWriteLock> appLocks;
@@ -320,6 +321,9 @@ public class ShuffleTaskManager {
       ShuffleDataDistributionType dataDistType,
       int maxConcurrencyPerPartitionToWrite,
       Map<String, String> properties) {
+    if (isAppRemoving(appId)) {
+      return StatusCode.INVALID_REQUEST;
+    }
     refreshAppId(appId);
 
     ShuffleTaskInfo taskInfo = shuffleTaskInfos.get(appId);
@@ -762,13 +766,14 @@ public class ShuffleTaskManager {
       Set<String> appNames = Sets.newHashSet(shuffleTaskInfos.keySet());
       // remove applications which is timeout according to rss.server.app.expired.withoutHeartbeat
       for (String appId : appNames) {
-        if (isAppExpired(appId)) {
+        if (isAppExpired(appId) && !isAppRemoving(appId)) {
           LOG.info(
               "Detect expired appId["
                   + appId
                   + "] according "
                   + "to rss.server.app.expired.withoutHeartbeat");
           expiredAppIdQueue.add(new AppPurgeEvent(appId, getUserByAppId(appId)));
+          removingApps.put(appId, System.currentTimeMillis());
         }
       }
       ShuffleServerMetrics.gaugeAppNum.set(shuffleTaskInfos.size());
@@ -785,8 +790,12 @@ public class ShuffleTaskManager {
     return System.currentTimeMillis() - shuffleTaskInfo.getCurrentTimes() > appExpiredWithoutHB;
   }
 
+  public boolean isAppRemoving(String appId) {
+    return removingApps.containsKey(appId);
+  }
+
   /**
-   * Clear up the partial resources of shuffleIds of App.
+   * * Clear up the partial resources of shuffleIds of App.
    *
    * @param appId
    * @param shuffleIds
@@ -870,6 +879,7 @@ public class ShuffleTaskManager {
             appId);
         return;
       }
+      removingApps.put(appId, System.currentTimeMillis());
       final long start = System.currentTimeMillis();
       ShuffleTaskInfo shuffleTaskInfo = shuffleTaskInfos.remove(appId);
       if (shuffleTaskInfo == null) {
@@ -933,6 +943,7 @@ public class ShuffleTaskManager {
               + (System.currentTimeMillis() - start)
               + " ms");
     } finally {
+      removingApps.remove(appId);
       lock.unlock();
     }
   }
