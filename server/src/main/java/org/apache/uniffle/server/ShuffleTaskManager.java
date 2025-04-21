@@ -773,7 +773,7 @@ public class ShuffleTaskManager {
                   + "] according "
                   + "to rss.server.app.expired.withoutHeartbeat");
           expiredAppIdQueue.add(new AppPurgeEvent(appId, getUserByAppId(appId)));
-          removingApps.put(appId, System.currentTimeMillis());
+          removingApps.computeIfAbsent(appId, key -> System.currentTimeMillis());
         }
       }
       ShuffleServerMetrics.gaugeAppNum.set(shuffleTaskInfos.size());
@@ -879,8 +879,8 @@ public class ShuffleTaskManager {
             appId);
         return;
       }
-      removingApps.put(appId, System.currentTimeMillis());
       final long start = System.currentTimeMillis();
+      removingApps.putIfAbsent(appId, start);
       ShuffleTaskInfo shuffleTaskInfo = shuffleTaskInfos.remove(appId);
       if (shuffleTaskInfo == null) {
         LOG.info("Resource for appId[" + appId + "] had been removed before.");
