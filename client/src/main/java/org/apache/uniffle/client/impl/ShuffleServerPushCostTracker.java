@@ -69,7 +69,7 @@ public class ShuffleServerPushCostTracker {
     LOGGER.info(
         "Statistics of shuffle server push speed: \n"
             + "-------------------------------------------"
-            + "\nMinimum: {} \nP25: {} \nMedian: {} \nP75: {} \nMaximum: {}"
+            + "\nMinimum: {} \nP25: {} \nMedian: {} \nP75: {} \nMaximum: {}\n"
             + "-------------------------------------------",
         shuffleServerPushCosts.isEmpty() ? 0 : shuffleServerPushCosts.get(0),
         getPercentile(shuffleServerPushCosts, 25),
