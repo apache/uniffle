@@ -368,12 +368,12 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
     checkSentRecordCount(recordCount);
     checkBlockSendResult(new HashSet<>(blockIds));
     checkSentBlockCount();
+    bufferManager.getShuffleServerPushCostTracker().statistics();
     long commitStartTs = System.currentTimeMillis();
     long checkDuration = commitStartTs - checkStartTs;
     if (!isMemoryShuffleEnabled) {
       sendCommit();
     }
-    bufferManager.getShuffleServerPushCostTracker().statistics();
     long writeDurationMs = bufferManager.getWriteTime() + (System.currentTimeMillis() - start);
     shuffleWriteMetrics.incWriteTime(TimeUnit.MILLISECONDS.toNanos(writeDurationMs));
     LOG.info(
