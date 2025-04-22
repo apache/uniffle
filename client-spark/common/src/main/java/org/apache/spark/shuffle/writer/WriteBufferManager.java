@@ -47,6 +47,7 @@ import org.apache.spark.shuffle.RssSparkConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.uniffle.client.impl.ShuffleServerPushCostTracker;
 import org.apache.uniffle.common.ShuffleBlockInfo;
 import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.compression.Codec;
@@ -105,6 +106,7 @@ public class WriteBufferManager extends MemoryConsumer {
   private double bufferSpillRatio;
   private Function<Integer, List<ShuffleServerInfo>> partitionAssignmentRetrieveFunc;
   private int stageAttemptNumber;
+  private ShuffleServerPushCostTracker shuffleServerPushCostTracker;
 
   public WriteBufferManager(
       int shuffleId,
@@ -200,6 +202,7 @@ public class WriteBufferManager extends MemoryConsumer {
     this.blockIdLayout = BlockIdLayout.from(rssConf);
     this.partitionAssignmentRetrieveFunc = partitionAssignmentRetrieveFunc;
     this.stageAttemptNumber = stageAttemptNumber;
+    this.shuffleServerPushCostTracker = new ShuffleServerPushCostTracker();
   }
 
   public WriteBufferManager(
@@ -528,7 +531,7 @@ public class WriteBufferManager extends MemoryConsumer {
                   + totalSize
                   + " bytes");
         }
-        events.add(new AddBlockEvent(taskId, stageAttemptNumber, shuffleBlockInfosPerEvent));
+        events.add(new AddBlockEvent(taskId, stageAttemptNumber, shuffleBlockInfosPerEvent, this));
         shuffleBlockInfosPerEvent = Lists.newArrayList();
         totalSize = 0;
       }
@@ -543,7 +546,7 @@ public class WriteBufferManager extends MemoryConsumer {
                 + " bytes");
       }
       // Use final temporary variables for closures
-      events.add(new AddBlockEvent(taskId, stageAttemptNumber, shuffleBlockInfosPerEvent));
+      events.add(new AddBlockEvent(taskId, stageAttemptNumber, shuffleBlockInfosPerEvent, this));
     }
     return events;
   }
@@ -684,5 +687,13 @@ public class WriteBufferManager extends MemoryConsumer {
   public void setPartitionAssignmentRetrieveFunc(
       Function<Integer, List<ShuffleServerInfo>> partitionAssignmentRetrieveFunc) {
     this.partitionAssignmentRetrieveFunc = partitionAssignmentRetrieveFunc;
+  }
+
+  public void merge(ShuffleServerPushCostTracker shuffleServerPushCostTracker) {
+    this.shuffleServerPushCostTracker.merge(shuffleServerPushCostTracker);
+  }
+
+  public ShuffleServerPushCostTracker getShuffleServerPushCostTracker() {
+    return shuffleServerPushCostTracker;
   }
 }

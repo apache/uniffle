@@ -1,0 +1,79 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.uniffle.client.impl;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/** This class is to track the underlying assigned shuffle servers' data pushing speed. */
+public class ShuffleServerPushCostTracker {
+  private static final Logger LOGGER = LoggerFactory.getLogger(ShuffleServerPushCostTracker.class);
+
+  // shuffleServerId -> ShuffleServerPushCost Object
+  private Map<String, ShuffleServerPushCost> tracking;
+
+  public ShuffleServerPushCostTracker() {
+    this.tracking = new ConcurrentHashMap<>();
+  }
+
+  public void merge(ShuffleServerPushCostTracker tracker) {
+    for (Map.Entry<String, ShuffleServerPushCost> entry : tracker.tracking.entrySet()) {
+      String id = entry.getKey();
+      ShuffleServerPushCost cost = entry.getValue();
+      this.tracking.computeIfAbsent(id, key -> new ShuffleServerPushCost(key)).merge(cost);
+    }
+  }
+
+  public void record(String id, long sentBytes, long pushDuration) {
+    ShuffleServerPushCost cost =
+        this.tracking.computeIfAbsent(id, key -> new ShuffleServerPushCost(key));
+    cost.incDurationMs(pushDuration);
+    cost.incSentBytes(sentBytes);
+  }
+
+  public void statistics() {
+    List<ShuffleServerPushCost> shuffleServerPushCosts = new ArrayList<>(this.tracking.values());
+    Collections.sort(
+        shuffleServerPushCosts, Comparator.comparingLong(ShuffleServerPushCost::speed));
+
+    LOGGER.info(
+        "Statistics of shuffle server push speed. Minimum: {}. P25: {}. Median: {}. P75: {}. Maximum: {}",
+        shuffleServerPushCosts.isEmpty() ? 0 : shuffleServerPushCosts.get(0),
+        getPercentile(shuffleServerPushCosts, 25),
+        getPercentile(shuffleServerPushCosts, 50),
+        getPercentile(shuffleServerPushCosts, 75),
+        shuffleServerPushCosts.isEmpty()
+            ? 0
+            : shuffleServerPushCosts.get(shuffleServerPushCosts.size() - 1));
+  }
+
+  private double getPercentile(List<ShuffleServerPushCost> costs, double percentile) {
+    if (costs.isEmpty()) {
+      return 0;
+    }
+    int index = (int) Math.ceil(percentile / 100.0 * costs.size()) - 1;
+    return costs.get(Math.min(Math.max(index, 0), costs.size() - 1)).speed();
+  }
+}

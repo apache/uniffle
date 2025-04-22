@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Test;
 
 import org.apache.uniffle.client.factory.ShuffleClientFactory;
 import org.apache.uniffle.client.impl.FailedBlockSendTracker;
+import org.apache.uniffle.client.impl.ShuffleServerPushCostTracker;
 import org.apache.uniffle.client.impl.ShuffleWriteClientImpl;
 import org.apache.uniffle.client.response.SendShuffleDataResult;
 import org.apache.uniffle.common.ShuffleBlockInfo;
@@ -114,7 +115,8 @@ public class DataPusherTest {
     failedBlockSendTracker.add(
         failedBlock2, new ShuffleServerInfo("host", 39998), StatusCode.NO_BUFFER);
     shuffleWriteClient.setFakedShuffleDataResult(
-        new SendShuffleDataResult(Sets.newHashSet(1L, 2L), failedBlockSendTracker));
+        new SendShuffleDataResult(
+            Sets.newHashSet(1L, 2L), failedBlockSendTracker, new ShuffleServerPushCostTracker()));
     ShuffleBlockInfo shuffleBlockInfo =
         new ShuffleBlockInfo(1, 1, 1, 1, 1, new byte[1], null, 1, 100, 1);
     AddBlockEvent event = new AddBlockEvent("taskId", Arrays.asList(shuffleBlockInfo));

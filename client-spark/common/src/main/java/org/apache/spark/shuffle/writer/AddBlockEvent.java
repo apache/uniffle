@@ -28,17 +28,22 @@ public class AddBlockEvent {
   private int stageAttemptNumber;
   private List<ShuffleBlockInfo> shuffleDataInfoList;
   private List<Runnable> processedCallbackChain;
+  private WriteBufferManager bufferManager;
 
   public AddBlockEvent(String taskId, List<ShuffleBlockInfo> shuffleDataInfoList) {
-    this(taskId, 0, shuffleDataInfoList);
+    this(taskId, 0, shuffleDataInfoList, null);
   }
 
   public AddBlockEvent(
-      String taskId, int stageAttemptNumber, List<ShuffleBlockInfo> shuffleDataInfoList) {
+      String taskId,
+      int stageAttemptNumber,
+      List<ShuffleBlockInfo> shuffleDataInfoList,
+      WriteBufferManager writeBufferManager) {
     this.taskId = taskId;
     this.stageAttemptNumber = stageAttemptNumber;
     this.shuffleDataInfoList = shuffleDataInfoList;
     this.processedCallbackChain = new ArrayList<>();
+    this.bufferManager = writeBufferManager;
   }
 
   /** @param callback, should not throw any exception and execute fast. */
@@ -60,6 +65,10 @@ public class AddBlockEvent {
 
   public List<Runnable> getProcessedCallbackChain() {
     return processedCallbackChain;
+  }
+
+  public WriteBufferManager getBufferManager() {
+    return bufferManager;
   }
 
   @Override

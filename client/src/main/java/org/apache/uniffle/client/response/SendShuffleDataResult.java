@@ -20,16 +20,21 @@ package org.apache.uniffle.client.response;
 import java.util.Set;
 
 import org.apache.uniffle.client.impl.FailedBlockSendTracker;
+import org.apache.uniffle.client.impl.ShuffleServerPushCostTracker;
 
 public class SendShuffleDataResult {
 
   private Set<Long> successBlockIds;
   private FailedBlockSendTracker failedBlockSendTracker;
+  private ShuffleServerPushCostTracker shuffleServerPushCostTracker;
 
   public SendShuffleDataResult(
-      Set<Long> successBlockIds, FailedBlockSendTracker failedBlockSendTracker) {
+      Set<Long> successBlockIds,
+      FailedBlockSendTracker failedBlockSendTracker,
+      ShuffleServerPushCostTracker shuffleServerPushCostTracker) {
     this.successBlockIds = successBlockIds;
     this.failedBlockSendTracker = failedBlockSendTracker;
+    this.shuffleServerPushCostTracker = shuffleServerPushCostTracker;
   }
 
   public Set<Long> getSuccessBlockIds() {
@@ -42,5 +47,9 @@ public class SendShuffleDataResult {
 
   public FailedBlockSendTracker getFailedBlockSendTracker() {
     return failedBlockSendTracker;
+  }
+
+  public ShuffleServerPushCostTracker getShuffleServerPushCostTracker() {
+    return shuffleServerPushCostTracker;
   }
 }

@@ -36,6 +36,7 @@ import org.slf4j.LoggerFactory;
 
 import org.apache.uniffle.client.api.ShuffleWriteClient;
 import org.apache.uniffle.client.impl.FailedBlockSendTracker;
+import org.apache.uniffle.client.impl.ShuffleServerPushCostTracker;
 import org.apache.uniffle.client.response.SendShuffleDataResult;
 import org.apache.uniffle.common.ShuffleBlockInfo;
 import org.apache.uniffle.common.exception.RssException;
@@ -100,6 +101,11 @@ public class DataPusher implements Closeable {
                 putFailedBlockSendTracker(
                     taskToFailedBlockSendTracker, taskId, result.getFailedBlockSendTracker());
               } finally {
+                ShuffleServerPushCostTracker shuffleServerPushCostTracker =
+                    result.getShuffleServerPushCostTracker();
+                WriteBufferManager bufferManager = event.getBufferManager();
+                bufferManager.merge(shuffleServerPushCostTracker);
+
                 Set<Long> succeedBlockIds = getSucceedBlockIds(result);
                 for (ShuffleBlockInfo block : shuffleBlockInfoList) {
                   block.executeCompletionCallback(succeedBlockIds.contains(block.getBlockId()));

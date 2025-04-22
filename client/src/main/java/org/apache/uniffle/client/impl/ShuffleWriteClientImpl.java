@@ -172,7 +172,8 @@ public class ShuffleWriteClientImpl implements ShuffleWriteClient {
       Map<Long, AtomicInteger> blockIdsSendSuccessTracker,
       FailedBlockSendTracker failedBlockSendTracker,
       boolean allowFastFail,
-      Supplier<Boolean> needCancelRequest) {
+      Supplier<Boolean> needCancelRequest,
+      ShuffleServerPushCostTracker shuffleServerPushCostTracker) {
 
     if (serverToBlockIds == null) {
       return true;
@@ -204,13 +205,11 @@ public class ShuffleWriteClientImpl implements ShuffleWriteClient {
                       long s = System.currentTimeMillis();
                       RssSendShuffleDataResponse response =
                           getShuffleServerClient(ssi).sendShuffleData(request);
-
+                      long pushDuration = System.currentTimeMillis() - s;
                       String logMsg =
                           String.format(
                               "ShuffleWriteClientImpl sendShuffleData with %s blocks to %s cost: %s(ms)",
-                              serverToBlockIds.get(ssi).size(),
-                              ssi.getId(),
-                              System.currentTimeMillis() - s);
+                              serverToBlockIds.get(ssi).size(), ssi.getId(), pushDuration);
 
                       if (response.getStatusCode() == StatusCode.SUCCESS) {
                         // mark a replica of block that has been sent
@@ -237,6 +236,16 @@ public class ShuffleWriteClientImpl implements ShuffleWriteClient {
                             "{}, it failed wth statusCode[{}]", logMsg, response.getStatusCode());
                         return false;
                       }
+
+                      // record shuffle-server push cost
+                      long sentBytes =
+                          shuffleIdToBlocks.values().stream()
+                              .flatMap(x -> x.values().stream())
+                              .flatMap(x -> x.stream())
+                              .map(x -> x.getLength())
+                              .reduce((a, b) -> a + b)
+                              .orElse(0);
+                      shuffleServerPushCostTracker.record(ssi.getId(), sentBytes, pushDuration);
                     } catch (Exception e) {
                       recordFailedBlocks(
                           failedBlockSendTracker, serverToBlocks, ssi, StatusCode.INTERNAL_ERROR);
@@ -425,6 +434,7 @@ public class ShuffleWriteClientImpl implements ShuffleWriteClient {
                         blockIdsSendSuccessTracker.computeIfAbsent(
                             block, id -> new AtomicInteger(0))));
     FailedBlockSendTracker blockIdsSendFailTracker = new FailedBlockSendTracker();
+    ShuffleServerPushCostTracker shuffleServerPushCostTracker = new ShuffleServerPushCostTracker();
 
     // sent the primary round of blocks.
     boolean isAllSuccess =
@@ -436,7 +446,8 @@ public class ShuffleWriteClientImpl implements ShuffleWriteClient {
             blockIdsSendSuccessTracker,
             blockIdsSendFailTracker,
             secondaryServerToBlocks.isEmpty(),
-            needCancelRequest);
+            needCancelRequest,
+            shuffleServerPushCostTracker);
 
     // The secondary round of blocks is sent only when the primary group issues failed sending.
     // This should be infrequent.
@@ -453,7 +464,8 @@ public class ShuffleWriteClientImpl implements ShuffleWriteClient {
           blockIdsSendSuccessTracker,
           blockIdsSendFailTracker,
           true,
-          needCancelRequest);
+          needCancelRequest,
+          shuffleServerPushCostTracker);
     }
 
     Set<Long> blockIdsSendSuccessSet = Sets.newHashSet();
@@ -470,7 +482,8 @@ public class ShuffleWriteClientImpl implements ShuffleWriteClient {
                 blockIdsSendFailTracker.remove(successBlockId.getKey());
               }
             });
-    return new SendShuffleDataResult(blockIdsSendSuccessSet, blockIdsSendFailTracker);
+    return new SendShuffleDataResult(
+        blockIdsSendSuccessSet, blockIdsSendFailTracker, shuffleServerPushCostTracker);
   }
 
   /**

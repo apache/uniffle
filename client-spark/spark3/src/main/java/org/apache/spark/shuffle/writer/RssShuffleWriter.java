@@ -373,6 +373,7 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
     if (!isMemoryShuffleEnabled) {
       sendCommit();
     }
+    bufferManager.getShuffleServerPushCostTracker().statistics();
     long writeDurationMs = bufferManager.getWriteTime() + (System.currentTimeMillis() - start);
     shuffleWriteMetrics.incWriteTime(TimeUnit.MILLISECONDS.toNanos(writeDurationMs));
     LOG.info(
