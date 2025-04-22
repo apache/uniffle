@@ -772,8 +772,7 @@ public class ShuffleTaskManager {
                   + "] according "
                   + "to rss.server.app.expired.withoutHeartbeat");
           expiredAppIdQueue.add(new AppPurgeEvent(appId, getUserByAppId(appId)));
-
-}
+        }
       }
       ShuffleServerMetrics.gaugeAppNum.set(shuffleTaskInfos.size());
     } catch (Exception e) {
