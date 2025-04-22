@@ -29,6 +29,12 @@ public class SendShuffleDataResult {
   private ShuffleServerPushCostTracker shuffleServerPushCostTracker;
 
   public SendShuffleDataResult(
+          Set<Long> successBlockIds,
+          FailedBlockSendTracker failedBlockSendTracker) {
+    this(successBlockIds, failedBlockSendTracker, new ShuffleServerPushCostTracker());
+  }
+
+  public SendShuffleDataResult(
       Set<Long> successBlockIds,
       FailedBlockSendTracker failedBlockSendTracker,
       ShuffleServerPushCostTracker shuffleServerPushCostTracker) {
