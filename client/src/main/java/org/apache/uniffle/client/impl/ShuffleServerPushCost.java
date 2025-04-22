@@ -73,6 +73,6 @@ public class ShuffleServerPushCost {
         + sentDurationMs
         + ", speed="
         + speed()
-        + '}';
+        + "}";
   }
 }

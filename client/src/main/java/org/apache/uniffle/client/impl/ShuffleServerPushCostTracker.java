@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.apache.commons.collections4.CollectionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,11 +56,18 @@ public class ShuffleServerPushCostTracker {
 
   public void statistics() {
     List<ShuffleServerPushCost> shuffleServerPushCosts = new ArrayList<>(this.tracking.values());
+    if (CollectionUtils.isEmpty(shuffleServerPushCosts)) {
+      return;
+    }
+
     Collections.sort(
         shuffleServerPushCosts, Comparator.comparingLong(ShuffleServerPushCost::speed));
 
     LOGGER.info(
-        "Statistics of shuffle server push speed. Minimum: {}. P25: {}. Median: {}. P75: {}. Maximum: {}",
+        "Statistics of shuffle server push speed: \n"
+            + "-------------------------------------------"
+            + "\nMinimum: {} \nP25: {} \nMedian: {} \nP75: {} \nMaximum: {}"
+            + "-------------------------------------------",
         shuffleServerPushCosts.isEmpty() ? 0 : shuffleServerPushCosts.get(0),
         getPercentile(shuffleServerPushCosts, 25),
         getPercentile(shuffleServerPushCosts, 50),
@@ -69,11 +77,12 @@ public class ShuffleServerPushCostTracker {
             : shuffleServerPushCosts.get(shuffleServerPushCosts.size() - 1));
   }
 
-  private double getPercentile(List<ShuffleServerPushCost> costs, double percentile) {
+  private ShuffleServerPushCost getPercentile(
+      List<ShuffleServerPushCost> costs, double percentile) {
     if (costs.isEmpty()) {
-      return 0;
+      return null;
     }
     int index = (int) Math.ceil(percentile / 100.0 * costs.size()) - 1;
-    return costs.get(Math.min(Math.max(index, 0), costs.size() - 1)).speed();
+    return costs.get(Math.min(Math.max(index, 0), costs.size() - 1));
   }
 }
