@@ -40,6 +40,9 @@ public class ShuffleServerPushCostTracker {
   }
 
   public void merge(ShuffleServerPushCostTracker tracker) {
+    if (tracker == null) {
+      return;
+    }
     for (Map.Entry<String, ShuffleServerPushCost> entry : tracker.tracking.entrySet()) {
       String id = entry.getKey();
       ShuffleServerPushCost cost = entry.getValue();

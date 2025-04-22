@@ -101,10 +101,12 @@ public class DataPusher implements Closeable {
                 putFailedBlockSendTracker(
                     taskToFailedBlockSendTracker, taskId, result.getFailedBlockSendTracker());
               } finally {
-                ShuffleServerPushCostTracker shuffleServerPushCostTracker =
-                    result.getShuffleServerPushCostTracker();
                 WriteBufferManager bufferManager = event.getBufferManager();
-                bufferManager.merge(shuffleServerPushCostTracker);
+                if (bufferManager != null) {
+                  ShuffleServerPushCostTracker shuffleServerPushCostTracker =
+                      result.getShuffleServerPushCostTracker();
+                  bufferManager.merge(shuffleServerPushCostTracker);
+                }
 
                 Set<Long> succeedBlockIds = getSucceedBlockIds(result);
                 for (ShuffleBlockInfo block : shuffleBlockInfoList) {
