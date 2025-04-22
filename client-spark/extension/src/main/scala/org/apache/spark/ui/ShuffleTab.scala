@@ -20,7 +20,7 @@ package org.apache.spark.ui
 import org.apache.spark.internal.Logging
 import org.apache.spark.{SparkConf, UniffleStatusStore}
 
-class MainTab(val store: UniffleStatusStore, sparkUI: SparkUI)
+class ShuffleTab(val store: UniffleStatusStore, sparkUI: SparkUI)
   extends SparkUITab(sparkUI, "uniffle")
     with Logging {
 
@@ -30,6 +30,6 @@ class MainTab(val store: UniffleStatusStore, sparkUI: SparkUI)
 
   val parent = sparkUI
 
-  attachPage(new AllPages(this))
+  attachPage(new ShufflePage(this))
   parent.attachTab(this)
 }

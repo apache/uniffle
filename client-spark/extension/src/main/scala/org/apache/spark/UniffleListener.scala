@@ -24,21 +24,34 @@ import org.apache.spark.status.ElementTrackingStore
 class UniffleListener(conf: SparkConf, kvstore: ElementTrackingStore)
   extends SparkListener with Logging {
 
-  private def onUniffleBuildInfo(event: UniffleBuildInfoEvent): Unit = {
-    val uiData = new UniffleBuildInfoUIData(event.info.toSeq.sortBy(_._1))
+  private def onBuildInfo(event: BuildInfoEvent): Unit = {
+    val uiData = new BuildInfoUIData(event.info.toSeq.sortBy(_._1))
     kvstore.write(uiData)
   }
 
+  private def onTaskShuffleInfo(event: TaskShuffleInfoEvent): Unit = {
+    // TODO: add the task total times into metrics
+    val data = new TaskShuffleMetricUIData(
+      event.stageId,
+      event.shuffleId,
+      event.taskId,
+      event.shuffleServerReadTracker,
+      event.shuffleServerWriteTracker
+    )
+    kvstore.write(data)
+  }
+
   override def onOtherEvent(event: SparkListenerEvent): Unit = event match {
-    case e: UniffleBuildInfoEvent => onUniffleBuildInfo(e)
+    case e: BuildInfoEvent => onBuildInfo(e)
+    case e: TaskShuffleInfoEvent => onTaskShuffleInfo(e)
     case _ => // Ignore
   }
 }
 
 object UniffleListener {
-  def register(sc: SparkContext): Unit = {
-    val kvStore = sc.statusStore.store.asInstanceOf[ElementTrackingStore]
-    val listener = new UniffleListener(sc.conf, kvStore)
-    sc.listenerBus.addToStatusQueue(listener)
+  def register(ctx: SparkContext): Unit = {
+    val kvStore = ctx.statusStore.store.asInstanceOf[ElementTrackingStore]
+    val listener = new UniffleListener(ctx.conf, kvStore)
+    ctx.listenerBus.addToStatusQueue(listener)
   }
 }

@@ -19,6 +19,8 @@ package org.apache.spark
 
 import org.apache.spark.api.plugin.{DriverPlugin, ExecutorPlugin, PluginContext, SparkPlugin}
 import org.apache.spark.internal.Logging
+import org.apache.spark.status.ElementTrackingStore
+import org.apache.spark.ui.ShuffleTab
 
 import java.util.Collections
 import scala.collection.mutable
@@ -34,18 +36,23 @@ private class UniffleDriverPlugin extends DriverPlugin with Logging {
 
   override def init(sc: SparkContext, pluginContext: PluginContext): java.util.Map[String, String] = {
     _sc = Some(sc)
-    val conf = pluginContext.conf()
     UniffleListener.register(sc)
     postBuildInfoEvent(sc)
-    EventUtils.attachUI(sc)
+    attachUI(sc)
     Collections.emptyMap()
+  }
+
+  private def attachUI(context: SparkContext): Unit = {
+    val kvStore = context.statusStore.store.asInstanceOf[ElementTrackingStore]
+    val statusStore = new UniffleStatusStore(kvStore)
+    context.ui.foreach(new ShuffleTab(statusStore, _))
   }
 
   private def postBuildInfoEvent(context: SparkContext): Unit = {
     val buildInfo = new mutable.LinkedHashMap[String, String]()
     buildInfo.put("Uniffle Version", "0.8.1")
 
-    val event = UniffleBuildInfoEvent(buildInfo.toMap)
-    EventUtils.post(context, event)
+    val event = BuildInfoEvent(buildInfo.toMap)
+    context.listenerBus.post(event)
   }
 }

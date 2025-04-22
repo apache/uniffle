@@ -37,6 +37,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+import org.apache.spark.ShuffleMetric;
 import scala.Function1;
 import scala.Option;
 import scala.Product2;

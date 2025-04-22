@@ -21,4 +21,12 @@ import org.apache.spark.scheduler.SparkListenerEvent
 
 sealed trait UniffleEvent extends SparkListenerEvent {}
 
-case class UniffleBuildInfoEvent(info: Map[String, String]) extends UniffleEvent {}
+case class BuildInfoEvent(info: Map[String, String]) extends UniffleEvent {}
+
+case class TaskShuffleInfoEvent(stageId: Int,
+                                shuffleId: Int,
+                                taskId: Long,
+                                shuffleServerReadTracker: java.util.Map[String, ShuffleMetric],
+                                shuffleServerWriteTracker: java.util.Map[String, ShuffleMetric]
+                               ) extends UniffleEvent {}
+case class ShuffleMetric(duration: Long, byteSize: Long)
