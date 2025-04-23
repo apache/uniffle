@@ -39,7 +39,6 @@ case class TaskShuffleReadInfoEvent(stageId: Int,
 // todo: add memory/localfile/hdfs metrics into read
 class ShuffleReadMetric(override val duration: Long, override val byteSize: Long) extends ShuffleMetric(duration, byteSize)
 
-
 // assignment relative events
 case class ShuffleAssignmentInfoEvent(shuffleId: Int,
                                       assignedServers: java.util.List[String]) extends UniffleEvent {}
