@@ -146,6 +146,7 @@
     <module>cli</module>
     <module>server-common</module>
     <module>tools/client-simulation-yarn</module>
+    <module>client-spark/extension</module>
   </modules>
 
   <dependencies>
