@@ -24,7 +24,6 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
-import org.apache.spark.ShuffleAssignmentInfoEvent;
 import scala.Tuple2;
 import scala.Tuple3;
 import scala.collection.Iterator;
@@ -35,6 +34,7 @@ import com.google.common.collect.Sets;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.spark.MapOutputTracker;
+import org.apache.spark.ShuffleAssignmentInfoEvent;
 import org.apache.spark.ShuffleDependency;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkEnv;
@@ -208,13 +208,15 @@ public class RssShuffleManager extends RssShuffleManagerBase {
             + partitionToServers);
 
     // Post assignment event
-    RssSparkShuffleUtils
-            .getActiveSparkContext()
-            .listenerBus()
-            .post(new ShuffleAssignmentInfoEvent(
-                    shuffleId,
-                    partitionToServers.values().stream().flatMap(x -> x.stream()).map(x -> x.getId()).collect(Collectors.toList())
-            ));
+    RssSparkShuffleUtils.getActiveSparkContext()
+        .listenerBus()
+        .post(
+            new ShuffleAssignmentInfoEvent(
+                shuffleId,
+                partitionToServers.values().stream()
+                    .flatMap(x -> x.stream())
+                    .map(x -> x.getId())
+                    .collect(Collectors.toList())));
 
     return new RssShuffleHandle<>(
         shuffleId, id.get(), dependency.rdd().getNumPartitions(), dependency, hdlInfoBd);

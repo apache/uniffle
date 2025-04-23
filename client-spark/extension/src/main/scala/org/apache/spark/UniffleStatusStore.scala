@@ -18,7 +18,7 @@
 package org.apache.spark
 
 import com.fasterxml.jackson.annotation.JsonIgnore
-import org.apache.spark.status.KVUtils.{KVIndexParam, size}
+import org.apache.spark.status.KVUtils.KVIndexParam
 import org.apache.spark.util.Utils
 import org.apache.spark.util.kvstore.{KVIndex, KVStore, KVStoreView}
 
