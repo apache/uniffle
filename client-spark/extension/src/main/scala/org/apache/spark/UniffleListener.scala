@@ -41,9 +41,19 @@ class UniffleListener(conf: SparkConf, kvstore: ElementTrackingStore)
     kvstore.write(data)
   }
 
+  private def onAssignmentInfo(info: ShuffleAssignmentInfoEvent): Unit = {
+    kvstore.write(
+      new ShuffleAssignmentUIData(
+        info.shuffleId,
+        info.assignedServers
+      )
+    )
+  }
+
   override def onOtherEvent(event: SparkListenerEvent): Unit = event match {
     case e: BuildInfoEvent => onBuildInfo(e)
     case e: TaskShuffleInfoEvent => onTaskShuffleInfo(e)
+    case e: ShuffleAssignmentInfoEvent => onAssignmentInfo(e)
     case _ => // Ignore
   }
 }

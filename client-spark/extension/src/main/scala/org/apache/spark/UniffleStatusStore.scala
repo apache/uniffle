@@ -18,7 +18,7 @@
 package org.apache.spark
 
 import com.fasterxml.jackson.annotation.JsonIgnore
-import org.apache.spark.status.KVUtils.KVIndexParam
+import org.apache.spark.status.KVUtils.{KVIndexParam, size}
 import org.apache.spark.util.Utils
 import org.apache.spark.util.kvstore.{KVIndex, KVStore, KVStoreView}
 
@@ -37,6 +37,10 @@ class UniffleStatusStore(store: KVStore) {
   def taskShuffleMetrics(): Seq[TaskShuffleMetricUIData] = {
     viewToSeq(store.view(classOf[TaskShuffleMetricUIData]))
   }
+
+  def assignmentInfos(): Seq[ShuffleAssignmentUIData] = {
+    viewToSeq(store.view(classOf[ShuffleAssignmentUIData]))
+  }
 }
 
 class BuildInfoUIData(val info: Seq[(String, String)]) {
@@ -50,3 +54,6 @@ class TaskShuffleMetricUIData(val stageId: Int,
                               @KVIndexParam val taskId: Long,
                               val shuffleServerReadTracker: java.util.Map[String, ShuffleMetric],
                               val shuffleServerWriteTracker: java.util.Map[String, ShuffleMetric])
+
+class ShuffleAssignmentUIData(@KVIndexParam val shuffleId: Int,
+                              val shuffleServerIdList: java.util.List[String])

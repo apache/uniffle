@@ -30,3 +30,13 @@ case class TaskShuffleInfoEvent(stageId: Int,
                                 shuffleServerWriteTracker: java.util.Map[String, ShuffleMetric]
                                ) extends UniffleEvent {}
 case class ShuffleMetric(duration: Long, byteSize: Long)
+
+// assignment relative events
+case class ShuffleAssignmentInfoEvent(shuffleId: Int,
+                                      assignedServers: java.util.List[String]) extends UniffleEvent {}
+
+case class ShuffleReassignmentInfoEvent(stageId: Int,
+                                        shuffleId: Int,
+                                        taskAttemptId: Long,
+                                        replacingServers: java.util.Map[String, java.util.List[String]]
+                                       ) extends UniffleEvent {}

@@ -24,6 +24,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
+import org.apache.spark.ShuffleAssignmentInfoEvent;
 import scala.Tuple2;
 import scala.Tuple3;
 import scala.collection.Iterator;
@@ -205,6 +206,16 @@ public class RssShuffleManager extends RssShuffleManagerBase {
             + partitionToServers.size()
             + "], shuffleServerForResult: "
             + partitionToServers);
+
+    // Post assignment event
+    RssSparkShuffleUtils
+            .getActiveSparkContext()
+            .listenerBus()
+            .post(new ShuffleAssignmentInfoEvent(
+                    shuffleId,
+                    partitionToServers.values().stream().flatMap(x -> x.stream()).map(x -> x.getId()).collect(Collectors.toList())
+            ));
+
     return new RssShuffleHandle<>(
         shuffleId, id.get(), dependency.rdd().getNumPartitions(), dependency, hdlInfoBd);
   }

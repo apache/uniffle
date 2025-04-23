@@ -128,31 +128,53 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
         </tbody>
       </table>
 
+    // render assignment info
+    val assignmentInfos = runtimeStatusStore.assignmentInfos
+    val assignmentTableUI = UIUtils.listingTable(
+      Seq("Shuffle ID", "Assigned Server Number"),
+      propertyRow,
+      assignmentInfos.map(x => (x.shuffleId.toString, x.shuffleServerIdList.size().toString)),
+      fixedWidth = true
+    )
+
     val summary: NodeSeq =
       <div>
         <div>
           <span class="collapse-sql-properties collapse-table"
-                onClick="collapseTable('collapse-sql-properties', 'sql-properties')">
+                onClick="collapseTable('collapse-sql-properties', 'build-info-table')">
             <h4>
               <span class="collapse-table-arrow arrow-closed"></span>
               <a>Uniffle Build Information</a>
             </h4>
           </span>
-          <div class="sql-properties collapsible-table collapsed">
+          <div class="build-info-table collapsible-table">
             {buildInfoTableUI}
           </div>
         </div>
 
         <div>
           <span class="collapse-sql-properties collapse-table"
-                onClick="collapseTable('collapse-sql-properties', 'sql-properties')">
+                onClick="collapseTable('collapse-sql-properties', 'statistics-table')">
             <h4>
               <span class="collapse-table-arrow arrow-closed"></span>
               <a>Shuffle Server Write/Read Statistics</a>
             </h4>
+            <div class="assignment-table collapsible-table">
+              {shuffleMetricsTableUI}
+            </div>
           </span>
-          <div class="sql-properties collapsible-table collapsed">
-            {shuffleMetricsTableUI}
+        </div>
+
+        <div>
+          <span class="collapse-sql-properties collapse-table"
+                onClick="collapseTable('collapse-sql-properties', 'assignment-table')">
+            <h4>
+              <span class="collapse-table-arrow arrow-closed"></span>
+              <a>Assignment</a>
+            </h4>
+          </span>
+          <div class="assignment-table collapsible-table">
+            {assignmentTableUI}
           </div>
         </div>
       </div>

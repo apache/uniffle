@@ -33,6 +33,11 @@
 
     <dependencies>
         <dependency>
+            <groupId>org.apache.uniffle</groupId>
+            <artifactId>rss-common</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-core_${scala.binary.version}</artifactId>
             <version>${spark.version}</version>

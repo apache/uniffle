@@ -21,6 +21,7 @@ import org.apache.spark.api.plugin.{DriverPlugin, ExecutorPlugin, PluginContext,
 import org.apache.spark.internal.Logging
 import org.apache.spark.status.ElementTrackingStore
 import org.apache.spark.ui.ShuffleTab
+import org.apache.uniffle.common.ProjectConstants
 
 import java.util.Collections
 import scala.collection.mutable
@@ -50,7 +51,9 @@ private class UniffleDriverPlugin extends DriverPlugin with Logging {
 
   private def postBuildInfoEvent(context: SparkContext): Unit = {
     val buildInfo = new mutable.LinkedHashMap[String, String]()
-    buildInfo.put("Uniffle Version", "0.8.1")
+    buildInfo.put("Version", ProjectConstants.VERSION)
+    buildInfo.put("Commit Id", ProjectConstants.getGitCommitId)
+    buildInfo.put("Revision", ProjectConstants.REVISION)
 
     val event = BuildInfoEvent(buildInfo.toMap)
     context.listenerBus.post(event)
