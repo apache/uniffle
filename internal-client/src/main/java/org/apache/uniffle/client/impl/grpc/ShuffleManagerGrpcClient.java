@@ -28,14 +28,18 @@ import org.apache.uniffle.client.request.RssGetShuffleResultRequest;
 import org.apache.uniffle.client.request.RssPartitionToShuffleServerRequest;
 import org.apache.uniffle.client.request.RssReassignOnBlockSendFailureRequest;
 import org.apache.uniffle.client.request.RssReportShuffleFetchFailureRequest;
+import org.apache.uniffle.client.request.RssReportShuffleReadMetricRequest;
 import org.apache.uniffle.client.request.RssReportShuffleResultRequest;
 import org.apache.uniffle.client.request.RssReportShuffleWriteFailureRequest;
+import org.apache.uniffle.client.request.RssReportShuffleWriteMetricRequest;
 import org.apache.uniffle.client.response.RssGetShuffleResultResponse;
 import org.apache.uniffle.client.response.RssReassignOnBlockSendFailureResponse;
 import org.apache.uniffle.client.response.RssReassignOnStageRetryResponse;
 import org.apache.uniffle.client.response.RssReportShuffleFetchFailureResponse;
+import org.apache.uniffle.client.response.RssReportShuffleReadMetricResponse;
 import org.apache.uniffle.client.response.RssReportShuffleResultResponse;
 import org.apache.uniffle.client.response.RssReportShuffleWriteFailureResponse;
+import org.apache.uniffle.client.response.RssReportShuffleWriteMetricResponse;
 import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.proto.RssProtos;
 import org.apache.uniffle.proto.RssProtos.ReportShuffleFetchFailureRequest;
@@ -153,6 +157,22 @@ public class ShuffleManagerGrpcClient extends GrpcClient implements ShuffleManag
     RssProtos.ReportShuffleResultResponse response =
         getBlockingStub().reportShuffleResult(request.toProto());
     return RssReportShuffleResultResponse.fromProto(response);
+  }
+
+  @Override
+  public RssReportShuffleWriteMetricResponse reportShuffleWriteMetric(
+      RssReportShuffleWriteMetricRequest request) {
+    RssProtos.ReportShuffleWriteMetricResponse response =
+        getBlockingStub().reportShuffleWriteMetric(request.toProto());
+    return RssReportShuffleWriteMetricResponse.fromProto(response);
+  }
+
+  @Override
+  public RssReportShuffleReadMetricResponse reportShuffleReadMetric(
+      RssReportShuffleReadMetricRequest request) {
+    RssProtos.ReportShuffleReadMetricResponse response =
+        getBlockingStub().reportShuffleReadMetric(request.toProto());
+    return RssReportShuffleReadMetricResponse.fromProto(response);
   }
 
   @Override

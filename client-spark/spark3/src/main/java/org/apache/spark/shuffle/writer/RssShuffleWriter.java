@@ -74,8 +74,10 @@ import org.apache.uniffle.client.impl.FailedBlockSendTracker;
 import org.apache.uniffle.client.impl.TrackingBlockStatus;
 import org.apache.uniffle.client.request.RssReassignOnBlockSendFailureRequest;
 import org.apache.uniffle.client.request.RssReportShuffleWriteFailureRequest;
+import org.apache.uniffle.client.request.RssReportShuffleWriteMetricRequest;
 import org.apache.uniffle.client.response.RssReassignOnBlockSendFailureResponse;
 import org.apache.uniffle.client.response.RssReportShuffleWriteFailureResponse;
+import org.apache.uniffle.client.response.RssReportShuffleWriteMetricResponse;
 import org.apache.uniffle.common.ReceivingFailureServer;
 import org.apache.uniffle.common.ShuffleBlockInfo;
 import org.apache.uniffle.common.ShuffleServerInfo;
@@ -924,6 +926,21 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
         throw e;
       }
     } finally {
+      // report shuffle write metrics to driver
+      ShuffleManagerClient shuffleManagerClient = managerClientSupplier.get();
+      if (shuffleManagerClient != null) {
+        RssReportShuffleWriteMetricResponse response =
+            shuffleManagerClient.reportShuffleWriteMetric(
+                new RssReportShuffleWriteMetricRequest(
+                    taskContext.stageId(),
+                    shuffleId,
+                    taskContext.taskAttemptId(),
+                    bufferManager.getShuffleServerPushCostTracker().toMetric()));
+        if (response.getStatusCode() != StatusCode.SUCCESS) {
+          LOG.error("Errors on reporting shuffle write metrics to driver");
+        }
+      }
+
       if (blockFailSentRetryEnabled) {
         if (success) {
           if (CollectionUtils.isNotEmpty(shuffleManager.getFailedBlockIds(taskId))) {

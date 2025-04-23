@@ -54,15 +54,13 @@ class BuildInfoUIData(val info: Seq[(String, String)]) {
 }
 
 class TaskShuffleWriteMetricUIData(val stageId: Int,
-                              val shuffleId: Int,
-                              @KVIndexParam val taskId: Long,
-                              val metrics: java.util.Map[String, ShuffleWriteMetric]
-                             )
-
-class TaskShuffleReadMetricUIData(val stageId: Int,
                                    val shuffleId: Int,
                                    @KVIndexParam val taskId: Long,
-                                   val metrics: java.util.Map[String, ShuffleReadMetric]
-                                  )
+                                   val metrics: java.util.Map[String, ShuffleWriteMetric])
+
+class TaskShuffleReadMetricUIData(val stageId: Int,
+                                  val shuffleId: Int,
+                                  @KVIndexParam val taskId: Long,
+                                  val metrics: java.util.Map[String, ShuffleReadMetric])
 class ShuffleAssignmentUIData(@KVIndexParam val shuffleId: Int,
                               val shuffleServerIdList: java.util.List[String])

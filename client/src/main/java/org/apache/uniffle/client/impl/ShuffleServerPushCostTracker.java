@@ -23,10 +23,13 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 import org.apache.commons.collections4.CollectionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import org.apache.uniffle.client.request.RssReportShuffleWriteMetricRequest;
 
 /** This class is to track the underlying assigned shuffle servers' data pushing speed. */
 public class ShuffleServerPushCostTracker {
@@ -87,5 +90,15 @@ public class ShuffleServerPushCostTracker {
     }
     int index = (int) Math.ceil(percentile / 100.0 * costs.size()) - 1;
     return costs.get(Math.min(Math.max(index, 0), costs.size() - 1));
+  }
+
+  public Map<String, RssReportShuffleWriteMetricRequest.TaskShuffleWriteMetric> toMetric() {
+    return this.tracking.entrySet().stream()
+        .collect(
+            Collectors.toMap(
+                Map.Entry::getKey,
+                x ->
+                    new RssReportShuffleWriteMetricRequest.TaskShuffleWriteMetric(
+                        x.getValue().sentDurationMillis(), x.getValue().sentBytes())));
   }
 }

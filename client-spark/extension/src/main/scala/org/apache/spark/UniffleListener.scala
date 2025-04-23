@@ -39,11 +39,25 @@ class UniffleListener(conf: SparkConf, kvstore: ElementTrackingStore)
   }
 
   private def onTaskShuffleWriteInfo(event: TaskShuffleWriteInfoEvent): Unit = {
-
+    kvstore.write(
+      new TaskShuffleWriteMetricUIData(
+        event.stageId,
+        event.shuffleId,
+        event.taskId,
+        event.shuffleServerWriteMetrics
+      )
+    )
   }
 
   private def onTaskShuffleReadInfo(event: TaskShuffleReadInfoEvent): Unit = {
-    ???
+    kvstore.write(
+      new TaskShuffleReadMetricUIData(
+        event.stageId,
+        event.shuffleId,
+        event.taskId,
+        event.shuffleServerReadMetrics
+      )
+    )
   }
 
   override def onOtherEvent(event: SparkListenerEvent): Unit = event match {

@@ -17,7 +17,7 @@
 
 package org.apache.spark.ui
 
-import org.apache.spark.{ShuffleMetric, ShuffleWriteMetric, TaskShuffleWriteMetricUIData}
+import org.apache.spark.ShuffleMetric
 import org.apache.spark.internal.Logging
 
 import javax.servlet.http.HttpServletRequest
@@ -35,6 +35,15 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
     </td> <td>
       {kv._2}
     </td>
+  </tr>
+
+  private def allServerRow(kv: (String, Long, Long, Long, Long, Long, Long)) = <tr>
+    <td>{kv._1}</td>
+    <td>{kv._2}</td>
+    <td>{kv._3}</td>
+    <td>{kv._4}</td>
+    <td>{kv._5}</td>
+    <td>{kv._6}</td>
   </tr>
 
   private def shuffleStatisticsCalculate(shuffleMetrics: Seq[(String, ShuffleMetric)]): (Seq[Long], Seq[String]) = {
@@ -94,6 +103,33 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
     Seq(writeSpeedRow, writeServerIdRow, readSpeedRow, readServerIdRow).flatten
   }
 
+  private def combineReadWriteByServerId(writeMetrics: Seq[(String, ShuffleMetric)], readMetrics: Seq[(String, ShuffleMetric)]): Seq[(String, Long, Long, Long, Long, Long, Long)] = {
+    val write = groupByShuffleServer(writeMetrics)
+    val read = groupByShuffleServer(readMetrics)
+    val allServerIds = write.keySet ++ read.keySet
+    val combinedMetrics = allServerIds.toSeq.map { serverId =>
+      val writeMetric = write.getOrElse(serverId, (0L, 0L, 0L))
+      val readMetric = read.getOrElse(serverId, (0L, 0L, 0L))
+      (serverId, writeMetric._1, writeMetric._2, writeMetric._3, readMetric._1, readMetric._2, readMetric._3)
+    }
+    combinedMetrics
+  }
+
+  private def groupByShuffleServer(shuffleMetrics: Seq[(String, ShuffleMetric)]): Map[String, (Long, Long, Long)] = {
+    if (shuffleMetrics.isEmpty) {
+      return Map.empty[String, (Long, Long, Long)]
+    }
+    val metrics = shuffleMetrics
+      .groupBy(_._1)
+      .mapValues {
+        metrics =>
+          val totalByteSize = metrics.map(_._2.byteSize).sum
+          val totalDuration = metrics.map(_._2.duration).sum
+          (totalByteSize, totalDuration, totalByteSize / totalDuration)
+      }
+    metrics
+  }
+
   override def render(request: HttpServletRequest): Seq[Node] = {
     // render build info
     val buildInfo = runtimeStatusStore.buildInfo()
@@ -123,6 +159,18 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
         </tbody>
       </table>
 
+    // render all assigned shuffle-servers
+    val allServers = combineReadWriteByServerId(
+      runtimeStatusStore.taskShuffleWriteMetrics().flatMap(x => x.metrics.asScala),
+      runtimeStatusStore.taskShuffleReadMetrics().flatMap(x => x.metrics.asScala)
+    )
+    val allServersTableUI = UIUtils.listingTable(
+      Seq("Shuffle Server ID", "Write Bytes", "Write Duration", "Write Speed", "Read Bytes", "Read Duration", "Read Speed"),
+      allServerRow,
+      allServers,
+      fixedWidth = true
+    )
+
     // render assignment info
     val assignmentInfos = runtimeStatusStore.assignmentInfos
     val assignmentTableUI = UIUtils.listingTable(
@@ -136,7 +184,7 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
       <div>
         <div>
           <span class="collapse-sql-properties collapse-table"
-                onClick="collapseTable('collapse-sql-properties', 'build-info-table')">
+                onClick="collapseTable('build-info-table')">
             <h4>
               <span class="collapse-table-arrow arrow-closed"></span>
               <a>Uniffle Build Information</a>
@@ -149,10 +197,10 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
 
         <div>
           <span class="collapse-sql-properties collapse-table"
-                onClick="collapseTable('collapse-sql-properties', 'statistics-table')">
+                onClick="collapseTable('statistics-table')">
             <h4>
               <span class="collapse-table-arrow arrow-closed"></span>
-              <a>Shuffle Server Write/Read Statistics</a>
+              <a>Shuffle Throughput Statistics</a>
             </h4>
             <div class="statistics-table collapsible-table">
               {shuffleMetricsTableUI}
@@ -161,8 +209,20 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
         </div>
 
         <div>
+          <span class="collapse-table" onClick="collapseTable('all-servers-table')">
+            <h4>
+              <span class="collapse-table-arrow"></span>
+              <a>Shuffle Server</a>
+            </h4>
+            <div class="all-servers-table collapsed">
+              {allServersTableUI}
+            </div>
+          </span>
+        </div>
+
+        <div>
           <span class="collapse-sql-properties collapse-table"
-                onClick="collapseTable('collapse-sql-properties', 'assignment-table')">
+                onClick="collapseTable('assignment-table')">
             <h4>
               <span class="collapse-table-arrow arrow-closed"></span>
               <a>Assignment</a>

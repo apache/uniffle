@@ -584,6 +584,41 @@ service ShuffleManager {
   rpc reportShuffleResult (ReportShuffleResultRequest) returns (ReportShuffleResultResponse);
   rpc getShuffleResult (GetShuffleResultRequest) returns (GetShuffleResultResponse);
   rpc getShuffleResultForMultiPart (GetShuffleResultForMultiPartRequest) returns (GetShuffleResultForMultiPartResponse);
+  // report task shuffle metrics
+  rpc reportShuffleWriteMetric (ReportShuffleWriteMetricRequest) returns (ReportShuffleWriteMetricResponse);
+  rpc reportShuffleReadMetric (ReportShuffleReadMetricRequest) returns (ReportShuffleReadMetricResponse);
+}
+
+message ReportShuffleWriteMetricRequest {
+  int32 shuffleId = 1;
+  int32 stageId = 2;
+  int64 taskId = 3;
+  map<string, ShuffleWriteMetric> metrics = 4;
+}
+
+message ShuffleWriteMetric {
+  int64 durationMillis = 1;
+  int64 byteSize = 2;
+}
+
+message ShuffleReadMetric {
+  int64 durationMillis = 1;
+  int64 byteSize = 2;
+}
+
+message ReportShuffleWriteMetricResponse {
+  StatusCode status = 1;
+}
+
+message ReportShuffleReadMetricRequest {
+  int32 shuffleId = 1;
+  int32 stageId = 2;
+  int64 taskId = 3;
+  map<string, ShuffleReadMetric> metrics = 4;
+}
+
+message ReportShuffleReadMetricResponse {
+  StatusCode status = 1;
 }
 
 message ReportShuffleFetchFailureRequest {

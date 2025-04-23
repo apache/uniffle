@@ -30,7 +30,12 @@ import java.util.stream.Collectors;
 
 import com.google.protobuf.UnsafeByteOperations;
 import io.grpc.stub.StreamObserver;
+import org.apache.spark.ShuffleReadMetric;
+import org.apache.spark.ShuffleWriteMetric;
 import org.apache.spark.SparkException;
+import org.apache.spark.TaskShuffleReadInfoEvent;
+import org.apache.spark.TaskShuffleWriteInfoEvent;
+import org.apache.spark.shuffle.RssSparkShuffleUtils;
 import org.apache.spark.shuffle.handle.MutableShuffleHandleInfo;
 import org.apache.spark.shuffle.handle.StageAttemptShuffleHandleInfo;
 import org.roaringbitmap.longlong.Roaring64NavigableMap;
@@ -706,6 +711,56 @@ public class ShuffleManagerGrpcService extends ShuffleManagerImplBase {
 
     RssProtos.ReportShuffleResultResponse reply =
         RssProtos.ReportShuffleResultResponse.newBuilder()
+            .setStatus(RssProtos.StatusCode.SUCCESS)
+            .build();
+    responseObserver.onNext(reply);
+    responseObserver.onCompleted();
+  }
+
+  @Override
+  public void reportShuffleWriteMetric(
+      RssProtos.ReportShuffleWriteMetricRequest request,
+      StreamObserver<RssProtos.ReportShuffleWriteMetricResponse> responseObserver) {
+    TaskShuffleWriteInfoEvent event =
+        new TaskShuffleWriteInfoEvent(
+            request.getStageId(),
+            request.getShuffleId(),
+            request.getTaskId(),
+            request.getMetricsMap().entrySet().stream()
+                .collect(
+                    Collectors.toMap(
+                        Map.Entry::getKey,
+                        x ->
+                            new ShuffleWriteMetric(
+                                x.getValue().getDurationMillis(), x.getValue().getByteSize()))));
+    RssSparkShuffleUtils.getActiveSparkContext().listenerBus().post(event);
+    RssProtos.ReportShuffleWriteMetricResponse reply =
+        RssProtos.ReportShuffleWriteMetricResponse.newBuilder()
+            .setStatus(RssProtos.StatusCode.SUCCESS)
+            .build();
+    responseObserver.onNext(reply);
+    responseObserver.onCompleted();
+  }
+
+  @Override
+  public void reportShuffleReadMetric(
+      RssProtos.ReportShuffleReadMetricRequest request,
+      StreamObserver<RssProtos.ReportShuffleReadMetricResponse> responseObserver) {
+    TaskShuffleReadInfoEvent event =
+        new TaskShuffleReadInfoEvent(
+            request.getStageId(),
+            request.getShuffleId(),
+            request.getTaskId(),
+            request.getMetricsMap().entrySet().stream()
+                .collect(
+                    Collectors.toMap(
+                        Map.Entry::getKey,
+                        x ->
+                            new ShuffleReadMetric(
+                                x.getValue().getDurationMillis(), x.getValue().getByteSize()))));
+    RssSparkShuffleUtils.getActiveSparkContext().listenerBus().post(event);
+    RssProtos.ReportShuffleReadMetricResponse reply =
+        RssProtos.ReportShuffleReadMetricResponse.newBuilder()
             .setStatus(RssProtos.StatusCode.SUCCESS)
             .build();
     responseObserver.onNext(reply);
