@@ -301,15 +301,13 @@ public class ShuffleBufferManager {
         shuffleId,
         spd.getPartitionId());
     updateShuffleSize(appId, shuffleId, size);
-    synchronized (buffer) {
-      flushSingleBufferIfNecessary(
-          buffer,
-          appId,
-          shuffleId,
-          spd.getPartitionId(),
-          entry.getKey().lowerEndpoint(),
-          entry.getKey().upperEndpoint());
-    }
+    flushSingleBufferIfNecessary(
+        buffer,
+        appId,
+        shuffleId,
+        spd.getPartitionId(),
+        entry.getKey().lowerEndpoint(),
+        entry.getKey().upperEndpoint());
 
     flushIfHighWaterMarkReached();
 
@@ -372,25 +370,35 @@ return StatusCode.SUCCESS;
       int partitionId,
       int startPartition,
       int endPartition) {
-    boolean isHugePartition =
-        HugePartitionUtils.isHugePartition(shuffleTaskManager, appId, shuffleId, partitionId);
-    // When we use multi storage and trigger single buffer flush, the buffer size should be bigger
-    // than rss.server.flush.cold.storage.threshold.size, otherwise cold storage will be useless.
-    if ((isHugePartition || this.bufferFlushEnabled)
-        && (buffer.getEncodedLength() > this.bufferFlushThreshold
-            || buffer.getBlockCount() > bufferFlushBlocksNumThreshold)) {
-      if (LOG.isDebugEnabled()) {
-        LOG.debug(
-            "Start to flush single buffer. Details - shuffleId:{}, startPartition:{}, endPartition:{}, isHugePartition:{}, bufferSize:{}, blocksNum:{}",
-            shuffleId,
-            startPartition,
-            endPartition,
-            isHugePartition,
-            buffer.getEncodedLength(),
-            buffer.getBlockCount());
-      }
-      flushBuffer(buffer, appId, shuffleId, startPartition, endPartition, isHugePartition);
+    if (!(buffer.getEncodedLength() > this.bufferFlushThreshold
+        || buffer.getBlockCount() > bufferFlushBlocksNumThreshold)) {
+      return;
     }
+    synchronized (buffer) {
+      if (!(buffer.getEncodedLength() > this.bufferFlushThreshold
+          || buffer.getBlockCount() > bufferFlushBlocksNumThreshold)) {
+        return;
+      }
+      boolean isHugePartition =
+          HugePartitionUtils.isHugePartition(shuffleTaskManager, appId, shuffleId, partitionId);
+      // When we use multi storage and trigger single buffer flush, the buffer size should be bigger
+      // than rss.server.flush.cold.storage.threshold.size, otherwise cold storage will be useless.
+      if ((isHugePartition || this.bufferFlushEnabled)) {
+        if (LOG.isDebugEnabled()) {
+          LOG.debug(
+              "Start to flush single buffer. Details - shuffleId:{}, startPartition:{}, endPartition:{}, isHugePartition:{}, bufferSize:{}, blocksNum:{}",
+              shuffleId,
+              startPartition,
+              endPartition,
+              isHugePartition,
+              buffer.getEncodedLength(),
+              buffer.getBlockCount());
+        }
+        flushBuffer(buffer, appId, shuffleId, startPartition, endPartition, isHugePartition);
+      }
+    }
+
+
   }
 
   private boolean shouldTriggerFLush(long triggerWaterMark) {
