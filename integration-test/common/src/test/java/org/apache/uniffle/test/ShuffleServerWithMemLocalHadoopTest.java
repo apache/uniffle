@@ -105,6 +105,7 @@ public class ShuffleServerWithMemLocalHadoopTest extends ShuffleReadWriteBase {
     shuffleServerConf.setLong(ShuffleServerConf.FLUSH_COLD_STORAGE_THRESHOLD_SIZE, 450L);
     shuffleServerConf.set(ShuffleServerConf.SERVER_APP_EXPIRED_WITHOUT_HEARTBEAT, 5000L);
     shuffleServerConf.set(ShuffleServerConf.SERVER_MEMORY_SHUFFLE_LOWWATERMARK_PERCENTAGE, 5.0);
+    shuffleServerConf.set(ShuffleServerConf.SERVER_MEMORY_SHUFFLE_FLUSHWATERMARK_PERCENTAGE, 15.0);
     shuffleServerConf.set(ShuffleServerConf.SERVER_MEMORY_SHUFFLE_HIGHWATERMARK_PERCENTAGE, 15.0);
     shuffleServerConf.set(ShuffleServerConf.SERVER_BUFFER_CAPACITY, 2000L);
     shuffleServerConf.set(ShuffleServerConf.SERVER_TRIGGER_FLUSH_CHECK_INTERVAL, 500L);
