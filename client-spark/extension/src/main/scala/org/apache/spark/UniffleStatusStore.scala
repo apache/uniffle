@@ -34,8 +34,12 @@ class UniffleStatusStore(store: KVStore) {
     store.read(kClass, kClass.getName)
   }
 
-  def taskShuffleMetrics(): Seq[TaskShuffleMetricUIData] = {
-    viewToSeq(store.view(classOf[TaskShuffleMetricUIData]))
+  def taskShuffleReadMetrics(): Seq[TaskShuffleReadMetricUIData] = {
+    viewToSeq(store.view(classOf[TaskShuffleReadMetricUIData]))
+  }
+
+  def taskShuffleWriteMetrics(): Seq[TaskShuffleWriteMetricUIData] = {
+    viewToSeq(store.view(classOf[TaskShuffleWriteMetricUIData]))
   }
 
   def assignmentInfos(): Seq[ShuffleAssignmentUIData] = {
@@ -49,11 +53,16 @@ class BuildInfoUIData(val info: Seq[(String, String)]) {
   def id: String = classOf[BuildInfoUIData].getName()
 }
 
-class TaskShuffleMetricUIData(val stageId: Int,
+class TaskShuffleWriteMetricUIData(val stageId: Int,
                               val shuffleId: Int,
                               @KVIndexParam val taskId: Long,
-                              val shuffleServerReadTracker: java.util.Map[String, ShuffleMetric],
-                              val shuffleServerWriteTracker: java.util.Map[String, ShuffleMetric])
+                              val metrics: java.util.Map[String, ShuffleWriteMetric]
+                             )
 
+class TaskShuffleReadMetricUIData(val stageId: Int,
+                                   val shuffleId: Int,
+                                   @KVIndexParam val taskId: Long,
+                                   val metrics: java.util.Map[String, ShuffleReadMetric]
+                                  )
 class ShuffleAssignmentUIData(@KVIndexParam val shuffleId: Int,
                               val shuffleServerIdList: java.util.List[String])

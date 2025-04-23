@@ -17,7 +17,7 @@
 
 package org.apache.spark.ui
 
-import org.apache.spark.TaskShuffleMetricUIData
+import org.apache.spark.{ShuffleMetric, ShuffleWriteMetric, TaskShuffleWriteMetricUIData}
 import org.apache.spark.internal.Logging
 
 import javax.servlet.http.HttpServletRequest
@@ -37,16 +37,12 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
     </td>
   </tr>
 
-  private object ShuffleTrackerType extends Enumeration {
-    val Write, Read = Value
-  }
-
-  private def shuffleStatisticsCalculate(shuffleMetrics: Seq[TaskShuffleMetricUIData], trackerType: ShuffleTrackerType.Value): (Seq[Long], Seq[String]) = {
-    val trackerData = trackerType match {
-      case ShuffleTrackerType.Write => shuffleMetrics.flatMap(f => f.shuffleServerWriteTracker.asScala)
-      case ShuffleTrackerType.Read => shuffleMetrics.flatMap(f => f.shuffleServerReadTracker.asScala)
+  private def shuffleStatisticsCalculate(shuffleMetrics: Seq[(String, ShuffleMetric)]): (Seq[Long], Seq[String]) = {
+    if (shuffleMetrics.isEmpty) {
+      return (Seq.empty[Long], Seq.empty[String])
     }
 
+    val trackerData = shuffleMetrics
     val groupedAndSortedMetrics = trackerData
       .groupBy(_._1)
       .map {
@@ -70,7 +66,7 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
     (speeds, shuffleServerIds)
   }
 
-  def createShuffleMetricsRows(shuffleWriteMetrics: (Seq[Long], Seq[String]), shuffleReadMetrics: (Seq[Long], Seq[String])): Seq[scala.xml.Elem] = {
+  private def createShuffleMetricsRows(shuffleWriteMetrics: (Seq[Long], Seq[String]), shuffleReadMetrics: (Seq[Long], Seq[String])): Seq[scala.xml.Elem] = {
     val (writeSpeeds, writeServerIds) = shuffleWriteMetrics
     val (readSpeeds, readServerIds) = shuffleReadMetrics
 
@@ -90,12 +86,12 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
       </td>)}
     </tr>
 
-    Seq(
-      createSpeedRow("Write Speed (bytes/sec)", writeSpeeds),
-      createServerIdRow("Shuffle Write Server ID", writeServerIds),
-      createSpeedRow("Read Speed (bytes/sec)", readSpeeds),
-      createServerIdRow("Shuffle Read Server ID", readServerIds)
-    )
+    val writeSpeedRow = if (writeSpeeds.nonEmpty) Some(createSpeedRow("Write Speed (bytes/sec)", writeSpeeds)) else None
+    val writeServerIdRow = if (writeServerIds.nonEmpty) Some(createServerIdRow("Shuffle Write Server ID", writeServerIds)) else None
+    val readSpeedRow = if (readSpeeds.nonEmpty) Some(createSpeedRow("Read Speed (bytes/sec)", readSpeeds)) else None
+    val readServerIdRow = if (readServerIds.nonEmpty) Some(createServerIdRow("Shuffle Read Server ID", readServerIds)) else None
+
+    Seq(writeSpeedRow, writeServerIdRow, readSpeedRow, readServerIdRow).flatten
   }
 
   override def render(request: HttpServletRequest): Seq[Node] = {
@@ -109,9 +105,8 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
     )
 
     // render shuffle-servers write+read statistics
-    val shuffleMetrics = runtimeStatusStore.taskShuffleMetrics()
-    val shuffleWriteMetrics = shuffleStatisticsCalculate(shuffleMetrics, ShuffleTrackerType.Write)
-    val shuffleReadMetrics = shuffleStatisticsCalculate(shuffleMetrics, ShuffleTrackerType.Read)
+    val shuffleWriteMetrics = shuffleStatisticsCalculate(runtimeStatusStore.taskShuffleWriteMetrics().flatMap(x => x.metrics.asScala))
+    val shuffleReadMetrics = shuffleStatisticsCalculate(runtimeStatusStore.taskShuffleReadMetrics().flatMap(x => x.metrics.asScala))
     val shuffleHeader = Seq("Min", "P25", "P50", "P75", "Max")
     val shuffleMetricsRows = createShuffleMetricsRows(shuffleWriteMetrics, shuffleReadMetrics)
     val shuffleMetricsTableUI =
@@ -159,7 +154,7 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
               <span class="collapse-table-arrow arrow-closed"></span>
               <a>Shuffle Server Write/Read Statistics</a>
             </h4>
-            <div class="assignment-table collapsible-table">
+            <div class="statistics-table collapsible-table">
               {shuffleMetricsTableUI}
             </div>
           </span>

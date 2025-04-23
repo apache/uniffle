@@ -29,18 +29,6 @@ class UniffleListener(conf: SparkConf, kvstore: ElementTrackingStore)
     kvstore.write(uiData)
   }
 
-  private def onTaskShuffleInfo(event: TaskShuffleInfoEvent): Unit = {
-    // TODO: add the task total times into metrics
-    val data = new TaskShuffleMetricUIData(
-      event.stageId,
-      event.shuffleId,
-      event.taskId,
-      event.shuffleServerReadTracker,
-      event.shuffleServerWriteTracker
-    )
-    kvstore.write(data)
-  }
-
   private def onAssignmentInfo(info: ShuffleAssignmentInfoEvent): Unit = {
     kvstore.write(
       new ShuffleAssignmentUIData(
@@ -50,9 +38,18 @@ class UniffleListener(conf: SparkConf, kvstore: ElementTrackingStore)
     )
   }
 
+  private def onTaskShuffleWriteInfo(event: TaskShuffleWriteInfoEvent): Unit = {
+
+  }
+
+  private def onTaskShuffleReadInfo(event: TaskShuffleReadInfoEvent): Unit = {
+    ???
+  }
+
   override def onOtherEvent(event: SparkListenerEvent): Unit = event match {
     case e: BuildInfoEvent => onBuildInfo(e)
-    case e: TaskShuffleInfoEvent => onTaskShuffleInfo(e)
+    case e: TaskShuffleWriteInfoEvent => onTaskShuffleWriteInfo(e)
+    case e: TaskShuffleReadInfoEvent => onTaskShuffleReadInfo(e)
     case e: ShuffleAssignmentInfoEvent => onAssignmentInfo(e)
     case _ => // Ignore
   }

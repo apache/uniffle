@@ -23,13 +23,22 @@ sealed trait UniffleEvent extends SparkListenerEvent {}
 
 case class BuildInfoEvent(info: Map[String, String]) extends UniffleEvent {}
 
-case class TaskShuffleInfoEvent(stageId: Int,
-                                shuffleId: Int,
-                                taskId: Long,
-                                shuffleServerReadTracker: java.util.Map[String, ShuffleMetric],
-                                shuffleServerWriteTracker: java.util.Map[String, ShuffleMetric]
-                               ) extends UniffleEvent {}
-case class ShuffleMetric(duration: Long, byteSize: Long)
+// task shuffle relative events
+sealed abstract case class ShuffleMetric(duration: Long, byteSize: Long)
+case class TaskShuffleWriteInfoEvent(stageId: Int,
+                                     shuffleId: Int,
+                                     taskId: Long,
+                                     shuffleServerWriteMetrics: java.util.Map[String, ShuffleWriteMetric]
+                                    ) extends UniffleEvent {}
+class ShuffleWriteMetric(override val duration: Long, override val byteSize: Long) extends ShuffleMetric(duration, byteSize)
+case class TaskShuffleReadInfoEvent(stageId: Int,
+                                    shuffleId: Int,
+                                    taskId: Long,
+                                    shuffleServerReadMetrics: java.util.Map[String, ShuffleReadMetric]
+                                   ) extends UniffleEvent {}
+// todo: add memory/localfile/hdfs metrics into read
+class ShuffleReadMetric(override val duration: Long, override val byteSize: Long) extends ShuffleMetric(duration, byteSize)
+
 
 // assignment relative events
 case class ShuffleAssignmentInfoEvent(shuffleId: Int,
