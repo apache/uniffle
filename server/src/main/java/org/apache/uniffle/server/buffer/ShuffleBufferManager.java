@@ -214,7 +214,7 @@ public class ShuffleBufferManager {
                     (capacity
                         / 100.0
                         * conf.get(
-                        ShuffleServerConf.SERVER_MEMORY_SHUFFLE_FLUSHWATERMARK_PERCENTAGE));
+                            ShuffleServerConf.SERVER_MEMORY_SHUFFLE_FLUSHWATERMARK_PERCENTAGE));
           }
           if (changedProperties.contains(
               ShuffleServerConf.SERVER_MEMORY_SHUFFLE_LOWWATERMARK_PERCENTAGE.key())) {
@@ -311,7 +311,7 @@ public class ShuffleBufferManager {
 
     flushIfHighWaterMarkReached();
 
-return StatusCode.SUCCESS;
+    return StatusCode.SUCCESS;
   }
 
   private void updateShuffleSize(String appId, int shuffleId, long size) {
@@ -397,8 +397,6 @@ return StatusCode.SUCCESS;
         flushBuffer(buffer, appId, shuffleId, startPartition, endPartition, isHugePartition);
       }
     }
-
-
   }
 
   private boolean shouldTriggerFLush(long triggerWaterMark) {
