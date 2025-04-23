@@ -74,7 +74,6 @@ public class ShuffleBufferManager {
   private long highWaterMark;
   private long flushWaterMark;
   private long lowWaterMark;
-
   private boolean bufferFlushEnabled;
   private long bufferFlushThreshold;
   private long bufferFlushBlocksNumThreshold;
@@ -308,9 +307,7 @@ public class ShuffleBufferManager {
         spd.getPartitionId(),
         entry.getKey().lowerEndpoint(),
         entry.getKey().upperEndpoint());
-
     flushIfHighWaterMarkReached();
-
     return StatusCode.SUCCESS;
   }
 
