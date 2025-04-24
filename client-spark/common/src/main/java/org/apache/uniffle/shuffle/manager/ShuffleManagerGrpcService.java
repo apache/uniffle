@@ -30,12 +30,12 @@ import java.util.stream.Collectors;
 
 import com.google.protobuf.UnsafeByteOperations;
 import io.grpc.stub.StreamObserver;
-import org.apache.spark.ShuffleReadMetric;
-import org.apache.spark.ShuffleWriteMetric;
 import org.apache.spark.SparkException;
-import org.apache.spark.TaskShuffleReadInfoEvent;
-import org.apache.spark.TaskShuffleWriteInfoEvent;
 import org.apache.spark.shuffle.RssSparkShuffleUtils;
+import org.apache.spark.shuffle.events.ShuffleReadMetric;
+import org.apache.spark.shuffle.events.ShuffleWriteMetric;
+import org.apache.spark.shuffle.events.TaskShuffleReadInfoEvent;
+import org.apache.spark.shuffle.events.TaskShuffleWriteInfoEvent;
 import org.apache.spark.shuffle.handle.MutableShuffleHandleInfo;
 import org.apache.spark.shuffle.handle.StageAttemptShuffleHandleInfo;
 import org.roaringbitmap.longlong.Roaring64NavigableMap;

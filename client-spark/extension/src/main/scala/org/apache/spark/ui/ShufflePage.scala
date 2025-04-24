@@ -17,8 +17,8 @@
 
 package org.apache.spark.ui
 
-import org.apache.spark.ShuffleMetric
 import org.apache.spark.internal.Logging
+import org.apache.spark.shuffle.events.ShuffleMetric
 
 import javax.servlet.http.HttpServletRequest
 import scala.collection.JavaConverters.mapAsScalaMapConverter
@@ -56,8 +56,8 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
       .groupBy(_._1)
       .map {
         case (key, metrics) =>
-          val totalByteSize = metrics.map(_._2.byteSize).sum
-          val totalDuration = metrics.map(_._2.duration).sum
+          val totalByteSize = metrics.map(_._2.getByteSize).sum
+          val totalDuration = metrics.map(_._2.getDurationMillis).sum
           (key, totalByteSize, totalDuration, totalByteSize / totalDuration)
       }
       .toSeq
@@ -123,8 +123,8 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
       .groupBy(_._1)
       .mapValues {
         metrics =>
-          val totalByteSize = metrics.map(_._2.byteSize).sum
-          val totalDuration = metrics.map(_._2.duration).sum
+          val totalByteSize = metrics.map(_._2.getByteSize).sum
+          val totalDuration = metrics.map(_._2.getDurationMillis).sum
           (totalByteSize, totalDuration, totalByteSize / totalDuration)
       }
     metrics

@@ -19,6 +19,7 @@ package org.apache.spark
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{SparkListener, SparkListenerEvent}
+import org.apache.spark.shuffle.events.{ShuffleAssignmentInfoEvent, TaskShuffleReadInfoEvent, TaskShuffleWriteInfoEvent}
 import org.apache.spark.status.ElementTrackingStore
 
 class UniffleListener(conf: SparkConf, kvstore: ElementTrackingStore)
@@ -32,8 +33,8 @@ class UniffleListener(conf: SparkConf, kvstore: ElementTrackingStore)
   private def onAssignmentInfo(info: ShuffleAssignmentInfoEvent): Unit = {
     kvstore.write(
       new ShuffleAssignmentUIData(
-        info.shuffleId,
-        info.assignedServers
+        info.getShuffleId,
+        info.getAssignedServers
       )
     )
   }
@@ -41,10 +42,10 @@ class UniffleListener(conf: SparkConf, kvstore: ElementTrackingStore)
   private def onTaskShuffleWriteInfo(event: TaskShuffleWriteInfoEvent): Unit = {
     kvstore.write(
       new TaskShuffleWriteMetricUIData(
-        event.stageId,
-        event.shuffleId,
-        event.taskId,
-        event.shuffleServerWriteMetrics
+        event.getStageId,
+        event.getShuffleId,
+        event.getTaskId,
+        event.getMetrics
       )
     )
   }
@@ -52,10 +53,10 @@ class UniffleListener(conf: SparkConf, kvstore: ElementTrackingStore)
   private def onTaskShuffleReadInfo(event: TaskShuffleReadInfoEvent): Unit = {
     kvstore.write(
       new TaskShuffleReadMetricUIData(
-        event.stageId,
-        event.shuffleId,
-        event.taskId,
-        event.shuffleServerReadMetrics
+        event.getStageId,
+        event.getShuffleId,
+        event.getTaskId,
+        event.getMetrics
       )
     )
   }

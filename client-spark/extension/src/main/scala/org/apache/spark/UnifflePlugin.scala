@@ -19,6 +19,7 @@ package org.apache.spark
 
 import org.apache.spark.api.plugin.{DriverPlugin, ExecutorPlugin, PluginContext, SparkPlugin}
 import org.apache.spark.internal.Logging
+import org.apache.spark.shuffle.events.UniffleEvent
 import org.apache.spark.status.ElementTrackingStore
 import org.apache.spark.ui.ShuffleTab
 import org.apache.uniffle.common.ProjectConstants
@@ -55,7 +56,9 @@ private class UniffleDriverPlugin extends DriverPlugin with Logging {
     buildInfo.put("Commit Id", ProjectConstants.getGitCommitId)
     buildInfo.put("Revision", ProjectConstants.REVISION)
 
-    val event = BuildInfoEvent(buildInfo.toMap)
+    val event = new BuildInfoEvent(buildInfo.toMap)
     context.listenerBus.post(event)
   }
 }
+
+case class BuildInfoEvent(info: Map[String, String]) extends UniffleEvent

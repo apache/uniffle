@@ -89,11 +89,6 @@
             <groupId>net.jpountz.lz4</groupId>
             <artifactId>lz4</artifactId>
         </dependency>
-        <dependency>
-            <groupId>org.apache.uniffle</groupId>
-            <artifactId>rss-client-spark-ui</artifactId>
-            <version>${project.version}</version>
-        </dependency>
     </dependencies>
 
 </project>
