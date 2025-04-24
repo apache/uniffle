@@ -76,8 +76,8 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
   }
 
   private def createShuffleMetricsRows(shuffleWriteMetrics: (Seq[Long], Seq[String]), shuffleReadMetrics: (Seq[Long], Seq[String])): Seq[scala.xml.Elem] = {
-    val (writeSpeeds, writeServerIds) = shuffleWriteMetrics
-    val (readSpeeds, readServerIds) = shuffleReadMetrics
+    val (writeSpeeds, writeServerIds) = if (shuffleWriteMetrics != null) shuffleWriteMetrics else (Seq.empty, Seq.empty)
+    val (readSpeeds, readServerIds) = if (shuffleReadMetrics != null) shuffleReadMetrics else (Seq.empty, Seq.empty)
 
     def createSpeedRow(metricType: String, speeds: Seq[Long]) = <tr>
       <td>
