@@ -127,6 +127,7 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
           val totalDuration = metrics.map(_._2.getDurationMillis).sum
           (totalByteSize, totalDuration, totalByteSize / totalDuration)
       }
+      .toMap
     metrics
   }
 
