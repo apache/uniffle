@@ -56,22 +56,22 @@ public class RssReportShuffleReadMetricRequest {
                                 .build())));
     return builder.build();
   }
-}
 
-class TaskShuffleReadMetric {
-  private long durationMillis;
-  private long byteSize;
+  class TaskShuffleReadMetric {
+    private long durationMillis;
+    private long byteSize;
 
-  public TaskShuffleReadMetric(long durationMillis, long byteSize) {
-    this.durationMillis = durationMillis;
-    this.byteSize = byteSize;
-  }
+    TaskShuffleReadMetric(long durationMillis, long byteSize) {
+      this.durationMillis = durationMillis;
+      this.byteSize = byteSize;
+    }
 
-  public long getDurationMillis() {
-    return durationMillis;
-  }
+    public long getDurationMillis() {
+      return durationMillis;
+    }
 
-  public long getByteSize() {
-    return byteSize;
+    public long getByteSize() {
+      return byteSize;
+    }
   }
 }
