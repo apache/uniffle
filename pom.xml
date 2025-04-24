@@ -1359,7 +1359,6 @@
         <module>client-spark/spark2-shaded</module>
         <module>integration-test/spark-common</module>
         <module>integration-test/spark2</module>
-        <module>client-spark/extension</module>
       </modules>
       <dependencyManagement>
         <dependencies>
@@ -1419,7 +1418,6 @@
         <module>client-spark/spark2</module>
         <module>client-spark/spark2-shaded</module>
         <module>integration-test/spark-common</module>
-        <module>client-spark/extension</module>
       </modules>
       <dependencyManagement>
         <dependencies>
