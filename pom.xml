@@ -107,6 +107,7 @@
     <skipBuildImage>true</skipBuildImage>
     <snakeyaml.version>2.2</snakeyaml.version>
     <kryo.version>4.0.2</kryo.version>
+    <scala.version>2.12.18</scala.version>
   </properties>
 
   <repositories>
@@ -2169,6 +2170,7 @@
       <id>scala2.13</id>
       <properties>
         <scala.binary.version>2.13</scala.binary.version>
+        <scala.version>2.13.16</scala.version>
       </properties>
     </profile>
 
