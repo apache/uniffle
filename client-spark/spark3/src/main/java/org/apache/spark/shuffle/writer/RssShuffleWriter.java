@@ -927,17 +927,19 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
       }
     } finally {
       // report shuffle write metrics to driver
-      ShuffleManagerClient shuffleManagerClient = managerClientSupplier.get();
-      if (shuffleManagerClient != null) {
-        RssReportShuffleWriteMetricResponse response =
-            shuffleManagerClient.reportShuffleWriteMetric(
-                new RssReportShuffleWriteMetricRequest(
-                    taskContext.stageId(),
-                    shuffleId,
-                    taskContext.taskAttemptId(),
-                    bufferManager.getShuffleServerPushCostTracker().toMetric()));
-        if (response.getStatusCode() != StatusCode.SUCCESS) {
-          LOG.error("Errors on reporting shuffle write metrics to driver");
+      if (managerClientSupplier != null) {
+        ShuffleManagerClient shuffleManagerClient = managerClientSupplier.get();
+        if (shuffleManagerClient != null) {
+          RssReportShuffleWriteMetricResponse response =
+              shuffleManagerClient.reportShuffleWriteMetric(
+                  new RssReportShuffleWriteMetricRequest(
+                      taskContext.stageId(),
+                      shuffleId,
+                      taskContext.taskAttemptId(),
+                      bufferManager.getShuffleServerPushCostTracker().toMetric()));
+          if (response.getStatusCode() != StatusCode.SUCCESS) {
+            LOG.error("Errors on reporting shuffle write metrics to driver");
+          }
         }
       }
 
