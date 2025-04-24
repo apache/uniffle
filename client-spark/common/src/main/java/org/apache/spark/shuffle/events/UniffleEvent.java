@@ -19,6 +19,9 @@ package org.apache.spark.shuffle.events;
 
 import org.apache.spark.scheduler.SparkListenerEvent;
 
-public interface UniffleEvent extends SparkListenerEvent {
-  // nothing
+public abstract class UniffleEvent implements SparkListenerEvent {
+
+  public boolean logEvent() {
+    return true;
+  }
 }

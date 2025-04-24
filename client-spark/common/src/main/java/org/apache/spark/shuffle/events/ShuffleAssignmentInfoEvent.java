@@ -19,7 +19,7 @@ package org.apache.spark.shuffle.events;
 
 import java.util.List;
 
-public class ShuffleAssignmentInfoEvent implements UniffleEvent {
+public class ShuffleAssignmentInfoEvent extends UniffleEvent {
   private int shuffleId;
   private List<String> assignedServers;
 

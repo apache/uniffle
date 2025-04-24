@@ -57,7 +57,7 @@ public class RssReportShuffleReadMetricRequest {
     return builder.build();
   }
 
-  class TaskShuffleReadMetric {
+  public static class TaskShuffleReadMetric {
     private long durationMillis;
     private long byteSize;
 

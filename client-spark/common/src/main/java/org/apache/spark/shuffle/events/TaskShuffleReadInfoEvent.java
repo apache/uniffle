@@ -19,7 +19,7 @@ package org.apache.spark.shuffle.events;
 
 import java.util.Map;
 
-public class TaskShuffleReadInfoEvent implements UniffleEvent {
+public class TaskShuffleReadInfoEvent extends UniffleEvent {
   private int stageId;
   private int shuffleId;
   private long taskId;
