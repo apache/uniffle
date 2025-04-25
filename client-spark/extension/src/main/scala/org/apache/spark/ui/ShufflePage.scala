@@ -76,6 +76,9 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
   }
 
   override def render(request: HttpServletRequest): Seq[Node] = {
+    // render header
+
+
     // render build info
     val buildInfo = runtimeStatusStore.buildInfo()
     val buildInfoTableUI = UIUtils.listingTable(
@@ -88,7 +91,7 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
     // render shuffle-servers write+read statistics
     val shuffleWriteMetrics = shuffleSpeedStatistics(runtimeStatusStore.aggregatedShuffleWriteMetrics().metrics.asScala.toSeq)
     val shuffleReadMetrics = shuffleSpeedStatistics(runtimeStatusStore.aggregatedShuffleReadMetrics().metrics.asScala.toSeq)
-    val shuffleHeader = Seq("Min", "P25", "P50", "P75", "Max")
+    val shuffleHeader = Seq("Avg", "Min", "P25", "P50", "P75", "Max")
     val shuffleMetricsRows = createShuffleMetricsRows(shuffleWriteMetrics, shuffleReadMetrics)
     val shuffleMetricsTableUI =
       <table class="table table-bordered table-sm table-striped sortable">
@@ -232,14 +235,18 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
         })
         .sortBy(_._4)
 
+    val totalBytes = sorted.map(_._2).sum.toDouble // Sum of all byte sizes
+    val totalDuration = sorted.map(_._3).sum.toDouble // Sum of all durations in milliseconds
+    val avgMetric = if (totalDuration != 0) totalBytes / totalDuration / 1000.00 else 0.0
+
     val minMetric = sorted.head
     val maxMetric = sorted.last
     val p25Metric = sorted((sorted.size * 0.25).toInt)
     val p50Metric = sorted(sorted.size / 2)
     val p75Metric = sorted((sorted.size * 0.75).toInt)
 
-    val speeds = Seq(minMetric, p25Metric, p50Metric, p75Metric, maxMetric).map(_._4)
-    val shuffleServerIds = Seq(minMetric, p25Metric, p50Metric, p75Metric, maxMetric).map(_._1)
+    val speeds = avgMetric +: Seq(minMetric, p25Metric, p50Metric, p75Metric, maxMetric).map(_._4)
+    val shuffleServerIds = "N/A" +: Seq(minMetric, p25Metric, p50Metric, p75Metric, maxMetric).map(_._1)
 
     (speeds, shuffleServerIds)
   }
