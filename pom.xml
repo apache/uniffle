@@ -108,6 +108,7 @@
     <snakeyaml.version>2.2</snakeyaml.version>
     <kryo.version>4.0.2</kryo.version>
     <scala.version>2.12.18</scala.version>
+    <scala.maven.plugin.version>3.2.2</scala.maven.plugin.version>
   </properties>
 
   <repositories>
