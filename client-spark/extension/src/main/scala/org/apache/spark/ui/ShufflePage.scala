@@ -250,10 +250,10 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
         serverId,
         UIUtils.formatNumber(writeMetric._1),
         UIUtils.formatDuration(writeMetric._2),
-        writeMetric._3,
+        roundToTwoDecimals(writeMetric._3),
         UIUtils.formatNumber(readMetric._1),
         UIUtils.formatDuration(readMetric._2),
-        readMetric._3
+        roundToTwoDecimals(readMetric._3)
       )
     }
     unionMetrics
