@@ -18,11 +18,11 @@
 package org.apache.spark
 
 import com.fasterxml.jackson.annotation.JsonIgnore
-import org.apache.spark.shuffle.events.{ShuffleReadMetric, ShuffleWriteMetric}
 import org.apache.spark.status.KVUtils.KVIndexParam
 import org.apache.spark.util.Utils
 import org.apache.spark.util.kvstore.{KVIndex, KVStore, KVStoreView}
 
+import java.util.concurrent.ConcurrentHashMap
 import scala.collection.JavaConverters.asScalaIteratorConverter
 
 class UniffleStatusStore(store: KVStore) {
@@ -32,19 +32,35 @@ class UniffleStatusStore(store: KVStore) {
 
   def buildInfo(): BuildInfoUIData = {
     val kClass = classOf[BuildInfoUIData]
-    store.read(kClass, kClass.getName)
-  }
-
-  def taskShuffleReadMetrics(): Seq[TaskShuffleReadMetricUIData] = {
-    viewToSeq(store.view(classOf[TaskShuffleReadMetricUIData]))
-  }
-
-  def taskShuffleWriteMetrics(): Seq[TaskShuffleWriteMetricUIData] = {
-    viewToSeq(store.view(classOf[TaskShuffleWriteMetricUIData]))
+    try {
+      store.read(kClass, kClass.getName)
+    } catch {
+      case _: NoSuchElementException => new BuildInfoUIData(Seq.empty)
+    }
   }
 
   def assignmentInfos(): Seq[ShuffleAssignmentUIData] = {
     viewToSeq(store.view(classOf[ShuffleAssignmentUIData]))
+  }
+
+  def aggregatedShuffleWriteMetrics(): AggregatedShuffleWriteMetricsUIData = {
+    val kClass = classOf[AggregatedShuffleWriteMetricsUIData]
+    try {
+      store.read(kClass, kClass.getName)
+    } catch {
+      case _: NoSuchElementException =>
+        new AggregatedShuffleWriteMetricsUIData(new ConcurrentHashMap[String, AggregatedShuffleWriteMetric]())
+    }
+  }
+
+  def aggregatedShuffleReadMetrics(): AggregatedShuffleReadMetricsUIData = {
+    val kClass = classOf[AggregatedShuffleReadMetricsUIData]
+    try {
+      store.read(kClass, kClass.getName)
+    } catch {
+      case _: NoSuchElementException =>
+        new AggregatedShuffleReadMetricsUIData(new ConcurrentHashMap[String, AggregatedShuffleReadMetric]())
+    }
   }
 }
 
@@ -54,14 +70,24 @@ class BuildInfoUIData(val info: Seq[(String, String)]) {
   def id: String = classOf[BuildInfoUIData].getName()
 }
 
-class TaskShuffleWriteMetricUIData(val stageId: Int,
-                                   val shuffleId: Int,
-                                   @KVIndexParam val taskId: Long,
-                                   val metrics: java.util.Map[String, ShuffleWriteMetric])
-
-class TaskShuffleReadMetricUIData(val stageId: Int,
-                                  val shuffleId: Int,
-                                  @KVIndexParam val taskId: Long,
-                                  val metrics: java.util.Map[String, ShuffleReadMetric])
 class ShuffleAssignmentUIData(@KVIndexParam val shuffleId: Int,
                               val shuffleServerIdList: java.util.List[String])
+
+// Aggregated shuffle write/read metrics
+class AggregatedShuffleMetric(var durationMillis: Long, var byteSize: Long)
+
+class AggregatedShuffleWriteMetricsUIData(val metrics: ConcurrentHashMap[String, AggregatedShuffleWriteMetric]) {
+  @JsonIgnore
+  @KVIndex
+  def id: String = classOf[AggregatedShuffleWriteMetricsUIData].getName()
+}
+class AggregatedShuffleWriteMetric(durationMillis: Long, byteSize: Long)
+  extends AggregatedShuffleMetric(durationMillis, byteSize)
+
+class AggregatedShuffleReadMetricsUIData(val metrics: ConcurrentHashMap[String, AggregatedShuffleReadMetric]) {
+  @JsonIgnore
+  @KVIndex
+  def id: String = classOf[AggregatedShuffleReadMetricsUIData].getName()
+}
+class AggregatedShuffleReadMetric(durationMillis: Long, byteSize: Long)
+  extends AggregatedShuffleMetric(durationMillis, byteSize)
