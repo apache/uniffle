@@ -85,8 +85,8 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
     val readMetaInfo = getShuffleMetaInfo(originReadMetric.metrics.asScala.toSeq)
     val shuffleTotalSize = writeMetaInfo._1
     val shuffleTotalTime = writeMetaInfo._2 + readMetaInfo._2
-    val taskCpuTime = runtimeStatusStore.totalTaskTime
-    val percent = if (taskCpuTime == null || taskCpuTime == 0) 0 else shuffleTotalTime.toDouble / taskCpuTime.durationMillis
+    val taskCpuTime = if (runtimeStatusStore.totalTaskTime == null) 0 else runtimeStatusStore.totalTaskTime.durationMillis
+    val percent = if (taskCpuTime == 0) 0 else shuffleTotalTime.toDouble / taskCpuTime
 
     // render build info
     val buildInfo = runtimeStatusStore.buildInfo()
@@ -150,7 +150,7 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
             <a>
               <strong>Shuffle Duration / Task Duration:</strong>
             </a>
-            {UIUtils.formatDuration(shuffleTotalTime)} / {UIUtils.formatDuration(taskCpuTime.durationMillis)} = {roundToTwoDecimals(percent)}
+            {UIUtils.formatDuration(shuffleTotalTime)} / {UIUtils.formatDuration(taskCpuTime)} = {roundToTwoDecimals(percent)}
           </li>
           </ul>
         </div>
