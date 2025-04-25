@@ -86,7 +86,7 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
     val shuffleTotalSize = writeMetaInfo._1
     val shuffleTotalTime = writeMetaInfo._2 + readMetaInfo._2
     val taskCpuTime = runtimeStatusStore.totalTaskTime
-    val percent = if (taskCpuTime == 0) 0 else shuffleTotalTime.toDouble / taskCpuTime.durationMillis
+    val percent = if (taskCpuTime == null || taskCpuTime == 0) 0 else shuffleTotalTime.toDouble / taskCpuTime.durationMillis
 
     // render build info
     val buildInfo = runtimeStatusStore.buildInfo()
