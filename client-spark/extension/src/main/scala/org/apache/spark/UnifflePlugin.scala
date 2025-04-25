@@ -37,6 +37,7 @@ private class UniffleDriverPlugin extends DriverPlugin with Logging {
   private var _sc: Option[SparkContext] = None
 
   override def init(sc: SparkContext, pluginContext: PluginContext): java.util.Map[String, String] = {
+    logInfo("Initializing UniffleDriverPlugin...")
     _sc = Some(sc)
     UniffleListener.register(sc)
     postBuildInfoEvent(sc)
@@ -56,7 +57,7 @@ private class UniffleDriverPlugin extends DriverPlugin with Logging {
     buildInfo.put("Commit Id", ProjectConstants.getGitCommitId)
     buildInfo.put("Revision", ProjectConstants.REVISION)
 
-    val event = new BuildInfoEvent(buildInfo.toMap)
+    val event = BuildInfoEvent(buildInfo.toMap)
     context.listenerBus.post(event)
   }
 }
