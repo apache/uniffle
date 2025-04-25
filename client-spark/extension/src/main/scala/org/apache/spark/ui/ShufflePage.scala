@@ -38,7 +38,7 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
     </td>
   </tr>
 
-  private def allServerRow(kv: (String, Long, Long, Long, Long, Long, Long)) = <tr>
+  private def allServerRow(kv: (String, String, String, Double, String, String, Double)) = <tr>
     <td>{kv._1}</td>
     <td>{kv._2}</td>
     <td>{kv._3}</td>
@@ -47,11 +47,11 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
     <td>{kv._6}</td>
   </tr>
 
-  private def createShuffleMetricsRows(shuffleWriteMetrics: (Seq[Long], Seq[String]), shuffleReadMetrics: (Seq[Long], Seq[String])): Seq[scala.xml.Elem] = {
+  private def createShuffleMetricsRows(shuffleWriteMetrics: (Seq[Double], Seq[String]), shuffleReadMetrics: (Seq[Double], Seq[String])): Seq[scala.xml.Elem] = {
     val (writeSpeeds, writeServerIds) = if (shuffleWriteMetrics != null) shuffleWriteMetrics else (Seq.empty, Seq.empty)
     val (readSpeeds, readServerIds) = if (shuffleReadMetrics != null) shuffleReadMetrics else (Seq.empty, Seq.empty)
 
-    def createSpeedRow(metricType: String, speeds: Seq[Long]) = <tr>
+    def createSpeedRow(metricType: String, speeds: Seq[Double]) = <tr>
       <td>
         {metricType}
       </td>{speeds.map(speed => <td>
@@ -67,7 +67,7 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
       </td>)}
     </tr>
 
-    val writeSpeedRow = if (writeSpeeds.nonEmpty) Some(createSpeedRow("Write Speed (bytes/sec)", writeSpeeds)) else None
+    val writeSpeedRow = if (writeSpeeds.nonEmpty) Some(createSpeedRow("Write Speed (MB/sec)", writeSpeeds)) else None
     val writeServerIdRow = if (writeServerIds.nonEmpty) Some(createServerIdRow("Shuffle Write Server ID", writeServerIds)) else None
     val readSpeedRow = if (readSpeeds.nonEmpty) Some(createSpeedRow("Read Speed (bytes/sec)", readSpeeds)) else None
     val readServerIdRow = if (readServerIds.nonEmpty) Some(createServerIdRow("Shuffle Read Server ID", readServerIds)) else None
@@ -91,7 +91,7 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
     val shuffleHeader = Seq("Min", "P25", "P50", "P75", "Max")
     val shuffleMetricsRows = createShuffleMetricsRows(shuffleWriteMetrics, shuffleReadMetrics)
     val shuffleMetricsTableUI =
-      <table class="table table-bordered table-condensed table-striped table-head-clickable">
+      <table class="table table-bordered table-sm table-striped sortable">
         <thead>
           <tr>
             {("Metric" +: shuffleHeader).map(header => <th>
@@ -110,7 +110,7 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
       runtimeStatusStore.aggregatedShuffleReadMetrics().metrics
     )
     val allServersTableUI = UIUtils.listingTable(
-      Seq("Shuffle Server ID", "Write Bytes", "Write Duration", "Write Speed", "Read Bytes", "Read Duration", "Read Speed"),
+      Seq("Shuffle Server ID", "Write Bytes", "Write Duration", "Write Speed (MB/sec)", "Read Bytes", "Read Duration", "Read Speed"),
       allServerRow,
       allServers,
       fixedWidth = true
@@ -125,65 +125,67 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
       fixedWidth = true
     )
 
-    val summary: NodeSeq =
+    val summary: NodeSeq = {
       <div>
         <div>
-          <span class="collapse-sql-properties collapse-table"
-                onClick="collapseTable('build-info-table')">
+          <span class="collapse-build-info-properties collapse-table"
+                onClick="collapseTable('collapse-build-info-properties', 'build-info-table')">
             <h4>
               <span class="collapse-table-arrow arrow-closed"></span>
               <a>Uniffle Build Information</a>
             </h4>
           </span>
-          <div class="build-info-table collapsible-table">
+          <div class="build-info-table collapsible-table collapsed">
             {buildInfoTableUI}
           </div>
         </div>
 
         <div>
-          <span class="collapse-sql-properties collapse-table"
-                onClick="collapseTable('statistics-table')">
+          <span class="collapse-throughput-properties collapse-table"
+                onClick="collapseTable('collapse-throughput-properties', 'statistics-table')">
             <h4>
               <span class="collapse-table-arrow arrow-closed"></span>
               <a>Shuffle Throughput Statistics</a>
             </h4>
-            <div class="statistics-table collapsible-table">
+            <div class="statistics-table collapsible-table collapsed">
               {shuffleMetricsTableUI}
             </div>
           </span>
         </div>
 
         <div>
-          <span class="collapse-table" onClick="collapseTable('all-servers-table')">
+          <span class="collapse-server-properties collapse-table"
+                onClick="collapseTable('collapse-server-properties', 'all-servers-table')">
             <h4>
-              <span class="collapse-table-arrow"></span>
-              <a>Shuffle Server</a>
+              <span class="collapse-table-arrow arrow-closed"></span>
+              <a>Shuffle Server ({allServers.length})</a>
             </h4>
-            <div class="all-servers-table collapsed">
+            <div class="all-servers-table collapsible-table collapsed">
               {allServersTableUI}
             </div>
           </span>
         </div>
 
         <div>
-          <span class="collapse-sql-properties collapse-table"
-                onClick="collapseTable('assignment-table')">
+          <span class="collapse-assignment-properties collapse-table"
+                onClick="collapseTable('collapse-assignment-properties', 'assignment-table')">
             <h4>
               <span class="collapse-table-arrow arrow-closed"></span>
-              <a>Assignment</a>
+              <a>Assignment ({assignmentInfos.length})</a>
             </h4>
           </span>
-          <div class="assignment-table collapsible-table">
+          <div class="assignment-table collapsible-table collapsed">
             {assignmentTableUI}
           </div>
         </div>
       </div>
+    }
 
     UIUtils.headerSparkPage(request, "Uniffle", summary, parent)
   }
 
   private def unionByServerId(write: ConcurrentHashMap[String, AggregatedShuffleWriteMetric],
-                              read: ConcurrentHashMap[String, AggregatedShuffleReadMetric]): Seq[(String, Long, Long, Long, Long, Long, Long)] = {
+                              read: ConcurrentHashMap[String, AggregatedShuffleReadMetric]): Seq[(String, String, String, Double, String, String, Double)] = {
     val writeMetrics = write.asScala
     val readMetrics = read.asScala
     val allServerIds = writeMetrics.keySet ++ readMetrics.keySet
@@ -192,33 +194,41 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
       writeMetrics
         .mapValues {
           metrics =>
-            (metrics.byteSize, metrics.durationMillis, metrics.byteSize / metrics.durationMillis)
+            (metrics.byteSize, metrics.durationMillis, (metrics.byteSize.toDouble / metrics.durationMillis) / 1000.00)
         }
         .toMap
     val readMetricsToMap =
       readMetrics
         .mapValues {
           metrics =>
-            (metrics.byteSize, metrics.durationMillis, metrics.byteSize / metrics.durationMillis)
+            (metrics.byteSize, metrics.durationMillis, (metrics.byteSize.toDouble / metrics.durationMillis) / 1000.00)
         }
         .toMap
 
     val unionMetrics = allServerIds.toSeq.map { serverId =>
-      val writeMetric = writeMetricsToMap.getOrElse(serverId, (0L, 0L, 0L))
-      val readMetric = readMetricsToMap.getOrElse(serverId, (0L, 0L, 0L))
-      (serverId, writeMetric._1, writeMetric._2, writeMetric._3, readMetric._1, readMetric._2, readMetric._3)
+      val writeMetric = writeMetricsToMap.getOrElse(serverId, (0L, 0L, 0.00))
+      val readMetric = readMetricsToMap.getOrElse(serverId, (0L, 0L, 0.00))
+      (
+        serverId,
+        UIUtils.formatNumber(writeMetric._1),
+        UIUtils.formatDuration(writeMetric._2),
+        writeMetric._3,
+        UIUtils.formatNumber(readMetric._1),
+        UIUtils.formatDuration(readMetric._2),
+        readMetric._3
+      )
     }
     unionMetrics
   }
 
-  private def shuffleSpeedStatistics(metrics: Seq[(String, AggregatedShuffleMetric)]): (Seq[Long], Seq[String]) = {
+  private def shuffleSpeedStatistics(metrics: Seq[(String, AggregatedShuffleMetric)]): (Seq[Double], Seq[String]) = {
     if (metrics.isEmpty) {
       return (Seq.empty, Seq.empty)
     }
     val sorted =
       metrics
         .map(x => {
-          (x._1, x._2.byteSize, x._2.durationMillis, x._2.byteSize / x._2.durationMillis)
+          (x._1, x._2.byteSize, x._2.durationMillis, x._2.byteSize.toDouble / x._2.durationMillis / 1000.00)
         })
         .sortBy(_._4)
 
