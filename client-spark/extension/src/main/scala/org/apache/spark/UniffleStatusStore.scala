@@ -68,7 +68,7 @@ class UniffleStatusStore(store: KVStore) {
     try {
       store.read(kClass, kClass.getName)
     } catch {
-      case _: NoSuchElementException => TotalTaskCpuTime(0)
+      case _: Exception => TotalTaskCpuTime(0)
     }
   }
 }
