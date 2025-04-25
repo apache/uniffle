@@ -17,8 +17,8 @@
 
 package org.apache.spark.ui
 
-import org.apache.spark.{AggregatedShuffleMetric, AggregatedShuffleReadMetric, AggregatedShuffleWriteMetric}
 import org.apache.spark.internal.Logging
+import org.apache.spark.{AggregatedShuffleMetric, AggregatedShuffleReadMetric, AggregatedShuffleWriteMetric}
 
 import java.util.concurrent.ConcurrentHashMap
 import javax.servlet.http.HttpServletRequest
@@ -76,8 +76,16 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
   }
 
   override def render(request: HttpServletRequest): Seq[Node] = {
-    // render header
+    val originWriteMetric = runtimeStatusStore.aggregatedShuffleWriteMetrics()
+    val originReadMetric = runtimeStatusStore.aggregatedShuffleReadMetrics()
 
+    // render header
+    val writeMetaInfo = getShuffleMetaInfo(originWriteMetric.metrics.asScala.toSeq)
+    val readMetaInfo = getShuffleMetaInfo(originReadMetric.metrics.asScala.toSeq)
+    val shuffleTotalSize = readMetaInfo._1
+    val shuffleTotalTime = writeMetaInfo._2 + readMetaInfo._2
+    val taskCpuTime = runtimeStatusStore.totalTaskTime
+    val percent = if (taskCpuTime == 0) 0 else shuffleTotalTime.toDouble / taskCpuTime.durationMillis
 
     // render build info
     val buildInfo = runtimeStatusStore.buildInfo()
@@ -89,8 +97,8 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
     )
 
     // render shuffle-servers write+read statistics
-    val shuffleWriteMetrics = shuffleSpeedStatistics(runtimeStatusStore.aggregatedShuffleWriteMetrics().metrics.asScala.toSeq)
-    val shuffleReadMetrics = shuffleSpeedStatistics(runtimeStatusStore.aggregatedShuffleReadMetrics().metrics.asScala.toSeq)
+    val shuffleWriteMetrics = shuffleSpeedStatistics(originWriteMetric.metrics.asScala.toSeq)
+    val shuffleReadMetrics = shuffleSpeedStatistics(originReadMetric.metrics.asScala.toSeq)
     val shuffleHeader = Seq("Avg", "Min", "P25", "P50", "P75", "Max")
     val shuffleMetricsRows = createShuffleMetricsRows(shuffleWriteMetrics, shuffleReadMetrics)
     val shuffleMetricsTableUI =
@@ -109,8 +117,8 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
 
     // render all assigned shuffle-servers
     val allServers = unionByServerId(
-      runtimeStatusStore.aggregatedShuffleWriteMetrics().metrics,
-      runtimeStatusStore.aggregatedShuffleReadMetrics().metrics
+      originWriteMetric.metrics,
+      originReadMetric.metrics
     )
     val allServersTableUI = UIUtils.listingTable(
       Seq("Shuffle Server ID", "Write Bytes", "Write Duration", "Write Speed (MB/sec)", "Read Bytes", "Read Duration", "Read Speed"),
@@ -130,6 +138,22 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
 
     val summary: NodeSeq = {
       <div>
+        <div>
+          <ul class="list-unstyled">
+            <li id="completed-summary" data-relingo-block="true">
+              <a>
+                <strong>Total shuffle bytes:</strong>
+              </a>
+              {UIUtils.formatNumber(shuffleTotalSize)}
+            </li><li data-relingo-block="true">
+            <a>
+              <strong>Shuffle Duration / Task Duration:</strong>
+            </a>
+            {UIUtils.formatDuration(shuffleTotalTime)} / {UIUtils.formatDuration(taskCpuTime.durationMillis)} = {roundToTwoDecimals(percent)}
+          </li>
+          </ul>
+        </div>
+
         <div>
           <span class="collapse-build-info-properties collapse-table"
                 onClick="collapseTable('collapse-build-info-properties', 'build-info-table')">
@@ -185,6 +209,17 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
     }
 
     UIUtils.headerSparkPage(request, "Uniffle", summary, parent)
+  }
+
+  private def getShuffleMetaInfo(metrics: Seq[(String, AggregatedShuffleMetric)]) = {
+    (
+      metrics.map(x => x._2.byteSize).sum,
+      metrics.map(x => x._2.durationMillis).sum
+      )
+  }
+
+  private def roundToTwoDecimals(value: Double): Double = {
+    BigDecimal(value).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
   }
 
   private def unionByServerId(write: ConcurrentHashMap[String, AggregatedShuffleWriteMetric],

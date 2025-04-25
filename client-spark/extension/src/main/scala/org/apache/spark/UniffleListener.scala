@@ -23,6 +23,7 @@ import org.apache.spark.shuffle.events.{ShuffleAssignmentInfoEvent, TaskShuffleR
 import org.apache.spark.status.ElementTrackingStore
 
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicLong
 import scala.collection.JavaConverters.mapAsScalaMapConverter
 
 class UniffleListener(conf: SparkConf, kvstore: ElementTrackingStore)
@@ -30,6 +31,7 @@ class UniffleListener(conf: SparkConf, kvstore: ElementTrackingStore)
 
   private val aggregatedShuffleWriteMetric = new ConcurrentHashMap[String, AggregatedShuffleWriteMetric]
   private val aggregatedShuffleReadMetric = new ConcurrentHashMap[String, AggregatedShuffleReadMetric]
+  private val totalTaskCpuTime = new AtomicLong(0)
 
   private val updateIntervalMillis = 5000
   private var updateLastTimeMillis: Long = -1
@@ -45,11 +47,20 @@ class UniffleListener(conf: SparkConf, kvstore: ElementTrackingStore)
       kvstore.write(
         new AggregatedShuffleReadMetricsUIData(this.aggregatedShuffleReadMetric)
       )
+      kvstore.write(
+        TotalTaskCpuTime(totalTaskCpuTime.get())
+      )
     }
   }
 
   override def onTaskEnd(taskEnd: SparkListenerTaskEnd): Unit = {
     this.mayUpdate(false)
+    if (taskEnd.taskMetrics.shuffleReadMetrics.recordsRead > 0
+      || taskEnd.taskMetrics.shuffleWriteMetrics.recordsWritten > 0) {
+      totalTaskCpuTime.addAndGet(
+        taskEnd.taskInfo.duration
+      )
+    }
   }
 
   override def onJobEnd(jobEnd: SparkListenerJobEnd): Unit = {

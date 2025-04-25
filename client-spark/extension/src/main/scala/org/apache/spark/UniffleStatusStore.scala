@@ -62,6 +62,15 @@ class UniffleStatusStore(store: KVStore) {
         new AggregatedShuffleReadMetricsUIData(new ConcurrentHashMap[String, AggregatedShuffleReadMetric]())
     }
   }
+
+  def totalTaskTime(): TotalTaskCpuTime = {
+    val kClass = classOf[TotalTaskCpuTime]
+    try {
+      store.read(kClass, kClass.getName)
+    } catch {
+      case _: NoSuchElementException => TotalTaskCpuTime(0)
+    }
+  }
 }
 
 class BuildInfoUIData(val info: Seq[(String, String)]) {
@@ -91,3 +100,10 @@ class AggregatedShuffleReadMetricsUIData(val metrics: ConcurrentHashMap[String, 
 }
 class AggregatedShuffleReadMetric(durationMillis: Long, byteSize: Long)
   extends AggregatedShuffleMetric(durationMillis, byteSize)
+
+// task total cpu time
+case class TotalTaskCpuTime(durationMillis: Long) {
+  @JsonIgnore
+  @KVIndex
+  def id: String = classOf[TotalTaskCpuTime].getName()
+}
