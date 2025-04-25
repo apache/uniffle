@@ -18,6 +18,7 @@
 package org.apache.spark.ui
 
 import org.apache.spark.internal.Logging
+import org.apache.spark.util.Utils
 import org.apache.spark.{AggregatedShuffleMetric, AggregatedShuffleReadMetric, AggregatedShuffleWriteMetric}
 
 import java.util.concurrent.ConcurrentHashMap
@@ -82,7 +83,7 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
     // render header
     val writeMetaInfo = getShuffleMetaInfo(originWriteMetric.metrics.asScala.toSeq)
     val readMetaInfo = getShuffleMetaInfo(originReadMetric.metrics.asScala.toSeq)
-    val shuffleTotalSize = readMetaInfo._1
+    val shuffleTotalSize = writeMetaInfo._1
     val shuffleTotalTime = writeMetaInfo._2 + readMetaInfo._2
     val taskCpuTime = runtimeStatusStore.totalTaskTime
     val percent = if (taskCpuTime == 0) 0 else shuffleTotalTime.toDouble / taskCpuTime.durationMillis
@@ -144,7 +145,7 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
               <a>
                 <strong>Total shuffle bytes:</strong>
               </a>
-              {UIUtils.formatNumber(shuffleTotalSize)}
+              {Utils.bytesToString(shuffleTotalSize)}
             </li><li data-relingo-block="true">
             <a>
               <strong>Shuffle Duration / Task Duration:</strong>
@@ -248,10 +249,10 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
       val readMetric = readMetricsToMap.getOrElse(serverId, (0L, 0L, 0.00))
       (
         serverId,
-        UIUtils.formatNumber(writeMetric._1),
+        Utils.bytesToString(writeMetric._1),
         UIUtils.formatDuration(writeMetric._2),
         roundToTwoDecimals(writeMetric._3),
-        UIUtils.formatNumber(readMetric._1),
+        Utils.bytesToString(readMetric._1),
         UIUtils.formatDuration(readMetric._2),
         roundToTwoDecimals(readMetric._3)
       )
