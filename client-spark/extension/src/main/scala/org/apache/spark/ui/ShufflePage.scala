@@ -145,7 +145,7 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
               <a>
                 <strong>Total shuffle bytes:</strong>
               </a>
-              {Utils.bytesToString(shuffleTotalSize)}
+              {shuffleTotalSize} / {Utils.bytesToString(shuffleTotalSize)}
             </li><li data-relingo-block="true">
             <a>
               <strong>Shuffle Duration / Task Duration:</strong>
