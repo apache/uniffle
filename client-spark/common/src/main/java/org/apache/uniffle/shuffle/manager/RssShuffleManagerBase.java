@@ -107,6 +107,7 @@ import static org.apache.spark.shuffle.RssSparkConfig.RSS_BLOCK_ID_SELF_MANAGEME
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_PARTITION_REASSIGN_MAX_REASSIGNMENT_SERVER_NUM;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_RESUBMIT_STAGE_WITH_FETCH_FAILURE_ENABLED;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_RESUBMIT_STAGE_WITH_WRITE_FAILURE_ENABLED;
+import static org.apache.spark.shuffle.RssSparkShuffleUtils.isSparkUIEnabled;
 import static org.apache.uniffle.common.config.RssBaseConf.RPC_SERVER_PORT;
 import static org.apache.uniffle.common.config.RssClientConf.HADOOP_CONFIG_KEY_PREFIX;
 import static org.apache.uniffle.common.config.RssClientConf.MAX_CONCURRENCY_PER_PARTITION_TO_WRITE;
@@ -283,7 +284,10 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
     }
     this.blockIdSelfManagedEnabled = rssConf.getBoolean(RSS_BLOCK_ID_SELF_MANAGEMENT_ENABLED);
     this.shuffleManagerRpcServiceEnabled =
-        partitionReassignEnabled || rssStageRetryEnabled || blockIdSelfManagedEnabled;
+        partitionReassignEnabled
+            || rssStageRetryEnabled
+            || blockIdSelfManagedEnabled
+            || isSparkUIEnabled(conf);
 
     if (isDriver) {
       heartBeatScheduledExecutorService =

@@ -393,4 +393,15 @@ public class RssSparkShuffleUtils {
     }
     return rssFetchFailedException;
   }
+
+  public static boolean isSparkUIEnabled(SparkConf conf) {
+    String rawPlugins = conf.get("spark.plugins");
+    if (StringUtils.isEmpty(rawPlugins)) {
+      return false;
+    }
+    if (rawPlugins.contains("UnifflePlugin")) {
+      return true;
+    }
+    return false;
+  }
 }
