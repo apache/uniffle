@@ -395,7 +395,7 @@ public class RssSparkShuffleUtils {
   }
 
   public static boolean isSparkUIEnabled(SparkConf conf) {
-    String rawPlugins = conf.get("spark.plugins");
+    String rawPlugins = conf.get("spark.plugins", null);
     if (StringUtils.isEmpty(rawPlugins)) {
       return false;
     }
