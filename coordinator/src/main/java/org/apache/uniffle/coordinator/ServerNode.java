@@ -52,8 +52,7 @@ public class ServerNode implements Comparable<ServerNode> {
   private long startTime = -1;
   private String version;
   private String gitCommitId;
-  @JsonIgnore
-  Map<String, RssProtos.ApplicationInfo> appIdToInfos;
+  @JsonIgnore Map<String, RssProtos.ApplicationInfo> appIdToInfos;
 
   public ServerNode(String id) {
     this(id, "", 0, 0, 0, 0, 0, Sets.newHashSet(), ServerStatus.EXCLUDED);
