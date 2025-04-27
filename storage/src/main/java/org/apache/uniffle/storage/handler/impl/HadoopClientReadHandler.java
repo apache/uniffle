@@ -127,7 +127,7 @@ public class HadoopClientReadHandler extends AbstractClientReadHandler {
         null,
         false,
         Optional.empty(),
-        null);
+        new ShuffleServerReadCostTracker());
   }
 
   protected void init(String fullShufflePath) {

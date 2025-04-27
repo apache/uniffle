@@ -85,7 +85,7 @@ public class MemoryClientReadHandler extends PrefetchableClientReadHandler {
         1,
         0,
         Optional.empty(),
-        null);
+        new ShuffleServerReadCostTracker());
   }
 
   @Override

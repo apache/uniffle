@@ -108,7 +108,7 @@ public class LocalFileClientReadHandler extends DataSkippableReadHandler {
         1,
         0,
         Optional.empty(),
-        null);
+        new ShuffleServerReadCostTracker());
   }
 
   @Override
