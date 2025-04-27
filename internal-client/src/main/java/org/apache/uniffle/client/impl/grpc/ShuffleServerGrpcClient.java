@@ -38,6 +38,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.uniffle.client.api.ClientInfo;
 import org.apache.uniffle.client.api.ShuffleServerClient;
 import org.apache.uniffle.client.request.RetryableRequest;
 import org.apache.uniffle.client.request.RssAppHeartBeatRequest;
@@ -70,10 +71,12 @@ import org.apache.uniffle.client.response.RssStartSortMergeResponse;
 import org.apache.uniffle.client.response.RssUnregisterShuffleByAppIdResponse;
 import org.apache.uniffle.client.response.RssUnregisterShuffleResponse;
 import org.apache.uniffle.common.BufferSegment;
+import org.apache.uniffle.common.ClientType;
 import org.apache.uniffle.common.PartitionRange;
 import org.apache.uniffle.common.RemoteStorageInfo;
 import org.apache.uniffle.common.ShuffleBlockInfo;
 import org.apache.uniffle.common.ShuffleDataDistributionType;
+import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.exception.NotRetryException;
@@ -1256,8 +1259,8 @@ public class ShuffleServerGrpcClient extends GrpcClient implements ShuffleServer
   }
 
   @Override
-  public String getClientInfo() {
-    return "ShuffleServerGrpcClient for host[" + host + "], port[" + port + "]";
+  public ClientInfo getClientInfo() {
+    return new ClientInfo(ClientType.GRPC, new ShuffleServerInfo(host, port));
   }
 
   protected void waitOrThrow(

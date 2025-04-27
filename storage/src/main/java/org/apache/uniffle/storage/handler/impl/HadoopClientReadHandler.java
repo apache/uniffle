@@ -34,6 +34,7 @@ import org.slf4j.LoggerFactory;
 
 import org.apache.uniffle.common.ShuffleDataDistributionType;
 import org.apache.uniffle.common.ShuffleDataResult;
+import org.apache.uniffle.common.StorageType;
 import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.filesystem.HadoopFilesystemProvider;
 import org.apache.uniffle.common.util.Constants;
@@ -57,6 +58,7 @@ public class HadoopClientReadHandler extends AbstractClientReadHandler {
   private Roaring64NavigableMap expectTaskIds;
   private boolean offHeapEnable = false;
   private Optional<PrefetchableClientReadHandler.PrefetchOption> prefetchOption;
+  private ShuffleServerReadCostTracker readCostTracker;
 
   public HadoopClientReadHandler(
       String appId,
@@ -74,7 +76,8 @@ public class HadoopClientReadHandler extends AbstractClientReadHandler {
       Roaring64NavigableMap expectTaskIds,
       String shuffleServerId,
       boolean offHeapEnable,
-      Optional<PrefetchableClientReadHandler.PrefetchOption> prefetchOption) {
+      Optional<PrefetchableClientReadHandler.PrefetchOption> prefetchOption,
+      ShuffleServerReadCostTracker readCostTracker) {
     this.appId = appId;
     this.shuffleId = shuffleId;
     this.partitionId = partitionId;
@@ -91,6 +94,7 @@ public class HadoopClientReadHandler extends AbstractClientReadHandler {
     this.shuffleServerId = shuffleServerId;
     this.offHeapEnable = offHeapEnable;
     this.prefetchOption = prefetchOption;
+    this.readCostTracker = readCostTracker;
   }
 
   // Only for test
@@ -122,7 +126,8 @@ public class HadoopClientReadHandler extends AbstractClientReadHandler {
         Roaring64NavigableMap.bitmapOf(),
         null,
         false,
-        Optional.empty());
+        Optional.empty(),
+        null);
   }
 
   protected void init(String fullShufflePath) {
@@ -210,7 +215,13 @@ public class HadoopClientReadHandler extends AbstractClientReadHandler {
     }
 
     HadoopShuffleReadHandler hadoopShuffleFileReader = readHandlers.get(readHandlerIndex);
+    long start = System.currentTimeMillis();
     ShuffleDataResult shuffleDataResult = hadoopShuffleFileReader.readShuffleData();
+    readCostTracker.record(
+        shuffleServerId,
+        StorageType.HDFS,
+        shuffleDataResult.getDataLength(),
+        System.currentTimeMillis() - start);
 
     while (shuffleDataResult == null) {
       ++readHandlerIndex;

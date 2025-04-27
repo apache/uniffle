@@ -84,5 +84,5 @@ public interface ShuffleServerClient {
 
   void close();
 
-  String getClientInfo();
+  ClientInfo getClientInfo();
 }

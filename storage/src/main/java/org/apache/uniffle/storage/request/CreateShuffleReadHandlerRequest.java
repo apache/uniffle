@@ -31,6 +31,7 @@ import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.util.IdHelper;
 import org.apache.uniffle.storage.handler.impl.PrefetchableClientReadHandler;
+import org.apache.uniffle.storage.handler.impl.ShuffleServerReadCostTracker;
 
 public class CreateShuffleReadHandlerRequest {
 
@@ -55,6 +56,7 @@ public class CreateShuffleReadHandlerRequest {
   private boolean expectedTaskIdsBitmapFilterEnable;
   private boolean offHeapEnabled;
   private RssConf clientConf;
+  private ShuffleServerReadCostTracker readCostTracker;
 
   private IdHelper idHelper;
 
@@ -244,6 +246,14 @@ public class CreateShuffleReadHandlerRequest {
 
   public void setClientType(ClientType clientType) {
     this.clientType = clientType;
+  }
+
+  public ShuffleServerReadCostTracker getReadCostTracker() {
+    return readCostTracker;
+  }
+
+  public void setReadCostTracker(ShuffleServerReadCostTracker readCostTracker) {
+    this.readCostTracker = readCostTracker;
   }
 
   public Optional<PrefetchableClientReadHandler.PrefetchOption> getPrefetchOption() {

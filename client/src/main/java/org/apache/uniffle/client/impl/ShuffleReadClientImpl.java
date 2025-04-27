@@ -48,6 +48,7 @@ import org.apache.uniffle.common.util.IdHelper;
 import org.apache.uniffle.common.util.RssUtils;
 import org.apache.uniffle.storage.factory.ShuffleHandlerFactory;
 import org.apache.uniffle.storage.handler.api.ClientReadHandler;
+import org.apache.uniffle.storage.handler.impl.ShuffleServerReadCostTracker;
 import org.apache.uniffle.storage.request.CreateShuffleReadHandlerRequest;
 
 public class ShuffleReadClientImpl implements ShuffleReadClient {
@@ -69,6 +70,7 @@ public class ShuffleReadClientImpl implements ShuffleReadClient {
   private ClientReadHandler clientReadHandler;
   private IdHelper idHelper;
   private BlockIdLayout blockIdLayout;
+  private ShuffleServerReadCostTracker readCostTracker;
 
   public ShuffleReadClientImpl(ShuffleClientFactory.ReadClientBuilder builder) {
     // add default value
@@ -151,6 +153,7 @@ public class ShuffleReadClientImpl implements ShuffleReadClient {
     this.idHelper = builder.getIdHelper();
     this.shuffleServerInfoList = builder.getShuffleServerInfoList();
     this.blockIdLayout = BlockIdLayout.from(builder.getRssConf());
+    this.readCostTracker = builder.getReadCostTracker();
 
     CreateShuffleReadHandlerRequest request = new CreateShuffleReadHandlerRequest();
     request.setStorageType(builder.getStorageType());
@@ -173,6 +176,7 @@ public class ShuffleReadClientImpl implements ShuffleReadClient {
     request.setClientType(builder.getClientType());
     request.setRetryMax(builder.getRetryMax());
     request.setRetryIntervalMax(builder.getRetryIntervalMax());
+    request.setReadCostTracker(readCostTracker);
     if (builder.isExpectedTaskIdsBitmapFilterEnable()) {
       request.useExpectedTaskIdsBitmapFilter();
     }

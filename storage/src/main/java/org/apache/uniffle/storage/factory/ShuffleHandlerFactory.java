@@ -139,7 +139,8 @@ public class ShuffleHandlerFactory {
             expectTaskIds,
             request.getRetryMax(),
             request.getRetryIntervalMax(),
-            request.getPrefetchOption());
+            request.getPrefetchOption(),
+            request.getReadCostTracker());
     return memoryClientReadHandler;
   }
 
@@ -163,7 +164,8 @@ public class ShuffleHandlerFactory {
         request.getExpectTaskIds(),
         request.getRetryMax(),
         request.getRetryIntervalMax(),
-        request.getPrefetchOption());
+        request.getPrefetchOption(),
+        request.getReadCostTracker());
   }
 
   private ClientReadHandler getHadoopClientReadHandler(
@@ -184,7 +186,8 @@ public class ShuffleHandlerFactory {
         request.getExpectTaskIds(),
         ssi.getId(),
         request.isOffHeapEnabled(),
-        request.getPrefetchOption());
+        request.getPrefetchOption(),
+        request.getReadCostTracker());
   }
 
   public ShuffleDeleteHandler createShuffleDeleteHandler(

@@ -63,12 +63,12 @@ class UniffleStatusStore(store: KVStore) {
     }
   }
 
-  def totalTaskTime(): TotalTaskCpuTime = {
-    val kClass = classOf[TotalTaskCpuTime]
+  def aggregatedTaskInfo(): AggregatedTaskInfoUIData = {
+    val kClass = classOf[AggregatedTaskInfoUIData]
     try {
       store.read(kClass, kClass.getName)
     } catch {
-      case _: Exception => TotalTaskCpuTime(0)
+      case _: Exception => AggregatedTaskInfoUIData(0, 0, 0, 0)
     }
   }
 }
@@ -102,8 +102,11 @@ class AggregatedShuffleReadMetric(durationMillis: Long, byteSize: Long)
   extends AggregatedShuffleMetric(durationMillis, byteSize)
 
 // task total cpu time
-case class TotalTaskCpuTime(durationMillis: Long) {
+case class AggregatedTaskInfoUIData(cpuTimeMillis: Long,
+                                    shuffleWriteMillis: Long,
+                                    shuffleReadMillis: Long,
+                                    shuffleBytes: Long) {
   @JsonIgnore
   @KVIndex
-  def id: String = classOf[TotalTaskCpuTime].getName()
+  def id: String = classOf[AggregatedTaskInfoUIData].getName()
 }

@@ -61,7 +61,7 @@ public class RssReportShuffleReadMetricRequest {
     private long durationMillis;
     private long byteSize;
 
-    TaskShuffleReadMetric(long durationMillis, long byteSize) {
+    public TaskShuffleReadMetric(long durationMillis, long byteSize) {
       this.durationMillis = durationMillis;
       this.byteSize = byteSize;
     }

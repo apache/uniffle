@@ -27,6 +27,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import org.roaringbitmap.longlong.Roaring64NavigableMap;
 
+import org.apache.uniffle.client.api.ClientInfo;
 import org.apache.uniffle.client.api.ShuffleServerClient;
 import org.apache.uniffle.client.request.RssAppHeartBeatRequest;
 import org.apache.uniffle.client.request.RssFinishShuffleRequest;
@@ -205,7 +206,7 @@ public class MockedShuffleServerClient implements ShuffleServerClient {
   public void close() {}
 
   @Override
-  public String getClientInfo() {
+  public ClientInfo getClientInfo() {
     return null;
   }
 }

@@ -31,7 +31,11 @@ class UniffleListener(conf: SparkConf, kvstore: ElementTrackingStore)
 
   private val aggregatedShuffleWriteMetric = new ConcurrentHashMap[String, AggregatedShuffleWriteMetric]
   private val aggregatedShuffleReadMetric = new ConcurrentHashMap[String, AggregatedShuffleReadMetric]
+
   private val totalTaskCpuTime = new AtomicLong(0)
+  private val totalShuffleReadTime = new AtomicLong(0)
+  private val totalShuffleWriteTime = new AtomicLong(0)
+  private val totalShuffleBytes = new AtomicLong(0)
 
   private val updateIntervalMillis = 5000
   private var updateLastTimeMillis: Long = -1
@@ -48,7 +52,7 @@ class UniffleListener(conf: SparkConf, kvstore: ElementTrackingStore)
         new AggregatedShuffleReadMetricsUIData(this.aggregatedShuffleReadMetric)
       )
       kvstore.write(
-        TotalTaskCpuTime(totalTaskCpuTime.get())
+        AggregatedTaskInfoUIData(totalTaskCpuTime.get(), totalShuffleWriteTime.get(), totalShuffleReadTime.get(), totalShuffleBytes.get())
       )
     }
   }
@@ -57,9 +61,10 @@ class UniffleListener(conf: SparkConf, kvstore: ElementTrackingStore)
     this.mayUpdate(false)
     if (taskEnd.taskMetrics.shuffleReadMetrics.recordsRead > 0
       || taskEnd.taskMetrics.shuffleWriteMetrics.recordsWritten > 0) {
-      totalTaskCpuTime.addAndGet(
-        taskEnd.taskInfo.duration
-      )
+      totalTaskCpuTime.addAndGet(taskEnd.taskInfo.duration)
+      totalShuffleWriteTime.addAndGet(taskEnd.taskMetrics.shuffleWriteMetrics.writeTime / 1000000)
+      totalShuffleReadTime.addAndGet(taskEnd.taskMetrics.shuffleReadMetrics.fetchWaitTime)
+      totalShuffleBytes.addAndGet(taskEnd.taskMetrics.shuffleWriteMetrics.bytesWritten)
     }
   }
 
@@ -88,7 +93,6 @@ class UniffleListener(conf: SparkConf, kvstore: ElementTrackingStore)
       val agg_metric = this.aggregatedShuffleWriteMetric.computeIfAbsent(id, _ => new AggregatedShuffleWriteMetric(0, 0))
       agg_metric.byteSize += metric._2.getByteSize
       agg_metric.durationMillis += metric._2.getDurationMillis
-
     }
   }
 

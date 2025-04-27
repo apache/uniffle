@@ -32,6 +32,7 @@ import org.apache.uniffle.common.ShuffleDataDistributionType;
 import org.apache.uniffle.common.ShuffleDataResult;
 import org.apache.uniffle.common.ShuffleDataSegment;
 import org.apache.uniffle.common.ShuffleIndexResult;
+import org.apache.uniffle.common.StorageType;
 import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.exception.RssFetchFailedException;
 
@@ -42,6 +43,7 @@ public class LocalFileClientReadHandler extends DataSkippableReadHandler {
   private ShuffleServerClient shuffleServerClient;
   private int retryMax;
   private long retryIntervalMax;
+  private ShuffleServerReadCostTracker readCostTracker;
 
   public LocalFileClientReadHandler(
       String appId,
@@ -58,7 +60,8 @@ public class LocalFileClientReadHandler extends DataSkippableReadHandler {
       Roaring64NavigableMap expectTaskIds,
       int retryMax,
       long retryIntervalMax,
-      Optional<PrefetchOption> prefetchOption) {
+      Optional<PrefetchOption> prefetchOption,
+      ShuffleServerReadCostTracker readCostTracker) {
     super(
         appId,
         shuffleId,
@@ -74,6 +77,7 @@ public class LocalFileClientReadHandler extends DataSkippableReadHandler {
     this.partitionNum = partitionNum;
     this.retryMax = retryMax;
     this.retryIntervalMax = retryIntervalMax;
+    this.readCostTracker = readCostTracker;
   }
 
   @VisibleForTesting
@@ -103,7 +107,8 @@ public class LocalFileClientReadHandler extends DataSkippableReadHandler {
         Roaring64NavigableMap.bitmapOf(),
         1,
         0,
-        Optional.empty());
+        Optional.empty(),
+        null);
   }
 
   @Override
@@ -166,9 +171,15 @@ public class LocalFileClientReadHandler extends DataSkippableReadHandler {
             retryMax,
             retryIntervalMax);
     try {
+      long start = System.currentTimeMillis();
       RssGetShuffleDataResponse response = shuffleServerClient.getShuffleData(request);
       result =
           new ShuffleDataResult(response.getShuffleData(), shuffleDataSegment.getBufferSegments());
+      readCostTracker.record(
+          shuffleServerClient.getClientInfo().getShuffleServerInfo().getId(),
+          StorageType.LOCALFILE,
+          result.getDataLength(),
+          System.currentTimeMillis() - start);
     } catch (Exception e) {
       throw new RssException(
           "Failed to read shuffle data with " + shuffleServerClient.getClientInfo(), e);

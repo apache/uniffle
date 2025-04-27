@@ -31,6 +31,7 @@ import org.apache.uniffle.common.ShuffleDataDistributionType;
 import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.util.IdHelper;
+import org.apache.uniffle.storage.handler.impl.ShuffleServerReadCostTracker;
 
 public class ShuffleClientFactory {
 
@@ -224,6 +225,12 @@ public class ShuffleClientFactory {
     private ClientType clientType;
     private int retryMax;
     private long retryIntervalMax;
+    private ShuffleServerReadCostTracker readCostTracker;
+
+    public ReadClientBuilder readCostTracker(ShuffleServerReadCostTracker tracker) {
+      this.readCostTracker = tracker;
+      return this;
+    }
 
     public ReadClientBuilder appId(String appId) {
       this.appId = appId;
@@ -333,6 +340,10 @@ public class ShuffleClientFactory {
     }
 
     public ReadClientBuilder() {}
+
+    public ShuffleServerReadCostTracker getReadCostTracker() {
+      return readCostTracker;
+    }
 
     public String getAppId() {
       return appId;
