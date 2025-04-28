@@ -30,6 +30,15 @@ class UniffleStatusStore(store: KVStore) {
     Utils.tryWithResource(view.closeableIterator())(iter => iter.asScala.toList)
   }
 
+  def uniffleProperties(): UniffleProperties = {
+    val kClass = classOf[UniffleProperties]
+    try {
+      store.read(kClass, kClass.getName)
+    } catch {
+      case _: NoSuchElementException => new UniffleProperties(Seq.empty)
+    }
+  }
+
   def buildInfo(): BuildInfoUIData = {
     val kClass = classOf[BuildInfoUIData]
     try {
@@ -71,6 +80,12 @@ class UniffleStatusStore(store: KVStore) {
       case _: Exception => AggregatedTaskInfoUIData(0, 0, 0, 0)
     }
   }
+}
+
+class UniffleProperties(val info: Seq[(String, String)]) {
+  @JsonIgnore
+  @KVIndex
+  def id: String = classOf[UniffleProperties].getName()
 }
 
 class BuildInfoUIData(val info: Seq[(String, String)]) {

@@ -18,7 +18,7 @@
 package org.apache.spark
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.scheduler.{SparkListener, SparkListenerEvent, SparkListenerJobEnd, SparkListenerTaskEnd}
+import org.apache.spark.scheduler.{SparkListener, SparkListenerEvent, SparkListenerJobEnd, SparkListenerJobStart, SparkListenerTaskEnd}
 import org.apache.spark.shuffle.events.{ShuffleAssignmentInfoEvent, TaskShuffleReadInfoEvent, TaskShuffleWriteInfoEvent}
 import org.apache.spark.status.ElementTrackingStore
 
@@ -66,6 +66,11 @@ class UniffleListener(conf: SparkConf, kvstore: ElementTrackingStore)
       totalShuffleReadTime.addAndGet(taskEnd.taskMetrics.shuffleReadMetrics.fetchWaitTime)
       totalShuffleBytes.addAndGet(taskEnd.taskMetrics.shuffleWriteMetrics.bytesWritten)
     }
+  }
+
+  override def onJobStart(jobStart: SparkListenerJobStart): Unit = {
+    val rssConf = conf.getAll.filter(x => x._1.startsWith("spark.rss."))
+    kvstore.write(new UniffleProperties(rssConf))
   }
 
   override def onJobEnd(jobEnd: SparkListenerJobEnd): Unit = {

@@ -102,6 +102,15 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
       fixedWidth = true
     )
 
+    // render uniffle configs
+    val rssConf = runtimeStatusStore.uniffleProperties()
+    val rssConfTableUI = UIUtils.listingTable(
+      propertyHeader,
+      propertyRow,
+      rssConf.info,
+      fixedWidth = true
+    )
+
     // render shuffle-servers write+read statistics
     val shuffleWriteMetrics = shuffleSpeedStatistics(originWriteMetric.metrics.asScala.toSeq)
     val shuffleReadMetrics = shuffleSpeedStatistics(originReadMetric.metrics.asScala.toSeq)
@@ -153,10 +162,10 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
               {Utils.bytesToString(taskInfo.shuffleBytes)}
             </li><li data-relingo-block="true">
             <a>
-              <strong>Shuffle Duration (write-read) / Task Duration:</strong>
+              <strong>Shuffle Duration (write+read) / Task Duration:</strong>
             </a>
             {UIUtils.formatDuration(taskInfo.shuffleWriteMillis + taskInfo.shuffleReadMillis)}
-            ({UIUtils.formatDuration(taskInfo.shuffleWriteMillis)}-{UIUtils.formatDuration(taskInfo.shuffleReadMillis)})
+            ({UIUtils.formatDuration(taskInfo.shuffleWriteMillis)}+{UIUtils.formatDuration(taskInfo.shuffleReadMillis)})
             / {UIUtils.formatDuration(taskInfo.cpuTimeMillis)} = {roundToTwoDecimals(percent)}
           </li>
           </ul>
@@ -172,6 +181,19 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
           </span>
           <div class="build-info-table collapsible-table collapsed">
             {buildInfoTableUI}
+          </div>
+        </div>
+
+        <div>
+          <span class="collapse-uniffle-config-properties collapse-table"
+                onClick="collapseTable('collapse-uniffle-config-properties', 'uniffle-config-table')">
+            <h4>
+              <span class="collapse-table-arrow arrow-closed"></span>
+              <a>Uniffle Properties</a>
+            </h4>
+          </span>
+          <div class="uniffle-config-table collapsible-table collapsed">
+            {rssConfTableUI}
           </div>
         </div>
 

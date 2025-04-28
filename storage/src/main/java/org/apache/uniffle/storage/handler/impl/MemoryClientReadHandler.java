@@ -25,6 +25,7 @@ import org.roaringbitmap.longlong.Roaring64NavigableMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.uniffle.client.api.ClientInfo;
 import org.apache.uniffle.client.api.ShuffleServerClient;
 import org.apache.uniffle.client.request.RssGetInMemoryShuffleDataRequest;
 import org.apache.uniffle.client.response.RssGetInMemoryShuffleDataResponse;
@@ -108,9 +109,10 @@ public class MemoryClientReadHandler extends PrefetchableClientReadHandler {
       RssGetInMemoryShuffleDataResponse response =
           shuffleServerClient.getInMemoryShuffleData(request);
       result = new ShuffleDataResult(response.getData(), response.getBufferSegments());
-      if (readCostTracker != null) {
+      ClientInfo clientInfo = shuffleServerClient.getClientInfo();
+      if (readCostTracker != null && clientInfo != null) {
         readCostTracker.record(
-            shuffleServerClient.getClientInfo().getShuffleServerInfo().getId(),
+            clientInfo.getShuffleServerInfo().getId(),
             StorageType.MEMORY,
             result == null ? 0 : result.getDataLength(),
             System.currentTimeMillis() - start);
