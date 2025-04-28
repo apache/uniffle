@@ -182,10 +182,10 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
               <span class="collapse-table-arrow arrow-closed"></span>
               <a>Shuffle Throughput Statistics</a>
             </h4>
-            <div class="statistics-table collapsible-table collapsed">
-              {shuffleMetricsTableUI}
-            </div>
           </span>
+          <div class="statistics-table collapsible-table collapsed">
+            {shuffleMetricsTableUI}
+          </div>
         </div>
 
         <div>
@@ -195,10 +195,10 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
               <span class="collapse-table-arrow arrow-closed"></span>
               <a>Shuffle Server ({allServers.length})</a>
             </h4>
-            <div class="all-servers-table collapsible-table collapsed">
-              {allServersTableUI}
-            </div>
           </span>
+          <div class="all-servers-table collapsible-table collapsed">
+            {allServersTableUI}
+          </div>
         </div>
 
         <div>
