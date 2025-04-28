@@ -175,11 +175,13 @@ public class LocalFileClientReadHandler extends DataSkippableReadHandler {
       RssGetShuffleDataResponse response = shuffleServerClient.getShuffleData(request);
       result =
           new ShuffleDataResult(response.getShuffleData(), shuffleDataSegment.getBufferSegments());
-      readCostTracker.record(
-          shuffleServerClient.getClientInfo().getShuffleServerInfo().getId(),
-          StorageType.LOCALFILE,
-          result == null ? 0 : result.getDataLength(),
-          System.currentTimeMillis() - start);
+      if (readCostTracker != null) {
+        readCostTracker.record(
+                shuffleServerClient.getClientInfo().getShuffleServerInfo().getId(),
+                StorageType.LOCALFILE,
+                result == null ? 0 : result.getDataLength(),
+                System.currentTimeMillis() - start);
+      }
     } catch (Exception e) {
       throw new RssException(
           "Failed to read shuffle data with " + shuffleServerClient.getClientInfo(), e);

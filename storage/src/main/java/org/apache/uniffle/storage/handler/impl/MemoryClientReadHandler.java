@@ -108,11 +108,13 @@ public class MemoryClientReadHandler extends PrefetchableClientReadHandler {
       RssGetInMemoryShuffleDataResponse response =
           shuffleServerClient.getInMemoryShuffleData(request);
       result = new ShuffleDataResult(response.getData(), response.getBufferSegments());
-      readCostTracker.record(
-          shuffleServerClient.getClientInfo().getShuffleServerInfo().getId(),
-          StorageType.MEMORY,
-          result == null ? 0 : result.getDataLength(),
-          System.currentTimeMillis() - start);
+      if (readCostTracker != null) {
+        readCostTracker.record(
+                shuffleServerClient.getClientInfo().getShuffleServerInfo().getId(),
+                StorageType.MEMORY,
+                result == null ? 0 : result.getDataLength(),
+                System.currentTimeMillis() - start);
+      }
     } catch (RssFetchFailedException e) {
       throw e;
     } catch (Exception e) {
