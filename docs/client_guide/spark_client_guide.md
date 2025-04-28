@@ -180,3 +180,15 @@ We can enable this feature by using the following configuration:
 | spark.rss.client.mapSideCombine.enabled | false   | Whether to enable map side combine of shuffle writer. |
 
 **Note**: Map side combine will handle entire map side shuffle write data, which may cause data spills and delay shuffle writes.
+
+### Spark UI
+
+The Uniffle client’s metric statistics are now available in the Spark UI under the Uniffle tab.
+This feature can be enabled with the following configuration (supported in Spark 3 and above).
+
+```bash
+spark.plugins org.apache.spark.UnifflePlugin
+```
+
+To enable this feature in the Spark History Server, place the Uniffle client JAR file into the jars directory of your Spark HOME. 
+A restart of the History Server may be required for the changes to take effect.
