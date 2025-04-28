@@ -70,9 +70,9 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
     </tr>
 
     val writeSpeedRow = if (writeSpeeds.nonEmpty) Some(createSpeedRow("Write Speed (MB/sec)", writeSpeeds)) else None
-    val writeServerIdRow = if (writeServerIds.nonEmpty) Some(createServerIdRow("Shuffle Write Server ID", writeServerIds)) else None
+    val writeServerIdRow = if (writeServerIds.nonEmpty) Some(createServerIdRow("Write Shuffle Server ID", writeServerIds)) else None
     val readSpeedRow = if (readSpeeds.nonEmpty) Some(createSpeedRow("Read Speed (MB/sec)", readSpeeds)) else None
-    val readServerIdRow = if (readServerIds.nonEmpty) Some(createServerIdRow("Shuffle Read Server ID", readServerIds)) else None
+    val readServerIdRow = if (readServerIds.nonEmpty) Some(createServerIdRow("Read Shuffle Server ID", readServerIds)) else None
 
     Seq(writeSpeedRow, writeServerIdRow, readSpeedRow, readServerIdRow).flatten
   }
