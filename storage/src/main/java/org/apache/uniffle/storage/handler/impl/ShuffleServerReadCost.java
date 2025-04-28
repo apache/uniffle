@@ -60,12 +60,15 @@ public class ShuffleServerReadCost {
       case MEMORY:
         this.memoryReadBytes.addAndGet(bytes);
         this.memoryReadDurationMillis.addAndGet(durationMillis);
+        break;
       case LOCALFILE:
         this.localfileReadBytes.addAndGet(bytes);
         this.localfileReadDurationMillis.addAndGet(durationMillis);
+        break;
       case HDFS:
         this.hadoopReadLocalFileBytes.addAndGet(bytes);
         this.hadoopReadLocalFileDurationMillis.addAndGet(durationMillis);
+        break;
       default:
         break;
     }
