@@ -217,12 +217,6 @@ public class HadoopClientReadHandler extends AbstractClientReadHandler {
     HadoopShuffleReadHandler hadoopShuffleFileReader = readHandlers.get(readHandlerIndex);
     long start = System.currentTimeMillis();
     ShuffleDataResult shuffleDataResult = hadoopShuffleFileReader.readShuffleData();
-    readCostTracker.record(
-        shuffleServerId,
-        StorageType.HDFS,
-        shuffleDataResult.getDataLength(),
-        System.currentTimeMillis() - start);
-
     while (shuffleDataResult == null) {
       ++readHandlerIndex;
       if (readHandlerIndex >= readHandlers.size()) {
@@ -231,7 +225,11 @@ public class HadoopClientReadHandler extends AbstractClientReadHandler {
       hadoopShuffleFileReader = readHandlers.get(readHandlerIndex);
       shuffleDataResult = hadoopShuffleFileReader.readShuffleData();
     }
-
+    readCostTracker.record(
+            shuffleServerId,
+            StorageType.HDFS,
+            shuffleDataResult.getDataLength(),
+            System.currentTimeMillis() - start);
     return shuffleDataResult;
   }
 
