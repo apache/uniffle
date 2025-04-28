@@ -82,11 +82,12 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
     val originReadMetric = runtimeStatusStore.aggregatedShuffleReadMetrics()
 
     // render header
+    val aggTaskInfo = runtimeStatusStore.aggregatedTaskInfo
     val taskInfo =
-      if (runtimeStatusStore.aggregatedTaskInfo == null)
+      if (aggTaskInfo == null)
         AggregatedTaskInfoUIData(0, 0, 0, 0)
       else
-        runtimeStatusStore.aggregatedTaskInfo
+        aggTaskInfo
     val percent =
       if (taskInfo.cpuTimeMillis == 0)
         0
