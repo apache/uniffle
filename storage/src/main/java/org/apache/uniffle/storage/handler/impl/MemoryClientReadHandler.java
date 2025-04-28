@@ -111,7 +111,7 @@ public class MemoryClientReadHandler extends PrefetchableClientReadHandler {
       readCostTracker.record(
           shuffleServerClient.getClientInfo().getShuffleServerInfo().getId(),
           StorageType.MEMORY,
-          result.getDataLength(),
+          result == null ? 0 : result.getDataLength(),
           System.currentTimeMillis() - start);
     } catch (RssFetchFailedException e) {
       throw e;
