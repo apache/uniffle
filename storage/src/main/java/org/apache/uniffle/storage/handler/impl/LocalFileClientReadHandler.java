@@ -177,10 +177,10 @@ public class LocalFileClientReadHandler extends DataSkippableReadHandler {
           new ShuffleDataResult(response.getShuffleData(), shuffleDataSegment.getBufferSegments());
       if (readCostTracker != null) {
         readCostTracker.record(
-                shuffleServerClient.getClientInfo().getShuffleServerInfo().getId(),
-                StorageType.LOCALFILE,
-                result == null ? 0 : result.getDataLength(),
-                System.currentTimeMillis() - start);
+            shuffleServerClient.getClientInfo().getShuffleServerInfo().getId(),
+            StorageType.LOCALFILE,
+            result == null ? 0 : result.getDataLength(),
+            System.currentTimeMillis() - start);
       }
     } catch (Exception e) {
       throw new RssException(

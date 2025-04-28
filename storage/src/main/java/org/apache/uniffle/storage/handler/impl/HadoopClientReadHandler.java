@@ -227,10 +227,10 @@ public class HadoopClientReadHandler extends AbstractClientReadHandler {
     }
     if (readCostTracker != null) {
       readCostTracker.record(
-              shuffleServerId,
-              StorageType.HDFS,
-              shuffleDataResult == null ? 0 : shuffleDataResult.getDataLength(),
-              System.currentTimeMillis() - start);
+          shuffleServerId,
+          StorageType.HDFS,
+          shuffleDataResult == null ? 0 : shuffleDataResult.getDataLength(),
+          System.currentTimeMillis() - start);
     }
     return shuffleDataResult;
   }
