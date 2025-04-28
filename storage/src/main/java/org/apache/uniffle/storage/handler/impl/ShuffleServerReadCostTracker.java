@@ -35,6 +35,9 @@ public class ShuffleServerReadCostTracker {
   }
 
   public void record(String serverId, StorageType storageType, long bytes, long durationMillis) {
+    if (serverId == null) {
+      return;
+    }
     ShuffleServerReadCost readCost =
         tracking.computeIfAbsent(serverId, x -> new ShuffleServerReadCost(x));
     readCost.inc(storageType, bytes, durationMillis);
