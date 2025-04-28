@@ -357,7 +357,7 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
                                     new RssReportShuffleReadMetricRequest.TaskShuffleReadMetric(
                                         x.getValue().getDurationMillis(),
                                         x.getValue().getReadBytes())))));
-        if (response.getStatusCode() != StatusCode.SUCCESS) {
+        if (response != null && response.getStatusCode() != StatusCode.SUCCESS) {
           LOG.error("Errors on reporting shuffle read metrics to driver");
         }
       }
