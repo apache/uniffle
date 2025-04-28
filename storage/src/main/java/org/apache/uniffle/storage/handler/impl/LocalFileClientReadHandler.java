@@ -182,7 +182,7 @@ public class LocalFileClientReadHandler extends DataSkippableReadHandler {
         readCostTracker.record(
             clientInfo.getShuffleServerInfo().getId(),
             StorageType.LOCALFILE,
-            result == null ? 0 : result.getDataLength(),
+            result.getDataLength(),
             System.currentTimeMillis() - start);
       }
     } catch (Exception e) {
