@@ -250,7 +250,7 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
                 onClick="collapseTable('collapse-read-throughput-properties', 'read-statistics-table')">
             <h4>
               <span class="collapse-table-arrow arrow-closed"></span>
-              <a>Read Of Hybrid Storage Statistics</a>
+              <a>Hybrid Storage Read Statistics</a>
             </h4>
           </span>
           <div class="read-statistics-table collapsible-table collapsed">
