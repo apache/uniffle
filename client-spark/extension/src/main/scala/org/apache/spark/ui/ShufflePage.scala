@@ -168,7 +168,7 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
           <td>{row._1}</td>
           <td>{Utils.bytesToString(row._2)}</td>
           <td>{UIUtils.formatDuration(row._3)}</td>
-          <td>{row._4}</td>
+          <td>{roundToTwoDecimals(row._4)}</td>
         </tr>
       },
       aggregatedByStorage.map { case (storageType, (bytes, time, speed)) =>
