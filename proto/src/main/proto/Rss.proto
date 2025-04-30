@@ -604,6 +604,15 @@ message ShuffleWriteMetric {
 message ShuffleReadMetric {
   int64 durationMillis = 1;
   int64 byteSize = 2;
+
+  int64 memoryDurationMillis = 3;
+  int64 memoryByteSize = 4;
+
+  int64 localfileDurationMillis = 5;
+  int64 localfileByteSize = 6;
+
+  int64 hadoopDurationMillis = 7;
+  int64 hadoopByteSize = 8;
 }
 
 message ReportShuffleWriteMetricResponse {

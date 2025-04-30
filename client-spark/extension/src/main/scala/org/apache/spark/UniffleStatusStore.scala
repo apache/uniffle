@@ -113,7 +113,15 @@ class AggregatedShuffleReadMetricsUIData(val metrics: ConcurrentHashMap[String, 
   @KVIndex
   def id: String = classOf[AggregatedShuffleReadMetricsUIData].getName()
 }
-class AggregatedShuffleReadMetric(durationMillis: Long, byteSize: Long)
+
+class AggregatedShuffleReadMetric(durationMillis: Long,
+                                  byteSize: Long,
+                                  var memoryDurationMills: Long,
+                                  var memoryByteSize: Long,
+                                  var localfileDurationMillis: Long,
+                                  var localfileByteSize: Long,
+                                  var hadoopDurationMillis: Long,
+                                  var hadoopByteSize: Long)
   extends AggregatedShuffleMetric(durationMillis, byteSize)
 
 // task total cpu time

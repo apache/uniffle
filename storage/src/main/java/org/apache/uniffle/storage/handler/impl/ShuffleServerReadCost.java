@@ -81,4 +81,28 @@ public class ShuffleServerReadCost {
   public long getReadBytes() {
     return readBytes.get();
   }
+
+  public long getMemoryReadBytes() {
+    return memoryReadBytes.get();
+  }
+
+  public long getMemoryReadDurationMillis() {
+    return memoryReadDurationMillis.get();
+  }
+
+  public long getLocalfileReadBytes() {
+    return localfileReadBytes.get();
+  }
+
+  public long getHadoopReadLocalFileBytes() {
+    return hadoopReadLocalFileBytes.get();
+  }
+
+  public long getLocalfileReadDurationMillis() {
+    return localfileReadDurationMillis.get();
+  }
+
+  public long getHadoopReadLocalFileDurationMillis() {
+    return hadoopReadLocalFileDurationMillis.get();
+  }
 }

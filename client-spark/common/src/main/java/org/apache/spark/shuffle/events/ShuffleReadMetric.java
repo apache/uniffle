@@ -18,7 +18,57 @@
 package org.apache.spark.shuffle.events;
 
 public class ShuffleReadMetric extends ShuffleMetric {
-  public ShuffleReadMetric(long durationMillis, long byteSize) {
+  private final long memoryDurationMillis;
+  private final long memoryByteSize;
+
+  private final long localfileDurationMillis;
+  private final long localfileByteSize;
+
+  private final long hadoopDurationMillis;
+  private final long hadoopByteSize;
+
+  public ShuffleReadMetric(
+      long durationMillis,
+      long byteSize,
+      long memoryDurationMillis,
+      long memoryByteSize,
+      long localfileDurationMillis,
+      long localfileByteSize,
+      long hadoopDurationMillis,
+      long hadoopByteSize) {
     super(durationMillis, byteSize);
+
+    this.memoryDurationMillis = memoryDurationMillis;
+    this.memoryByteSize = memoryByteSize;
+
+    this.localfileDurationMillis = localfileDurationMillis;
+    this.localfileByteSize = localfileByteSize;
+
+    this.hadoopDurationMillis = hadoopDurationMillis;
+    this.hadoopByteSize = hadoopByteSize;
+  }
+
+  public long getMemoryDurationMillis() {
+    return memoryDurationMillis;
+  }
+
+  public long getMemoryByteSize() {
+    return memoryByteSize;
+  }
+
+  public long getLocalfileDurationMillis() {
+    return localfileDurationMillis;
+  }
+
+  public long getLocalfileByteSize() {
+    return localfileByteSize;
+  }
+
+  public long getHadoopDurationMillis() {
+    return hadoopDurationMillis;
+  }
+
+  public long getHadoopByteSize() {
+    return hadoopByteSize;
   }
 }

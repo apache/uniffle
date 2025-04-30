@@ -143,6 +143,40 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
       fixedWidth = true
     )
 
+    // render reading hybrid storage statistics
+    val readMetrics = originReadMetric.metrics
+    val aggregatedByStorage = readMetrics.asScala.values
+      .flatMap { metric =>
+        Seq(
+          ("MEMORY", metric.memoryByteSize, metric.memoryDurationMills),
+          ("LOCALFILE", metric.localfileByteSize, metric.localfileDurationMillis),
+          ("HADOOP", metric.hadoopByteSize, metric.hadoopDurationMillis)
+        )
+      }
+      .groupBy(_._1)
+      .mapValues { values =>
+        val totalBytes = values.map(_._2).sum
+        val totalTime = values.map(_._3).sum
+        val speed = if (totalTime != 0) totalBytes.toDouble / totalTime / 1000 else 0L
+        (totalBytes, totalTime, speed)
+      }
+      .toSeq
+    val readTableUI = UIUtils.listingTable(
+      Seq("Storage Type", "Read Bytes", "Read Time", "Read Speed (MB/sec)"),
+      { row: (String, Long, Long, Double) =>
+        <tr>
+          <td>{row._1}</td>
+          <td>{Utils.bytesToString(row._2)}</td>
+          <td>{UIUtils.formatDuration(row._3)}</td>
+          <td>{row._4}</td>
+        </tr>
+      },
+      aggregatedByStorage.map { case (storageType, (bytes, time, speed)) =>
+        (storageType, bytes, time, speed)
+      },
+      fixedWidth = true
+    )
+
     // render assignment info
     val assignmentInfos = runtimeStatusStore.assignmentInfos
     val assignmentTableUI = UIUtils.listingTable(
@@ -208,6 +242,19 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
           </span>
           <div class="statistics-table collapsible-table collapsed">
             {shuffleMetricsTableUI}
+          </div>
+        </div>
+
+        <div>
+          <span class="collapse-read-throughput-properties collapse-table"
+                onClick="collapseTable('collapse-read-throughput-properties', 'read-statistics-table')">
+            <h4>
+              <span class="collapse-table-arrow arrow-closed"></span>
+              <a>Read Of Hybrid Storage Statistics</a>
+            </h4>
+          </span>
+          <div class="read-statistics-table collapsible-table collapsed">
+            {readTableUI}
           </div>
         </div>
 

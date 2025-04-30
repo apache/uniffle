@@ -105,9 +105,19 @@ class UniffleListener(conf: SparkConf, kvstore: ElementTrackingStore)
     val metrics = event.getMetrics
     for (metric <- metrics.asScala) {
       val id = metric._1
-      val agg_metric = this.aggregatedShuffleReadMetric.computeIfAbsent(id, _ => new AggregatedShuffleReadMetric(0, 0))
-      agg_metric.byteSize += metric._2.getByteSize
-      agg_metric.durationMillis += metric._2.getDurationMillis
+      val rmetric = metric._2
+      val agg_metric = this.aggregatedShuffleReadMetric.computeIfAbsent(id, _ => new AggregatedShuffleReadMetric(0, 0, 0, 0, 0, 0, 0, 0))
+      agg_metric.byteSize += rmetric.getByteSize
+      agg_metric.durationMillis += rmetric.getDurationMillis
+
+      agg_metric.memoryByteSize += rmetric.getMemoryByteSize
+      agg_metric.memoryDurationMills += rmetric.getMemoryDurationMillis
+
+      agg_metric.localfileDurationMillis += rmetric.getLocalfileDurationMillis
+      agg_metric.localfileByteSize += rmetric.getLocalfileByteSize
+
+      agg_metric.hadoopByteSize += rmetric.getHadoopByteSize
+      agg_metric.hadoopDurationMillis += rmetric.getHadoopDurationMillis
     }
   }
 

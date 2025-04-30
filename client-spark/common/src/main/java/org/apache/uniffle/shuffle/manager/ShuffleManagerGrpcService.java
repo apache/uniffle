@@ -757,7 +757,14 @@ public class ShuffleManagerGrpcService extends ShuffleManagerImplBase {
                         Map.Entry::getKey,
                         x ->
                             new ShuffleReadMetric(
-                                x.getValue().getDurationMillis(), x.getValue().getByteSize()))));
+                                x.getValue().getDurationMillis(),
+                                x.getValue().getByteSize(),
+                                x.getValue().getMemoryDurationMillis(),
+                                x.getValue().getMemoryByteSize(),
+                                x.getValue().getLocalfileDurationMillis(),
+                                x.getValue().getLocalfileByteSize(),
+                                x.getValue().getHadoopDurationMillis(),
+                                x.getValue().getHadoopByteSize()))));
     RssSparkShuffleUtils.getActiveSparkContext().listenerBus().post(event);
     RssProtos.ReportShuffleReadMetricResponse reply =
         RssProtos.ReportShuffleReadMetricResponse.newBuilder()

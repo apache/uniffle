@@ -53,6 +53,13 @@ public class RssReportShuffleReadMetricRequest {
                             RssProtos.ShuffleReadMetric.newBuilder()
                                 .setByteSize(x.getValue().getByteSize())
                                 .setDurationMillis(x.getValue().getDurationMillis())
+                                .setMemoryByteSize(x.getValue().getMemoryByteSize())
+                                .setMemoryDurationMillis(x.getValue().getMemoryDurationMillis())
+                                .setLocalfileByteSize(x.getValue().getLocalfileByteSize())
+                                .setLocalfileDurationMillis(
+                                    x.getValue().getLocalfileDurationMillis())
+                                .setHadoopByteSize(x.getValue().getHadoopByteSize())
+                                .setHadoopDurationMillis(x.getValue().getHadoopDurationMillis())
                                 .build())));
     return builder.build();
   }
@@ -61,9 +68,35 @@ public class RssReportShuffleReadMetricRequest {
     private long durationMillis;
     private long byteSize;
 
-    public TaskShuffleReadMetric(long durationMillis, long byteSize) {
+    private long localfileByteSize;
+    private long localfileDurationMillis;
+
+    private long memoryByteSize;
+    private long memoryDurationMillis;
+
+    private long hadoopByteSize;
+    private long hadoopDurationMillis;
+
+    public TaskShuffleReadMetric(
+        long durationMillis,
+        long byteSize,
+        long memoryReadDurationMillis,
+        long memoryReadBytes,
+        long localfileReadDurationMillis,
+        long localfileReadBytes,
+        long hadoopReadLocalFileDurationMillis,
+        long hadoopReadLocalFileBytes) {
       this.durationMillis = durationMillis;
       this.byteSize = byteSize;
+
+      this.localfileByteSize = localfileReadBytes;
+      this.localfileDurationMillis = localfileReadDurationMillis;
+
+      this.memoryByteSize = memoryReadBytes;
+      this.memoryDurationMillis = memoryReadDurationMillis;
+
+      this.hadoopByteSize = hadoopReadLocalFileBytes;
+      this.hadoopDurationMillis = hadoopReadLocalFileDurationMillis;
     }
 
     public long getDurationMillis() {
@@ -72,6 +105,30 @@ public class RssReportShuffleReadMetricRequest {
 
     public long getByteSize() {
       return byteSize;
+    }
+
+    public long getLocalfileByteSize() {
+      return localfileByteSize;
+    }
+
+    public long getLocalfileDurationMillis() {
+      return localfileDurationMillis;
+    }
+
+    public long getMemoryByteSize() {
+      return memoryByteSize;
+    }
+
+    public long getMemoryDurationMillis() {
+      return memoryDurationMillis;
+    }
+
+    public long getHadoopByteSize() {
+      return hadoopByteSize;
+    }
+
+    public long getHadoopDurationMillis() {
+      return hadoopDurationMillis;
     }
   }
 }
