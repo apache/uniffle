@@ -23,6 +23,9 @@ import org.apache.uniffle.common.config.ConfigOption;
 import org.apache.uniffle.common.config.ConfigOptions;
 import org.apache.uniffle.common.config.ConfigUtils;
 import org.apache.uniffle.common.config.RssBaseConf;
+import org.apache.uniffle.coordinator.access.checker.AccessClusterLoadChecker;
+import org.apache.uniffle.coordinator.access.checker.AccessQuotaChecker;
+import org.apache.uniffle.coordinator.access.checker.AccessSupportRssChecker;
 import org.apache.uniffle.coordinator.conf.ClientConfParser;
 import org.apache.uniffle.coordinator.strategy.assignment.AbstractAssignmentStrategy;
 import org.apache.uniffle.coordinator.strategy.assignment.AssignmentStrategyFactory;
@@ -91,8 +94,9 @@ public class CoordinatorConf extends RssBaseConf {
           .stringType()
           .asList()
           .defaultValues(
-              "org.apache.uniffle.coordinator.access.checker.AccessClusterLoadChecker",
-              "org.apache.uniffle.coordinator.access.checker.AccessQuotaChecker")
+              AccessClusterLoadChecker.class.getCanonicalName(),
+              AccessQuotaChecker.class.getCanonicalName(),
+              AccessSupportRssChecker.class.getCanonicalName())
           .withDescription("Access checkers");
   public static final ConfigOption<Integer> COORDINATOR_ACCESS_CANDIDATES_UPDATE_INTERVAL_SEC =
       ConfigOptions.key("rss.coordinator.access.candidates.updateIntervalSec")
@@ -256,6 +260,15 @@ public class CoordinatorConf extends RssBaseConf {
           .asList()
           .defaultValues("appHeartbeat", "heartbeat")
           .withDescription("Exclude record rpc audit operation list, separated by ','");
+
+  public static final ConfigOption<List<String>> COORDINATOR_UNSUPPORTED_CONFIGS =
+      ConfigOptions.key("rss.coordinator.unsupportedConfigs")
+          .stringType()
+          .asList()
+          .defaultValues("serializer:org.apache.hadoop.io.serializer.JavaSerialization")
+          .withDescription(
+              "The unsupported config list separated by ',', the key value separated by ':'. If the client configures these properties "
+                  + "and they are set to be denied access, the client's access will be rejected.");
 
   public CoordinatorConf() {}
 
