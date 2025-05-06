@@ -21,6 +21,8 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
 import com.google.common.collect.Lists;
@@ -265,7 +267,7 @@ public class ShuffleServerFaultToleranceTest extends ShuffleReadWriteBase {
     request.setShuffleServerInfoList(shuffleServerInfoList);
     request.setHadoopConf(conf);
     request.setExpectBlockIds(expectBlockIds);
-    Roaring64NavigableMap processBlockIds = Roaring64NavigableMap.bitmapOf();
+    Set<Long> processBlockIds = ConcurrentHashMap.newKeySet();
     request.setProcessBlockIds(processBlockIds);
     request.setDistributionType(ShuffleDataDistributionType.NORMAL);
     Roaring64NavigableMap taskIdBitmap = Roaring64NavigableMap.bitmapOf(0);
