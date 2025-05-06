@@ -20,6 +20,8 @@ package org.apache.uniffle.client.impl;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Queue;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -62,7 +64,7 @@ public class ShuffleReadClientImpl implements ShuffleReadClient {
   private Roaring64NavigableMap blockIdBitmap;
   private Roaring64NavigableMap taskIdBitmap;
   private Roaring64NavigableMap pendingBlockIds;
-  private Roaring64NavigableMap processedBlockIds = Roaring64NavigableMap.bitmapOf();
+  private Set<Long> processedBlockIds = ConcurrentHashMap.newKeySet();
   private Queue<BufferSegment> bufferSegmentQueue = Queues.newLinkedBlockingQueue();
   private AtomicLong readDataTime = new AtomicLong(0);
   private AtomicLong copyTime = new AtomicLong(0);
@@ -270,7 +272,7 @@ public class ShuffleReadClientImpl implements ShuffleReadClient {
           }
 
           // mark block as processed
-          processedBlockIds.addLong(bs.getBlockId());
+          processedBlockIds.add(bs.getBlockId());
           pendingBlockIds.removeLong(bs.getBlockId());
           // only update the statistics of necessary blocks
           clientReadHandler.updateConsumedBlockInfo(bs, false);
@@ -278,7 +280,7 @@ public class ShuffleReadClientImpl implements ShuffleReadClient {
         }
         clientReadHandler.updateConsumedBlockInfo(bs, true);
         // mark block as processed
-        processedBlockIds.addLong(bs.getBlockId());
+        processedBlockIds.add(bs.getBlockId());
         pendingBlockIds.removeLong(bs.getBlockId());
       }
 
@@ -293,7 +295,7 @@ public class ShuffleReadClientImpl implements ShuffleReadClient {
   }
 
   @VisibleForTesting
-  protected Roaring64NavigableMap getProcessedBlockIds() {
+  protected Set<Long> getProcessedBlockIds() {
     return processedBlockIds;
   }
 

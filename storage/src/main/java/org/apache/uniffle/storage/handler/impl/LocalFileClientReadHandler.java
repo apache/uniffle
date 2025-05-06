@@ -18,6 +18,7 @@
 package org.apache.uniffle.storage.handler.impl;
 
 import java.util.Optional;
+import java.util.Set;
 
 import com.google.common.annotations.VisibleForTesting;
 import org.roaringbitmap.longlong.Roaring64NavigableMap;
@@ -55,7 +56,7 @@ public class LocalFileClientReadHandler extends DataSkippableReadHandler {
       int partitionNum,
       int readBufferSize,
       Roaring64NavigableMap expectBlockIds,
-      Roaring64NavigableMap processBlockIds,
+      Set<Long> processBlockIds,
       ShuffleServerClient shuffleServerClient,
       ShuffleDataDistributionType distributionType,
       Roaring64NavigableMap expectTaskIds,
@@ -91,7 +92,7 @@ public class LocalFileClientReadHandler extends DataSkippableReadHandler {
       int partitionNum,
       int readBufferSize,
       Roaring64NavigableMap expectBlockIds,
-      Roaring64NavigableMap processBlockIds,
+      Set<Long> processBlockIds,
       ShuffleServerClient shuffleServerClient) {
     this(
         appId,

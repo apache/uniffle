@@ -19,6 +19,7 @@ package org.apache.uniffle.storage.request;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.apache.hadoop.conf.Configuration;
 import org.roaringbitmap.longlong.Roaring64NavigableMap;
@@ -50,7 +51,7 @@ public class CreateShuffleReadHandlerRequest {
   private Configuration hadoopConf;
   private List<ShuffleServerInfo> shuffleServerInfoList;
   private Roaring64NavigableMap expectBlockIds;
-  private Roaring64NavigableMap processBlockIds;
+  private Set<Long> processBlockIds;
   private ShuffleDataDistributionType distributionType;
   private Roaring64NavigableMap expectTaskIds;
   private boolean expectedTaskIdsBitmapFilterEnable;
@@ -184,11 +185,11 @@ public class CreateShuffleReadHandlerRequest {
     return expectBlockIds;
   }
 
-  public void setProcessBlockIds(Roaring64NavigableMap processBlockIds) {
+  public void setProcessBlockIds(Set<Long> processBlockIds) {
     this.processBlockIds = processBlockIds;
   }
 
-  public Roaring64NavigableMap getProcessBlockIds() {
+  public Set<Long> getProcessBlockIds() {
     return processBlockIds;
   }
 

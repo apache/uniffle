@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -54,7 +55,7 @@ public class HadoopShuffleReadHandler extends DataSkippableReadHandler {
       String filePrefix,
       int readBufferSize,
       Roaring64NavigableMap expectBlockIds,
-      Roaring64NavigableMap processBlockIds,
+      Set<Long> processBlockIds,
       Configuration conf,
       ShuffleDataDistributionType distributionType,
       Roaring64NavigableMap expectTaskIds,
@@ -87,7 +88,7 @@ public class HadoopShuffleReadHandler extends DataSkippableReadHandler {
       String filePrefix,
       int readBufferSize,
       Roaring64NavigableMap expectBlockIds,
-      Roaring64NavigableMap processBlockIds,
+      Set<Long> processBlockIds,
       Configuration conf)
       throws Exception {
     this(

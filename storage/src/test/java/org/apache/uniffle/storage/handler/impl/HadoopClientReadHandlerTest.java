@@ -21,6 +21,7 @@ import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -75,7 +76,7 @@ public class HadoopClientReadHandlerTest extends HadoopTestBase {
     indexWriter.writeData(ByteBuffer.allocate(4).putInt(999).array());
     indexWriter.close();
 
-    Roaring64NavigableMap processBlockIds = Roaring64NavigableMap.bitmapOf();
+    Set<Long> processBlockIds = ConcurrentHashMap.newKeySet();
 
     HadoopShuffleReadHandler indexReader =
         new HadoopShuffleReadHandler(

@@ -20,6 +20,8 @@ package org.apache.uniffle.test;
 import java.io.File;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
 import com.google.common.collect.Lists;
@@ -169,7 +171,7 @@ public class ShuffleServerWithMemLocalHadoopTest extends ShuffleReadWriteBase {
     RssSendShuffleDataResponse response = shuffleServerClient.sendShuffleData(rssdr);
     assertSame(StatusCode.SUCCESS, response.getStatusCode());
 
-    Roaring64NavigableMap processBlockIds = Roaring64NavigableMap.bitmapOf();
+    Set<Long> processBlockIds = ConcurrentHashMap.newKeySet();
     Roaring64NavigableMap exceptTaskIds = Roaring64NavigableMap.bitmapOf(0);
     // read the 1-th segment from memory
     MemoryClientReadHandler memoryClientReadHandler =
@@ -220,9 +222,9 @@ public class ShuffleServerWithMemLocalHadoopTest extends ShuffleReadWriteBase {
     expectedData.put(blocks.get(2).getBlockId(), ByteBufUtils.readBytes(blocks.get(2).getData()));
     ShuffleDataResult sdr = composedClientReadHandler.readShuffleData();
     validateResult(expectedData, sdr);
-    processBlockIds.addLong(blocks.get(0).getBlockId());
-    processBlockIds.addLong(blocks.get(1).getBlockId());
-    processBlockIds.addLong(blocks.get(2).getBlockId());
+    processBlockIds.add(blocks.get(0).getBlockId());
+    processBlockIds.add(blocks.get(1).getBlockId());
+    processBlockIds.add(blocks.get(2).getBlockId());
     sdr.getBufferSegments()
         .forEach(bs -> composedClientReadHandler.updateConsumedBlockInfo(bs, checkSkippedMetrics));
 
@@ -245,8 +247,8 @@ public class ShuffleServerWithMemLocalHadoopTest extends ShuffleReadWriteBase {
     expectedData.put(blocks2.get(0).getBlockId(), ByteBufUtils.readBytes(blocks2.get(0).getData()));
     expectedData.put(blocks2.get(1).getBlockId(), ByteBufUtils.readBytes(blocks2.get(1).getData()));
     validateResult(expectedData, sdr);
-    processBlockIds.addLong(blocks2.get(0).getBlockId());
-    processBlockIds.addLong(blocks2.get(1).getBlockId());
+    processBlockIds.add(blocks2.get(0).getBlockId());
+    processBlockIds.add(blocks2.get(1).getBlockId());
     sdr.getBufferSegments()
         .forEach(bs -> composedClientReadHandler.updateConsumedBlockInfo(bs, checkSkippedMetrics));
 
@@ -255,7 +257,7 @@ public class ShuffleServerWithMemLocalHadoopTest extends ShuffleReadWriteBase {
     expectedData.clear();
     expectedData.put(blocks2.get(2).getBlockId(), ByteBufUtils.readBytes(blocks2.get(2).getData()));
     validateResult(expectedData, sdr);
-    processBlockIds.addLong(blocks2.get(2).getBlockId());
+    processBlockIds.add(blocks2.get(2).getBlockId());
     sdr.getBufferSegments()
         .forEach(bs -> composedClientReadHandler.updateConsumedBlockInfo(bs, checkSkippedMetrics));
 
@@ -277,8 +279,8 @@ public class ShuffleServerWithMemLocalHadoopTest extends ShuffleReadWriteBase {
     expectedData.put(blocks3.get(0).getBlockId(), ByteBufUtils.readBytes(blocks3.get(0).getData()));
     expectedData.put(blocks3.get(1).getBlockId(), ByteBufUtils.readBytes(blocks3.get(1).getData()));
     validateResult(expectedData, sdr);
-    processBlockIds.addLong(blocks3.get(0).getBlockId());
-    processBlockIds.addLong(blocks3.get(1).getBlockId());
+    processBlockIds.add(blocks3.get(0).getBlockId());
+    processBlockIds.add(blocks3.get(1).getBlockId());
     sdr.getBufferSegments()
         .forEach(bs -> composedClientReadHandler.updateConsumedBlockInfo(bs, checkSkippedMetrics));
 

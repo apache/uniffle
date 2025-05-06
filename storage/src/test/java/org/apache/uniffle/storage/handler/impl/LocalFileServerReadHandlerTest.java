@@ -21,6 +21,8 @@ import java.nio.ByteBuffer;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import com.google.common.collect.Maps;
@@ -122,7 +124,7 @@ public class LocalFileServerReadHandlerTest {
         .when(mockShuffleServerClient)
         .getShuffleData(Mockito.argThat(segment2Match));
 
-    Roaring64NavigableMap processBlockIds = Roaring64NavigableMap.bitmapOf();
+    Set<Long> processBlockIds = ConcurrentHashMap.newKeySet();
     LocalFileClientReadHandler handler =
         new LocalFileClientReadHandler(
             appId,

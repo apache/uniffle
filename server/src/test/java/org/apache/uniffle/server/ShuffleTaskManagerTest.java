@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -1134,7 +1135,7 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
       List<ShufflePartitionedBlock> blocks,
       String basePath) {
     Roaring64NavigableMap expectBlockIds = Roaring64NavigableMap.bitmapOf();
-    Roaring64NavigableMap processBlockIds = Roaring64NavigableMap.bitmapOf();
+    Set<Long> processBlockIds = ConcurrentHashMap.newKeySet();
     Set<Long> remainIds = Sets.newHashSet();
     for (ShufflePartitionedBlock spb : blocks) {
       expectBlockIds.addLong(spb.getBlockId());

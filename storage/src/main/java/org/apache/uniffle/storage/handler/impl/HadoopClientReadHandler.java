@@ -21,6 +21,7 @@ import java.io.FileNotFoundException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.google.common.collect.Lists;
@@ -49,7 +50,7 @@ public class HadoopClientReadHandler extends AbstractClientReadHandler {
   protected final int readBufferSize;
   private final String shuffleServerId;
   protected Roaring64NavigableMap expectBlockIds;
-  protected Roaring64NavigableMap processBlockIds;
+  protected Set<Long> processBlockIds;
   protected final String storageBasePath;
   protected final Configuration hadoopConf;
   protected final List<HadoopShuffleReadHandler> readHandlers = Lists.newArrayList();
@@ -69,7 +70,7 @@ public class HadoopClientReadHandler extends AbstractClientReadHandler {
       int partitionNum,
       int readBufferSize,
       Roaring64NavigableMap expectBlockIds,
-      Roaring64NavigableMap processBlockIds,
+      Set<Long> processBlockIds,
       String storageBasePath,
       Configuration hadoopConf,
       ShuffleDataDistributionType distributionType,
@@ -107,7 +108,7 @@ public class HadoopClientReadHandler extends AbstractClientReadHandler {
       int partitionNum,
       int readBufferSize,
       Roaring64NavigableMap expectBlockIds,
-      Roaring64NavigableMap processBlockIds,
+      Set<Long> processBlockIds,
       String storageBasePath,
       Configuration hadoopConf) {
     this(

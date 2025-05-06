@@ -22,6 +22,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -98,9 +99,9 @@ public class HadoopHandlerTest extends HadoopTestBase {
       List<Long> expectedBlockId)
       throws IllegalStateException {
     Roaring64NavigableMap expectBlockIds = Roaring64NavigableMap.bitmapOf();
-    Roaring64NavigableMap processBlockIds = Roaring64NavigableMap.bitmapOf();
+    Set<Long> processBlockIds = ConcurrentHashMap.newKeySet();
     for (long blockId : expectedBlockId) {
-      expectBlockIds.addLong(blockId);
+      expectBlockIds.add(blockId);
     }
     // read directly and compare
     HadoopClientReadHandler readHandler =

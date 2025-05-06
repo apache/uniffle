@@ -512,7 +512,7 @@ public class ShuffleReadClientImplTest extends HadoopTestBase {
             .taskIdBitmap(taskIdBitmap)
             .build();
     TestUtils.validateResult(readClient, expectedData);
-    assertEquals(15, readClient.getProcessedBlockIds().getLongCardinality());
+    assertEquals(15, readClient.getProcessedBlockIds().size());
     readClient.checkProcessedBlockIds();
     readClient.close();
   }
@@ -569,7 +569,7 @@ public class ShuffleReadClientImplTest extends HadoopTestBase {
     // note that skipped block ids in blockIdBitmap will be removed by `build()`
     assertEquals(10, blockIdBitmap.getIntCardinality());
     TestUtils.validateResult(readClient, expectedData);
-    assertEquals(20, readClient.getProcessedBlockIds().getLongCardinality());
+    assertEquals(20, readClient.getProcessedBlockIds().size());
     readClient.checkProcessedBlockIds();
     readClient.close();
 
@@ -612,7 +612,7 @@ public class ShuffleReadClientImplTest extends HadoopTestBase {
             .taskIdBitmap(taskIdBitmap)
             .build();
     TestUtils.validateResult(readClient, expectedData);
-    assertEquals(15, readClient.getProcessedBlockIds().getLongCardinality());
+    assertEquals(15, readClient.getProcessedBlockIds().size());
     readClient.checkProcessedBlockIds();
     readClient.close();
   }
@@ -641,7 +641,7 @@ public class ShuffleReadClientImplTest extends HadoopTestBase {
             .taskIdBitmap(taskIdBitmap)
             .build();
     TestUtils.validateResult(readClient, expectedData);
-    assertEquals(25, readClient.getProcessedBlockIds().getLongCardinality());
+    assertEquals(25, readClient.getProcessedBlockIds().size());
     readClient.checkProcessedBlockIds();
     readClient.close();
   }

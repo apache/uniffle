@@ -30,6 +30,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -740,7 +741,7 @@ public class ShuffleFlushManagerTest extends HadoopTestBase {
       int partitionNumPerRange,
       String basePath) {
     Roaring64NavigableMap expectBlockIds = Roaring64NavigableMap.bitmapOf();
-    Roaring64NavigableMap processBlockIds = Roaring64NavigableMap.bitmapOf();
+    Set<Long> processBlockIds = ConcurrentHashMap.newKeySet();
     Set<Long> remainIds = Sets.newHashSet();
     for (ShufflePartitionedBlock spb : blocks) {
       expectBlockIds.addLong(spb.getBlockId());

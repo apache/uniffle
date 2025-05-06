@@ -18,6 +18,7 @@
 package org.apache.uniffle.storage.handler.impl;
 
 import java.util.List;
+import java.util.Set;
 
 import org.roaringbitmap.longlong.Roaring64NavigableMap;
 import org.slf4j.Logger;
@@ -37,7 +38,7 @@ public class MultiReplicaClientReadHandler extends AbstractClientReadHandler {
   private final List<ClientReadHandler> handlers;
   private final List<ShuffleServerInfo> shuffleServerInfos;
   private final Roaring64NavigableMap blockIdBitmap;
-  private final Roaring64NavigableMap processedBlockIds;
+  private final Set<Long> processedBlockIds;
 
   private int readHandlerIndex;
 
@@ -45,7 +46,7 @@ public class MultiReplicaClientReadHandler extends AbstractClientReadHandler {
       List<ClientReadHandler> handlers,
       List<ShuffleServerInfo> shuffleServerInfos,
       Roaring64NavigableMap blockIdBitmap,
-      Roaring64NavigableMap processedBlockIds) {
+      Set<Long> processedBlockIds) {
     this.handlers = handlers;
     this.blockIdBitmap = blockIdBitmap;
     this.processedBlockIds = processedBlockIds;

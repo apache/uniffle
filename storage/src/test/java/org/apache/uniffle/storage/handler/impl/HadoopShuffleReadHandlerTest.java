@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -66,7 +67,7 @@ public class HadoopShuffleReadHandlerTest extends HadoopTestBase {
         HadoopShuffleHandlerTestBase.calcExpectedSegmentNum(
             expectTotalBlockNum, blockSize, readBufferSize);
     Roaring64NavigableMap expectBlockIds = Roaring64NavigableMap.bitmapOf();
-    Roaring64NavigableMap processBlockIds = Roaring64NavigableMap.bitmapOf();
+    Set<Long> processBlockIds = ConcurrentHashMap.newKeySet();
     expectedData.forEach((id, block) -> expectBlockIds.addLong(id));
     String fileNamePrefix =
         ShuffleStorageUtils.getFullShuffleDataFolder(
@@ -130,7 +131,7 @@ public class HadoopShuffleReadHandlerTest extends HadoopTestBase {
         HadoopShuffleHandlerTestBase.calcExpectedSegmentNum(
             expectTotalBlockNum, blockSize, readBufferSize);
     Roaring64NavigableMap expectBlockIds = Roaring64NavigableMap.bitmapOf();
-    Roaring64NavigableMap processBlockIds = Roaring64NavigableMap.bitmapOf();
+    Set<Long> processBlockIds = ConcurrentHashMap.newKeySet();
     expectedData.forEach((id, block) -> expectBlockIds.addLong(id));
     String fileNamePrefix =
         ShuffleStorageUtils.getFullShuffleDataFolder(

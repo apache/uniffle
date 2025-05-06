@@ -36,6 +36,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -272,6 +273,29 @@ public class RssUtils {
     return clone;
   }
 
+  public static Roaring64NavigableMap toBitmap(Set<Long> sets) {
+    Roaring64NavigableMap bitmap = new Roaring64NavigableMap();
+
+    for (Long value : sets) {
+      if (value != null) {
+        bitmap.addLong(value);
+      }
+    }
+
+    return bitmap;
+  }
+
+  public static Set<Long> toSet(Roaring64NavigableMap bitmap) {
+    Set<Long> result = new HashSet<>();
+    Iterator<Long> it = bitmap.iterator();
+
+    while (it.hasNext()) {
+      result.add(it.next());
+    }
+
+    return result;
+  }
+
   public static String generateShuffleKey(String appId, int shuffleId) {
     return String.join(Constants.KEY_SPLIT_CHAR, appId, String.valueOf(shuffleId));
   }
@@ -377,6 +401,27 @@ public class RssUtils {
       }
     }
     return serverToPartitions;
+  }
+
+  public static void checkProcessedBlockIds(
+      Roaring64NavigableMap exceptedBlockIds, Set<Long> processedBlockIds) {
+    Iterator<Long> it = exceptedBlockIds.iterator();
+    int expectedCount = 0;
+    int actualCount = 0;
+    while (it.hasNext()) {
+      expectedCount++;
+      if (processedBlockIds.contains(it.next())) {
+        actualCount++;
+      }
+    }
+    if (expectedCount != actualCount) {
+      throw new RssException(
+          "Blocks read inconsistent: expected "
+              + expectedCount
+              + " blocks, actual "
+              + actualCount
+              + " blocks");
+    }
   }
 
   public static void checkProcessedBlockIds(
