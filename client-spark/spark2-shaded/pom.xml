@@ -49,6 +49,10 @@
           <artifactId>slf4j-api</artifactId>
           <groupId>org.slf4j</groupId>
         </exclusion>
+        <exclusion>
+          <groupId>com.esotericsoftware</groupId>
+          <artifactId>kryo-shaded</artifactId>
+        </exclusion>
       </exclusions>
     </dependency>
     <!-- log4j2 -->
@@ -215,10 +219,6 @@
                 <relocation>
                   <pattern>META-INF/license</pattern>
                   <shadedPattern>META-INF/license-tmp</shadedPattern>
-                </relocation>
-                <relocation>
-                  <pattern>com.esotericsoftware</pattern>
-                  <shadedPattern>${rss.shade.packageName}.com.esotericsoftware</shadedPattern>
                 </relocation>
               </relocations>
             </configuration>
