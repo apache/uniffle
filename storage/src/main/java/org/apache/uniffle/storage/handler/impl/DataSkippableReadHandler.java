@@ -40,7 +40,7 @@ public abstract class DataSkippableReadHandler extends PrefetchableClientReadHan
   protected List<ShuffleDataSegment> shuffleDataSegments = Lists.newArrayList();
   protected int segmentIndex = 0;
 
-  protected Set<Long> expectBlockIds;
+  protected Roaring64NavigableMap expectBlockIds;
   protected Set<Long> processBlockIds;
 
   protected ShuffleDataDistributionType distributionType;
@@ -61,7 +61,9 @@ public abstract class DataSkippableReadHandler extends PrefetchableClientReadHan
     this.shuffleId = shuffleId;
     this.partitionId = partitionId;
     this.readBufferSize = readBufferSize;
-    this.expectBlockIds = RssUtils.toSet(expectBlockIds);
+    // todo: from the expectBlockIds definition, this var should be immutable.
+    //       and so we need to extract this as hashset
+    this.expectBlockIds = expectBlockIds;
     this.processBlockIds = processBlockIds;
     this.distributionType = distributionType;
     this.expectTaskIds = expectTaskIds;
@@ -96,7 +98,7 @@ public abstract class DataSkippableReadHandler extends PrefetchableClientReadHan
       Set<Long> blocksOfSegment = new HashSet<>();
       segment.getBufferSegments().forEach(block -> blocksOfSegment.add(block.getBlockId()));
       // skip unexpected blockIds
-      blocksOfSegment.retainAll(expectBlockIds);
+      blocksOfSegment.retainAll(RssUtils.toSet(expectBlockIds));
       if (!blocksOfSegment.isEmpty()) {
         // skip processed blockIds
         blocksOfSegment.removeAll(processBlockIds);
