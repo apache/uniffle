@@ -32,7 +32,6 @@ import org.apache.uniffle.common.ShuffleDataResult;
 import org.apache.uniffle.common.ShuffleDataSegment;
 import org.apache.uniffle.common.ShuffleIndexResult;
 import org.apache.uniffle.common.segment.SegmentSplitterFactory;
-import org.apache.uniffle.common.util.RssUtils;
 
 public abstract class DataSkippableReadHandler extends PrefetchableClientReadHandler {
   private static final Logger LOG = LoggerFactory.getLogger(DataSkippableReadHandler.class);
@@ -61,8 +60,6 @@ public abstract class DataSkippableReadHandler extends PrefetchableClientReadHan
     this.shuffleId = shuffleId;
     this.partitionId = partitionId;
     this.readBufferSize = readBufferSize;
-    // todo: from the expectBlockIds definition, this var should be immutable.
-    //       and so we need to extract this as hashset
     this.expectBlockIds = expectBlockIds;
     this.processBlockIds = processBlockIds;
     this.distributionType = distributionType;
@@ -98,7 +95,7 @@ public abstract class DataSkippableReadHandler extends PrefetchableClientReadHan
       Set<Long> blocksOfSegment = new HashSet<>();
       segment.getBufferSegments().forEach(block -> blocksOfSegment.add(block.getBlockId()));
       // skip unexpected blockIds
-      blocksOfSegment.retainAll(RssUtils.toSet(expectBlockIds));
+      blocksOfSegment.removeIf(blockId -> !expectBlockIds.contains(blockId));
       if (!blocksOfSegment.isEmpty()) {
         // skip processed blockIds
         blocksOfSegment.removeAll(processBlockIds);
