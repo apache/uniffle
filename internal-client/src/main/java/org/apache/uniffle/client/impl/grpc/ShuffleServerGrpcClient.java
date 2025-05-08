@@ -217,7 +217,6 @@ public class ShuffleServerGrpcClient extends GrpcClient implements ShuffleServer
       String user,
       ShuffleDataDistributionType dataDistributionType,
       int maxConcurrencyPerPartitionToWrite,
-      int stageAttemptNumber,
       MergeContext mergeContext,
       Map<String, String> properties) {
     ShuffleRegisterRequest.Builder reqBuilder = ShuffleRegisterRequest.newBuilder();
@@ -228,7 +227,6 @@ public class ShuffleServerGrpcClient extends GrpcClient implements ShuffleServer
         .setShuffleDataDistribution(RssProtos.DataDistribution.valueOf(dataDistributionType.name()))
         .setMaxConcurrencyPerPartitionToWrite(maxConcurrencyPerPartitionToWrite)
         .addAllPartitionRanges(toShufflePartitionRanges(partitionRanges))
-        .setStageAttemptNumber(stageAttemptNumber)
         .putAllProperties(properties);
     if (mergeContext != null) {
       reqBuilder.setMergeContext(mergeContext);
@@ -508,7 +506,6 @@ public class ShuffleServerGrpcClient extends GrpcClient implements ShuffleServer
             request.getUser(),
             request.getDataDistributionType(),
             request.getMaxConcurrencyPerPartitionToWrite(),
-            request.getStageAttemptNumber(),
             request.getMergeContext(),
             request.getProperties());
 
@@ -541,7 +538,6 @@ public class ShuffleServerGrpcClient extends GrpcClient implements ShuffleServer
     String appId = request.getAppId();
     Map<Integer, Map<Integer, List<ShuffleBlockInfo>>> shuffleIdToBlocks =
         request.getShuffleIdToBlocks();
-    int stageAttemptNumber = request.getStageAttemptNumber();
 
     boolean isSuccessful = true;
     AtomicReference<StatusCode> failedStatusCode = new AtomicReference<>(StatusCode.INTERNAL_ERROR);
@@ -614,7 +610,6 @@ public class ShuffleServerGrpcClient extends GrpcClient implements ShuffleServer
                       .setRequireBufferId(requireId)
                       .addAllShuffleData(shuffleData)
                       .setTimestamp(start)
-                      .setStageAttemptNumber(stageAttemptNumber)
                       .build();
               SendShuffleDataResponse response = getBlockingStub().sendShuffleData(rpcRequest);
               if (LOG.isDebugEnabled()) {

@@ -120,6 +120,7 @@ public class RssShuffleWriterTest {
         new RssShuffleWriter<>(
             "appId",
             0,
+            0,
             taskId,
             1L,
             bufferManagerSpy,
@@ -287,8 +288,7 @@ public class RssShuffleWriterTest {
             mockTaskMemoryManager,
             shuffleWriteMetrics,
             new RssConf(),
-            null,
-            0);
+            null);
     WriteBufferManager bufferManagerSpy = spy(bufferManager);
     doReturn(1000000L).when(bufferManagerSpy).acquireMemory(anyLong());
     TaskContext contextMock = mock(TaskContext.class);
@@ -297,6 +297,7 @@ public class RssShuffleWriterTest {
     RssShuffleWriter<String, String, String> rssShuffleWriter =
         new RssShuffleWriter<>(
             "appId",
+            0,
             0,
             "taskId",
             1L,
@@ -411,6 +412,7 @@ public class RssShuffleWriterTest {
     RssShuffleWriter<String, String, String> writer =
         new RssShuffleWriter<>(
             "appId",
+            0,
             0,
             "taskId",
             1L,

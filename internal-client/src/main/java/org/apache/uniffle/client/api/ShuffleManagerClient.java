@@ -17,6 +17,7 @@
 
 package org.apache.uniffle.client.api;
 
+import org.apache.uniffle.client.request.RssAppUniffleShuffleIdRequest;
 import org.apache.uniffle.client.request.RssGetShuffleResultForMultiPartRequest;
 import org.apache.uniffle.client.request.RssGetShuffleResultRequest;
 import org.apache.uniffle.client.request.RssPartitionToShuffleServerRequest;
@@ -24,15 +25,13 @@ import org.apache.uniffle.client.request.RssReassignOnBlockSendFailureRequest;
 import org.apache.uniffle.client.request.RssReportShuffleFetchFailureRequest;
 import org.apache.uniffle.client.request.RssReportShuffleReadMetricRequest;
 import org.apache.uniffle.client.request.RssReportShuffleResultRequest;
-import org.apache.uniffle.client.request.RssReportShuffleWriteFailureRequest;
 import org.apache.uniffle.client.request.RssReportShuffleWriteMetricRequest;
+import org.apache.uniffle.client.response.RssAppUniffleShuffleIdResponse;
 import org.apache.uniffle.client.response.RssGetShuffleResultResponse;
 import org.apache.uniffle.client.response.RssReassignOnBlockSendFailureResponse;
-import org.apache.uniffle.client.response.RssReassignOnStageRetryResponse;
 import org.apache.uniffle.client.response.RssReportShuffleFetchFailureResponse;
 import org.apache.uniffle.client.response.RssReportShuffleReadMetricResponse;
 import org.apache.uniffle.client.response.RssReportShuffleResultResponse;
-import org.apache.uniffle.client.response.RssReportShuffleWriteFailureResponse;
 import org.apache.uniffle.client.response.RssReportShuffleWriteMetricResponse;
 import org.apache.uniffle.common.util.StatefulCloseable;
 
@@ -40,28 +39,10 @@ public interface ShuffleManagerClient extends StatefulCloseable {
   RssReportShuffleFetchFailureResponse reportShuffleFetchFailure(
       RssReportShuffleFetchFailureRequest request);
 
-  /**
-   * In Stage Retry mode,Gets the mapping between partitions and ShuffleServer from the
-   * ShuffleManager server.
-   *
-   * @param req request
-   * @return RssPartitionToShuffleServerResponse
-   */
-  RssReassignOnStageRetryResponse getPartitionToShufflerServerWithStageRetry(
-      RssPartitionToShuffleServerRequest req);
+  RssAppUniffleShuffleIdResponse getUniffleShuffleId(RssAppUniffleShuffleIdRequest req);
 
-  /**
-   * In Block Retry mode,Gets the mapping between partitions and ShuffleServer from the
-   * ShuffleManager server.
-   *
-   * @param req request
-   * @return RssPartitionToShuffleServerResponse
-   */
-  RssReassignOnBlockSendFailureResponse getPartitionToShufflerServerWithBlockRetry(
+  RssReassignOnBlockSendFailureResponse getPartitionToShufflerServer(
       RssPartitionToShuffleServerRequest req);
-
-  RssReportShuffleWriteFailureResponse reportShuffleWriteFailure(
-      RssReportShuffleWriteFailureRequest req);
 
   RssReassignOnBlockSendFailureResponse reassignOnBlockSendFailure(
       RssReassignOnBlockSendFailureRequest request);

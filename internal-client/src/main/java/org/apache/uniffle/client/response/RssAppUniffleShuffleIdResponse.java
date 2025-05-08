@@ -17,29 +17,21 @@
 
 package org.apache.uniffle.client.response;
 
-import org.apache.uniffle.common.rpc.StatusCode;
 import org.apache.uniffle.proto.RssProtos;
 
-public class RssReassignOnStageRetryResponse extends ClientResponse {
-  private RssProtos.StageAttemptShuffleHandleInfo shuffleHandleInfoProto;
+public class RssAppUniffleShuffleIdResponse {
+  private final int generatorShuffleId;
 
-  public RssReassignOnStageRetryResponse(
-      StatusCode statusCode,
-      String message,
-      RssProtos.StageAttemptShuffleHandleInfo shuffleHandleInfoProto) {
-    super(statusCode, message);
-    this.shuffleHandleInfoProto = shuffleHandleInfoProto;
+  public RssAppUniffleShuffleIdResponse(int generatorShuffleId) {
+    this.generatorShuffleId = generatorShuffleId;
   }
 
-  public RssProtos.StageAttemptShuffleHandleInfo getShuffleHandleInfoProto() {
-    return shuffleHandleInfoProto;
+  public int getGeneratorShuffleId() {
+    return generatorShuffleId;
   }
 
-  public static RssReassignOnStageRetryResponse fromProto(
-      RssProtos.ReassignOnStageRetryResponse response) {
-    return new RssReassignOnStageRetryResponse(
-        StatusCode.valueOf(response.getStatus().name()),
-        response.getMsg(),
-        response.getShuffleHandleInfo());
+  public static RssAppUniffleShuffleIdResponse fromProto(
+      RssProtos.AppUniffleShuffleIdResponse response) {
+    return new RssAppUniffleShuffleIdResponse(response.getGeneratorShuffleId());
   }
 }

@@ -140,12 +140,6 @@ public class MockedShuffleServerGrpcService extends ShuffleServerGrpcService {
       responseObserver.onCompleted();
       return;
     }
-    if (mockSendDataFailedStageNumber == request.getStageAttemptNumber()) {
-      LOG.info(
-          "Add a mocked sendData failed on sendShuffleData with the stage number={}",
-          mockSendDataFailedStageNumber);
-      throw new RuntimeException("This write request is failed as mocked failure！");
-    }
     if (mockedTimeout > 0) {
       LOG.info("Add a mocked timeout on sendShuffleData");
       Uninterruptibles.sleepUninterruptibly(mockedTimeout, TimeUnit.MILLISECONDS);

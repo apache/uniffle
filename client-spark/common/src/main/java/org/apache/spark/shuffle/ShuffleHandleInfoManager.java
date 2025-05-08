@@ -21,18 +21,18 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.Map;
 
-import org.apache.spark.shuffle.handle.ShuffleHandleInfo;
+import org.apache.spark.shuffle.handle.MutableShuffleHandleInfo;
 
 import org.apache.uniffle.common.util.JavaUtils;
 
 public class ShuffleHandleInfoManager implements Closeable {
-  private Map<Integer, ShuffleHandleInfo> shuffleIdToShuffleHandleInfo;
+  private Map<Integer, MutableShuffleHandleInfo> shuffleIdToShuffleHandleInfo;
 
   public ShuffleHandleInfoManager() {
     this.shuffleIdToShuffleHandleInfo = JavaUtils.newConcurrentMap();
   }
 
-  public ShuffleHandleInfo get(int shuffleId) {
+  public MutableShuffleHandleInfo get(int shuffleId) {
     return shuffleIdToShuffleHandleInfo.get(shuffleId);
   }
 
@@ -40,7 +40,7 @@ public class ShuffleHandleInfoManager implements Closeable {
     shuffleIdToShuffleHandleInfo.remove(shuffleId);
   }
 
-  public void register(int shuffleId, ShuffleHandleInfo handle) {
+  public void register(int shuffleId, MutableShuffleHandleInfo handle) {
     shuffleIdToShuffleHandleInfo.put(shuffleId, handle);
   }
 

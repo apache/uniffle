@@ -46,22 +46,6 @@ public class RssSparkConfig {
           .withDeprecatedKeys(RssClientConfig.RSS_RESUBMIT_STAGE)
           .withDescription("Whether to enable the resubmit stage for fetch/write failure");
 
-  public static final ConfigOption<Boolean> RSS_RESUBMIT_STAGE_WITH_FETCH_FAILURE_ENABLED =
-      ConfigOptions.key("rss.stageRetry.fetchFailureEnabled")
-          .booleanType()
-          .defaultValue(false)
-          .withFallbackKeys(RSS_RESUBMIT_STAGE_ENABLED.key(), RssClientConfig.RSS_RESUBMIT_STAGE)
-          .withDescription(
-              "If set to true, the stage retry mechanism will be enabled when a fetch failure occurs.");
-
-  public static final ConfigOption<Boolean> RSS_RESUBMIT_STAGE_WITH_WRITE_FAILURE_ENABLED =
-      ConfigOptions.key("rss.stageRetry.writeFailureEnabled")
-          .booleanType()
-          .defaultValue(false)
-          .withFallbackKeys(RSS_RESUBMIT_STAGE_ENABLED.key(), RssClientConfig.RSS_RESUBMIT_STAGE)
-          .withDescription(
-              "If set to true, the stage retry mechanism will be enabled when a write failure occurs.");
-
   public static final ConfigOption<Boolean> RSS_BLOCK_ID_SELF_MANAGEMENT_ENABLED =
       ConfigOptions.key("rss.blockId.selfManagementEnabled")
           .booleanType()

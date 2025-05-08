@@ -48,8 +48,10 @@ public class RssFetchFailedIterator<K, C> extends AbstractIterator<Product2<K, C
   public static class Builder {
     private String appId;
     private int shuffleId;
+    private int uniffleShuffleId;
     private int partitionId;
     private int stageAttemptId;
+    private int stageAttemptNumber;
     private Supplier<ShuffleManagerClient> managerClientSupplier;
 
     private Builder() {}
@@ -64,6 +66,11 @@ public class RssFetchFailedIterator<K, C> extends AbstractIterator<Product2<K, C
       return this;
     }
 
+    Builder uniffleShuffleId(int uniffleShuffleId) {
+      this.uniffleShuffleId = uniffleShuffleId;
+      return this;
+    }
+
     Builder partitionId(int partitionId) {
       this.partitionId = partitionId;
       return this;
@@ -71,6 +78,11 @@ public class RssFetchFailedIterator<K, C> extends AbstractIterator<Product2<K, C
 
     Builder stageAttemptId(int stageAttemptId) {
       this.stageAttemptId = stageAttemptId;
+      return this;
+    }
+
+    Builder stageAttemptNumber(int stageAttemptNumber) {
+      this.stageAttemptNumber = stageAttemptNumber;
       return this;
     }
 
@@ -95,7 +107,9 @@ public class RssFetchFailedIterator<K, C> extends AbstractIterator<Product2<K, C
         new RssReportShuffleFetchFailureRequest(
             builder.appId,
             builder.shuffleId,
+            builder.uniffleShuffleId,
             builder.stageAttemptId,
+            builder.stageAttemptNumber,
             builder.partitionId,
             e.getMessage());
     RssReportShuffleFetchFailureResponse response = client.reportShuffleFetchFailure(req);

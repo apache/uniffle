@@ -71,12 +71,6 @@ public class DummyRssShuffleManager implements RssShuffleManagerInterface {
   public void addFailuresShuffleServerInfos(String shuffleServerId) {}
 
   @Override
-  public boolean reassignOnStageResubmit(
-      int shuffleId, int stageAttemptId, int stageAttemptNumber) {
-    return false;
-  }
-
-  @Override
   public MutableShuffleHandleInfo reassignOnBlockSendFailure(
       int stageId,
       int stageAttemptNumber,
@@ -89,5 +83,10 @@ public class DummyRssShuffleManager implements RssShuffleManagerInterface {
   @Override
   public ShuffleWriteClient getShuffleWriteClient() {
     return null;
+  }
+
+  @Override
+  public int getUniffleShuffleId(int shuffleId, String appShuffleIdentifier, boolean isWriter) {
+    return 0;
   }
 }

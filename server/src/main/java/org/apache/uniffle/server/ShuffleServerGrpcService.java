@@ -97,7 +97,6 @@ import org.apache.uniffle.proto.RssProtos.ShuffleRegisterRequest;
 import org.apache.uniffle.proto.RssProtos.ShuffleRegisterResponse;
 import org.apache.uniffle.proto.ShuffleServerGrpc.ShuffleServerImplBase;
 import org.apache.uniffle.server.audit.ServerRpcAuditContext;
-import org.apache.uniffle.server.block.ShuffleBlockIdManager;
 import org.apache.uniffle.server.buffer.PreAllocatedBufferInfo;
 import org.apache.uniffle.server.merge.MergeStatus;
 import org.apache.uniffle.storage.common.Storage;
@@ -247,92 +246,12 @@ public class ShuffleServerGrpcService extends ShuffleServerImplBase {
   public void registerShuffle(
       ShuffleRegisterRequest req, StreamObserver<ShuffleRegisterResponse> responseObserver) {
     try (ServerRpcAuditContext auditContext = createAuditContext("registerShuffle")) {
-      ShuffleRegisterResponse reply;
       String appId = req.getAppId();
       int shuffleId = req.getShuffleId();
-      int stageAttemptNumber = req.getStageAttemptNumber();
       String remoteStoragePath = req.getRemoteStorage().getPath();
       String user = req.getUser();
       auditContext.withAppId(appId).withShuffleId(shuffleId);
-      auditContext.withArgs(
-          "remoteStoragePath="
-              + remoteStoragePath
-              + ", user="
-              + user
-              + ", stageAttemptNumber="
-              + stageAttemptNumber);
-      // If the Stage is registered for the first time, you do not need to consider the Stage retry
-      // and delete the Block data that has been sent.
-      ShuffleTaskInfo taskInfo = shuffleServer.getShuffleTaskManager().getShuffleTaskInfo(appId);
-      if (taskInfo != null) {
-        // Prevents AttemptNumber of multiple stages from modifying the latest AttemptNumber.
-        synchronized (taskInfo) {
-          int lastAttemptNumber = taskInfo.getLatestStageAttemptNumber(shuffleId);
-          if (stageAttemptNumber > 0 && stageAttemptNumber > lastAttemptNumber) {
-            taskInfo.refreshLatestStageAttemptNumber(shuffleId, stageAttemptNumber);
-            try {
-              long start = System.currentTimeMillis();
-              shuffleServer
-                  .getShuffleTaskManager()
-                  .removeShuffleDataSyncRenameAndDelete(appId, shuffleId);
-              LOG.info(
-                  "Deleted the previous stage attempt data due to stage recomputing for app: {}, "
-                      + "shuffleId: {}, stageAttemptNumber: {}. It costs {} ms",
-                  appId,
-                  shuffleId,
-                  lastAttemptNumber,
-                  System.currentTimeMillis() - start);
-              // Add a check to prevent undeleted metadata.
-              ShuffleBlockIdManager shuffleBlockIdManager =
-                  shuffleServer
-                      .getShuffleTaskManager()
-                      .getShuffleTaskInfo(appId)
-                      .getShuffleBlockIdManager();
-              long blockCountByShuffleId =
-                  shuffleBlockIdManager.getBlockCountByShuffleId(
-                      appId, Lists.newArrayList(shuffleId));
-              if (blockCountByShuffleId != 0) {
-                LOG.error(
-                    "Metadata is not deleted on clearing previous stage attempt data for app: {}, shuffleId: {}, stageAttemptNumber: {}",
-                    appId,
-                    shuffleId,
-                    lastAttemptNumber);
-                StatusCode code = StatusCode.INTERNAL_ERROR;
-                auditContext.withStatusCode(code);
-                reply = ShuffleRegisterResponse.newBuilder().setStatus(code.toProto()).build();
-                responseObserver.onNext(reply);
-                responseObserver.onCompleted();
-                return;
-              }
-            } catch (Exception e) {
-              LOG.error(
-                  "Errors on clearing previous stage attempt data for app: {}, shuffleId: {}, stageAttemptNumber: {}",
-                  appId,
-                  shuffleId,
-                  lastAttemptNumber,
-                  e);
-              StatusCode code = StatusCode.INTERNAL_ERROR;
-              auditContext.withStatusCode(code);
-              reply = ShuffleRegisterResponse.newBuilder().setStatus(code.toProto()).build();
-              responseObserver.onNext(reply);
-              responseObserver.onCompleted();
-              return;
-            }
-          } else if (stageAttemptNumber > 0 && stageAttemptNumber <= lastAttemptNumber) {
-            LOG.info(
-                "The registration failed. The latest retry count is smaller than the existing retry count. This situation should not exist.");
-            // When a Stage retry occurs, the first or last registration of a Stage may need to be
-            // ignored and the ignored status quickly returned.
-            StatusCode code = StatusCode.STAGE_RETRY_IGNORE;
-            auditContext.withStatusCode(code);
-            reply = ShuffleRegisterResponse.newBuilder().setStatus(code.toProto()).build();
-            responseObserver.onNext(reply);
-            responseObserver.onCompleted();
-            return;
-          }
-        }
-      }
-
+      auditContext.withArgs("remoteStoragePath=" + remoteStoragePath + ", user=" + user);
       ShuffleDataDistributionType shuffleDataDistributionType =
           ShuffleDataDistributionType.valueOf(
               Optional.ofNullable(req.getShuffleDataDistribution())
@@ -348,15 +267,11 @@ public class ShuffleServerGrpcService extends ShuffleServerImplBase {
 
       List<PartitionRange> partitionRanges = toPartitionRanges(req.getPartitionRangesList());
       LOG.info(
-          "Get register request for appId["
-              + appId
-              + "], shuffleId["
-              + shuffleId
-              + "], remoteStorage["
-              + remoteStoragePath
-              + "] with "
-              + partitionRanges.size()
-              + " partition ranges. User: {}",
+          "Get register request for appId[{}], shuffleId[{}], remoteStorage[{}] with {} partition ranges. User: {}",
+          appId,
+          shuffleId,
+          remoteStoragePath,
+          partitionRanges.size(),
           user);
 
       StatusCode result =
@@ -365,7 +280,6 @@ public class ShuffleServerGrpcService extends ShuffleServerImplBase {
               .registerShuffle(
                   appId,
                   shuffleId,
-                  stageAttemptNumber,
                   partitionRanges,
                   new RemoteStorageInfo(remoteStoragePath, remoteStorageConf),
                   user,
@@ -383,7 +297,6 @@ public class ShuffleServerGrpcService extends ShuffleServerImplBase {
                 .registerShuffle(
                     appId + MERGE_APP_SUFFIX,
                     shuffleId,
-                    stageAttemptNumber,
                     partitionRanges,
                     new RemoteStorageInfo(remoteStoragePath, remoteStorageConf),
                     user,
@@ -398,7 +311,8 @@ public class ShuffleServerGrpcService extends ShuffleServerImplBase {
         }
       }
       auditContext.withStatusCode(result);
-      reply = ShuffleRegisterResponse.newBuilder().setStatus(result.toProto()).build();
+      ShuffleRegisterResponse reply =
+          ShuffleRegisterResponse.newBuilder().setStatus(result.toProto()).build();
       responseObserver.onNext(reply);
       responseObserver.onCompleted();
     }
@@ -413,7 +327,6 @@ public class ShuffleServerGrpcService extends ShuffleServerImplBase {
       int shuffleId = req.getShuffleId();
       long requireBufferId = req.getRequireBufferId();
       long timestamp = req.getTimestamp();
-      int stageAttemptNumber = req.getStageAttemptNumber();
 
       auditContext.withAppId(appId).withShuffleId(shuffleId);
       auditContext.withArgs(
@@ -421,8 +334,6 @@ public class ShuffleServerGrpcService extends ShuffleServerImplBase {
               + requireBufferId
               + ", timestamp="
               + timestamp
-              + ", stageAttemptNumber="
-              + stageAttemptNumber
               + ", shuffleDataSize="
               + req.getShuffleDataCount());
 
@@ -442,21 +353,6 @@ public class ShuffleServerGrpcService extends ShuffleServerImplBase {
             SendShuffleDataResponse.newBuilder()
                 .setStatus(StatusCode.APP_NOT_FOUND.toProto())
                 .setRetMsg(errorMsg)
-                .build();
-        auditContext.withStatusCode(StatusCode.fromProto(reply.getStatus()));
-        responseObserver.onNext(reply);
-        responseObserver.onCompleted();
-        return;
-      }
-      Integer latestStageAttemptNumber = taskInfo.getLatestStageAttemptNumber(shuffleId);
-      // The Stage retry occurred, and the task before StageNumber was simply ignored and not
-      // processed if the task was being sent.
-      if (stageAttemptNumber < latestStageAttemptNumber) {
-        String responseMessage = "A retry has occurred at the Stage, sending data is invalid.";
-        reply =
-            SendShuffleDataResponse.newBuilder()
-                .setStatus(StatusCode.STAGE_RETRY_IGNORE.toProto())
-                .setRetMsg(responseMessage)
                 .build();
         auditContext.withStatusCode(StatusCode.fromProto(reply.getStatus()));
         responseObserver.onNext(reply);

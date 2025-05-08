@@ -285,7 +285,6 @@ public class RssMRAppMaster extends MRAppMaster {
                                   ShuffleDataDistributionType.NORMAL,
                                   RssMRConfig.toRssConf(conf)
                                       .get(MAX_CONCURRENCY_PER_PARTITION_TO_WRITE),
-                                  0,
                                   remoteMergeEnable
                                       ? MergeContext.newBuilder()
                                           .setKeyClass(conf.getMapOutputKeyClass().getName())

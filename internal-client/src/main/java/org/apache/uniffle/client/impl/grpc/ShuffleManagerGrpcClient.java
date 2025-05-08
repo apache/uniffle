@@ -23,6 +23,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.uniffle.client.api.ShuffleManagerClient;
+import org.apache.uniffle.client.request.RssAppUniffleShuffleIdRequest;
 import org.apache.uniffle.client.request.RssGetShuffleResultForMultiPartRequest;
 import org.apache.uniffle.client.request.RssGetShuffleResultRequest;
 import org.apache.uniffle.client.request.RssPartitionToShuffleServerRequest;
@@ -30,15 +31,13 @@ import org.apache.uniffle.client.request.RssReassignOnBlockSendFailureRequest;
 import org.apache.uniffle.client.request.RssReportShuffleFetchFailureRequest;
 import org.apache.uniffle.client.request.RssReportShuffleReadMetricRequest;
 import org.apache.uniffle.client.request.RssReportShuffleResultRequest;
-import org.apache.uniffle.client.request.RssReportShuffleWriteFailureRequest;
 import org.apache.uniffle.client.request.RssReportShuffleWriteMetricRequest;
+import org.apache.uniffle.client.response.RssAppUniffleShuffleIdResponse;
 import org.apache.uniffle.client.response.RssGetShuffleResultResponse;
 import org.apache.uniffle.client.response.RssReassignOnBlockSendFailureResponse;
-import org.apache.uniffle.client.response.RssReassignOnStageRetryResponse;
 import org.apache.uniffle.client.response.RssReportShuffleFetchFailureResponse;
 import org.apache.uniffle.client.response.RssReportShuffleReadMetricResponse;
 import org.apache.uniffle.client.response.RssReportShuffleResultResponse;
-import org.apache.uniffle.client.response.RssReportShuffleWriteFailureResponse;
 import org.apache.uniffle.client.response.RssReportShuffleWriteMetricResponse;
 import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.proto.RssProtos;
@@ -91,40 +90,22 @@ public class ShuffleManagerGrpcClient extends GrpcClient implements ShuffleManag
   }
 
   @Override
-  public RssReassignOnStageRetryResponse getPartitionToShufflerServerWithStageRetry(
-      RssPartitionToShuffleServerRequest req) {
-    RssProtos.PartitionToShuffleServerRequest protoRequest = req.toProto();
-    RssProtos.ReassignOnStageRetryResponse partitionToShufflerServer =
-        getBlockingStub().getPartitionToShufflerServerWithStageRetry(protoRequest);
-    RssReassignOnStageRetryResponse rssReassignOnStageRetryResponse =
-        RssReassignOnStageRetryResponse.fromProto(partitionToShufflerServer);
-    return rssReassignOnStageRetryResponse;
-  }
-
-  @Override
-  public RssReassignOnBlockSendFailureResponse getPartitionToShufflerServerWithBlockRetry(
+  public RssReassignOnBlockSendFailureResponse getPartitionToShufflerServer(
       RssPartitionToShuffleServerRequest req) {
     RssProtos.PartitionToShuffleServerRequest protoRequest = req.toProto();
     RssProtos.ReassignOnBlockSendFailureResponse partitionToShufflerServer =
-        getBlockingStub().getPartitionToShufflerServerWithBlockRetry(protoRequest);
+        getBlockingStub().getPartitionToShufflerServer(protoRequest);
     RssReassignOnBlockSendFailureResponse rssReassignOnBlockSendFailureResponse =
         RssReassignOnBlockSendFailureResponse.fromProto(partitionToShufflerServer);
     return rssReassignOnBlockSendFailureResponse;
   }
 
   @Override
-  public RssReportShuffleWriteFailureResponse reportShuffleWriteFailure(
-      RssReportShuffleWriteFailureRequest request) {
-    RssProtos.ReportShuffleWriteFailureRequest protoRequest = request.toProto();
-    try {
-      RssProtos.ReportShuffleWriteFailureResponse response =
-          getBlockingStub().reportShuffleWriteFailure(protoRequest);
-      return RssReportShuffleWriteFailureResponse.fromProto(response);
-    } catch (Exception e) {
-      String msg = "Report shuffle fetch failure to host:port[" + host + ":" + port + "] failed";
-      LOG.warn(msg, e);
-      throw new RssException(msg, e);
-    }
+  public RssAppUniffleShuffleIdResponse getUniffleShuffleId(RssAppUniffleShuffleIdRequest req) {
+    RssProtos.AppUniffleShuffleIdRequest appUniffleShuffleIdRequest = req.toProto();
+    RssProtos.AppUniffleShuffleIdResponse appUniffleShuffleIdResponse =
+        getBlockingStub().getUniffleShuffleId(appUniffleShuffleIdRequest);
+    return RssAppUniffleShuffleIdResponse.fromProto(appUniffleShuffleIdResponse);
   }
 
   @Override

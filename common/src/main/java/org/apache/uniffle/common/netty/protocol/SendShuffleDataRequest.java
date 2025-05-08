@@ -30,8 +30,6 @@ import org.apache.uniffle.common.util.ByteBufUtils;
 public class SendShuffleDataRequest extends RequestMessage {
   private String appId;
   private int shuffleId;
-
-  private int stageAttemptNumber;
   private long requireId;
   private Map<Integer, List<ShuffleBlockInfo>> partitionToBlocks;
   private long timestamp;
@@ -43,24 +41,12 @@ public class SendShuffleDataRequest extends RequestMessage {
       long requireId,
       Map<Integer, List<ShuffleBlockInfo>> partitionToBlocks,
       long timestamp) {
-    this(requestId, appId, shuffleId, 0, requireId, partitionToBlocks, timestamp);
-  }
-
-  public SendShuffleDataRequest(
-      long requestId,
-      String appId,
-      int shuffleId,
-      int stageAttemptNumber,
-      long requireId,
-      Map<Integer, List<ShuffleBlockInfo>> partitionToBlocks,
-      long timestamp) {
     super(requestId);
     this.appId = appId;
     this.shuffleId = shuffleId;
     this.requireId = requireId;
     this.partitionToBlocks = partitionToBlocks;
     this.timestamp = timestamp;
-    this.stageAttemptNumber = stageAttemptNumber;
   }
 
   @Override
@@ -172,10 +158,6 @@ public class SendShuffleDataRequest extends RequestMessage {
 
   public void setTimestamp(long timestamp) {
     this.timestamp = timestamp;
-  }
-
-  public int getStageAttemptNumber() {
-    return stageAttemptNumber;
   }
 
   @Override

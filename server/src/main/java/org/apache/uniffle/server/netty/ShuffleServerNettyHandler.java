@@ -206,36 +206,6 @@ public class ShuffleServerNettyHandler implements BaseMessageHandler {
         client.getChannel().writeAndFlush(rpcResponse);
         return;
       }
-      Integer latestStageAttemptNumber = taskInfo.getLatestStageAttemptNumber(shuffleId);
-      // The Stage retry occurred, and the task before StageNumber was simply ignored and not
-      // processed if the task was being sent.
-      if (stageAttemptNumber < latestStageAttemptNumber) {
-        String responseMessage = "A retry has occurred at the Stage, sending data is invalid.";
-        rpcResponse =
-            new RpcResponse(req.getRequestId(), StatusCode.STAGE_RETRY_IGNORE, responseMessage);
-        LOG.warn(
-            "Stage retry occurred, appId["
-                + appId
-                + "], shuffleId["
-                + shuffleId
-                + "], stageAttemptNumber["
-                + stageAttemptNumber
-                + "], latestStageAttemptNumber["
-                + latestStageAttemptNumber
-                + "]");
-        releaseNettyBufferAndMetrics(
-            req,
-            appId,
-            shuffleId,
-            requireBufferId,
-            requireBlocksSize,
-            shuffleBufferManager,
-            info,
-            isPreAllocated);
-        auditContext.withStatusCode(rpcResponse.getStatusCode());
-        client.getChannel().writeAndFlush(rpcResponse);
-        return;
-      }
       long timestamp = req.getTimestamp();
       if (timestamp > 0) {
         /*

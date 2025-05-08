@@ -33,9 +33,6 @@ public class RssGetShuffleAssignmentsRequest {
   private int assignmentShuffleServerNumber;
   private int estimateTaskConcurrency;
   private Set<String> faultyServerIds;
-  private int stageId = -1;
-  private int stageAttemptNumber = 0;
-  private boolean reassign = false;
   private long retryIntervalMs;
   private int retryTimes;
 
@@ -79,9 +76,6 @@ public class RssGetShuffleAssignmentsRequest {
         assignmentShuffleServerNumber,
         estimateTaskConcurrency,
         faultyServerIds,
-        -1,
-        0,
-        false,
         0,
         0);
   }
@@ -96,9 +90,6 @@ public class RssGetShuffleAssignmentsRequest {
       int assignmentShuffleServerNumber,
       int estimateTaskConcurrency,
       Set<String> faultyServerIds,
-      int stageId,
-      int stageAttemptNumber,
-      boolean reassign,
       long retryIntervalMs,
       int retryTimes) {
     this.appId = appId;
@@ -110,9 +101,6 @@ public class RssGetShuffleAssignmentsRequest {
     this.assignmentShuffleServerNumber = assignmentShuffleServerNumber;
     this.estimateTaskConcurrency = estimateTaskConcurrency;
     this.faultyServerIds = faultyServerIds;
-    this.stageId = stageId;
-    this.stageAttemptNumber = stageAttemptNumber;
-    this.reassign = reassign;
     this.retryIntervalMs = retryIntervalMs;
     this.retryTimes = retryTimes;
   }
@@ -151,18 +139,6 @@ public class RssGetShuffleAssignmentsRequest {
 
   public Set<String> getFaultyServerIds() {
     return faultyServerIds;
-  }
-
-  public int getStageId() {
-    return stageId;
-  }
-
-  public int getStageAttemptNumber() {
-    return stageAttemptNumber;
-  }
-
-  public boolean isReassign() {
-    return reassign;
   }
 
   public long getRetryIntervalMs() {

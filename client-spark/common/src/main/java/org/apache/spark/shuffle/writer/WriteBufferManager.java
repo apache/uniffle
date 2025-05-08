@@ -105,7 +105,6 @@ public class WriteBufferManager extends MemoryConsumer {
   private BlockIdLayout blockIdLayout;
   private double bufferSpillRatio;
   private Function<Integer, List<ShuffleServerInfo>> partitionAssignmentRetrieveFunc;
-  private int stageAttemptNumber;
   private ShuffleServerPushCostTracker shuffleServerPushCostTracker;
 
   public WriteBufferManager(
@@ -127,8 +126,7 @@ public class WriteBufferManager extends MemoryConsumer {
         taskMemoryManager,
         shuffleWriteMetrics,
         rssConf,
-        null,
-        0);
+        null);
   }
 
   public WriteBufferManager(
@@ -142,32 +140,6 @@ public class WriteBufferManager extends MemoryConsumer {
       RssConf rssConf,
       Function<List<ShuffleBlockInfo>, List<CompletableFuture<Long>>> spillFunc,
       Function<Integer, List<ShuffleServerInfo>> partitionAssignmentRetrieveFunc) {
-    this(
-        shuffleId,
-        taskId,
-        taskAttemptId,
-        bufferManagerOptions,
-        serializer,
-        taskMemoryManager,
-        shuffleWriteMetrics,
-        rssConf,
-        spillFunc,
-        partitionAssignmentRetrieveFunc,
-        0);
-  }
-
-  public WriteBufferManager(
-      int shuffleId,
-      String taskId,
-      long taskAttemptId,
-      BufferManagerOptions bufferManagerOptions,
-      Serializer serializer,
-      TaskMemoryManager taskMemoryManager,
-      ShuffleWriteMetrics shuffleWriteMetrics,
-      RssConf rssConf,
-      Function<List<ShuffleBlockInfo>, List<CompletableFuture<Long>>> spillFunc,
-      Function<Integer, List<ShuffleServerInfo>> partitionAssignmentRetrieveFunc,
-      int stageAttemptNumber) {
     super(taskMemoryManager, taskMemoryManager.pageSizeBytes(), MemoryMode.ON_HEAP);
     this.bufferSize = bufferManagerOptions.getBufferSize();
     this.spillSize = bufferManagerOptions.getBufferSpillThreshold();
@@ -201,7 +173,6 @@ public class WriteBufferManager extends MemoryConsumer {
     this.bufferSpillRatio = rssConf.get(RssSparkConfig.RSS_MEMORY_SPILL_RATIO);
     this.blockIdLayout = BlockIdLayout.from(rssConf);
     this.partitionAssignmentRetrieveFunc = partitionAssignmentRetrieveFunc;
-    this.stageAttemptNumber = stageAttemptNumber;
     this.shuffleServerPushCostTracker = new ShuffleServerPushCostTracker();
   }
 
@@ -215,8 +186,7 @@ public class WriteBufferManager extends MemoryConsumer {
       TaskMemoryManager taskMemoryManager,
       ShuffleWriteMetrics shuffleWriteMetrics,
       RssConf rssConf,
-      Function<List<ShuffleBlockInfo>, List<CompletableFuture<Long>>> spillFunc,
-      int stageAttemptNumber) {
+      Function<List<ShuffleBlockInfo>, List<CompletableFuture<Long>>> spillFunc) {
     this(
         shuffleId,
         taskId,
@@ -227,8 +197,7 @@ public class WriteBufferManager extends MemoryConsumer {
         shuffleWriteMetrics,
         rssConf,
         spillFunc,
-        partitionId -> partitionToServers.get(partitionId),
-        stageAttemptNumber);
+        partitionId -> partitionToServers.get(partitionId));
   }
 
   /** add serialized columnar data directly when integrate with gluten */
@@ -531,7 +500,7 @@ public class WriteBufferManager extends MemoryConsumer {
                   + totalSize
                   + " bytes");
         }
-        events.add(new AddBlockEvent(taskId, stageAttemptNumber, shuffleBlockInfosPerEvent, this));
+        events.add(new AddBlockEvent(taskId, shuffleBlockInfosPerEvent, this));
         shuffleBlockInfosPerEvent = Lists.newArrayList();
         totalSize = 0;
       }
@@ -546,7 +515,7 @@ public class WriteBufferManager extends MemoryConsumer {
                 + " bytes");
       }
       // Use final temporary variables for closures
-      events.add(new AddBlockEvent(taskId, stageAttemptNumber, shuffleBlockInfosPerEvent, this));
+      events.add(new AddBlockEvent(taskId, shuffleBlockInfosPerEvent, this));
     }
     return events;
   }

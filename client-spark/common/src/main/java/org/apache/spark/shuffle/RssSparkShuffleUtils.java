@@ -33,6 +33,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
+import org.apache.spark.TaskContext;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.deploy.SparkHadoopUtil;
 import org.apache.spark.shuffle.handle.SimpleShuffleHandleInfo;
@@ -54,7 +55,7 @@ import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.exception.RssFetchFailedException;
 import org.apache.uniffle.common.util.Constants;
 
-import static org.apache.spark.shuffle.RssSparkConfig.RSS_RESUBMIT_STAGE_WITH_FETCH_FAILURE_ENABLED;
+import static org.apache.spark.shuffle.RssSparkConfig.RSS_RESUBMIT_STAGE_ENABLED;
 
 public class RssSparkShuffleUtils {
 
@@ -366,17 +367,21 @@ public class RssSparkShuffleUtils {
       SparkConf sparkConf,
       String appId,
       int shuffleId,
+      int uniffleShuffleId,
       int stageAttemptId,
+      int stageAttemptNumber,
       Set<Integer> failedPartitions) {
     RssConf rssConf = RssSparkConfig.toRssConf(sparkConf);
-    if (rssConf.getBoolean(RSS_RESUBMIT_STAGE_WITH_FETCH_FAILURE_ENABLED)
+    if (rssConf.getBoolean(RSS_RESUBMIT_STAGE_ENABLED)
         && RssSparkShuffleUtils.isStageResubmitSupported()) {
       for (int partitionId : failedPartitions) {
         RssReportShuffleFetchFailureRequest req =
             new RssReportShuffleFetchFailureRequest(
                 appId,
                 shuffleId,
+                uniffleShuffleId,
                 stageAttemptId,
+                stageAttemptNumber,
                 partitionId,
                 rssFetchFailedException.getMessage());
         RssReportShuffleFetchFailureResponse response =
@@ -403,5 +408,9 @@ public class RssSparkShuffleUtils {
       return true;
     }
     return false;
+  }
+
+  public static String getAppShuffleIdentifier(int appShuffleId, TaskContext context) {
+    return appShuffleId + "-" + context.stageId() + "-" + context.stageAttemptNumber();
   }
 }

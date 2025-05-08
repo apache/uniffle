@@ -305,7 +305,6 @@ public class TezRemoteShuffleManager implements ServicePluginLifecycle {
                                           ShuffleDataDistributionType.NORMAL,
                                           RssTezConfig.toRssConf(conf)
                                               .get(MAX_CONCURRENCY_PER_PARTITION_TO_WRITE),
-                                          0,
                                           StringUtils.isBlank(keyClassName)
                                               ? null
                                               : RssProtos.MergeContext.newBuilder()

@@ -63,7 +63,6 @@ public class MockedShuffleWriteClient implements ShuffleWriteClient {
       RemoteStorageInfo remoteStorage,
       ShuffleDataDistributionType dataDistributionType,
       int maxConcurrencyPerPartitionToWrite,
-      int stageAttemptNumber,
       RssProtos.MergeContext mergeContext,
       Map<String, String> properties) {}
 
@@ -120,9 +119,6 @@ public class MockedShuffleWriteClient implements ShuffleWriteClient {
       int assignmentShuffleServerNumber,
       int estimateTaskConcurrency,
       Set<String> faultyServerIds,
-      int stageId,
-      int stageAttemptNumber,
-      boolean reassign,
       long retryIntervalMs,
       int retryTimes) {
     return null;

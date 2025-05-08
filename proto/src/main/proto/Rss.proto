@@ -199,9 +199,8 @@ message ShuffleRegisterRequest {
   string user = 5;
   DataDistribution shuffleDataDistribution = 6;
   int32 maxConcurrencyPerPartitionToWrite = 7;
-  int32 stageAttemptNumber = 8;
-  MergeContext mergeContext = 9;
-  map<string, string> properties = 10;
+  MergeContext mergeContext = 8;
+  map<string, string> properties = 9;
 }
 
 enum DataDistribution {
@@ -239,7 +238,6 @@ message SendShuffleDataRequest {
   int64 requireBufferId = 3;
   repeated ShuffleData shuffleData = 4;
   int64 timestamp = 5;
-  int32 stageAttemptNumber = 6;
 }
 
 message SendShuffleDataResponse {
@@ -455,9 +453,6 @@ message GetShuffleServerRequest {
   int32 assignmentShuffleServerNumber = 10;
   int32 estimateTaskConcurrency = 11;
   repeated string faultyServerIds = 12;
-  int32 stageId = 13;
-  int32 stageAttemptNumber = 14;
-  bool reassign = 15;
 }
 
 message PartitionRangeAssignment {
@@ -573,13 +568,11 @@ message CancelDecommissionResponse {
 // per application.
 service ShuffleManager {
   rpc reportShuffleFetchFailure (ReportShuffleFetchFailureRequest) returns (ReportShuffleFetchFailureResponse);
-  // Gets the mapping between partitions and ShuffleServer from the ShuffleManager server on Stage Retry.
-  rpc getPartitionToShufflerServerWithStageRetry(PartitionToShuffleServerRequest) returns (ReassignOnStageRetryResponse);
   // Gets the mapping between partitions and ShuffleServer from the ShuffleManager server on Block Retry.
-  rpc getPartitionToShufflerServerWithBlockRetry(PartitionToShuffleServerRequest) returns (ReassignOnBlockSendFailureResponse);
-  // Report write failures to ShuffleManager
-  rpc reportShuffleWriteFailure (ReportShuffleWriteFailureRequest) returns (ReportShuffleWriteFailureResponse);
-  // Reassign on block send failure that occurs in writer
+  rpc getPartitionToShufflerServer(PartitionToShuffleServerRequest) returns (ReassignOnBlockSendFailureResponse);
+  // Get the regenerated ShuffleId from the Driver.
+  rpc getUniffleShuffleId(AppUniffleShuffleIdRequest) returns (AppUniffleShuffleIdResponse);
+// Reassign on block send failure that occurs in writer
   rpc reassignOnBlockSendFailure(RssReassignOnBlockSendFailureRequest) returns (ReassignOnBlockSendFailureResponse);
   rpc reportShuffleResult (ReportShuffleResultRequest) returns (ReportShuffleResultResponse);
   rpc getShuffleResult (GetShuffleResultRequest) returns (GetShuffleResultResponse);
@@ -587,6 +580,29 @@ service ShuffleManager {
   // report task shuffle metrics
   rpc reportShuffleWriteMetric (ReportShuffleWriteMetricRequest) returns (ReportShuffleWriteMetricResponse);
   rpc reportShuffleReadMetric (ReportShuffleReadMetricRequest) returns (ReportShuffleReadMetricResponse);
+}
+
+message AppUniffleShuffleIdRequest {
+  int32 shuffleId = 1;
+  string appShuffleIdentifier = 2;
+  bool isWriter = 3;
+}
+
+message AppUniffleShuffleIdResponse {
+  int32 generatorShuffleId = 1;
+}
+
+message ReassignServersRequest{
+  int32 stageId = 1;
+  int32 stageAttemptNumber = 2;
+  int32 shuffleId = 3;
+  int32 numPartitions = 4;
+}
+
+message ReassignServersResponse {
+  StatusCode status = 1;
+  bool needReassign = 2;
+  string msg = 3;
 }
 
 message ReportShuffleWriteMetricRequest {
@@ -640,6 +656,8 @@ message ReportShuffleFetchFailureRequest {
   string exception = 5;
   // todo: report ShuffleServerId if needed
   // ShuffleServerId serverId = 6;
+  int32 uniffleShuffleId = 6;
+  int32 stageAttemptNumber = 7;
 }
 
 message ReportShuffleFetchFailureResponse {
@@ -649,22 +667,9 @@ message ReportShuffleFetchFailureResponse {
 }
 
 message PartitionToShuffleServerRequest {
-  int32 stageAttemptId = 1;
-  int32 stageAttemptNumber = 2;
-  int32 shuffleId = 3;
-  bool isWritePhase = 4;
+  int32 shuffleId = 1;
 }
 
-message ReassignOnStageRetryResponse {
-  StatusCode status = 1;
-  string msg = 2;
-  StageAttemptShuffleHandleInfo shuffleHandleInfo = 3;
-}
-
-message StageAttemptShuffleHandleInfo {
-  repeated MutableShuffleHandleInfo historyMutableShuffleHandleInfo= 1;
-  MutableShuffleHandleInfo currentMutableShuffleHandleInfo = 2;
-}
 
 message MutableShuffleHandleInfo {
   int32 shuffleId = 1;
@@ -696,21 +701,6 @@ message ReplicaServersItem {
 message RemoteStorageInfo{
   string path = 1;
   map<string, string> confItems = 2;
-}
-
-message ReportShuffleWriteFailureRequest {
-  string appId = 1;
-  int32 shuffleId = 2;
-  int32 stageAttemptId = 3;
-  int32 stageAttemptNumber = 4;
-  repeated ShuffleServerId shuffleServerIds= 5;
-  string exception = 6;
-}
-
-message ReportShuffleWriteFailureResponse {
-  StatusCode status = 1;
-  bool reSubmitWholeStage = 2;
-  string msg = 3;
 }
 
 message RssReassignOnBlockSendFailureRequest {

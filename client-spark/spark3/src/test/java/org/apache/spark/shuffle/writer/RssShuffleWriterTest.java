@@ -175,6 +175,7 @@ public class RssShuffleWriterTest {
         new RssShuffleWriter<>(
             "appId",
             0,
+            0,
             taskId,
             1L,
             bufferManagerSpy,
@@ -448,6 +449,7 @@ public class RssShuffleWriterTest {
         new RssShuffleWriter<>(
             "appId",
             0,
+            0,
             "taskId",
             1L,
             bufferManagerSpy,
@@ -587,6 +589,7 @@ public class RssShuffleWriterTest {
         new RssShuffleWriter<>(
             "appId",
             0,
+            0,
             "taskId",
             1L,
             bufferManagerSpy,
@@ -717,8 +720,7 @@ public class RssShuffleWriterTest {
             fakedTaskMemoryManager,
             new ShuffleWriteMetrics(),
             RssSparkConfig.toRssConf(conf),
-            null,
-            0);
+            null);
 
     Serializer kryoSerializer = new KryoSerializer(conf);
     Partitioner mockPartitioner = mock(Partitioner.class);
@@ -736,6 +738,7 @@ public class RssShuffleWriterTest {
     RssShuffleWriter<String, String, String> rssShuffleWriter =
         new RssShuffleWriter<>(
             "appId",
+            0,
             0,
             "taskId",
             1L,
@@ -862,6 +865,7 @@ public class RssShuffleWriterTest {
         new RssShuffleWriter<>(
             "appId",
             0,
+            0,
             "taskId",
             1L,
             bufferManagerSpy,
@@ -977,6 +981,7 @@ public class RssShuffleWriterTest {
     RssShuffleWriter<String, String, String> writer =
         new RssShuffleWriter<>(
             "appId",
+            0,
             0,
             "taskId",
             1L,

@@ -25,7 +25,6 @@ import org.apache.uniffle.common.ShuffleBlockInfo;
 public class RssSendShuffleDataRequest {
 
   private String appId;
-  private int stageAttemptNumber;
   private int retryMax;
   private long retryIntervalMax;
   private Map<Integer, Map<Integer, List<ShuffleBlockInfo>>> shuffleIdToBlocks;
@@ -35,20 +34,10 @@ public class RssSendShuffleDataRequest {
       int retryMax,
       long retryIntervalMax,
       Map<Integer, Map<Integer, List<ShuffleBlockInfo>>> shuffleIdToBlocks) {
-    this(appId, 0, retryMax, retryIntervalMax, shuffleIdToBlocks);
-  }
-
-  public RssSendShuffleDataRequest(
-      String appId,
-      int stageAttemptNumber,
-      int retryMax,
-      long retryIntervalMax,
-      Map<Integer, Map<Integer, List<ShuffleBlockInfo>>> shuffleIdToBlocks) {
     this.appId = appId;
     this.retryMax = retryMax;
     this.retryIntervalMax = retryIntervalMax;
     this.shuffleIdToBlocks = shuffleIdToBlocks;
-    this.stageAttemptNumber = stageAttemptNumber;
   }
 
   public String getAppId() {
@@ -61,10 +50,6 @@ public class RssSendShuffleDataRequest {
 
   public long getRetryIntervalMax() {
     return retryIntervalMax;
-  }
-
-  public int getStageAttemptNumber() {
-    return stageAttemptNumber;
   }
 
   public Map<Integer, Map<Integer, List<ShuffleBlockInfo>>> getShuffleIdToBlocks() {

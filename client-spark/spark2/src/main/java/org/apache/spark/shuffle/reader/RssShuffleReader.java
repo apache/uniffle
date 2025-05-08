@@ -39,6 +39,7 @@ import org.apache.spark.executor.ShuffleReadMetrics;
 import org.apache.spark.executor.TempShuffleReadMetrics;
 import org.apache.spark.serializer.Serializer;
 import org.apache.spark.shuffle.RssShuffleHandle;
+import org.apache.spark.shuffle.RssSparkConfig;
 import org.apache.spark.shuffle.ShuffleReader;
 import org.apache.spark.util.CompletionIterator;
 import org.apache.spark.util.CompletionIterator$;
@@ -56,8 +57,6 @@ import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.common.config.RssConf;
 
-import static org.apache.spark.shuffle.RssSparkConfig.RSS_RESUBMIT_STAGE_WITH_FETCH_FAILURE_ENABLED;
-
 public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
 
   private static final Logger LOG = LoggerFactory.getLogger(RssShuffleReader.class);
@@ -65,6 +64,7 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
 
   private String appId;
   private int shuffleId;
+  private int uniffleShuffleId;
   private int startPartition;
   private int endPartition;
   private TaskContext context;
@@ -80,8 +80,10 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
   private Configuration hadoopConf;
   private RssConf rssConf;
   private Supplier<ShuffleManagerClient> managerClientSupplier;
+  private boolean rssStageRetryEnabled;
 
   public RssShuffleReader(
+      int uniffleShuffleId,
       int startPartition,
       int endPartition,
       TaskContext context,
@@ -101,6 +103,7 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
     this.context = context;
     this.shuffleDependency = rssShuffleHandle.getDependency();
     this.shuffleId = shuffleDependency.shuffleId();
+    this.uniffleShuffleId = uniffleShuffleId;
     this.serializer = rssShuffleHandle.getDependency().serializer();
     this.taskId = "" + context.taskAttemptId() + "_" + context.attemptNumber();
     this.basePath = basePath;
@@ -113,6 +116,7 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
     this.rssConf = rssConf;
     this.managerClientSupplier = managerClientSupplier;
     expectedTaskIdsBitmapFilterEnable = shuffleServerInfoList.size() > 1;
+    this.rssStageRetryEnabled = rssConf.getBoolean(RssSparkConfig.RSS_RESUBMIT_STAGE_ENABLED);
   }
 
   @Override
@@ -131,7 +135,7 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
             .createShuffleReadClient(
                 ShuffleClientFactory.newReadBuilder()
                     .appId(appId)
-                    .shuffleId(shuffleId)
+                    .shuffleId(uniffleShuffleId)
                     .partitionId(startPartition)
                     .basePath(basePath)
                     .partitionNumPerRange(partitionNumPerRange)
@@ -238,14 +242,16 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
     }
 
     // stage re-compute and shuffle manager server port are both set
-    if (rssConf.getBoolean(RSS_RESUBMIT_STAGE_WITH_FETCH_FAILURE_ENABLED)
+    if (rssStageRetryEnabled
         && rssConf.getInteger(RssClientConf.SHUFFLE_MANAGER_GRPC_PORT, 0) > 0) {
       resultIter =
           RssFetchFailedIterator.newBuilder()
               .appId(appId)
               .shuffleId(shuffleId)
+              .uniffleShuffleId(uniffleShuffleId)
               .partitionId(startPartition)
-              .stageAttemptId(context.stageAttemptNumber())
+              .stageAttemptId(context.stageId())
+              .stageAttemptNumber(context.stageAttemptNumber())
               .managerClientSupplier(managerClientSupplier)
               .build(resultIter);
     }
@@ -257,6 +263,8 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
         + appId
         + ", shuffleId="
         + shuffleId
+        + ", uniffleShuffleId="
+        + uniffleShuffleId
         + ",taskId="
         + taskId
         + ", partitions: ["

@@ -78,31 +78,6 @@ public class BlockIdSelfManagedShuffleWriteClient extends ShuffleWriteClientImpl
   }
 
   @Override
-  public void reportShuffleResult(
-      Map<ShuffleServerInfo, Map<Integer, Set<Long>>> serverToPartitionToBlockIds,
-      String appId,
-      int shuffleId,
-      long taskAttemptId,
-      int bitmapNum,
-      Set<ShuffleServerInfo> reportFailureServers,
-      boolean enableWriteFailureRetry) {
-    Map<Integer, List<Long>> partitionToBlockIds = new HashMap<>();
-    for (Map<Integer, Set<Long>> k : serverToPartitionToBlockIds.values()) {
-      for (Map.Entry<Integer, Set<Long>> entry : k.entrySet()) {
-        int partitionId = entry.getKey();
-        partitionToBlockIds
-            .computeIfAbsent(partitionId, x -> new ArrayList<>())
-            .addAll(entry.getValue());
-      }
-    }
-
-    RssReportShuffleResultRequest request =
-        new RssReportShuffleResultRequest(
-            appId, shuffleId, taskAttemptId, partitionToBlockIds, bitmapNum);
-    managerClientSupplier.get().reportShuffleResult(request);
-  }
-
-  @Override
   public Roaring64NavigableMap getShuffleResult(
       String clientType,
       Set<ShuffleServerInfo> shuffleServerInfoSet,

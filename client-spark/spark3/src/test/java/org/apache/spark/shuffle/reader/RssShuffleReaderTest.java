@@ -100,6 +100,7 @@ public class RssShuffleReaderTest extends AbstractRssReaderTest {
         spy(
             new RssShuffleReader<>(
                 0,
+                0,
                 1,
                 0,
                 Integer.MAX_VALUE,
@@ -124,6 +125,7 @@ public class RssShuffleReaderTest extends AbstractRssReaderTest {
         spy(
             new RssShuffleReader<>(
                 0,
+                0,
                 2,
                 0,
                 Integer.MAX_VALUE,
@@ -144,6 +146,7 @@ public class RssShuffleReaderTest extends AbstractRssReaderTest {
     RssShuffleReader<String, String> rssShuffleReaderSpy2 =
         spy(
             new RssShuffleReader<>(
+                0,
                 0,
                 2,
                 0,

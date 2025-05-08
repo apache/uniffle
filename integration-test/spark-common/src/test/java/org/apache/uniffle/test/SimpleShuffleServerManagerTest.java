@@ -33,12 +33,12 @@ public class SimpleShuffleServerManagerTest extends ShuffleServerManagerTestBase
   public void testClientAndServerConnections() {
     RssShuffleManagerInterface dummy = new DummyRssShuffleManager();
     RssReportShuffleFetchFailureRequest req =
-        new RssReportShuffleFetchFailureRequest(dummy.getAppId(), 0, 0, 0, null);
+        new RssReportShuffleFetchFailureRequest(dummy.getAppId(), 0, 0, 0, 0, 0, null);
     RssReportShuffleFetchFailureResponse res = client.reportShuffleFetchFailure(req);
     assertEquals(StatusCode.SUCCESS, res.getStatusCode());
 
     // wrong appId
-    req = new RssReportShuffleFetchFailureRequest("wrongAppId", 0, 0, 0, null);
+    req = new RssReportShuffleFetchFailureRequest("wrongAppId", 0, 0, 0, 0, 0, null);
     res = client.reportShuffleFetchFailure(req);
     assertEquals(StatusCode.INVALID_REQUEST, res.getStatusCode());
   }

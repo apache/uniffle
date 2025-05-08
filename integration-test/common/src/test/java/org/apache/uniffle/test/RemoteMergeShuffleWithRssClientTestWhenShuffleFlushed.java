@@ -178,7 +178,6 @@ public class RemoteMergeShuffleWithRssClientTestWhenShuffleFlushed extends Shuff
         new RemoteStorageInfo(""),
         ShuffleDataDistributionType.NORMAL,
         -1,
-        0,
         RssProtos.MergeContext.newBuilder()
             .setKeyClass(keyClass.getName())
             .setValueClass(valueClass.getName())
@@ -353,7 +352,6 @@ public class RemoteMergeShuffleWithRssClientTestWhenShuffleFlushed extends Shuff
         new RemoteStorageInfo(""),
         ShuffleDataDistributionType.NORMAL,
         -1,
-        0,
         RssProtos.MergeContext.newBuilder()
             .setKeyClass(keyClass.getName())
             .setValueClass(valueClass.getName())
@@ -537,7 +535,6 @@ public class RemoteMergeShuffleWithRssClientTestWhenShuffleFlushed extends Shuff
         new RemoteStorageInfo(""),
         ShuffleDataDistributionType.NORMAL,
         -1,
-        0,
         RssProtos.MergeContext.newBuilder()
             .setKeyClass(keyClass.getName())
             .setValueClass(valueClass.getName())
@@ -756,7 +753,6 @@ public class RemoteMergeShuffleWithRssClientTestWhenShuffleFlushed extends Shuff
         new RemoteStorageInfo(""),
         ShuffleDataDistributionType.NORMAL,
         -1,
-        0,
         RssProtos.MergeContext.newBuilder()
             .setKeyClass(keyClass.getName())
             .setValueClass(valueClass.getName())

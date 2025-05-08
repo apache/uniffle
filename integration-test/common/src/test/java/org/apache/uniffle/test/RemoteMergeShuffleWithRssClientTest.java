@@ -164,7 +164,6 @@ public class RemoteMergeShuffleWithRssClientTest extends ShuffleReadWriteBase {
         new RemoteStorageInfo(""),
         ShuffleDataDistributionType.NORMAL,
         0,
-        0,
         RssProtos.MergeContext.newBuilder()
             .setKeyClass(keyClass.getName())
             .setValueClass(valueClass.getName())
@@ -338,7 +337,6 @@ public class RemoteMergeShuffleWithRssClientTest extends ShuffleReadWriteBase {
         Lists.newArrayList(new PartitionRange(0, 0)),
         new RemoteStorageInfo(""),
         ShuffleDataDistributionType.NORMAL,
-        0,
         0,
         RssProtos.MergeContext.newBuilder()
             .setKeyClass(keyClass.getName())
@@ -521,7 +519,6 @@ public class RemoteMergeShuffleWithRssClientTest extends ShuffleReadWriteBase {
             new PartitionRange(PARTITION_ID + 2, PARTITION_ID + 2)),
         new RemoteStorageInfo(""),
         ShuffleDataDistributionType.NORMAL,
-        0,
         0,
         RssProtos.MergeContext.newBuilder()
             .setKeyClass(keyClass.getName())
@@ -739,7 +736,6 @@ public class RemoteMergeShuffleWithRssClientTest extends ShuffleReadWriteBase {
             new PartitionRange(PARTITION_ID + 2, PARTITION_ID + 2)),
         new RemoteStorageInfo(""),
         ShuffleDataDistributionType.NORMAL,
-        0,
         0,
         RssProtos.MergeContext.newBuilder()
             .setKeyClass(keyClass.getName())

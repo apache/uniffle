@@ -27,14 +27,12 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import org.apache.uniffle.client.util.RssClientConfig;
 import org.apache.uniffle.common.ShuffleDataDistributionType;
-import org.apache.uniffle.common.config.ConfigOption;
 import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.rpc.StatusCode;
 import org.apache.uniffle.common.util.BlockIdLayout;
 import org.apache.uniffle.storage.util.StorageType;
 
-import static org.apache.spark.shuffle.RssSparkConfig.RSS_RESUBMIT_STAGE_WITH_FETCH_FAILURE_ENABLED;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_SHUFFLE_MANAGER_GRPC_PORT;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -111,8 +109,6 @@ public class RssShuffleManagerTest extends RssShuffleManagerTestBase {
 
     RssShuffleManager shuffleManager = new RssShuffleManager(conf, true);
 
-    ConfigOption<Boolean> a = RSS_RESUBMIT_STAGE_WITH_FETCH_FAILURE_ENABLED;
-
     assertTrue(conf.get(RSS_SHUFFLE_MANAGER_GRPC_PORT) > 0);
   }
 
@@ -183,8 +179,6 @@ public class RssShuffleManagerTest extends RssShuffleManagerTestBase {
     SparkConf conf = createSparkConf();
     RssShuffleManager shuffleManager = new RssShuffleManager(conf, true);
     assertFalse(shuffleManager.isRssStageRetryEnabled());
-    assertFalse(shuffleManager.isRssStageRetryForFetchFailureEnabled());
-    assertFalse(shuffleManager.isRssStageRetryForWriteFailureEnabled());
     shuffleManager.stop();
 
     // case2: enable the stage retry
@@ -193,31 +187,6 @@ public class RssShuffleManagerTest extends RssShuffleManagerTestBase {
         "true");
     shuffleManager = new RssShuffleManager(conf, true);
     assertTrue(shuffleManager.isRssStageRetryEnabled());
-    assertTrue(shuffleManager.isRssStageRetryForFetchFailureEnabled());
-    assertTrue(shuffleManager.isRssStageRetryForWriteFailureEnabled());
-    shuffleManager.stop();
-
-    // case3: overwrite the stage retry
-    conf.set(
-        RssSparkConfig.SPARK_RSS_CONFIG_PREFIX
-            + RSS_RESUBMIT_STAGE_WITH_FETCH_FAILURE_ENABLED.key(),
-        "false");
-    shuffleManager = new RssShuffleManager(conf, true);
-    assertTrue(shuffleManager.isRssStageRetryEnabled());
-    assertFalse(shuffleManager.isRssStageRetryForFetchFailureEnabled());
-    assertTrue(shuffleManager.isRssStageRetryForWriteFailureEnabled());
-    shuffleManager.stop();
-
-    // case4: enable the partial stage retry of fetch failure
-    conf = createSparkConf();
-    conf.set(
-        RssSparkConfig.SPARK_RSS_CONFIG_PREFIX
-            + RSS_RESUBMIT_STAGE_WITH_FETCH_FAILURE_ENABLED.key(),
-        "true");
-    shuffleManager = new RssShuffleManager(conf, true);
-    assertTrue(shuffleManager.isRssStageRetryEnabled());
-    assertTrue(shuffleManager.isRssStageRetryForFetchFailureEnabled());
-    assertFalse(shuffleManager.isRssStageRetryForWriteFailureEnabled());
     shuffleManager.stop();
   }
 

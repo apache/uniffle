@@ -92,6 +92,7 @@ public class RssShuffleReaderTest extends AbstractRssReaderTest {
         spy(
             new RssShuffleReader<>(
                 0,
+                0,
                 1,
                 contextMock,
                 handleMock,

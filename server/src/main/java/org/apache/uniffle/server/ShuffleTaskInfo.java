@@ -81,7 +81,6 @@ public class ShuffleTaskInfo {
   /** shuffleId -> shuffleDetailInfo */
   private final Map<Integer, ShuffleDetailInfo> shuffleDetailInfos;
 
-  private final Map<Integer, Integer> latestStageAttemptNumbers;
   private Map<String, String> properties;
   private ShuffleBlockIdManager shuffleBlockIdManager;
 
@@ -97,7 +96,6 @@ public class ShuffleTaskInfo {
     this.existHugePartition = new AtomicBoolean(false);
     this.specification = new AtomicReference<>();
     this.partitionBlockCounters = JavaUtils.newConcurrentMap();
-    this.latestStageAttemptNumbers = JavaUtils.newConcurrentMap();
     this.shuffleDetailInfos = JavaUtils.newConcurrentMap();
   }
 
@@ -281,14 +279,6 @@ public class ShuffleTaskInfo {
       return 0L;
     }
     return counter.get();
-  }
-
-  public Integer getLatestStageAttemptNumber(int shuffleId) {
-    return latestStageAttemptNumbers.getOrDefault(shuffleId, 0);
-  }
-
-  public void refreshLatestStageAttemptNumber(int shuffleId, int stageAttemptNumber) {
-    latestStageAttemptNumbers.put(shuffleId, stageAttemptNumber);
   }
 
   public PartitionInfo getMaxSizePartitionInfo() {

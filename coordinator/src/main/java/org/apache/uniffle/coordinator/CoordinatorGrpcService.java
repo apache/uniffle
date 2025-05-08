@@ -156,22 +156,19 @@ public class CoordinatorGrpcService extends CoordinatorServerGrpc.CoordinatorSer
       auditContext.withArgs(
           String.format(
               "shuffleId=%d, partitionNum=%d, partitionNumPerRange=%d, replica=%d, requiredTags=%s, "
-                  + "requiredShuffleServerNumber=%d, faultyServerIds=%s, stageId=%d, stageAttemptNumber=%d, isReassign=%b",
+                  + "requiredShuffleServerNumber=%d, faultyServerIds=%s",
               shuffleId,
               partitionNum,
               partitionNumPerRange,
               replica,
               requiredTags,
               requiredShuffleServerNumber,
-              faultyServerIds,
-              request.getStageId(),
-              request.getStageAttemptNumber(),
-              request.getReassign()));
+              faultyServerIds));
 
       LOG.info(
           "Request of getShuffleAssignments for appId[{}], shuffleId[{}], partitionNum[{}],"
               + " partitionNumPerRange[{}], replica[{}], requiredTags[{}], requiredShuffleServerNumber[{}],"
-              + " faultyServerIds[{}], stageId[{}], stageAttemptNumber[{}], isReassign[{}]",
+              + " faultyServerIds[{}]",
           appId,
           shuffleId,
           partitionNum,
@@ -179,10 +176,7 @@ public class CoordinatorGrpcService extends CoordinatorServerGrpc.CoordinatorSer
           replica,
           requiredTags,
           requiredShuffleServerNumber,
-          faultyServerIds.size(),
-          request.getStageId(),
-          request.getStageAttemptNumber(),
-          request.getReassign());
+          faultyServerIds.size());
 
       GetShuffleAssignmentsResponse response = null;
       try {

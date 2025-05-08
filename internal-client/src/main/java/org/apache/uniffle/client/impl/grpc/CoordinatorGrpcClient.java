@@ -174,10 +174,7 @@ public class CoordinatorGrpcClient extends GrpcClient implements CoordinatorClie
       Set<String> requiredTags,
       int assignmentShuffleServerNumber,
       int estimateTaskConcurrency,
-      Set<String> faultyServerIds,
-      int stageId,
-      int stageAttemptNumber,
-      boolean reassign) {
+      Set<String> faultyServerIds) {
     RssProtos.GetShuffleServerRequest getServerRequest =
         RssProtos.GetShuffleServerRequest.newBuilder()
             .setApplicationId(appId)
@@ -189,9 +186,6 @@ public class CoordinatorGrpcClient extends GrpcClient implements CoordinatorClie
             .setAssignmentShuffleServerNumber(assignmentShuffleServerNumber)
             .setEstimateTaskConcurrency(estimateTaskConcurrency)
             .addAllFaultyServerIds(faultyServerIds)
-            .setStageId(stageId)
-            .setStageAttemptNumber(stageAttemptNumber)
-            .setReassign(reassign)
             .build();
 
     return blockingStub.getShuffleAssignments(getServerRequest);
@@ -275,10 +269,7 @@ public class CoordinatorGrpcClient extends GrpcClient implements CoordinatorClie
             request.getRequiredTags(),
             request.getAssignmentShuffleServerNumber(),
             request.getEstimateTaskConcurrency(),
-            request.getFaultyServerIds(),
-            request.getStageId(),
-            request.getStageAttemptNumber(),
-            request.isReassign());
+            request.getFaultyServerIds());
 
     RssGetShuffleAssignmentsResponse response;
     RssProtos.StatusCode statusCode = rpcResponse.getStatus();

@@ -81,8 +81,6 @@ public interface RssShuffleManagerInterface {
    */
   void addFailuresShuffleServerInfos(String shuffleServerId);
 
-  boolean reassignOnStageResubmit(int shuffleId, int stageAttemptId, int stageAttemptNumber);
-
   MutableShuffleHandleInfo reassignOnBlockSendFailure(
       int stageId,
       int stageAttemptNumber,
@@ -96,4 +94,6 @@ public interface RssShuffleManagerInterface {
    * @return
    */
   ShuffleWriteClient getShuffleWriteClient();
+
+  int getUniffleShuffleId(int shuffleId, String appShuffleIdentifier, boolean isWriter);
 }
