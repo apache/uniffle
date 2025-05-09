@@ -282,6 +282,8 @@ public class ShuffleMergeManager {
       // 5 merge segments to output
       partition.merge(segments, output, reader);
       success = true;
+    } catch (Throwable e) {
+      LOG.info("Merge failed, caused by ", e);
     } finally {
       if (!success && partition != null) {
         partition.setState(INTERNAL_ERROR);
