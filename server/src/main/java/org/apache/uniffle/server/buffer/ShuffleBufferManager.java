@@ -72,6 +72,7 @@ public class ShuffleBufferManager {
   private long capacity;
   private long readCapacity;
   private long highWaterMark;
+  private long flushWaterMark;
   private long lowWaterMark;
   private boolean bufferFlushEnabled;
   private long bufferFlushThreshold;
@@ -128,6 +129,11 @@ public class ShuffleBufferManager {
             (capacity
                 / 100.0
                 * conf.get(ShuffleServerConf.SERVER_MEMORY_SHUFFLE_HIGHWATERMARK_PERCENTAGE));
+    this.flushWaterMark =
+        (long)
+            (capacity
+                / 100.0
+                * conf.get(ShuffleServerConf.SERVER_MEMORY_SHUFFLE_FLUSHWATERMARK_PERCENTAGE));
     this.lowWaterMark =
         (long)
             (capacity
@@ -185,7 +191,8 @@ public class ShuffleBufferManager {
     ReconfigurableRegistry.register(
         Sets.newHashSet(
             ShuffleServerConf.SERVER_MEMORY_SHUFFLE_HIGHWATERMARK_PERCENTAGE.key(),
-            ShuffleServerConf.SERVER_MEMORY_SHUFFLE_LOWWATERMARK_PERCENTAGE.key()),
+            ShuffleServerConf.SERVER_MEMORY_SHUFFLE_LOWWATERMARK_PERCENTAGE.key(),
+            ShuffleServerConf.SERVER_MEMORY_SHUFFLE_FLUSHWATERMARK_PERCENTAGE.key()),
         (theConf, changedProperties) -> {
           if (changedProperties == null) {
             return;
@@ -198,6 +205,15 @@ public class ShuffleBufferManager {
                         / 100.0
                         * conf.get(
                             ShuffleServerConf.SERVER_MEMORY_SHUFFLE_HIGHWATERMARK_PERCENTAGE));
+          }
+          if (changedProperties.contains(
+              ShuffleServerConf.SERVER_MEMORY_SHUFFLE_FLUSHWATERMARK_PERCENTAGE.key())) {
+            this.flushWaterMark =
+                (long)
+                    (capacity
+                        / 100.0
+                        * conf.get(
+                            ShuffleServerConf.SERVER_MEMORY_SHUFFLE_FLUSHWATERMARK_PERCENTAGE));
           }
           if (changedProperties.contains(
               ShuffleServerConf.SERVER_MEMORY_SHUFFLE_LOWWATERMARK_PERCENTAGE.key())) {
@@ -284,16 +300,14 @@ public class ShuffleBufferManager {
         shuffleId,
         spd.getPartitionId());
     updateShuffleSize(appId, shuffleId, size);
-    synchronized (this) {
-      flushSingleBufferIfNecessary(
-          buffer,
-          appId,
-          shuffleId,
-          spd.getPartitionId(),
-          entry.getKey().lowerEndpoint(),
-          entry.getKey().upperEndpoint());
-      flushIfNecessary();
-    }
+    flushSingleBufferIfNecessary(
+        buffer,
+        appId,
+        shuffleId,
+        spd.getPartitionId(),
+        entry.getKey().lowerEndpoint(),
+        entry.getKey().upperEndpoint());
+    flushIfHighWaterMarkReached();
     return StatusCode.SUCCESS;
   }
 
@@ -353,38 +367,64 @@ public class ShuffleBufferManager {
       int partitionId,
       int startPartition,
       int endPartition) {
-    boolean isHugePartition =
-        HugePartitionUtils.isHugePartition(shuffleTaskManager, appId, shuffleId, partitionId);
-    // When we use multi storage and trigger single buffer flush, the buffer size should be bigger
-    // than rss.server.flush.cold.storage.threshold.size, otherwise cold storage will be useless.
-    if ((isHugePartition || this.bufferFlushEnabled)
-        && (buffer.getEncodedLength() > this.bufferFlushThreshold
-            || buffer.getBlockCount() > bufferFlushBlocksNumThreshold)) {
-      if (LOG.isDebugEnabled()) {
-        LOG.debug(
-            "Start to flush single buffer. Details - shuffleId:{}, startPartition:{}, endPartition:{}, isHugePartition:{}, bufferSize:{}, blocksNum:{}",
-            shuffleId,
-            startPartition,
-            endPartition,
-            isHugePartition,
-            buffer.getEncodedLength(),
-            buffer.getBlockCount());
+    if (!(buffer.getEncodedLength() > this.bufferFlushThreshold
+        || buffer.getBlockCount() > bufferFlushBlocksNumThreshold)) {
+      return;
+    }
+    synchronized (buffer) {
+      if (!(buffer.getEncodedLength() > this.bufferFlushThreshold
+          || buffer.getBlockCount() > bufferFlushBlocksNumThreshold)) {
+        return;
       }
-      flushBuffer(buffer, appId, shuffleId, startPartition, endPartition, isHugePartition);
+      boolean isHugePartition =
+          HugePartitionUtils.isHugePartition(shuffleTaskManager, appId, shuffleId, partitionId);
+      // When we use multi storage and trigger single buffer flush, the buffer size should be bigger
+      // than rss.server.flush.cold.storage.threshold.size, otherwise cold storage will be useless.
+      if ((isHugePartition || this.bufferFlushEnabled)) {
+        if (LOG.isDebugEnabled()) {
+          LOG.debug(
+              "Start to flush single buffer. Details - shuffleId:{}, startPartition:{}, endPartition:{}, isHugePartition:{}, bufferSize:{}, blocksNum:{}",
+              shuffleId,
+              startPartition,
+              endPartition,
+              isHugePartition,
+              buffer.getEncodedLength(),
+              buffer.getBlockCount());
+        }
+        flushBuffer(buffer, appId, shuffleId, startPartition, endPartition, isHugePartition);
+      }
     }
   }
 
-  public void flushIfNecessary() {
+  private boolean shouldTriggerFLush(long triggerWaterMark) {
+    return usedMemory.get() - preAllocatedSize.get() - inFlushSize.get() > triggerWaterMark;
+  }
+
+  public void flushIfFlushWaterMarkReached() {
+    // if data size in buffer > flushWaterMark, do the flush
+    if (shouldTriggerFLush(flushWaterMark)) {
+      flushIfTriggerWaterMarkReached(flushWaterMark);
+    }
+  }
+
+  public void flushIfHighWaterMarkReached() {
     // if data size in buffer > highWaterMark, do the flush
-    if (usedMemory.get() - preAllocatedSize.get() - inFlushSize.get() > highWaterMark) {
+    if (shouldTriggerFLush(highWaterMark)) {
+      flushIfTriggerWaterMarkReached(highWaterMark);
+    }
+  }
+
+  private synchronized void flushIfTriggerWaterMarkReached(long triggerWaterMark) {
+    // if data size in buffer > triggerWaterMark, do the flush
+    if (shouldTriggerFLush(triggerWaterMark)) {
       // todo: add a metric here to track how many times flush occurs.
       LOG.info(
           "Start to flush with usedMemory[{}], preAllocatedSize[{}], inFlushSize[{}]",
           usedMemory.get(),
           preAllocatedSize.get(),
           inFlushSize.get());
-      Map<String, Set<Integer>> pickedShuffle = pickFlushedShuffle();
-      flush(pickedShuffle);
+      Map<String, Set<Integer>> pickedShuffle = pickFlushedShuffle(triggerWaterMark);
+      flush(pickedShuffle, triggerWaterMark);
     }
   }
 
@@ -592,9 +632,9 @@ public class ShuffleBufferManager {
   // Flush the buffer with required map which is <appId -> shuffleId>.
   // If the total size of the shuffles picked is bigger than the expected flush size,
   // it will just flush a part of partitions.
-  private synchronized void flush(Map<String, Set<Integer>> requiredFlush) {
+  private synchronized void flush(Map<String, Set<Integer>> requiredFlush, long triggerWaterMark) {
     long pickedFlushSize = 0L;
-    long expectedFlushSize = highWaterMark - lowWaterMark;
+    long expectedFlushSize = triggerWaterMark - lowWaterMark;
     for (Map.Entry<String, Map<Integer, RangeMap<Integer, ShuffleBuffer>>> appIdToBuffers :
         bufferPool.entrySet()) {
       String appId = appIdToBuffers.getKey();
@@ -719,7 +759,7 @@ public class ShuffleBufferManager {
   }
 
   // sort for shuffle according to data size, then pick properly data which will be flushed
-  private Map<String, Set<Integer>> pickFlushedShuffle() {
+  private Map<String, Set<Integer>> pickFlushedShuffle(long triggerWaterMark) {
     // create list for sort
     List<Entry<String, AtomicLong>> sizeList = generateSizeList();
     sizeList.sort(
@@ -742,10 +782,10 @@ public class ShuffleBufferManager {
         });
 
     Map<String, Set<Integer>> pickedShuffle = Maps.newHashMap();
-    // The algorithm here is to flush data size > highWaterMark - lowWaterMark
+    // The algorithm here is to flush data size > triggerWaterMark - lowWaterMark
     // the remaining data in buffer maybe more than lowWaterMark
     // because shuffle server is still receiving data, but it should be ok
-    long expectedFlushSize = highWaterMark - lowWaterMark;
+    long expectedFlushSize = triggerWaterMark - lowWaterMark;
     long atLeastFlushSizeIgnoreThreshold = expectedFlushSize >>> 1;
     long pickedFlushSize = 0L;
     int printIndex = 0;
