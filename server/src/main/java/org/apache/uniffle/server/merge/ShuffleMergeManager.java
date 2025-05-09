@@ -283,7 +283,7 @@ public class ShuffleMergeManager {
       partition.merge(segments, output, reader);
       success = true;
     } catch (Throwable e) {
-      LOG.info("Merge failed, caused by ", e);
+      LOG.error("Merge failed, caused by ", e);
     } finally {
       if (!success && partition != null) {
         partition.setState(INTERNAL_ERROR);
