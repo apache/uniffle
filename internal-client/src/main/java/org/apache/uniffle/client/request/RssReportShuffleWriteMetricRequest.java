@@ -18,6 +18,7 @@
 package org.apache.uniffle.client.request;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.apache.uniffle.proto.RssProtos;
@@ -49,11 +50,17 @@ public class RssReportShuffleWriteMetricRequest {
                 .collect(
                     Collectors.toMap(
                         Map.Entry::getKey,
-                        x ->
-                            RssProtos.ShuffleWriteMetric.newBuilder()
-                                .setByteSize(x.getValue().getByteSize())
-                                .setDurationMillis(x.getValue().getDurationMillis())
-                                .build())));
+                        x -> {
+                          TaskShuffleWriteMetric metric = x.getValue();
+                          return RssProtos.ShuffleWriteMetric.newBuilder()
+                              .setByteSize(metric.getByteSize())
+                              .setDurationMillis(metric.getDurationMillis())
+                              .setPushFailureNumber(metric.getPushFailureNumber())
+                              .setRequireBufferFailureNumber(metric.getRequireBufferFailureNumber())
+                              .setLastPushFailureReason(
+                                  Optional.ofNullable(metric.getLastFailureReason()).orElse(""))
+                              .build();
+                        })));
     return builder.build();
   }
 
@@ -61,9 +68,22 @@ public class RssReportShuffleWriteMetricRequest {
     private long durationMillis;
     private long byteSize;
 
-    public TaskShuffleWriteMetric(long durationMillis, long byteSize) {
+    private long requireBufferFailureNumber;
+    private long pushFailureNumber;
+
+    private String lastFailureReason;
+
+    public TaskShuffleWriteMetric(
+        long durationMillis,
+        long byteSize,
+        long requireBufferFailureNumber,
+        long pushFailureNumber,
+        String lastFailureReason) {
       this.durationMillis = durationMillis;
       this.byteSize = byteSize;
+      this.requireBufferFailureNumber = requireBufferFailureNumber;
+      this.pushFailureNumber = pushFailureNumber;
+      this.lastFailureReason = lastFailureReason;
     }
 
     public long getDurationMillis() {
@@ -72,6 +92,18 @@ public class RssReportShuffleWriteMetricRequest {
 
     public long getByteSize() {
       return byteSize;
+    }
+
+    public long getRequireBufferFailureNumber() {
+      return requireBufferFailureNumber;
+    }
+
+    public long getPushFailureNumber() {
+      return pushFailureNumber;
+    }
+
+    public String getLastFailureReason() {
+      return lastFailureReason;
     }
   }
 }

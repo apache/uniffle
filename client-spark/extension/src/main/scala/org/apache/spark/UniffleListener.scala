@@ -17,6 +17,7 @@
 
 package org.apache.spark
 
+import org.apache.commons.lang3.StringUtils
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{SparkListener, SparkListenerEvent, SparkListenerJobEnd, SparkListenerJobStart, SparkListenerTaskEnd}
 import org.apache.spark.shuffle.events.{ShuffleAssignmentInfoEvent, TaskShuffleReadInfoEvent, TaskShuffleWriteInfoEvent}
@@ -95,9 +96,14 @@ class UniffleListener(conf: SparkConf, kvstore: ElementTrackingStore)
     val metrics = event.getMetrics
     for (metric <- metrics.asScala) {
       val id = metric._1
-      val agg_metric = this.aggregatedShuffleWriteMetric.computeIfAbsent(id, _ => new AggregatedShuffleWriteMetric(0, 0))
+      val agg_metric = this.aggregatedShuffleWriteMetric.computeIfAbsent(id, _ => new AggregatedShuffleWriteMetric(0, 0, 0, 0, ""))
       agg_metric.byteSize += metric._2.getByteSize
       agg_metric.durationMillis += metric._2.getDurationMillis
+      agg_metric.requireBufferFailureNumber += metric._2.getRequireBufferFailureNumber
+      agg_metric.pushFailureNumber += metric._2.getPushFailureNumber
+      if (!StringUtils.isEmpty(metric._2.getLastFailureReason)) {
+        agg_metric.lastPushFailureReason = metric._2.getLastFailureReason
+      }
     }
   }
 

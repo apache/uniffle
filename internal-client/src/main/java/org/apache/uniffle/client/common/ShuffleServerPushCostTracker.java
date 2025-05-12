@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.uniffle.client.impl;
+package org.apache.uniffle.client.common;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -30,6 +30,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.uniffle.client.request.RssReportShuffleWriteMetricRequest;
+import org.apache.uniffle.common.rpc.StatusCode;
 
 /** This class is to track the underlying assigned shuffle servers' data pushing speed. */
 public class ShuffleServerPushCostTracker {
@@ -51,6 +52,18 @@ public class ShuffleServerPushCostTracker {
       ShuffleServerPushCost cost = entry.getValue();
       this.tracking.computeIfAbsent(id, key -> new ShuffleServerPushCost(key)).merge(cost);
     }
+  }
+
+  public void recordRequireBufferFailure(String id) {
+    ShuffleServerPushCost cost =
+        this.tracking.computeIfAbsent(id, key -> new ShuffleServerPushCost(key));
+    cost.incRequiredBufferFailure(1);
+  }
+
+  public void recordPushFailure(String id, StatusCode failureStatusCode) {
+    ShuffleServerPushCost cost =
+        this.tracking.computeIfAbsent(id, key -> new ShuffleServerPushCost(key));
+    cost.incSentFailure(1, failureStatusCode.name());
   }
 
   public void record(String id, long sentBytes, long pushDuration) {
@@ -97,8 +110,14 @@ public class ShuffleServerPushCostTracker {
         .collect(
             Collectors.toMap(
                 Map.Entry::getKey,
-                x ->
-                    new RssReportShuffleWriteMetricRequest.TaskShuffleWriteMetric(
-                        x.getValue().sentDurationMillis(), x.getValue().sentBytes())));
+                x -> {
+                  ShuffleServerPushCost cost = x.getValue();
+                  return new RssReportShuffleWriteMetricRequest.TaskShuffleWriteMetric(
+                      cost.sentDurationMillis(),
+                      cost.sentBytes(),
+                      cost.requiredBufferFailureNumber(),
+                      cost.pushFailureNumber(),
+                      cost.getLastPushFailureReason());
+                }));
   }
 }

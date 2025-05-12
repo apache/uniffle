@@ -595,6 +595,11 @@ message ReportShuffleWriteMetricRequest {
 message ShuffleWriteMetric {
   int64 durationMillis = 1;
   int64 byteSize = 2;
+
+  int64 requireBufferFailureNumber = 3;
+  int64 pushFailureNumber = 4;
+
+  string lastPushFailureReason = 5;
 }
 
 message ShuffleReadMetric {

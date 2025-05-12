@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.uniffle.client.impl;
+package org.apache.uniffle.client.common;
 
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -24,10 +24,27 @@ public class ShuffleServerPushCost {
   private final AtomicLong sentBytes;
   private final AtomicLong sentDurationMs;
 
+  private final AtomicLong requireBufferFailureCounter;
+  private final AtomicLong pushFailureCounter;
+
+  private String lastPushFailureReason;
+
   public ShuffleServerPushCost(String shuffleServerId) {
     this.shuffleServerId = shuffleServerId;
     this.sentBytes = new AtomicLong();
     this.sentDurationMs = new AtomicLong();
+    this.requireBufferFailureCounter = new AtomicLong();
+    this.pushFailureCounter = new AtomicLong();
+    this.lastPushFailureReason = null;
+  }
+
+  public void incRequiredBufferFailure(long delta) {
+    this.requireBufferFailureCounter.addAndGet(delta);
+  }
+
+  public void incSentFailure(long delta, String failureReason) {
+    this.pushFailureCounter.addAndGet(delta);
+    this.lastPushFailureReason = failureReason;
   }
 
   public void incSentBytes(long bytes) {
@@ -45,6 +62,8 @@ public class ShuffleServerPushCost {
 
     this.incSentBytes(cost.sentBytes.get());
     this.incDurationMs(cost.sentDurationMs.get());
+    this.incRequiredBufferFailure(cost.requireBufferFailureCounter.get());
+    this.incSentFailure(cost.pushFailureCounter.get(), cost.lastPushFailureReason);
   }
 
   public long speed() {
@@ -60,6 +79,18 @@ public class ShuffleServerPushCost {
 
   public long sentDurationMillis() {
     return sentDurationMs.get();
+  }
+
+  public long requiredBufferFailureNumber() {
+    return requireBufferFailureCounter.get();
+  }
+
+  public long pushFailureNumber() {
+    return pushFailureCounter.get();
+  }
+
+  public String getLastPushFailureReason() {
+    return lastPushFailureReason;
   }
 
   @Override

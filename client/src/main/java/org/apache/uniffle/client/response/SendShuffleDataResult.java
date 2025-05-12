@@ -19,8 +19,8 @@ package org.apache.uniffle.client.response;
 
 import java.util.Set;
 
+import org.apache.uniffle.client.common.ShuffleServerPushCostTracker;
 import org.apache.uniffle.client.impl.FailedBlockSendTracker;
-import org.apache.uniffle.client.impl.ShuffleServerPushCostTracker;
 
 public class SendShuffleDataResult {
 

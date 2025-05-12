@@ -17,8 +17,43 @@
 
 package org.apache.spark.shuffle.events;
 
+import org.apache.uniffle.proto.RssProtos;
+
 public class ShuffleWriteMetric extends ShuffleMetric {
-  public ShuffleWriteMetric(long durationMillis, long byteSize) {
+  private final long requireBufferFailureNumber;
+  private final long pushFailureNumber;
+  private final String lastFailureReason;
+
+  public ShuffleWriteMetric(
+      long durationMillis,
+      long byteSize,
+      long requireBufferFailureNumber,
+      long pushFailureNumber,
+      String lastFailureReason) {
     super(durationMillis, byteSize);
+    this.requireBufferFailureNumber = requireBufferFailureNumber;
+    this.pushFailureNumber = pushFailureNumber;
+    this.lastFailureReason = lastFailureReason;
+  }
+
+  public long getRequireBufferFailureNumber() {
+    return requireBufferFailureNumber;
+  }
+
+  public long getPushFailureNumber() {
+    return pushFailureNumber;
+  }
+
+  public String getLastFailureReason() {
+    return lastFailureReason;
+  }
+
+  public static ShuffleWriteMetric from(RssProtos.ShuffleWriteMetric proto) {
+    return new ShuffleWriteMetric(
+        proto.getDurationMillis(),
+        proto.getByteSize(),
+        proto.getRequireBufferFailureNumber(),
+        proto.getPushFailureNumber(),
+        proto.getLastPushFailureReason());
   }
 }

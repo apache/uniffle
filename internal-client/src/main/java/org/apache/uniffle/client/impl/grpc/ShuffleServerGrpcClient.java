@@ -40,6 +40,7 @@ import org.slf4j.LoggerFactory;
 
 import org.apache.uniffle.client.api.ClientInfo;
 import org.apache.uniffle.client.api.ShuffleServerClient;
+import org.apache.uniffle.client.common.ShuffleServerPushCostTracker;
 import org.apache.uniffle.client.request.RetryableRequest;
 import org.apache.uniffle.client.request.RssAppHeartBeatRequest;
 import org.apache.uniffle.client.request.RssFinishShuffleRequest;
@@ -539,6 +540,7 @@ public class ShuffleServerGrpcClient extends GrpcClient implements ShuffleServer
     Map<Integer, Map<Integer, List<ShuffleBlockInfo>>> shuffleIdToBlocks =
         request.getShuffleIdToBlocks();
     int stageAttemptNumber = request.getStageAttemptNumber();
+    ShuffleServerPushCostTracker costTracker = request.getCostTracker();
 
     boolean isSuccessful = true;
     AtomicReference<StatusCode> failedStatusCode = new AtomicReference<>(StatusCode.INTERNAL_ERROR);
@@ -598,6 +600,10 @@ public class ShuffleServerGrpcClient extends GrpcClient implements ShuffleServer
               long requireId = allocationResult.getLeft();
               needSplitPartitionIds.addAll(allocationResult.getRight());
               if (requireId == FAILED_REQUIRE_ID) {
+                ClientInfo clientInfo = getClientInfo();
+                if (clientInfo != null && costTracker != null) {
+                  costTracker.recordRequireBufferFailure(clientInfo.getShuffleServerInfo().getId());
+                }
                 throw new RssException(
                     String.format(
                         "requirePreAllocation failed! size[%s], host[%s], port[%s]",

@@ -48,6 +48,7 @@ import org.slf4j.LoggerFactory;
 import org.apache.uniffle.client.PartitionDataReplicaRequirementTracking;
 import org.apache.uniffle.client.api.ShuffleServerClient;
 import org.apache.uniffle.client.api.ShuffleWriteClient;
+import org.apache.uniffle.client.common.ShuffleServerPushCostTracker;
 import org.apache.uniffle.client.factory.CoordinatorClientFactory;
 import org.apache.uniffle.client.factory.ShuffleClientFactory;
 import org.apache.uniffle.client.factory.ShuffleServerClientFactory;
@@ -201,7 +202,8 @@ public class ShuffleWriteClientImpl implements ShuffleWriteClient {
                               stageAttemptNumber,
                               retryMax,
                               retryIntervalMax,
-                              shuffleIdToBlocks);
+                              shuffleIdToBlocks,
+                              shuffleServerPushCostTracker);
                       long s = System.currentTimeMillis();
                       RssSendShuffleDataResponse response =
                           getShuffleServerClient(ssi).sendShuffleData(request);
@@ -234,6 +236,8 @@ public class ShuffleWriteClientImpl implements ShuffleWriteClient {
                         }
                         LOG.warn(
                             "{}, it failed wth statusCode[{}]", logMsg, response.getStatusCode());
+                        shuffleServerPushCostTracker.recordPushFailure(
+                            ssi.getId(), response.getStatusCode());
                         return false;
                       }
 
@@ -247,6 +251,8 @@ public class ShuffleWriteClientImpl implements ShuffleWriteClient {
                               .orElse(0);
                       shuffleServerPushCostTracker.record(ssi.getId(), sentBytes, pushDuration);
                     } catch (Exception e) {
+                      shuffleServerPushCostTracker.recordPushFailure(
+                          ssi.getId(), StatusCode.INTERNAL_ERROR);
                       recordFailedBlocks(
                           failedBlockSendTracker, serverToBlocks, ssi, StatusCode.INTERNAL_ERROR);
                       if (defectiveServers != null) {

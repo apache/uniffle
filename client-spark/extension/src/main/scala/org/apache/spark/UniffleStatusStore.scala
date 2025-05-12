@@ -105,7 +105,11 @@ class AggregatedShuffleWriteMetricsUIData(val metrics: ConcurrentHashMap[String,
   @KVIndex
   def id: String = classOf[AggregatedShuffleWriteMetricsUIData].getName()
 }
-class AggregatedShuffleWriteMetric(durationMillis: Long, byteSize: Long)
+class AggregatedShuffleWriteMetric(durationMillis: Long,
+                                   byteSize: Long,
+                                   var requireBufferFailureNumber: Long,
+                                   var pushFailureNumber: Long,
+                                   var lastPushFailureReason: String)
   extends AggregatedShuffleMetric(durationMillis, byteSize)
 
 class AggregatedShuffleReadMetricsUIData(val metrics: ConcurrentHashMap[String, AggregatedShuffleReadMetric]) {

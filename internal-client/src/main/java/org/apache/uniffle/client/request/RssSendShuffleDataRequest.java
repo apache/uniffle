@@ -20,6 +20,7 @@ package org.apache.uniffle.client.request;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.uniffle.client.common.ShuffleServerPushCostTracker;
 import org.apache.uniffle.common.ShuffleBlockInfo;
 
 public class RssSendShuffleDataRequest {
@@ -29,13 +30,14 @@ public class RssSendShuffleDataRequest {
   private int retryMax;
   private long retryIntervalMax;
   private Map<Integer, Map<Integer, List<ShuffleBlockInfo>>> shuffleIdToBlocks;
+  private ShuffleServerPushCostTracker costTracker;
 
   public RssSendShuffleDataRequest(
       String appId,
       int retryMax,
       long retryIntervalMax,
       Map<Integer, Map<Integer, List<ShuffleBlockInfo>>> shuffleIdToBlocks) {
-    this(appId, 0, retryMax, retryIntervalMax, shuffleIdToBlocks);
+    this(appId, 0, retryMax, retryIntervalMax, shuffleIdToBlocks, null);
   }
 
   public RssSendShuffleDataRequest(
@@ -43,12 +45,14 @@ public class RssSendShuffleDataRequest {
       int stageAttemptNumber,
       int retryMax,
       long retryIntervalMax,
-      Map<Integer, Map<Integer, List<ShuffleBlockInfo>>> shuffleIdToBlocks) {
+      Map<Integer, Map<Integer, List<ShuffleBlockInfo>>> shuffleIdToBlocks,
+      ShuffleServerPushCostTracker costTracker) {
     this.appId = appId;
     this.retryMax = retryMax;
     this.retryIntervalMax = retryIntervalMax;
     this.shuffleIdToBlocks = shuffleIdToBlocks;
     this.stageAttemptNumber = stageAttemptNumber;
+    this.costTracker = costTracker;
   }
 
   public String getAppId() {
@@ -65,6 +69,10 @@ public class RssSendShuffleDataRequest {
 
   public int getStageAttemptNumber() {
     return stageAttemptNumber;
+  }
+
+  public ShuffleServerPushCostTracker getCostTracker() {
+    return costTracker;
   }
 
   public Map<Integer, Map<Integer, List<ShuffleBlockInfo>>> getShuffleIdToBlocks() {

@@ -39,7 +39,7 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
     </td>
   </tr>
 
-  private def allServerRow(kv: (String, String, String, Double, String, String, Double)) = <tr>
+  private def allServerRow(kv: (String, String, String, Double, Long, Long, String, String, String, Double)) = <tr>
     <td>{kv._1}</td>
     <td>{kv._2}</td>
     <td>{kv._3}</td>
@@ -47,6 +47,9 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
     <td>{kv._5}</td>
     <td>{kv._6}</td>
     <td>{kv._7}</td>
+    <td>{kv._8}</td>
+    <td>{kv._9}</td>
+    <td>{kv._10}</td>
   </tr>
 
   private def createShuffleMetricsRows(shuffleWriteMetrics: (Seq[Double], Seq[String]), shuffleReadMetrics: (Seq[Double], Seq[String])): Seq[scala.xml.Elem] = {
@@ -137,7 +140,18 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
       originReadMetric.metrics
     )
     val allServersTableUI = UIUtils.listingTable(
-      Seq("Shuffle Server ID", "Write Bytes", "Write Duration", "Write Speed (MB/sec)", "Read Bytes", "Read Duration", "Read Speed (MB/sec)"),
+      Seq(
+        "Shuffle Server ID",
+        "Write Bytes",
+        "Write Duration",
+        "Write Speed (MB/sec)",
+        "Require Buffer Failures",
+        "Push Failures",
+        "Last push failure reason",
+        "Read Bytes",
+        "Read Duration",
+        "Read Speed (MB/sec)"
+      ),
       allServerRow,
       allServers,
       fixedWidth = true
@@ -294,7 +308,7 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
   }
 
   private def unionByServerId(write: ConcurrentHashMap[String, AggregatedShuffleWriteMetric],
-                              read: ConcurrentHashMap[String, AggregatedShuffleReadMetric]): Seq[(String, String, String, Double, String, String, Double)] = {
+                              read: ConcurrentHashMap[String, AggregatedShuffleReadMetric]): Seq[(String, String, String, Double, Long, Long, String, String, String, Double)] = {
     val writeMetrics = write.asScala
     val readMetrics = read.asScala
     val allServerIds = writeMetrics.keySet ++ readMetrics.keySet
@@ -303,7 +317,8 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
       writeMetrics
         .mapValues {
           metrics =>
-            (metrics.byteSize, metrics.durationMillis, (metrics.byteSize.toDouble / metrics.durationMillis) / 1000.00)
+            (metrics.byteSize, metrics.durationMillis, (metrics.byteSize.toDouble / metrics.durationMillis) / 1000.00,
+              metrics.requireBufferFailureNumber, metrics.pushFailureNumber, metrics.lastPushFailureReason)
         }
         .toMap
     val readMetricsToMap =
@@ -315,13 +330,16 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
         .toMap
 
     val unionMetrics = allServerIds.toSeq.map { serverId =>
-      val writeMetric = writeMetricsToMap.getOrElse(serverId, (0L, 0L, 0.00))
+      val writeMetric = writeMetricsToMap.getOrElse(serverId, (0L, 0L, 0.00, 0L, 0L, ""))
       val readMetric = readMetricsToMap.getOrElse(serverId, (0L, 0L, 0.00))
       (
         serverId,
         Utils.bytesToString(writeMetric._1),
         UIUtils.formatDuration(writeMetric._2),
         roundToTwoDecimals(writeMetric._3),
+        writeMetric._4,
+        writeMetric._5,
+        writeMetric._6,
         Utils.bytesToString(readMetric._1),
         UIUtils.formatDuration(readMetric._2),
         roundToTwoDecimals(readMetric._3)
