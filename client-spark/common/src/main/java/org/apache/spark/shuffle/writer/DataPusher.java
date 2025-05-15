@@ -124,7 +124,7 @@ public class DataPusher implements Closeable {
                   .filter(x -> succeedBlockIds.contains(x.getBlockId()))
                   .map(x -> x.getFreeMemory())
                   .reduce((a, b) -> a + b)
-                  .get();
+                  .orElse(0L);
             },
             executorService)
         .exceptionally(
