@@ -166,7 +166,11 @@ public class CoordinatorGrpcRetryableClient implements CoordinatorClient {
               try {
                 response = coordinatorClient.getShuffleAssignments(request);
               } catch (Exception e) {
-                LOG.error(e.getMessage());
+                LOG.warn(
+                    "Failed to get shuffle server assignment from {}",
+                    coordinatorClient.getDesc(),
+                    e);
+                continue;
               }
 
               if (response.getStatusCode() == StatusCode.SUCCESS) {
@@ -175,6 +179,10 @@ public class CoordinatorGrpcRetryableClient implements CoordinatorClient {
                     coordinatorClient.getDesc());
                 return response;
               }
+            }
+            if (response == null) {
+              throw new RssException(
+                  "Failed to get shuffle server assignment from all coordinators");
             }
             if (response.getStatusCode() != StatusCode.SUCCESS) {
               throw new RssException(response.getMessage());
