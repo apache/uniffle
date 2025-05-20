@@ -60,8 +60,8 @@ class UniffleListener(conf: SparkConf, kvstore: ElementTrackingStore)
 
   override def onTaskEnd(taskEnd: SparkListenerTaskEnd): Unit = {
     this.mayUpdate(false)
-    if (taskEnd.taskMetrics.shuffleReadMetrics.recordsRead > 0
-      || taskEnd.taskMetrics.shuffleWriteMetrics.recordsWritten > 0) {
+    if (taskEnd.taskMetrics != null && (taskEnd.taskMetrics.shuffleReadMetrics.recordsRead > 0
+      || taskEnd.taskMetrics.shuffleWriteMetrics.recordsWritten > 0)) {
       totalTaskCpuTime.addAndGet(taskEnd.taskInfo.duration)
       totalShuffleWriteTime.addAndGet(taskEnd.taskMetrics.shuffleWriteMetrics.writeTime / 1000000)
       totalShuffleReadTime.addAndGet(taskEnd.taskMetrics.shuffleReadMetrics.fetchWaitTime)
