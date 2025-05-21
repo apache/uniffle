@@ -404,7 +404,7 @@ public class ShuffleBufferManagerTest extends BufferTestBase {
     shuffleBufferManager.cacheShuffleData(appId, shuffleId, true, createData(0, 400));
     shuffleBufferManager.releasePreAllocatedSize(432);
     // trigger flush manually
-    shuffleBufferManager.flushIfNecessary();
+    shuffleBufferManager.flushIfHighWaterMarkReached();
     assertEquals(StatusCode.SUCCESS, sc);
     assertEquals(500, shuffleBufferManager.getUsedMemory());
     assertEquals(20, shuffleBufferManager.getPreAllocatedSize());
