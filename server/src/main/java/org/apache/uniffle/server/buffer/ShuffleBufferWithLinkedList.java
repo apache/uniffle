@@ -27,6 +27,7 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 import com.google.common.collect.Lists;
+import org.apache.uniffle.server.buffer.lab.LAB;
 import org.roaringbitmap.longlong.Roaring64NavigableMap;
 
 import org.apache.uniffle.common.BufferSegment;
@@ -46,6 +47,11 @@ public class ShuffleBufferWithLinkedList extends AbstractShuffleBuffer {
   private Map<Long, Set<ShufflePartitionedBlock>> inFlushBlockMap;
 
   public ShuffleBufferWithLinkedList() {
+    this(false);
+  }
+
+  public ShuffleBufferWithLinkedList(boolean enableLAB) {
+    super(enableLAB);
     this.blocks = new LinkedHashSet<>();
     this.inFlushBlockMap = JavaUtils.newConcurrentMap();
   }
@@ -61,7 +67,13 @@ public class ShuffleBufferWithLinkedList extends AbstractShuffleBuffer {
     for (ShufflePartitionedBlock block : data.getBlockList()) {
       // If sendShuffleData retried, we may receive duplicate block. The duplicate
       // block would gc without release. Here we must release the duplicated block.
-      if (blocks.add(block)) {
+      boolean addSuccess;
+      if (enableLAB) {
+        addSuccess = blocks.add(lab.tryCopyBlockToChunk(block));
+      } else {
+        addSuccess = blocks.add(block);
+      }
+      if (addSuccess) {
         currentEncodedLength += block.getEncodedLength();
         currentDataLength += block.getDataLength();
       } else {
@@ -110,14 +122,25 @@ public class ShuffleBufferWithLinkedList extends AbstractShuffleBuffer {
             spBlocks,
             isValid,
             this);
+    final LAB labRef = lab;
     event.addCleanupCallback(
         () -> {
           this.clearInFlushBuffer(event.getEventId());
-          inFlushedQueueBlocks.forEach(spb -> spb.getData().release());
+          if (labRef != null) {
+            labRef.close();
+          }
+          inFlushedQueueBlocks.forEach(spb -> {
+            if (!spb.isInLAB()) {
+              spb.getData().release();
+            }
+          });
           inFlushSize.addAndGet(-event.getEncodedLength());
         });
     inFlushBlockMap.put(eventId, inFlushedQueueBlocks);
     blocks = new LinkedHashSet<>();
+    if (enableLAB) {
+      lab = new LAB();
+    }
     inFlushSize.addAndGet(encodedLength);
     encodedLength = 0;
     dataLength = 0;
@@ -147,8 +170,10 @@ public class ShuffleBufferWithLinkedList extends AbstractShuffleBuffer {
     evicted = true;
     for (ShufflePartitionedBlock spb : blocks) {
       try {
-        spb.getData().release();
-        releasedSize += spb.getEncodedLength();
+        if (!spb.isInLAB()) {
+          spb.getData().release();
+          releasedSize += spb.getEncodedLength();
+        }
       } catch (Throwable t) {
         lastException = t;
         failedToReleaseSize += spb.getEncodedLength();
@@ -159,6 +184,9 @@ public class ShuffleBufferWithLinkedList extends AbstractShuffleBuffer {
           "Failed to release shuffle blocks with size {}. Maybe it has been released by others.",
           failedToReleaseSize,
           lastException);
+    }
+    if (lab != null) {
+      lab.close();
     }
     return releasedSize;
   }

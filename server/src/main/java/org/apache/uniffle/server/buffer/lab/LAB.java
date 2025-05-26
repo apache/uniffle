@@ -32,15 +32,15 @@ public class LAB {
 
   public LAB() {
     this.chunkCreator = ChunkCreator.getInstance();
-    maxAlloc = chunkCreator.getChunkSize() / 5;
+    maxAlloc = chunkCreator.getMaxAlloc();
   }
   public ShufflePartitionedBlock tryCopyBlockToChunk(ShufflePartitionedBlock block) {
-    int size = block.getLength();
+    int size = block.getDataLength();
     if (size > maxAlloc) {
       return block;
     }
-    Chunk c = null;
-    int allocOffset = 0;
+    Chunk c;
+    int allocOffset;
     while (true) {
       // Try to get the chunk
       c = getOrMakeChunk();
@@ -57,7 +57,7 @@ public class LAB {
     c.getData().writeBytes(block.getData());
     block.getData().release();
     return new ShufflePartitionedBlock(
-        block.getLength(),
+        block.getDataLength(),
         block.getUncompressLength(),
         block.getCrc(),
         block.getBlockId(),

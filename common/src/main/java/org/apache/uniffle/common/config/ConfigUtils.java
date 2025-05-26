@@ -226,4 +226,7 @@ public class ConfigUtils {
 
   public static final Function<Double, Boolean> PERCENTAGE_DOUBLE_VALIDATOR =
       value -> Double.compare(value, 100.0) <= 0 && Double.compare(value, 0.0) >= 0;
+
+  public static final Function<Double, Boolean> DOUBLE_VALIDATOR_ZERO_TO_ONE =
+      value -> Double.compare(value, 1.0) <= 0 && Double.compare(value, 0.0) >= 0;
 }

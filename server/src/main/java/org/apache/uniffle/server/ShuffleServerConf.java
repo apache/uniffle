@@ -499,6 +499,47 @@ public class ShuffleServerConf extends RssBaseConf {
               "Threshold when flushing shuffle data to persistent storage, recommend value would be 256K, "
                   + "512K, or even 1M");
 
+  public static final ConfigOption<Boolean> SERVER_SHUFFLE_BUFFER_LAB_ENABLE =
+      ConfigOptions.key("rss.server.shuffleBuffer.lab.enable")
+          .booleanType()
+          .defaultValue(true)
+          .withDescription(
+              "Whether enable LAB(Local allocation buffer) for shuffle buffers.");
+
+  public static final ConfigOption<Integer> SERVER_SHUFFLE_BUFFER_LAB_CHUNK_SIZE =
+      ConfigOptions.key("rss.server.shuffleBuffer.lab.chunk.size")
+          .intType()
+          .defaultValue(1024 * 1024) // 1MB
+          .withDescription(
+              "Defines the pre-allocated chunk size per partition for LAB. "
+                  + "Each partition reserves one chunk of this size. "
+                  + "Larger values may cause memory waste when processing many partitions, "
+                  + "while smaller values generate excessive small chunks, increasing GC frequency and overhead. "
+                  + "Configure based on expected data size, available memory, and GC tolerance to balance efficiency.");
+
+  public static final ConfigOption<Double> SERVER_SHUFFLE_BUFFER_LAB_MAX_ALLOC_RATIO =
+      ConfigOptions.key("rss.server.shuffleBuffer.lab.maxAlloc.ratio")
+          .doubleType()
+          .checkValue(
+              ConfigUtils.DOUBLE_VALIDATOR_ZERO_TO_ONE,
+              "The lab max alloc ratio must be between 0.0 and 1.0")
+          .defaultValue(0.2)
+          .withDescription(
+              "If the block size is not small, we don't need to put it in the chunk."
+                 + " If the ratio is 0.2, it means the blocks which size is less or equal than "
+                 + SERVER_SHUFFLE_BUFFER_LAB_CHUNK_SIZE.key()
+                  + " * 0.2 will be put in the chunk.");
+
+  public static final ConfigOption<Double> SERVER_SHUFFLE_BUFFER_LAB_CHUNK_POOL_CAPACITY_RATIO =
+      ConfigOptions.key("rss.server.shuffleBuffer.lab.chunkPool.capacity.ratio")
+          .doubleType()
+          .defaultValue(1.0)
+          .withDescription(
+              "Controls the maximum memory capacity ratio between LAB's chunk pool and the configured buffer capacity. "
+                  + "The ratio represents (total memory of chunk pool) / "
+                  + SERVER_BUFFER_CAPACITY.key()
+                  + ".");
+
   public static final ConfigOption<String> STORAGE_MEDIA_PROVIDER_ENV_KEY =
       ConfigOptions.key("rss.server.storageMediaProvider.from.env.key")
           .stringType()

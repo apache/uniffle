@@ -46,10 +46,12 @@ public class ChunkCreator {
   // mapping from chunk IDs to chunks
   private final Map<Integer, Chunk> chunkIdMap = new ConcurrentHashMap<Integer, Chunk>();
   static ChunkCreator instance;
+  private final int maxAlloc;
   private ChunkPool chunksPool;
   private final int chunkSize;
-  ChunkCreator(int chunkSize, long bufferCapacity) {
+  ChunkCreator(int chunkSize, long bufferCapacity, int maxAlloc) {
     this.chunkSize = chunkSize;
+    this.maxAlloc = maxAlloc;
     initializePools(chunkSize, bufferCapacity);
   }
 
@@ -63,11 +65,11 @@ public class ChunkCreator {
    * @param bufferCapacity  the buffer capacity
    * @return singleton ChunkCreator
    */
-  public static void initialize(int chunkSize, long bufferCapacity) {
+  public static void initialize(int chunkSize, long bufferCapacity, int maxAlloc) {
     if (instance != null) {
       return;
     }
-    instance = new ChunkCreator(chunkSize, bufferCapacity);
+    instance = new ChunkCreator(chunkSize, bufferCapacity, maxAlloc);
   }
 
   public static ChunkCreator getInstance() {
@@ -155,7 +157,7 @@ public class ChunkCreator {
    */
   private class ChunkPool {
     private final int chunkSize;
-    private int maxCount;
+    private final int maxCount;
 
     // A queue of reclaimed chunks
     private final BlockingQueue<Chunk> reclaimedChunks;
@@ -193,7 +195,7 @@ public class ChunkCreator {
         chunk.reset();
         reusedChunkCount.increment();
       } else {
-        // Make a chunk iff we have not yet created the maxCount chunks
+        // Make a chunk if we have not yet created the maxCount chunks
         while (true) {
           long created = this.chunkCount.get();
           if (created < this.maxCount) {
@@ -216,7 +218,6 @@ public class ChunkCreator {
     /**
      * Add the chunks to the pool, when the pool achieves the max size, it will skip the remaining
      * chunks
-     * @param c
      */
     private void putbackChunks(Chunk c) {
       int toAdd = this.maxCount - reclaimedChunks.size();
@@ -224,7 +225,6 @@ public class ChunkCreator {
         reclaimedChunks.add(c);
       } else {
         // remove the chunk (that is not going to pool)
-        // though it is initially from the pool or not
         ChunkCreator.this.removeChunk(c.getId());
       }
     }
@@ -267,6 +267,10 @@ public class ChunkCreator {
     return chunkSize;
   }
 
+  int getMaxAlloc() {
+    return maxAlloc;
+  }
+
   synchronized void putBackChunks(List<Integer> chunks) {
     // if there is no pool just try to clear the chunkIdMap in case there is something
     if (chunksPool == null) {
@@ -285,7 +289,6 @@ public class ChunkCreator {
         } else {
           // chunks which are not from one of the pools
           // should be released without going to the pools.
-          // Removing them from chunkIdMap will cause their removal by the GC.
           this.removeChunk(chunkID);
         }
       } else {

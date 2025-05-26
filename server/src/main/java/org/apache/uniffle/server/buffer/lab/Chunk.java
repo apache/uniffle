@@ -32,8 +32,6 @@ public abstract class Chunk {
   protected final int size;
   // The unique id associated with the chunk.
   private final int id;
-
-  // indicates if the chunk is formed by ChunkCreator#MemstorePool
   private final boolean fromPool;
 
   /**

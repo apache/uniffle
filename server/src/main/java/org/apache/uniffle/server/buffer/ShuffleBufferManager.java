@@ -36,6 +36,7 @@ import com.google.common.collect.RangeMap;
 import com.google.common.collect.Sets;
 import com.google.common.collect.TreeRangeMap;
 import io.netty.util.internal.PlatformDependent;
+import org.apache.uniffle.server.buffer.lab.ChunkCreator;
 import org.roaringbitmap.longlong.Roaring64NavigableMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,6 +67,7 @@ public class ShuffleBufferManager {
   private static final Logger LOG = LoggerFactory.getLogger(ShuffleBufferManager.class);
 
   private final ShuffleBufferType shuffleBufferType;
+  private final Boolean enableLAB;
   private final int flushTryLockTimeout;
   private ShuffleTaskManager shuffleTaskManager;
   private final ShuffleFlushManager shuffleFlushManager;
@@ -209,6 +211,15 @@ public class ShuffleBufferManager {
                             ShuffleServerConf.SERVER_MEMORY_SHUFFLE_LOWWATERMARK_PERCENTAGE));
           }
         });
+
+    enableLAB = conf.get(ShuffleServerConf.SERVER_SHUFFLE_BUFFER_LAB_ENABLE);
+    if (enableLAB) {
+      int chunkSize = conf.get(ShuffleServerConf.SERVER_SHUFFLE_BUFFER_LAB_CHUNK_SIZE);
+      double chunkPoolCapacityRatio = conf.get(ShuffleServerConf.SERVER_SHUFFLE_BUFFER_LAB_CHUNK_POOL_CAPACITY_RATIO);
+      double maxAllocRatio = conf.get(ShuffleServerConf.SERVER_SHUFFLE_BUFFER_LAB_MAX_ALLOC_RATIO);
+      int maxAlloc = (int) (chunkSize * maxAllocRatio);
+      ChunkCreator.initialize(chunkSize, (long) (capacity * chunkPoolCapacityRatio), maxAlloc);
+    }
   }
 
   public void setShuffleTaskManager(ShuffleTaskManager taskManager) {
@@ -226,9 +237,9 @@ public class ShuffleBufferManager {
       ShuffleServerMetrics.gaugeTotalPartitionNum.inc();
       ShuffleBuffer shuffleBuffer;
       if (shuffleBufferType == ShuffleBufferType.SKIP_LIST) {
-        shuffleBuffer = new ShuffleBufferWithSkipList();
+        shuffleBuffer = new ShuffleBufferWithSkipList(enableLAB);
       } else {
-        shuffleBuffer = new ShuffleBufferWithLinkedList();
+        shuffleBuffer = new ShuffleBufferWithLinkedList(enableLAB);
       }
       bufferRangeMap.put(Range.closed(startPartition, endPartition), shuffleBuffer);
     } else {
