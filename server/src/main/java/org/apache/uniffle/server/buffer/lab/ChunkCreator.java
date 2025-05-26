@@ -41,15 +41,15 @@ import java.util.concurrent.atomic.LongAdder;
 public class ChunkCreator {
   private static final Logger LOG = LoggerFactory.getLogger(ChunkCreator.class);
   // monotonically increasing chunkid. Starts at 1.
-  private AtomicInteger chunkID = new AtomicInteger(1);
+  private final AtomicInteger chunkID = new AtomicInteger(1);
 
   // mapping from chunk IDs to chunks
-  private Map<Integer, Chunk> chunkIdMap = new ConcurrentHashMap<Integer, Chunk>();
+  private final Map<Integer, Chunk> chunkIdMap = new ConcurrentHashMap<Integer, Chunk>();
   static ChunkCreator instance;
   private ChunkPool chunksPool;
   private final int chunkSize;
   ChunkCreator(int chunkSize, long bufferCapacity) {
-    this.chunkSize = chunkSize; // in case pools are not allocated
+    this.chunkSize = chunkSize;
     initializePools(chunkSize, bufferCapacity);
   }
 
@@ -97,9 +97,7 @@ public class ChunkCreator {
       pool = chunksPool;
     }
 
-    // if we have a pool
     if (pool != null) {
-      //  the pool creates the chunk internally. The chunk#init() call happens here
       chunk = pool.getChunk();
       if (chunk == null) {
         LOG.warn("The chunk pool is full. Reached maxCount= " + pool.getMaxCount()
@@ -109,24 +107,20 @@ public class ChunkCreator {
 
 
     if (chunk == null) {
-      // the second parameter explains whether CellChunkMap index is requested,
-      // in that case, put allocated on demand chunk mapping into chunkIdMap
       chunk = createChunk(false, size);
     }
     chunk.init();
     return chunk;
   }
 
-
-
   /**
-   * Creates the chunk either onheap or offheap
+   * Creates the chunk
    * @param pool indicates if the chunks have to be created which will be used by the Pool
    * @param size the size of the chunk to be allocated, in bytes
    * @return the chunk
    */
   private Chunk createChunk(boolean pool, int size) {
-    Chunk chunk = null;
+    Chunk chunk;
     int id = chunkID.getAndIncrement();
     assert id > 0;
     chunk = new OffheapChunk(size, id, pool);
@@ -152,16 +146,6 @@ public class ChunkCreator {
     return c;
   }
 
-    // the chunks in the chunkIdMap may already be released so we shouldn't relay
-    // on this counting for strong correctness. This method is used only in testing.
-  int numberOfMappedChunks() {
-    return this.chunkIdMap.size();
-  }
-
-  void clearChunkIds() {
-    this.chunkIdMap.clear();
-  }
-
   /**
    * A pool of {@link Chunk} instances.
    *
@@ -169,7 +153,7 @@ public class ChunkCreator {
    * decrease allocating bytes when writing, thereby optimizing the garbage
    * collection on JVM.
    */
-  private  class ChunkPool {
+  private class ChunkPool {
     private final int chunkSize;
     private int maxCount;
 
@@ -276,9 +260,7 @@ public class ChunkCreator {
     int maxCount = (int) (bufferCapacity / chunkSize);
     LOG.info("Allocating ChunkPool with chunk size {}, max count {}",
         StringUtils.byteDesc(chunkSize), maxCount);
-    ChunkPool chunkPool = new ChunkPool(chunkSize, maxCount);
-
-    return chunkPool;
+    return new ChunkPool(chunkSize, maxCount);
   }
 
   int getChunkSize() {
@@ -306,11 +288,10 @@ public class ChunkCreator {
           // Removing them from chunkIdMap will cause their removal by the GC.
           this.removeChunk(chunkID);
         }
+      } else {
+        LOG.warn("Chunk {} can not be found in chunkIdMap, ignore it", chunkID);
       }
-      // if chunk is null, it was never covered by the chunkIdMap (and so wasn't in pool also),
-      // so we have nothing to do on its release
     }
-    return;
   }
 
 }

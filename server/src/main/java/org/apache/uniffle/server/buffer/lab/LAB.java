@@ -22,28 +22,20 @@ import org.apache.uniffle.common.ShufflePartitionedBlock;
 
 import java.util.LinkedList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.ReentrantLock;
 
 public class LAB {
-
-  private AtomicReference<Chunk> currChunk = new AtomicReference<>();
-  // Lock to manage multiple handlers requesting for a chunk
-  private ReentrantLock lock = new ReentrantLock();
+  private Chunk currChunk;
 
   List<Integer> chunks = new LinkedList<>();
-  private final int dataChunkSize;
   private final int maxAlloc;
   private final ChunkCreator chunkCreator;
 
   public LAB() {
     this.chunkCreator = ChunkCreator.getInstance();
-    dataChunkSize = chunkCreator.getChunkSize();
-    maxAlloc = dataChunkSize / 5;
+    maxAlloc = chunkCreator.getChunkSize() / 5;
   }
   public ShufflePartitionedBlock tryCopyBlockToChunk(ShufflePartitionedBlock block) {
     int size = block.getLength();
-    // Callers should satisfy large allocations from JVM heap so limit fragmentation.
     if (size > maxAlloc) {
       return block;
     }
@@ -52,9 +44,6 @@ public class LAB {
     while (true) {
       // Try to get the chunk
       c = getOrMakeChunk();
-      // We may get null because the some other thread succeeded in getting the lock
-      // and so the current thread has to try again to make its chunk or grab the chunk
-      // that the other thread created
       // Try to allocate from this chunk
       if (c != null) {
         allocOffset = c.alloc(size);
@@ -62,8 +51,7 @@ public class LAB {
           break;
         }
         // not enough space!
-        // try to retire this chunk
-        tryRetireChunk(c);
+        currChunk = null;
       }
     }
     c.getData().writeBytes(block.getData());
@@ -78,8 +66,6 @@ public class LAB {
         true);
   }
 
-
-
   public void close() {
     recycleChunks();
   }
@@ -89,51 +75,19 @@ public class LAB {
   }
 
   /**
-   * Try to retire the current chunk if it is still
-   * <code>c</code>. Postcondition is that curChunk.get()
-   * != c
-   * @param c the chunk to retire
-   */
-  private void tryRetireChunk(Chunk c) {
-    currChunk.compareAndSet(c, null);
-    // If the CAS succeeds, that means that we won the race
-    // to retire the chunk. We could use this opportunity to
-    // update metrics on external fragmentation.
-    //
-    // If the CAS fails, that means that someone else already
-    // retired the chunk for us.
-  }
-
-  /**
    * Get the current chunk, or, if there is no current chunk,
-   * allocate a new one from the JVM.
+   * allocate a new one.
    */
   private Chunk getOrMakeChunk() {
-    // Try to get the chunk
-    Chunk c = currChunk.get();
+    Chunk c = currChunk;
     if (c != null) {
       return c;
     }
-    // No current chunk, so we want to allocate one. We race
-    // against other allocators to CAS in an uninitialized chunk
-    // (which is cheap to allocate)
-    if (lock.tryLock()) {
-      try {
-        // once again check inside the lock
-        c = currChunk.get();
-        if (c != null) {
-          return c;
-        }
-        c = this.chunkCreator.getChunk();
-        if (c != null) {
-          // set the curChunk. No need of CAS as only one thread will be here
-          currChunk.set(c);
-          chunks.add(c.getId());
-          return c;
-        }
-      } finally {
-        lock.unlock();
-      }
+    c = this.chunkCreator.getChunk();
+    if (c != null) {
+      currChunk = c;
+      chunks.add(c.getId());
+      return c;
     }
     return null;
   }
