@@ -489,6 +489,7 @@ public class WriteBufferManager extends MemoryConsumer {
       allocatedBytes.addAndGet(gotMem);
       retry++;
       if (retry > requireMemoryRetryMax) {
+        taskMemoryManager.showMemoryUsage();
         String message =
             "Can't get memory to cache shuffle data, request["
                 + askExecutorMemory
