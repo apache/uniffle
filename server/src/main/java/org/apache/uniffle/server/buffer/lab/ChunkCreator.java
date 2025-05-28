@@ -156,8 +156,8 @@ public class ChunkCreator {
   /**
    * A pool of {@link Chunk} instances.
    *
-   * ChunkPool caches a number of retired chunks for reusing, it could decrease
-   * allocating bytes when writing, thereby optimizing the garbage collection on JVM.
+   * <p>ChunkPool caches a number of retired chunks for reusing, it could decrease allocating bytes
+   * when writing, thereby optimizing the garbage collection on JVM.
    */
   private class ChunkPool {
     private final int chunkSize;
