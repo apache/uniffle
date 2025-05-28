@@ -1,14 +1,12 @@
-/**
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,12 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.uniffle.server.buffer.lab;
 
-import org.apache.uniffle.common.ShufflePartitionedBlock;
+package org.apache.uniffle.server.buffer.lab;
 
 import java.util.LinkedList;
 import java.util.List;
+
+import org.apache.uniffle.common.ShufflePartitionedBlock;
 
 public class LAB {
   private Chunk currChunk;
@@ -34,6 +33,7 @@ public class LAB {
     this.chunkCreator = ChunkCreator.getInstance();
     maxAlloc = chunkCreator.getMaxAlloc();
   }
+
   public ShufflePartitionedBlock tryCopyBlockToChunk(ShufflePartitionedBlock block) {
     int size = block.getDataLength();
     if (size > maxAlloc) {
@@ -74,10 +74,7 @@ public class LAB {
     chunkCreator.putBackChunks(chunks);
   }
 
-  /**
-   * Get the current chunk, or, if there is no current chunk,
-   * allocate a new one.
-   */
+  /** Get the current chunk, or, if there is no current chunk, allocate a new one. */
   private Chunk getOrMakeChunk() {
     Chunk c = currChunk;
     if (c != null) {
@@ -92,4 +89,3 @@ public class LAB {
     return null;
   }
 }
-

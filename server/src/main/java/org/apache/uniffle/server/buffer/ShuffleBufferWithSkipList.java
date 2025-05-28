@@ -29,7 +29,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import com.google.common.collect.Lists;
-import org.apache.uniffle.server.buffer.lab.LAB;
 import org.roaringbitmap.longlong.Roaring64NavigableMap;
 
 import org.apache.uniffle.common.BufferSegment;
@@ -40,6 +39,7 @@ import org.apache.uniffle.common.util.Constants;
 import org.apache.uniffle.common.util.JavaUtils;
 import org.apache.uniffle.server.ShuffleDataFlushEvent;
 import org.apache.uniffle.server.ShuffleFlushManager;
+import org.apache.uniffle.server.buffer.lab.LAB;
 
 public class ShuffleBufferWithSkipList extends AbstractShuffleBuffer {
   private ConcurrentSkipListMap<Long, ShufflePartitionedBlock> blocksMap;
@@ -125,11 +125,12 @@ public class ShuffleBufferWithSkipList extends AbstractShuffleBuffer {
           if (labRef != null) {
             labRef.close();
           }
-          spBlocks.forEach(spb -> {
-            if (!spb.isInLAB()) {
-              spb.getData().release();
-            }
-          });
+          spBlocks.forEach(
+              spb -> {
+                if (!spb.isInLAB()) {
+                  spb.getData().release();
+                }
+              });
           inFlushSize.addAndGet(-event.getEncodedLength());
         });
     inFlushBlockMap.put(eventId, blocksMap);

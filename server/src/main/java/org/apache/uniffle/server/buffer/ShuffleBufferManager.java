@@ -36,7 +36,6 @@ import com.google.common.collect.RangeMap;
 import com.google.common.collect.Sets;
 import com.google.common.collect.TreeRangeMap;
 import io.netty.util.internal.PlatformDependent;
-import org.apache.uniffle.server.buffer.lab.ChunkCreator;
 import org.roaringbitmap.longlong.Roaring64NavigableMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,6 +55,7 @@ import org.apache.uniffle.server.ShuffleFlushManager;
 import org.apache.uniffle.server.ShuffleServerConf;
 import org.apache.uniffle.server.ShuffleServerMetrics;
 import org.apache.uniffle.server.ShuffleTaskManager;
+import org.apache.uniffle.server.buffer.lab.ChunkCreator;
 
 import static org.apache.uniffle.server.ShuffleServerMetrics.BLOCK_COUNT_IN_BUFFER_POOL;
 import static org.apache.uniffle.server.ShuffleServerMetrics.BUFFER_COUNT_IN_BUFFER_POOL;
@@ -215,7 +215,8 @@ public class ShuffleBufferManager {
     enableLAB = conf.get(ShuffleServerConf.SERVER_SHUFFLE_BUFFER_LAB_ENABLE);
     if (enableLAB) {
       int chunkSize = conf.get(ShuffleServerConf.SERVER_SHUFFLE_BUFFER_LAB_CHUNK_SIZE);
-      double chunkPoolCapacityRatio = conf.get(ShuffleServerConf.SERVER_SHUFFLE_BUFFER_LAB_CHUNK_POOL_CAPACITY_RATIO);
+      double chunkPoolCapacityRatio =
+          conf.get(ShuffleServerConf.SERVER_SHUFFLE_BUFFER_LAB_CHUNK_POOL_CAPACITY_RATIO);
       double maxAllocRatio = conf.get(ShuffleServerConf.SERVER_SHUFFLE_BUFFER_LAB_MAX_ALLOC_RATIO);
       int maxAlloc = (int) (chunkSize * maxAllocRatio);
       ChunkCreator.initialize(chunkSize, (long) (capacity * chunkPoolCapacityRatio), maxAlloc);

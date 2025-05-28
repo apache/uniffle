@@ -38,7 +38,12 @@ public class ShufflePartitionedBlock {
       long blockId,
       long taskAttemptId,
       byte[] data) {
-    this(dataLength, uncompressLength, crc, blockId, taskAttemptId,
+    this(
+        dataLength,
+        uncompressLength,
+        crc,
+        blockId,
+        taskAttemptId,
         data == null ? Unpooled.EMPTY_BUFFER : Unpooled.wrappedBuffer(data));
   }
 

@@ -27,7 +27,6 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 import com.google.common.collect.Lists;
-import org.apache.uniffle.server.buffer.lab.LAB;
 import org.roaringbitmap.longlong.Roaring64NavigableMap;
 
 import org.apache.uniffle.common.BufferSegment;
@@ -38,6 +37,7 @@ import org.apache.uniffle.common.util.Constants;
 import org.apache.uniffle.common.util.JavaUtils;
 import org.apache.uniffle.server.ShuffleDataFlushEvent;
 import org.apache.uniffle.server.ShuffleFlushManager;
+import org.apache.uniffle.server.buffer.lab.LAB;
 
 public class ShuffleBufferWithLinkedList extends AbstractShuffleBuffer {
   // blocks will be added to inFlushBlockMap as <eventId, blocks> pair
@@ -129,11 +129,12 @@ public class ShuffleBufferWithLinkedList extends AbstractShuffleBuffer {
           if (labRef != null) {
             labRef.close();
           }
-          inFlushedQueueBlocks.forEach(spb -> {
-            if (!spb.isInLAB()) {
-              spb.getData().release();
-            }
-          });
+          inFlushedQueueBlocks.forEach(
+              spb -> {
+                if (!spb.isInLAB()) {
+                  spb.getData().release();
+                }
+              });
           inFlushSize.addAndGet(-event.getEncodedLength());
         });
     inFlushBlockMap.put(eventId, inFlushedQueueBlocks);

@@ -1,13 +1,12 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,16 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.uniffle.server.buffer.lab;
 
+package org.apache.uniffle.server.buffer.lab;
 
 import io.netty.buffer.ByteBuf;
 
-import java.util.concurrent.atomic.AtomicInteger;
-
-/**
- * A chunk of memory out of which allocations are sliced.
- */
+/** A chunk of memory out of which allocations are sliced. */
 public abstract class Chunk {
   /** Actual underlying data */
   protected ByteBuf data;
@@ -35,8 +30,8 @@ public abstract class Chunk {
   private final boolean fromPool;
 
   /**
-   * Create an uninitialized chunk. Note that memory is not allocated yet, so
-   * this is cheap.
+   * Create an uninitialized chunk. Note that memory is not allocated yet, so this is cheap.
+   *
    * @param size in bytes
    * @param id the chunk id
    */
@@ -45,8 +40,8 @@ public abstract class Chunk {
   }
 
   /**
-   * Create an uninitialized chunk. Note that memory is not allocated yet, so
-   * this is cheap.
+   * Create an uninitialized chunk. Note that memory is not allocated yet, so this is cheap.
+   *
    * @param size in bytes
    * @param id the chunk id
    * @param fromPool if the chunk is formed by pool
@@ -64,6 +59,7 @@ public abstract class Chunk {
   boolean isFromPool() {
     return this.fromPool;
   }
+
   /**
    * Actually claim the memory for this chunk. This should only be called from the thread that
    * constructed the chunk. It is thread-safe against other threads calling alloc(), who will block
@@ -86,9 +82,7 @@ public abstract class Chunk {
     data.clear();
   }
 
-  /**
-   * @return This chunk's backing data.
-   */
+  /** @return This chunk's backing data. */
   ByteBuf getData() {
     return this.data;
   }

@@ -503,8 +503,7 @@ public class ShuffleServerConf extends RssBaseConf {
       ConfigOptions.key("rss.server.shuffleBuffer.lab.enable")
           .booleanType()
           .defaultValue(true)
-          .withDescription(
-              "Whether enable LAB(Local allocation buffer) for shuffle buffers.");
+          .withDescription("Whether enable LAB(Local allocation buffer) for shuffle buffers.");
 
   public static final ConfigOption<Integer> SERVER_SHUFFLE_BUFFER_LAB_CHUNK_SIZE =
       ConfigOptions.key("rss.server.shuffleBuffer.lab.chunk.size")
@@ -526,8 +525,8 @@ public class ShuffleServerConf extends RssBaseConf {
           .defaultValue(0.2)
           .withDescription(
               "If the block size is not small, we don't need to put it in the chunk."
-                 + " If the ratio is 0.2, it means the blocks which size is less or equal than "
-                 + SERVER_SHUFFLE_BUFFER_LAB_CHUNK_SIZE.key()
+                  + " If the ratio is 0.2, it means the blocks which size is less or equal than "
+                  + SERVER_SHUFFLE_BUFFER_LAB_CHUNK_SIZE.key()
                   + " * 0.2 will be put in the chunk.");
 
   public static final ConfigOption<Double> SERVER_SHUFFLE_BUFFER_LAB_CHUNK_POOL_CAPACITY_RATIO =

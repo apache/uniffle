@@ -1,13 +1,12 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,12 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.uniffle.server.buffer.lab;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import org.apache.hadoop.util.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+package org.apache.uniffle.server.buffer.lab;
 
 import java.util.List;
 import java.util.Map;
@@ -34,9 +29,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import org.apache.hadoop.util.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
- * Does the management of LAB chunk creations. A monotonically incrementing id is associated
- * with every chunk
+ * Does the management of LAB chunk creations. A monotonically incrementing id is associated with
+ * every chunk
  */
 public class ChunkCreator {
   private static final Logger LOG = LoggerFactory.getLogger(ChunkCreator.class);
@@ -49,6 +49,7 @@ public class ChunkCreator {
   private final int maxAlloc;
   private ChunkPool chunksPool;
   private final int chunkSize;
+
   ChunkCreator(int chunkSize, long bufferCapacity, int maxAlloc) {
     this.chunkSize = chunkSize;
     this.maxAlloc = maxAlloc;
@@ -61,8 +62,9 @@ public class ChunkCreator {
 
   /**
    * Initializes the instance of ChunkCreator
+   *
    * @param chunkSize the chunkSize
-   * @param bufferCapacity  the buffer capacity
+   * @param bufferCapacity the buffer capacity
    * @return singleton ChunkCreator
    */
   public static void initialize(int chunkSize, long bufferCapacity, int maxAlloc) {
@@ -76,9 +78,9 @@ public class ChunkCreator {
     return instance;
   }
 
-
   /**
    * Creates and inits a chunk with specific index type and type.
+   *
    * @return the chunk that was initialized
    */
   Chunk getChunk() {
@@ -87,6 +89,7 @@ public class ChunkCreator {
 
   /**
    * Creates and inits a chunk.
+   *
    * @return the chunk that was initialized
    * @param size the size of the chunk to be allocated, in bytes
    */
@@ -102,11 +105,12 @@ public class ChunkCreator {
     if (pool != null) {
       chunk = pool.getChunk();
       if (chunk == null) {
-        LOG.warn("The chunk pool is full. Reached maxCount= " + pool.getMaxCount()
-            + ". Creating chunk outside of the pool.");
+        LOG.warn(
+            "The chunk pool is full. Reached maxCount= "
+                + pool.getMaxCount()
+                + ". Creating chunk outside of the pool.");
       }
     }
-
 
     if (chunk == null) {
       chunk = createChunk(false, size);
@@ -117,6 +121,7 @@ public class ChunkCreator {
 
   /**
    * Creates the chunk
+   *
    * @param pool indicates if the chunks have to be created which will be used by the Pool
    * @param size the size of the chunk to be allocated, in bytes
    * @return the chunk
@@ -151,9 +156,8 @@ public class ChunkCreator {
   /**
    * A pool of {@link Chunk} instances.
    *
-   * MemStoreChunkPool caches a number of retired chunks for reusing, it could
-   * decrease allocating bytes when writing, thereby optimizing the garbage
-   * collection on JVM.
+   * ChunkPool caches a number of retired chunks for reusing, it could decrease
+   * allocating bytes when writing, thereby optimizing the garbage collection on JVM.
    */
   private class ChunkPool {
     private final int chunkSize;
@@ -166,6 +170,7 @@ public class ChunkCreator {
     private final ScheduledExecutorService scheduleThreadPool;
     /** Statistics thread */
     private static final int statThreadPeriod = 60 * 5;
+
     private final AtomicLong chunkCount = new AtomicLong();
     private final LongAdder reusedChunkCount = new LongAdder();
 
@@ -174,18 +179,24 @@ public class ChunkCreator {
       this.maxCount = maxCount;
       this.reclaimedChunks = new LinkedBlockingQueue<>();
       final String n = Thread.currentThread().getName();
-      scheduleThreadPool = Executors.newScheduledThreadPool(1, new ThreadFactoryBuilder()
-              .setNameFormat(n + "-ChunkPool Statistics").setDaemon(true).build());
-      this.scheduleThreadPool.scheduleAtFixedRate(new StatisticsThread(), statThreadPeriod,
-              statThreadPeriod, TimeUnit.SECONDS);
+      scheduleThreadPool =
+          Executors.newScheduledThreadPool(
+              1,
+              new ThreadFactoryBuilder()
+                  .setNameFormat(n + "-ChunkPool Statistics")
+                  .setDaemon(true)
+                  .build());
+      this.scheduleThreadPool.scheduleAtFixedRate(
+          new StatisticsThread(), statThreadPeriod, statThreadPeriod, TimeUnit.SECONDS);
     }
 
     /**
-     * Poll a chunk from the pool, reset it if not null, else create a new chunk to return if we have
-     * not yet created max allowed chunks count. When we have already created max allowed chunks and
-     * no free chunks as of now, return null. It is the responsibility of the caller to make a chunk
-     * then.
-     * Note: Chunks returned by this pool must be put back to the pool after its use.
+     * Poll a chunk from the pool, reset it if not null, else create a new chunk to return if we
+     * have not yet created max allowed chunks count. When we have already created max allowed
+     * chunks and no free chunks as of now, return null. It is the responsibility of the caller to
+     * make a chunk then. Note: Chunks returned by this pool must be put back to the pool after its
+     * use.
+     *
      * @return a chunk
      * @see #putbackChunks(Chunk)
      */
@@ -244,10 +255,14 @@ public class ChunkCreator {
         long created = chunkCount.get();
         long reused = reusedChunkCount.sum();
         long total = created + reused;
-        LOG.info("ChunkPool stats (chunk size={}): current pool size={}, created chunk count={}, " +
-                "reused chunk count={}, reuseRatio={}", chunkSize, reclaimedChunks.size(),
-            created, reused,
-            (total == 0? "0": StringUtils.formatPercent((float)reused/(float)total,2)));
+        LOG.info(
+            "ChunkPool stats (chunk size={}): current pool size={}, created chunk count={}, "
+                + "reused chunk count={}, reuseRatio={}",
+            chunkSize,
+            reclaimedChunks.size(),
+            created,
+            reused,
+            (total == 0 ? "0" : StringUtils.formatPercent((float) reused / (float) total, 2)));
       }
     }
 
@@ -258,8 +273,10 @@ public class ChunkCreator {
 
   private ChunkPool initializePool(long bufferCapacity, int chunkSize) {
     int maxCount = (int) (bufferCapacity / chunkSize);
-    LOG.info("Allocating ChunkPool with chunk size {}, max count {}",
-        StringUtils.byteDesc(chunkSize), maxCount);
+    LOG.info(
+        "Allocating ChunkPool with chunk size {}, max count {}",
+        StringUtils.byteDesc(chunkSize),
+        maxCount);
     return new ChunkPool(chunkSize, maxCount);
   }
 
@@ -296,6 +313,4 @@ public class ChunkCreator {
       }
     }
   }
-
 }
-
