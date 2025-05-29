@@ -51,7 +51,6 @@ public class LAB {
       }
       // not enough space!
       currChunk = null;
-
     }
     c.getData().writeBytes(block.getData());
     block.getData().release();
