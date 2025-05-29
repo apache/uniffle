@@ -27,6 +27,7 @@ import java.util.Map;
 
 import com.google.common.collect.Range;
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import io.netty.util.IllegalReferenceCountException;
 import org.apache.hadoop.io.RawComparator;
 import org.roaringbitmap.longlong.Roaring64NavigableMap;
@@ -158,8 +159,9 @@ public class Partition<K, V> {
       try {
         // If ByteBuf is released by flush cleanup will throw IllegalReferenceCountException.
         // Then we need get block buffer from file
-        ByteBuf byteBuf = block.getData().retain().duplicate();
-        cachedBlocks.put(blockId, byteBuf.slice(0, block.getDataLength()));
+        ByteBuf byteBuf = Unpooled.directBuffer(block.getData().readableBytes());
+        byteBuf.writeBytes(block.getData());
+        cachedBlocks.put(blockId, byteBuf);
       } catch (IllegalReferenceCountException irce) {
         allCached = false;
         LOG.warn("Can't read bytes from block in memory, maybe already been flushed!");

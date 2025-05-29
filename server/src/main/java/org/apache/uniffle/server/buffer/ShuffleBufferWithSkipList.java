@@ -170,8 +170,8 @@ public class ShuffleBufferWithSkipList extends AbstractShuffleBuffer {
       try {
         if (!spb.isInLAB()) {
           spb.getData().release();
-          releasedSize += spb.getEncodedLength();
         }
+        releasedSize += spb.getEncodedLength();
       } catch (Throwable t) {
         lastException = t;
         failedToReleaseSize += spb.getEncodedLength();

@@ -272,7 +272,7 @@ public class ChunkCreator {
   }
 
   private ChunkPool initializePool(long bufferCapacity, int chunkSize) {
-    int maxCount = (int) (bufferCapacity / chunkSize);
+    int maxCount = Math.max((int) (bufferCapacity / chunkSize), 1);
     LOG.info(
         "Allocating ChunkPool with chunk size {}, max count {}",
         StringUtils.byteDesc(chunkSize),
