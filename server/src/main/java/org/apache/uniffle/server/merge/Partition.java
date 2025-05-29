@@ -159,9 +159,14 @@ public class Partition<K, V> {
       try {
         // If ByteBuf is released by flush cleanup will throw IllegalReferenceCountException.
         // Then we need get block buffer from file
-        ByteBuf byteBuf = Unpooled.directBuffer(block.getData().readableBytes());
-        byteBuf.writeBytes(block.getData());
-        cachedBlocks.put(blockId, byteBuf);
+        if (block.isInLAB()) {
+          ByteBuf byteBuf = Unpooled.directBuffer(block.getData().readableBytes());
+          byteBuf.writeBytes(block.getData());
+          cachedBlocks.put(blockId, byteBuf);
+        } else {
+          ByteBuf byteBuf = block.getData().retain().duplicate();
+          cachedBlocks.put(blockId, byteBuf.slice(0, block.getDataLength()));
+        }
       } catch (IllegalReferenceCountException irce) {
         allCached = false;
         LOG.warn("Can't read bytes from block in memory, maybe already been flushed!");

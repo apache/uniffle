@@ -44,7 +44,7 @@ public class ReassignAndStageRetryTest extends PartitionBlockDataReassignMultiTi
     sparkConf.set("spark." + RSS_CLIENT_RETRY_MAX, "2");
     sparkConf.set("spark." + RSS_CLIENT_ASSIGNMENT_SHUFFLE_SERVER_NUMBER, "1");
     sparkConf.set("spark." + RSS_CLIENT_REASSIGN_ENABLED.key(), "true");
-    sparkConf.set("spark." + RSS_PARTITION_REASSIGN_BLOCK_RETRY_MAX_TIMES.key(), "1");
+    sparkConf.set("spark." + RSS_PARTITION_REASSIGN_BLOCK_RETRY_MAX_TIMES.key(), "2");
 
     // simulate the grpc servers has different free memory
     // and make the assign priority seq: g1 -> g2 -> g3

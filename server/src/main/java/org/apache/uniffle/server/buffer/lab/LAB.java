@@ -45,14 +45,13 @@ public class LAB {
       // Try to get the chunk
       c = getOrMakeChunk();
       // Try to allocate from this chunk
-      if (c != null) {
-        allocOffset = c.alloc(size);
-        if (allocOffset != -1) {
-          break;
-        }
-        // not enough space!
-        currChunk = null;
+      allocOffset = c.alloc(size);
+      if (allocOffset != -1) {
+        break;
       }
+      // not enough space!
+      currChunk = null;
+
     }
     c.getData().writeBytes(block.getData());
     block.getData().release();
