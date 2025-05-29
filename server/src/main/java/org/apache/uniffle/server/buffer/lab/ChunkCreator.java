@@ -67,7 +67,7 @@ public class ChunkCreator {
    * @param bufferCapacity the buffer capacity
    * @return singleton ChunkCreator
    */
-  public static void initialize(int chunkSize, long bufferCapacity, int maxAlloc) {
+  public static synchronized void initialize(int chunkSize, long bufferCapacity, int maxAlloc) {
     if (instance != null) {
       return;
     }

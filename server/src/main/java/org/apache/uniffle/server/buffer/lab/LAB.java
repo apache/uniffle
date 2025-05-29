@@ -81,11 +81,8 @@ public class LAB {
       return c;
     }
     c = this.chunkCreator.getChunk();
-    if (c != null) {
-      currChunk = c;
-      chunks.add(c.getId());
-      return c;
-    }
-    return null;
+    currChunk = c;
+    chunks.add(c.getId());
+    return c;
   }
 }

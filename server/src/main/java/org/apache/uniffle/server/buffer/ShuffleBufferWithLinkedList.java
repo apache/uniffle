@@ -68,15 +68,17 @@ public class ShuffleBufferWithLinkedList extends AbstractShuffleBuffer {
       // If sendShuffleData retried, we may receive duplicate block. The duplicate
       // block would gc without release. Here we must release the duplicated block.
       boolean addSuccess;
+      ShufflePartitionedBlock blockToAdd;
       if (enableLAB) {
-        addSuccess = blocks.add(lab.tryCopyBlockToChunk(block));
+        blockToAdd = lab.tryCopyBlockToChunk(block);
       } else {
-        addSuccess = blocks.add(block);
+        blockToAdd = block;
       }
+      addSuccess = blocks.add(blockToAdd);
       if (addSuccess) {
         currentEncodedLength += block.getEncodedLength();
         currentDataLength += block.getDataLength();
-      } else {
+      } else if (!blockToAdd.isInLAB()) {
         block.getData().release();
       }
     }
