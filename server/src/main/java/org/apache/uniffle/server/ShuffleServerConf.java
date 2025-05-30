@@ -500,13 +500,13 @@ public class ShuffleServerConf extends RssBaseConf {
                   + "512K, or even 1M");
 
   public static final ConfigOption<Boolean> SERVER_SHUFFLE_BUFFER_LAB_ENABLE =
-      ConfigOptions.key("rss.server.shuffleBuffer.lab.enable")
+      ConfigOptions.key("rss.server.buffer.lab.enable")
           .booleanType()
           .defaultValue(false)
           .withDescription("Whether enable LAB(Local allocation buffer) for shuffle buffers.");
 
   public static final ConfigOption<Integer> SERVER_SHUFFLE_BUFFER_LAB_CHUNK_SIZE =
-      ConfigOptions.key("rss.server.shuffleBuffer.lab.chunk.size")
+      ConfigOptions.key("rss.server.buffer.lab.chunkSize")
           .intType()
           .defaultValue(1024 * 1024) // 1MB
           .withDescription(
@@ -517,7 +517,7 @@ public class ShuffleServerConf extends RssBaseConf {
                   + "Configure based on expected data size, available memory, and GC tolerance to balance efficiency.");
 
   public static final ConfigOption<Double> SERVER_SHUFFLE_BUFFER_LAB_MAX_ALLOC_RATIO =
-      ConfigOptions.key("rss.server.shuffleBuffer.lab.maxAlloc.ratio")
+      ConfigOptions.key("rss.server.buffer.lab.maxAllocRatio")
           .doubleType()
           .checkValue(
               ConfigUtils.DOUBLE_VALIDATOR_ZERO_TO_ONE,
@@ -530,7 +530,7 @@ public class ShuffleServerConf extends RssBaseConf {
                   + " * 0.2 will be put in the chunk.");
 
   public static final ConfigOption<Double> SERVER_SHUFFLE_BUFFER_LAB_CHUNK_POOL_CAPACITY_RATIO =
-      ConfigOptions.key("rss.server.shuffleBuffer.lab.chunkPool.capacity.ratio")
+      ConfigOptions.key("rss.server.buffer.labChunkPoolCapacityRatio")
           .doubleType()
           .defaultValue(1.0)
           .withDescription(
