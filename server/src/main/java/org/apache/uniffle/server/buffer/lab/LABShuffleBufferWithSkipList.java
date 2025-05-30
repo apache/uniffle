@@ -39,7 +39,7 @@ public class LABShuffleBufferWithSkipList extends ShuffleBufferWithSkipList impl
 
   @Override
   protected void releaseBlock(ShufflePartitionedBlock block) {
-    if (block.isInLAB()) {
+    if (!block.isInLAB()) {
       super.releaseBlock(block);
     }
   }

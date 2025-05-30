@@ -40,7 +40,7 @@ public class LABShuffleBufferWithLinkedList extends ShuffleBufferWithLinkedList
 
   @Override
   protected void releaseBlock(ShufflePartitionedBlock block) {
-    if (block.isInLAB()) {
+    if (!block.isInLAB()) {
       super.releaseBlock(block);
     }
   }

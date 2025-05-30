@@ -502,7 +502,7 @@ public class ShuffleServerConf extends RssBaseConf {
   public static final ConfigOption<Boolean> SERVER_SHUFFLE_BUFFER_LAB_ENABLE =
       ConfigOptions.key("rss.server.buffer.lab.enable")
           .booleanType()
-          .defaultValue(false)
+          .defaultValue(true)
           .withDescription("Whether enable LAB(Local allocation buffer) for shuffle buffers.");
 
   public static final ConfigOption<Integer> SERVER_SHUFFLE_BUFFER_LAB_CHUNK_SIZE =
