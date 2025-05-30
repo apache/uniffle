@@ -530,7 +530,7 @@ public class ShuffleServerConf extends RssBaseConf {
                   + " * 0.2 will be put in the chunk.");
 
   public static final ConfigOption<Double> SERVER_SHUFFLE_BUFFER_LAB_CHUNK_POOL_CAPACITY_RATIO =
-      ConfigOptions.key("rss.server.buffer.labChunkPoolCapacityRatio")
+      ConfigOptions.key("rss.server.buffer.lab.chunkPoolCapacityRatio")
           .doubleType()
           .defaultValue(1.0)
           .withDescription(

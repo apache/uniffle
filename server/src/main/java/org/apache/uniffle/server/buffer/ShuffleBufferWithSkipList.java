@@ -158,7 +158,7 @@ public class ShuffleBufferWithSkipList extends AbstractShuffleBuffer {
     evicted = true;
     for (ShufflePartitionedBlock spb : blocksMap.values()) {
       try {
-        spb.getData().release();
+        releaseBlock(spb);
         releasedSize += spb.getEncodedLength();
       } catch (Throwable t) {
         lastException = t;
