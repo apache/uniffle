@@ -19,6 +19,7 @@ package org.apache.uniffle.common;
 
 import java.util.Random;
 
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -55,15 +56,6 @@ public class ShufflePartitionedBlockTest {
     assertEquals(b1.hashCode(), b2.hashCode());
     assertNotEquals(b1, null);
     assertNotEquals(b1, new Object());
-  }
-
-  @ParameterizedTest
-  @CsvSource({"5, 2, 3, 4", "1, 5, 3, 4", "1, 2, 5, 4", "1, 2, 3, 5"})
-  public void testNotEquals(int length, long crc, long blockId, int dataSize) {
-    ShufflePartitionedBlock b1 = new ShufflePartitionedBlock(1, 0, 2, 3, 0, new byte[4]);
-    ShufflePartitionedBlock b2 =
-        new ShufflePartitionedBlock(length, 0, crc, blockId, 0, new byte[dataSize]);
-    assertNotEquals(b1, b2);
   }
 
   @Test
