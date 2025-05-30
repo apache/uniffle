@@ -37,7 +37,7 @@ public class LABShuffleBufferWithLinkedList extends ShuffleBufferWithLinkedList
   protected boolean addBlock(ShufflePartitionedBlock block) {
     ShufflePartitionedBlock newBlock = lab.tryCopyBlockToChunk(block);
     boolean addSuccess = super.addBlock(newBlock);
-    if (addSuccess && !newBlock.isInLAB()) {
+    if (addSuccess && newBlock.isInLAB()) {
       super.releaseBlock(block);
     }
     return addSuccess;

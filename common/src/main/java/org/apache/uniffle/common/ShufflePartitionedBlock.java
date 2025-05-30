@@ -80,15 +80,12 @@ public class ShufflePartitionedBlock {
       return false;
     }
     ShufflePartitionedBlock that = (ShufflePartitionedBlock) o;
-    return dataLength == that.dataLength
-        && crc == that.crc
-        && blockId == that.blockId
-        && data.equals(that.data);
+    return blockId == that.blockId;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(dataLength, crc, blockId, data);
+    return Objects.hash(blockId);
   }
 
   public int getDataLength() {

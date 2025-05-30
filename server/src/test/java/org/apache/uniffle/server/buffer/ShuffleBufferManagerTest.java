@@ -869,4 +869,9 @@ public class ShuffleBufferManagerTest extends BufferTestBase {
     assertEquals(1, pair.getRight().size());
     assertEquals(0, pair.getRight().get(0));
   }
+
+  @Override
+  protected ShuffleBuffer createShuffleBuffer() {
+    return null;
+  }
 }
