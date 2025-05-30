@@ -68,4 +68,6 @@ public abstract class BufferTestBase {
   protected AtomicInteger getAtomSequenceNo() {
     return atomSequenceNo;
   }
+
+  protected abstract ShuffleBuffer createShuffleBuffer();
 }

@@ -478,7 +478,7 @@ public class ShuffleServerGrpcService extends ShuffleServerImplBase {
                     + e.getMessage();
             ret = StatusCode.INTERNAL_ERROR;
             responseMessage = errorMsg;
-            LOG.error(errorMsg);
+            LOG.error(errorMsg, e);
             hasFailureOccurred = true;
             break;
           } finally {

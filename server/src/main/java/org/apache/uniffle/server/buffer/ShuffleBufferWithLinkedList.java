@@ -61,17 +61,25 @@ public class ShuffleBufferWithLinkedList extends AbstractShuffleBuffer {
     for (ShufflePartitionedBlock block : data.getBlockList()) {
       // If sendShuffleData retried, we may receive duplicate block. The duplicate
       // block would gc without release. Here we must release the duplicated block.
-      if (blocks.add(block)) {
+      if (addBlock(block)) {
         currentEncodedLength += block.getEncodedLength();
         currentDataLength += block.getDataLength();
       } else {
-        block.getData().release();
+        releaseBlock(block);
       }
     }
     this.encodedLength += currentEncodedLength;
     this.dataLength += currentDataLength;
 
     return currentEncodedLength;
+  }
+
+  protected boolean addBlock(ShufflePartitionedBlock block) {
+    return blocks.add(block);
+  }
+
+  protected void releaseBlock(ShufflePartitionedBlock block) {
+    block.getData().release();
   }
 
   @Override
@@ -110,18 +118,22 @@ public class ShuffleBufferWithLinkedList extends AbstractShuffleBuffer {
             spBlocks,
             isValid,
             this);
-    event.addCleanupCallback(
-        () -> {
-          this.clearInFlushBuffer(event.getEventId());
-          inFlushedQueueBlocks.forEach(spb -> spb.getData().release());
-          inFlushSize.addAndGet(-event.getEncodedLength());
-        });
+    event.addCleanupCallback(createCallbackForFlush(event));
     inFlushBlockMap.put(eventId, inFlushedQueueBlocks);
     blocks = new LinkedHashSet<>();
     inFlushSize.addAndGet(encodedLength);
     encodedLength = 0;
     dataLength = 0;
     return event;
+  }
+
+  protected Runnable createCallbackForFlush(ShuffleDataFlushEvent event) {
+    Set<ShufflePartitionedBlock> inFlushedQueueBlocks = blocks;
+    return () -> {
+      this.clearInFlushBuffer(event.getEventId());
+      inFlushedQueueBlocks.forEach(this::releaseBlock);
+      inFlushSize.addAndGet(-event.getEncodedLength());
+    };
   }
 
   @Override
@@ -147,7 +159,7 @@ public class ShuffleBufferWithLinkedList extends AbstractShuffleBuffer {
     evicted = true;
     for (ShufflePartitionedBlock spb : blocks) {
       try {
-        spb.getData().release();
+        releaseBlock(spb);
         releasedSize += spb.getEncodedLength();
       } catch (Throwable t) {
         lastException = t;

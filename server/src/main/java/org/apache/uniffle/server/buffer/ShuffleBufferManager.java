@@ -55,6 +55,9 @@ import org.apache.uniffle.server.ShuffleFlushManager;
 import org.apache.uniffle.server.ShuffleServerConf;
 import org.apache.uniffle.server.ShuffleServerMetrics;
 import org.apache.uniffle.server.ShuffleTaskManager;
+import org.apache.uniffle.server.buffer.lab.ChunkCreator;
+import org.apache.uniffle.server.buffer.lab.LABShuffleBufferWithLinkedList;
+import org.apache.uniffle.server.buffer.lab.LABShuffleBufferWithSkipList;
 
 import static org.apache.uniffle.server.ShuffleServerMetrics.BLOCK_COUNT_IN_BUFFER_POOL;
 import static org.apache.uniffle.server.ShuffleServerMetrics.BUFFER_COUNT_IN_BUFFER_POOL;
@@ -66,6 +69,7 @@ public class ShuffleBufferManager {
   private static final Logger LOG = LoggerFactory.getLogger(ShuffleBufferManager.class);
 
   private final ShuffleBufferType shuffleBufferType;
+  private final Boolean enableLAB;
   private final int flushTryLockTimeout;
   private ShuffleTaskManager shuffleTaskManager;
   private final ShuffleFlushManager shuffleFlushManager;
@@ -209,6 +213,16 @@ public class ShuffleBufferManager {
                             ShuffleServerConf.SERVER_MEMORY_SHUFFLE_LOWWATERMARK_PERCENTAGE));
           }
         });
+
+    enableLAB = conf.get(ShuffleServerConf.SERVER_SHUFFLE_BUFFER_LAB_ENABLE);
+    if (enableLAB) {
+      int chunkSize = conf.get(ShuffleServerConf.SERVER_SHUFFLE_BUFFER_LAB_CHUNK_SIZE);
+      double chunkPoolCapacityRatio =
+          conf.get(ShuffleServerConf.SERVER_SHUFFLE_BUFFER_LAB_CHUNK_POOL_CAPACITY_RATIO);
+      double maxAllocRatio = conf.get(ShuffleServerConf.SERVER_SHUFFLE_BUFFER_LAB_MAX_ALLOC_RATIO);
+      int maxAlloc = (int) (chunkSize * maxAllocRatio);
+      ChunkCreator.initialize(chunkSize, (long) (capacity * chunkPoolCapacityRatio), maxAlloc);
+    }
   }
 
   public void setShuffleTaskManager(ShuffleTaskManager taskManager) {
@@ -226,9 +240,11 @@ public class ShuffleBufferManager {
       ShuffleServerMetrics.gaugeTotalPartitionNum.inc();
       ShuffleBuffer shuffleBuffer;
       if (shuffleBufferType == ShuffleBufferType.SKIP_LIST) {
-        shuffleBuffer = new ShuffleBufferWithSkipList();
+        shuffleBuffer =
+            enableLAB ? new LABShuffleBufferWithSkipList() : new ShuffleBufferWithSkipList();
       } else {
-        shuffleBuffer = new ShuffleBufferWithLinkedList();
+        shuffleBuffer =
+            enableLAB ? new LABShuffleBufferWithLinkedList() : new ShuffleBufferWithLinkedList();
       }
       bufferRangeMap.put(Range.closed(startPartition, endPartition), shuffleBuffer);
     } else {
