@@ -56,6 +56,8 @@ import org.apache.uniffle.server.ShuffleServerConf;
 import org.apache.uniffle.server.ShuffleServerMetrics;
 import org.apache.uniffle.server.ShuffleTaskManager;
 import org.apache.uniffle.server.buffer.lab.ChunkCreator;
+import org.apache.uniffle.server.buffer.lab.LABShuffleBufferWithLinkedList;
+import org.apache.uniffle.server.buffer.lab.LABShuffleBufferWithSkipList;
 
 import static org.apache.uniffle.server.ShuffleServerMetrics.BLOCK_COUNT_IN_BUFFER_POOL;
 import static org.apache.uniffle.server.ShuffleServerMetrics.BUFFER_COUNT_IN_BUFFER_POOL;
@@ -238,9 +240,11 @@ public class ShuffleBufferManager {
       ShuffleServerMetrics.gaugeTotalPartitionNum.inc();
       ShuffleBuffer shuffleBuffer;
       if (shuffleBufferType == ShuffleBufferType.SKIP_LIST) {
-        shuffleBuffer = new ShuffleBufferWithSkipList(enableLAB);
+        shuffleBuffer =
+            enableLAB ? new LABShuffleBufferWithSkipList() : new ShuffleBufferWithSkipList();
       } else {
-        shuffleBuffer = new ShuffleBufferWithLinkedList(enableLAB);
+        shuffleBuffer =
+            enableLAB ? new LABShuffleBufferWithLinkedList() : new ShuffleBufferWithLinkedList();
       }
       bufferRangeMap.put(Range.closed(startPartition, endPartition), shuffleBuffer);
     } else {

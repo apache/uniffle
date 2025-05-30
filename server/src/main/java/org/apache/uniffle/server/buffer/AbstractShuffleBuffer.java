@@ -35,13 +35,11 @@ import org.apache.uniffle.common.ShufflePartitionedBlock;
 import org.apache.uniffle.common.util.Constants;
 import org.apache.uniffle.common.util.NettyUtils;
 import org.apache.uniffle.server.ShuffleDataFlushEvent;
-import org.apache.uniffle.server.buffer.lab.LAB;
 
 public abstract class AbstractShuffleBuffer implements ShuffleBuffer {
 
   protected static final Logger LOG = LoggerFactory.getLogger(AbstractShuffleBuffer.class);
-  protected boolean enableLAB;
-  protected LAB lab;
+
   /** The memory cost size include encoded length */
   protected long encodedLength;
   /** The data size of this shuffle block */
@@ -53,16 +51,8 @@ public abstract class AbstractShuffleBuffer implements ShuffleBuffer {
   public static final long BUFFER_EVICTED = -1L;
 
   public AbstractShuffleBuffer() {
-    this(false);
-  }
-
-  public AbstractShuffleBuffer(boolean enableLAB) {
     this.encodedLength = 0;
     this.evicted = false;
-    this.enableLAB = enableLAB;
-    if (enableLAB) {
-      lab = new LAB();
-    }
   }
 
   /** Only for test */

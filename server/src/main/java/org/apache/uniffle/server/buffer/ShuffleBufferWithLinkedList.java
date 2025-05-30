@@ -37,7 +37,6 @@ import org.apache.uniffle.common.util.Constants;
 import org.apache.uniffle.common.util.JavaUtils;
 import org.apache.uniffle.server.ShuffleDataFlushEvent;
 import org.apache.uniffle.server.ShuffleFlushManager;
-import org.apache.uniffle.server.buffer.lab.LAB;
 
 public class ShuffleBufferWithLinkedList extends AbstractShuffleBuffer {
   // blocks will be added to inFlushBlockMap as <eventId, blocks> pair
@@ -47,11 +46,6 @@ public class ShuffleBufferWithLinkedList extends AbstractShuffleBuffer {
   private Map<Long, Set<ShufflePartitionedBlock>> inFlushBlockMap;
 
   public ShuffleBufferWithLinkedList() {
-    this(false);
-  }
-
-  public ShuffleBufferWithLinkedList(boolean enableLAB) {
-    super(enableLAB);
     this.blocks = new LinkedHashSet<>();
     this.inFlushBlockMap = JavaUtils.newConcurrentMap();
   }
@@ -67,25 +61,25 @@ public class ShuffleBufferWithLinkedList extends AbstractShuffleBuffer {
     for (ShufflePartitionedBlock block : data.getBlockList()) {
       // If sendShuffleData retried, we may receive duplicate block. The duplicate
       // block would gc without release. Here we must release the duplicated block.
-      boolean addSuccess;
-      ShufflePartitionedBlock blockToAdd;
-      if (enableLAB) {
-        blockToAdd = lab.tryCopyBlockToChunk(block);
-      } else {
-        blockToAdd = block;
-      }
-      addSuccess = blocks.add(blockToAdd);
-      if (addSuccess) {
+      if (addBlock(block)) {
         currentEncodedLength += block.getEncodedLength();
         currentDataLength += block.getDataLength();
-      } else if (!blockToAdd.isInLAB()) {
-        block.getData().release();
+      } else {
+        releaseBlock(block);
       }
     }
     this.encodedLength += currentEncodedLength;
     this.dataLength += currentDataLength;
 
     return currentEncodedLength;
+  }
+
+  protected boolean addBlock(ShufflePartitionedBlock block) {
+    return blocks.add(block);
+  }
+
+  protected void releaseBlock(ShufflePartitionedBlock block) {
+    block.getData().release();
   }
 
   @Override
@@ -124,30 +118,22 @@ public class ShuffleBufferWithLinkedList extends AbstractShuffleBuffer {
             spBlocks,
             isValid,
             this);
-    final LAB labRef = lab;
-    event.addCleanupCallback(
-        () -> {
-          this.clearInFlushBuffer(event.getEventId());
-          if (labRef != null) {
-            labRef.close();
-          }
-          inFlushedQueueBlocks.forEach(
-              spb -> {
-                if (!spb.isInLAB()) {
-                  spb.getData().release();
-                }
-              });
-          inFlushSize.addAndGet(-event.getEncodedLength());
-        });
+    event.addCleanupCallback(createCallbackForFlush(event));
     inFlushBlockMap.put(eventId, inFlushedQueueBlocks);
     blocks = new LinkedHashSet<>();
-    if (enableLAB) {
-      lab = new LAB();
-    }
     inFlushSize.addAndGet(encodedLength);
     encodedLength = 0;
     dataLength = 0;
     return event;
+  }
+
+  protected Runnable createCallbackForFlush(ShuffleDataFlushEvent event) {
+    Set<ShufflePartitionedBlock> inFlushedQueueBlocks = blocks;
+    return () -> {
+      this.clearInFlushBuffer(event.getEventId());
+      inFlushedQueueBlocks.forEach(this::releaseBlock);
+      inFlushSize.addAndGet(-event.getEncodedLength());
+    };
   }
 
   @Override
@@ -173,9 +159,7 @@ public class ShuffleBufferWithLinkedList extends AbstractShuffleBuffer {
     evicted = true;
     for (ShufflePartitionedBlock spb : blocks) {
       try {
-        if (!spb.isInLAB()) {
-          spb.getData().release();
-        }
+        releaseBlock(spb);
         releasedSize += spb.getEncodedLength();
       } catch (Throwable t) {
         lastException = t;
@@ -187,9 +171,6 @@ public class ShuffleBufferWithLinkedList extends AbstractShuffleBuffer {
           "Failed to release shuffle blocks with size {}. Maybe it has been released by others.",
           failedToReleaseSize,
           lastException);
-    }
-    if (lab != null) {
-      lab.close();
     }
     return releasedSize;
   }

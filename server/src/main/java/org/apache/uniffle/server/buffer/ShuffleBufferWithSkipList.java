@@ -39,7 +39,6 @@ import org.apache.uniffle.common.util.Constants;
 import org.apache.uniffle.common.util.JavaUtils;
 import org.apache.uniffle.server.ShuffleDataFlushEvent;
 import org.apache.uniffle.server.ShuffleFlushManager;
-import org.apache.uniffle.server.buffer.lab.LAB;
 
 public class ShuffleBufferWithSkipList extends AbstractShuffleBuffer {
   private ConcurrentSkipListMap<Long, ShufflePartitionedBlock> blocksMap;
@@ -47,11 +46,6 @@ public class ShuffleBufferWithSkipList extends AbstractShuffleBuffer {
   private int blockCount;
 
   public ShuffleBufferWithSkipList() {
-    this(false);
-  }
-
-  public ShuffleBufferWithSkipList(boolean enableLAB) {
-    super(enableLAB);
     this.blocksMap = newConcurrentSkipListMap();
     this.inFlushBlockMap = JavaUtils.newConcurrentMap();
   }
@@ -75,22 +69,26 @@ public class ShuffleBufferWithSkipList extends AbstractShuffleBuffer {
       // If sendShuffleData retried, we may receive duplicate block. The duplicate
       // block would gc without release. Here we must release the duplicated block.
       if (!blocksMap.containsKey(block.getBlockId())) {
-        if (enableLAB) {
-          blocksMap.put(block.getBlockId(), lab.tryCopyBlockToChunk(block));
-        } else {
-          blocksMap.put(block.getBlockId(), block);
-        }
+        addBlock(block);
         blockCount++;
         currentEncodedLength += block.getEncodedLength();
         currentDataLength += block.getDataLength();
       } else {
-        block.getData().release();
+        releaseBlock(block);
       }
     }
     this.encodedLength += currentEncodedLength;
     this.dataLength += currentDataLength;
 
     return currentEncodedLength;
+  }
+
+  protected void addBlock(ShufflePartitionedBlock block) {
+    blocksMap.put(block.getBlockId(), block);
+  }
+
+  protected void releaseBlock(ShufflePartitionedBlock block) {
+    block.getData().release();
   }
 
   @Override
@@ -118,31 +116,23 @@ public class ShuffleBufferWithSkipList extends AbstractShuffleBuffer {
             spBlocks,
             isValid,
             this);
-    final LAB labRef = lab;
-    event.addCleanupCallback(
-        () -> {
-          this.clearInFlushBuffer(event.getEventId());
-          if (labRef != null) {
-            labRef.close();
-          }
-          spBlocks.forEach(
-              spb -> {
-                if (!spb.isInLAB()) {
-                  spb.getData().release();
-                }
-              });
-          inFlushSize.addAndGet(-event.getEncodedLength());
-        });
+    event.addCleanupCallback(createCallbackForFlush(event));
     inFlushBlockMap.put(eventId, blocksMap);
     blocksMap = newConcurrentSkipListMap();
-    if (enableLAB) {
-      lab = new LAB();
-    }
     blockCount = 0;
     inFlushSize.addAndGet(encodedLength);
     encodedLength = 0;
     dataLength = 0;
     return event;
+  }
+
+  protected Runnable createCallbackForFlush(ShuffleDataFlushEvent event) {
+    Collection<ShufflePartitionedBlock> spBlocks = blocksMap.values();
+    return () -> {
+      this.clearInFlushBuffer(event.getEventId());
+      spBlocks.forEach(this::releaseBlock);
+      inFlushSize.addAndGet(-event.getEncodedLength());
+    };
   }
 
   @Override
@@ -168,9 +158,7 @@ public class ShuffleBufferWithSkipList extends AbstractShuffleBuffer {
     evicted = true;
     for (ShufflePartitionedBlock spb : blocksMap.values()) {
       try {
-        if (!spb.isInLAB()) {
-          spb.getData().release();
-        }
+        spb.getData().release();
         releasedSize += spb.getEncodedLength();
       } catch (Throwable t) {
         lastException = t;
@@ -182,9 +170,6 @@ public class ShuffleBufferWithSkipList extends AbstractShuffleBuffer {
           "Failed to release shuffle blocks with size (). Maybe it has been released by others.",
           failedToReleaseSize,
           lastException);
-    }
-    if (lab != null) {
-      lab.close();
     }
     return releasedSize;
   }
