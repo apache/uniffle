@@ -19,10 +19,7 @@ package org.apache.uniffle.common;
 
 import java.util.Random;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
 
 import org.apache.uniffle.common.util.ByteBufUtils;
 
