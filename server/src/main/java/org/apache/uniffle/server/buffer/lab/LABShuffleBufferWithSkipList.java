@@ -34,7 +34,11 @@ public class LABShuffleBufferWithSkipList extends ShuffleBufferWithSkipList impl
 
   @Override
   protected void addBlock(ShufflePartitionedBlock block) {
-    super.addBlock(lab.tryCopyBlockToChunk(block));
+    ShufflePartitionedBlock newBlock = lab.tryCopyBlockToChunk(block);
+    if (newBlock.isInLAB()) {
+      super.releaseBlock(block);
+    }
+    super.addBlock(newBlock);
   }
 
   @Override

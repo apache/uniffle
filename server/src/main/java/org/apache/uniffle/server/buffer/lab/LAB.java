@@ -53,15 +53,13 @@ public class LAB {
       currChunk = null;
     }
     c.getData().writeBytes(block.getData());
-    block.getData().release();
-    return new ShufflePartitionedBlock(
+    return new LABShufflePartitionedBlock(
         block.getDataLength(),
         block.getUncompressLength(),
         block.getCrc(),
         block.getBlockId(),
         block.getTaskAttemptId(),
-        c.getData().slice(allocOffset, size),
-        true);
+        c.getData().slice(allocOffset, size));
   }
 
   public void close() {

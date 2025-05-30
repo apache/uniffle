@@ -23,7 +23,6 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 
 public class ShufflePartitionedBlock {
-  private boolean inLAB;
   private int dataLength;
   private long crc;
   private long blockId;
@@ -54,28 +53,16 @@ public class ShufflePartitionedBlock {
       long blockId,
       long taskAttemptId,
       ByteBuf data) {
-    this(dataLength, uncompressLength, crc, blockId, taskAttemptId, data, false);
-  }
-
-  public ShufflePartitionedBlock(
-      int dataLength,
-      int uncompressLength,
-      long crc,
-      long blockId,
-      long taskAttemptId,
-      ByteBuf data,
-      boolean inLAB) {
     this.dataLength = dataLength;
     this.crc = crc;
     this.blockId = blockId;
     this.uncompressLength = uncompressLength;
     this.taskAttemptId = taskAttemptId;
     this.data = data;
-    this.inLAB = inLAB;
   }
 
   public boolean isInLAB() {
-    return inLAB;
+    return false;
   }
 
   // calculate the data size for this block in memory including metadata which are
