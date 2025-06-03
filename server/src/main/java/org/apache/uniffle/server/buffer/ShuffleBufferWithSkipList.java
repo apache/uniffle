@@ -127,10 +127,9 @@ public class ShuffleBufferWithSkipList extends AbstractShuffleBuffer {
   }
 
   protected Runnable createCallbackForFlush(ShuffleDataFlushEvent event) {
-    Collection<ShufflePartitionedBlock> spBlocks = blocksMap.values();
     return () -> {
       this.clearInFlushBuffer(event.getEventId());
-      spBlocks.forEach(this::releaseBlock);
+      event.getShuffleBlocks().forEach(this::releaseBlock);
       inFlushSize.addAndGet(-event.getEncodedLength());
     };
   }

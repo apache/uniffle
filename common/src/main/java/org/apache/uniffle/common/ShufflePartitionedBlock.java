@@ -23,6 +23,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 
 public class ShufflePartitionedBlock {
+
   private int dataLength;
   private long crc;
   private long blockId;
