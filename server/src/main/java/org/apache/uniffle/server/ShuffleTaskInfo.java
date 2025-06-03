@@ -37,6 +37,7 @@ import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.common.util.Constants;
 import org.apache.uniffle.common.util.JavaUtils;
 import org.apache.uniffle.common.util.UnitConverter;
+import org.apache.uniffle.proto.RssProtos;
 import org.apache.uniffle.server.block.ShuffleBlockIdManager;
 import org.apache.uniffle.server.block.ShuffleBlockIdManagerFactory;
 
@@ -99,6 +100,13 @@ public class ShuffleTaskInfo {
     this.partitionBlockCounters = JavaUtils.newConcurrentMap();
     this.latestStageAttemptNumbers = JavaUtils.newConcurrentMap();
     this.shuffleDetailInfos = JavaUtils.newConcurrentMap();
+    ShuffleDataDistributionType shuffleDataDistributionType =
+        ShuffleDataDistributionType.valueOf(RssProtos.DataDistribution.NORMAL.name());
+    specification.set(
+        ShuffleSpecification.builder()
+            .maxConcurrencyPerPartitionToWrite(1)
+            .dataDistributionType(shuffleDataDistributionType)
+            .build());
   }
 
   public Long getCurrentTimes() {

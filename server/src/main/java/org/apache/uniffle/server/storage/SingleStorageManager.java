@@ -23,6 +23,7 @@ import java.util.concurrent.TimeUnit;
 
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.Uninterruptibles;
+import io.netty.util.IllegalReferenceCountException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -65,6 +66,9 @@ public abstract class SingleStorageManager implements StorageManager {
       long writeTime = System.currentTimeMillis() - startWrite;
       updateWriteMetrics(event, writeTime);
       return true;
+    } catch (IllegalReferenceCountException e) {
+      // We have no ability to retry for this exception
+      throw e;
     } catch (Exception e) {
       LOG.warn("Exception happened when write data for " + event + ", try again", e);
       ShuffleServerMetrics.counterWriteException.inc();
