@@ -73,6 +73,7 @@ public class ShuffleBufferManager {
   private long readCapacity;
   private long highWaterMark;
   private long lowWaterMark;
+  private final boolean bufferFlushWhenCachingData;
   private boolean bufferFlushEnabled;
   private long bufferFlushThreshold;
   private long bufferFlushBlocksNumThreshold;
@@ -133,6 +134,8 @@ public class ShuffleBufferManager {
             (capacity
                 / 100.0
                 * conf.get(ShuffleServerConf.SERVER_MEMORY_SHUFFLE_LOWWATERMARK_PERCENTAGE));
+    this.bufferFlushWhenCachingData =
+        conf.getBoolean(ShuffleServerConf.BUFFER_FLUSH_TRIGGERED_WHEN_CACHEING_DATA);
     this.bufferFlushEnabled = conf.getBoolean(ShuffleServerConf.SINGLE_BUFFER_FLUSH_ENABLED);
     this.bufferFlushThreshold =
         conf.getSizeAsBytes(ShuffleServerConf.SINGLE_BUFFER_FLUSH_SIZE_THRESHOLD);
@@ -292,6 +295,8 @@ public class ShuffleBufferManager {
           spd.getPartitionId(),
           entry.getKey().lowerEndpoint(),
           entry.getKey().upperEndpoint());
+    }
+    if (bufferFlushWhenCachingData && needToFlush()) {
       flushIfNecessary();
     }
     return StatusCode.SUCCESS;
@@ -374,9 +379,13 @@ public class ShuffleBufferManager {
     }
   }
 
-  public void flushIfNecessary() {
+  public boolean needToFlush() {
     // if data size in buffer > highWaterMark, do the flush
-    if (usedMemory.get() - preAllocatedSize.get() - inFlushSize.get() > highWaterMark) {
+    return usedMemory.get() - preAllocatedSize.get() - inFlushSize.get() > highWaterMark;
+  }
+
+  public synchronized void flushIfNecessary() {
+    if (needToFlush()) {
       // todo: add a metric here to track how many times flush occurs.
       LOG.info(
           "Start to flush with usedMemory[{}], preAllocatedSize[{}], inFlushSize[{}]",

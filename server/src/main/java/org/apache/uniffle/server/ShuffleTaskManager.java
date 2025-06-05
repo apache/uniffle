@@ -157,7 +157,10 @@ public class ShuffleTaskManager {
         conf.getLong(ShuffleServerConf.STORAGE_REMOVE_RESOURCE_OPERATION_TIMEOUT_SEC);
     this.leakShuffleDataCheckInterval =
         conf.getLong(ShuffleServerConf.SERVER_LEAK_SHUFFLE_DATA_CHECK_INTERVAL);
+    boolean bufferFlushWhenCachingData =
+        conf.getBoolean(ShuffleServerConf.BUFFER_FLUSH_TRIGGERED_WHEN_CACHEING_DATA);
     this.triggerFlushInterval = conf.getLong(ShuffleServerConf.SERVER_TRIGGER_FLUSH_CHECK_INTERVAL);
+    assert bufferFlushWhenCachingData || triggerFlushInterval > 0;
     // the thread for checking application status
     this.scheduledExecutorService =
         ThreadUtils.getDaemonSingleThreadScheduledExecutor("checkResource");
@@ -1056,7 +1059,7 @@ public class ShuffleTaskManager {
   }
 
   private void triggerFlush() {
-    synchronized (this.shuffleBufferManager) {
+    if (this.shuffleBufferManager.needToFlush()) {
       this.shuffleBufferManager.flushIfNecessary();
     }
   }
