@@ -27,7 +27,6 @@ import java.util.Map;
 
 import com.google.common.collect.Range;
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
 import io.netty.util.IllegalReferenceCountException;
 import org.apache.hadoop.io.RawComparator;
 import org.roaringbitmap.longlong.Roaring64NavigableMap;
@@ -52,6 +51,7 @@ import org.apache.uniffle.common.netty.buffer.NettyManagedBuffer;
 import org.apache.uniffle.common.rpc.StatusCode;
 import org.apache.uniffle.common.serializer.SerInputStream;
 import org.apache.uniffle.common.serializer.SerOutputStream;
+import org.apache.uniffle.common.util.ByteBufUtils;
 import org.apache.uniffle.server.ShuffleDataReadEvent;
 import org.apache.uniffle.server.buffer.ShuffleBuffer;
 import org.apache.uniffle.server.buffer.ShuffleBufferWithSkipList;
@@ -160,8 +160,7 @@ public class Partition<K, V> {
         // If ByteBuf is released by flush cleanup will throw IllegalReferenceCountException.
         // Then we need get block buffer from file
         if (block.isInLAB()) {
-          ByteBuf byteBuf = Unpooled.directBuffer(block.getData().readableBytes());
-          byteBuf.writeBytes(block.getData());
+          ByteBuf byteBuf = ByteBufUtils.copy(block.getData());
           cachedBlocks.put(blockId, byteBuf);
         } else {
           ByteBuf byteBuf = block.getData().retain().duplicate();
