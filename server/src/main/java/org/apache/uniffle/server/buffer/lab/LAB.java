@@ -22,6 +22,30 @@ import java.util.List;
 
 import org.apache.uniffle.common.ShufflePartitionedBlock;
 
+/**
+ * Local allocation buffer.
+ *
+ * <p>The LAB is basically a bump-the-pointer allocator that allocates big (100K) chunks from and
+ * then doles it out to threads that request slices into the array. These chunks can get pooled as
+ * well. See {@link ChunkCreator}.
+ *
+ * <p>The purpose of this is to combat heap fragmentation in the shuffle server. By ensuring that
+ * all blocks in a given partition refer only to large chunks of contiguous memory, we ensure that
+ * large blocks get freed up when the partition is flushed.
+ *
+ * <p>Without the LAB, the byte array allocated during insertion end up interleaved throughout the
+ * heap, and the old generation gets progressively more fragmented until a stop-the-world compacting
+ * collection occurs.
+ *
+ * <p>This manages the large sized chunks. When blocks are to be added to partition, LAB's {@link
+ * #tryCopyBlockToChunk(ShufflePartitionedBlock)} gets called. This allocates enough size in the
+ * chunk to hold this block's data and copies into this area and then recreate a
+ * LABShufflePartitionedBlock over this copied data.
+ *
+ * <p>
+ *
+ * @see ChunkCreator
+ */
 public class LAB {
   private Chunk currChunk;
 
