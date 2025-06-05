@@ -414,6 +414,12 @@ public class ShuffleServerConf extends RssBaseConf {
           .withDescription(
               "For localstorage, it will exit when the failed initialized local storage exceed the number");
 
+  public static final ConfigOption<Boolean> BUFFER_FLUSH_TRIGGERED_WHEN_CACHEING_DATA =
+      ConfigOptions.key("rss.server.buffer.flush.triggeredWhenCachingData")
+          .booleanType()
+          .defaultValue(true)
+          .withDescription("Whether buffer flush will be triggered when caching data");
+
   public static final ConfigOption<Boolean> SINGLE_BUFFER_FLUSH_ENABLED =
       ConfigOptions.key("rss.server.single.buffer.flush.enabled")
           .booleanType()

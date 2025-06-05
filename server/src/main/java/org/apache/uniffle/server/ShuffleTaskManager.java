@@ -1056,7 +1056,7 @@ public class ShuffleTaskManager {
   }
 
   private void triggerFlush() {
-    synchronized (this.shuffleBufferManager) {
+    if (this.shuffleBufferManager.needToFlush()) {
       this.shuffleBufferManager.flushIfNecessary();
     }
   }
