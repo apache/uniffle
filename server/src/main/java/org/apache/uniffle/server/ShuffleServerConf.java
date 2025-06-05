@@ -508,7 +508,7 @@ public class ShuffleServerConf extends RssBaseConf {
   public static final ConfigOption<Integer> SERVER_SHUFFLE_BUFFER_LAB_CHUNK_SIZE =
       ConfigOptions.key("rss.server.buffer.lab.chunkSize")
           .intType()
-          .defaultValue(1024 * 1024) // 1MB
+          .defaultValue(1024 * 100) // 100K
           .withDescription(
               "Defines the pre-allocated chunk size per partition for LAB. "
                   + "Each partition reserves one chunk of this size. "
