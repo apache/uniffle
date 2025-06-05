@@ -97,7 +97,7 @@ public class ByteBufUtils {
     return Unpooled.wrappedBuffer(byteBuffer);
   }
 
-  public static ByteBuf createByteBufFrom(ByteBuf from) {
+  public static ByteBuf copy(ByteBuf from) {
     ByteBuf newByteBuf = Unpooled.directBuffer(from.readableBytes());
     newByteBuf.writeBytes(from);
     from.resetReaderIndex();

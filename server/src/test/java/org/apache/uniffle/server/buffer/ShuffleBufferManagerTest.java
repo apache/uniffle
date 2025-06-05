@@ -176,8 +176,8 @@ public class ShuffleBufferManagerTest extends BufferTestBase {
     ShufflePartitionedData spd2 = createData(0, 68);
     ShufflePartitionedData spd3 = createData(0, 68);
     ShufflePartitionedData spd4 = createData(0, 68);
-    final ByteBuf expected2 = ByteBufUtils.createByteBufFrom(spd2.getBlockList()[0].getData());
-    final ByteBuf expected3 = ByteBufUtils.createByteBufFrom(spd3.getBlockList()[0].getData());
+    final ByteBuf expected2 = ByteBufUtils.copy(spd2.getBlockList()[0].getData());
+    final ByteBuf expected3 = ByteBufUtils.copy(spd3.getBlockList()[0].getData());
     shuffleBufferManager.cacheShuffleData(appId, 1, false, spd1);
     shuffleBufferManager.cacheShuffleData(appId, 2, false, spd2);
     shuffleBufferManager.cacheShuffleData(appId, 2, false, spd3);
