@@ -69,18 +69,26 @@ public class ShuffleBufferWithSkipList extends AbstractShuffleBuffer {
       // If sendShuffleData retried, we may receive duplicate block. The duplicate
       // block would gc without release. Here we must release the duplicated block.
       if (!blocksMap.containsKey(block.getBlockId())) {
-        blocksMap.put(block.getBlockId(), block);
+        addBlock(block);
         blockCount++;
         currentEncodedLength += block.getEncodedLength();
         currentDataLength += block.getDataLength();
       } else {
-        block.getData().release();
+        releaseBlock(block);
       }
     }
     this.encodedLength += currentEncodedLength;
     this.dataLength += currentDataLength;
 
     return currentEncodedLength;
+  }
+
+  protected void addBlock(ShufflePartitionedBlock block) {
+    blocksMap.put(block.getBlockId(), block);
+  }
+
+  protected void releaseBlock(ShufflePartitionedBlock block) {
+    block.getData().release();
   }
 
   @Override
@@ -108,12 +116,7 @@ public class ShuffleBufferWithSkipList extends AbstractShuffleBuffer {
             spBlocks,
             isValid,
             this);
-    event.addCleanupCallback(
-        () -> {
-          this.clearInFlushBuffer(event.getEventId());
-          spBlocks.forEach(spb -> spb.getData().release());
-          inFlushSize.addAndGet(-event.getEncodedLength());
-        });
+    event.addCleanupCallback(createCallbackForFlush(event));
     inFlushBlockMap.put(eventId, blocksMap);
     blocksMap = newConcurrentSkipListMap();
     blockCount = 0;
@@ -121,6 +124,14 @@ public class ShuffleBufferWithSkipList extends AbstractShuffleBuffer {
     encodedLength = 0;
     dataLength = 0;
     return event;
+  }
+
+  protected Runnable createCallbackForFlush(ShuffleDataFlushEvent event) {
+    return () -> {
+      this.clearInFlushBuffer(event.getEventId());
+      event.getShuffleBlocks().forEach(this::releaseBlock);
+      inFlushSize.addAndGet(-event.getEncodedLength());
+    };
   }
 
   @Override
@@ -146,7 +157,7 @@ public class ShuffleBufferWithSkipList extends AbstractShuffleBuffer {
     evicted = true;
     for (ShufflePartitionedBlock spb : blocksMap.values()) {
       try {
-        spb.getData().release();
+        releaseBlock(spb);
         releasedSize += spb.getEncodedLength();
       } catch (Throwable t) {
         lastException = t;

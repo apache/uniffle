@@ -96,4 +96,11 @@ public class ByteBufUtils {
     final ByteBuffer byteBuffer = bytes.asReadOnlyByteBuffer();
     return Unpooled.wrappedBuffer(byteBuffer);
   }
+
+  public static ByteBuf copy(ByteBuf from) {
+    ByteBuf newByteBuf = Unpooled.directBuffer(from.readableBytes());
+    newByteBuf.writeBytes(from);
+    from.resetReaderIndex();
+    return newByteBuf;
+  }
 }

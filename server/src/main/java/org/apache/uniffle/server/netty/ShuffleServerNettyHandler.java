@@ -337,7 +337,7 @@ public class ShuffleServerNettyHandler implements BaseMessageHandler {
                     + e.getMessage();
             ret = StatusCode.INTERNAL_ERROR;
             responseMessage = errorMsg;
-            LOG.error(errorMsg);
+            LOG.error(errorMsg, e);
             hasFailureOccurred = true;
           } finally {
             // Once the cache failure occurs, we should explicitly release data held by byteBuf

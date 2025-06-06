@@ -51,6 +51,7 @@ import org.apache.uniffle.common.netty.buffer.NettyManagedBuffer;
 import org.apache.uniffle.common.rpc.StatusCode;
 import org.apache.uniffle.common.serializer.SerInputStream;
 import org.apache.uniffle.common.serializer.SerOutputStream;
+import org.apache.uniffle.common.util.ByteBufUtils;
 import org.apache.uniffle.server.ShuffleDataReadEvent;
 import org.apache.uniffle.server.buffer.ShuffleBuffer;
 import org.apache.uniffle.server.buffer.ShuffleBufferWithSkipList;
@@ -158,8 +159,13 @@ public class Partition<K, V> {
       try {
         // If ByteBuf is released by flush cleanup will throw IllegalReferenceCountException.
         // Then we need get block buffer from file
-        ByteBuf byteBuf = block.getData().retain().duplicate();
-        cachedBlocks.put(blockId, byteBuf.slice(0, block.getDataLength()));
+        if (block.isOnLAB()) {
+          ByteBuf byteBuf = ByteBufUtils.copy(block.getData());
+          cachedBlocks.put(blockId, byteBuf);
+        } else {
+          ByteBuf byteBuf = block.getData().retain().duplicate();
+          cachedBlocks.put(blockId, byteBuf.slice(0, block.getDataLength()));
+        }
       } catch (IllegalReferenceCountException irce) {
         allCached = false;
         LOG.warn("Can't read bytes from block in memory, maybe already been flushed!");

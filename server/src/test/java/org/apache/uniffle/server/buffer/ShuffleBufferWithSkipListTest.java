@@ -39,7 +39,7 @@ public class ShuffleBufferWithSkipListTest extends BufferTestBase {
 
   @Test
   public void appendTest() {
-    ShuffleBuffer shuffleBuffer = new ShuffleBufferWithSkipList();
+    ShuffleBuffer shuffleBuffer = createShuffleBuffer();
     shuffleBuffer.append(createData(10));
     // ShufflePartitionedBlock has constant 32 bytes overhead
     assertEquals(42, shuffleBuffer.getEncodedLength());
@@ -53,7 +53,7 @@ public class ShuffleBufferWithSkipListTest extends BufferTestBase {
 
   @Test
   public void appendMultiBlocksTest() {
-    ShuffleBuffer shuffleBuffer = new ShuffleBufferWithSkipList();
+    ShuffleBuffer shuffleBuffer = createShuffleBuffer();
     ShufflePartitionedData data1 = createData(10);
     ShufflePartitionedData data2 = createData(10);
     ShufflePartitionedBlock[] dataCombine = new ShufflePartitionedBlock[2];
@@ -65,7 +65,7 @@ public class ShuffleBufferWithSkipListTest extends BufferTestBase {
 
   @Test
   public void toFlushEventTest() {
-    ShuffleBuffer shuffleBuffer = new ShuffleBufferWithSkipList();
+    ShuffleBuffer shuffleBuffer = createShuffleBuffer();
     ShuffleDataFlushEvent event = shuffleBuffer.toFlushEvent("appId", 0, 0, 1, null);
     assertNull(event);
     shuffleBuffer.append(createData(10));
@@ -79,7 +79,7 @@ public class ShuffleBufferWithSkipListTest extends BufferTestBase {
   @Test
   public void getShuffleDataWithExpectedTaskIdsFilterTest() {
     /** case1: all blocks in cached(or in flushed map) and size < readBufferSize */
-    ShuffleBuffer shuffleBuffer = new ShuffleBufferWithSkipList();
+    ShuffleBuffer shuffleBuffer = createShuffleBuffer();
     ShufflePartitionedData spd1 = createData(1, 1, 15);
     ShufflePartitionedData spd2 = createData(1, 0, 15);
     ShufflePartitionedData spd3 = createData(1, 2, 55);
@@ -199,13 +199,15 @@ public class ShuffleBufferWithSkipListTest extends BufferTestBase {
 
   @Test
   public void appendRepeatBlockTest() {
-    ShuffleBuffer shuffleBuffer = new ShuffleBufferWithSkipList();
+    ShuffleBuffer shuffleBuffer = createShuffleBuffer();
     ShufflePartitionedData block = createData(10);
     shuffleBuffer.append(block);
     // ShufflePartitionedBlock has constant 32 bytes overhead
     assertEquals(42, shuffleBuffer.getEncodedLength());
 
-    shuffleBuffer.append(block);
+    ShufflePartitionedData block2 = createData(10);
+    block2.getBlockList()[0].setBlockId(block.getBlockList()[0].getBlockId());
+    shuffleBuffer.append(block2);
     // The repeat block should not append to shuffleBuffer
     assertEquals(42, shuffleBuffer.getEncodedLength());
   }
@@ -213,5 +215,10 @@ public class ShuffleBufferWithSkipListTest extends BufferTestBase {
   @Override
   protected AtomicInteger getAtomSequenceNo() {
     return atomSequenceNo;
+  }
+
+  @Override
+  protected ShuffleBuffer createShuffleBuffer() {
+    return new ShuffleBufferWithSkipList();
   }
 }

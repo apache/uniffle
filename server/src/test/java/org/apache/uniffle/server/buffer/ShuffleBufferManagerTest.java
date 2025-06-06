@@ -29,6 +29,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import com.google.common.collect.RangeMap;
 import com.google.common.util.concurrent.Uninterruptibles;
+import io.netty.buffer.ByteBuf;
 import io.prometheus.client.Collector;
 import org.apache.commons.lang3.tuple.Pair;
 import org.awaitility.Awaitility;
@@ -175,6 +176,8 @@ public class ShuffleBufferManagerTest extends BufferTestBase {
     ShufflePartitionedData spd2 = createData(0, 68);
     ShufflePartitionedData spd3 = createData(0, 68);
     ShufflePartitionedData spd4 = createData(0, 68);
+    final ByteBuf expected2 = ByteBufUtils.copy(spd2.getBlockList()[0].getData());
+    final ByteBuf expected3 = ByteBufUtils.copy(spd3.getBlockList()[0].getData());
     shuffleBufferManager.cacheShuffleData(appId, 1, false, spd1);
     shuffleBufferManager.cacheShuffleData(appId, 2, false, spd2);
     shuffleBufferManager.cacheShuffleData(appId, 2, false, spd3);
@@ -188,10 +191,10 @@ public class ShuffleBufferManagerTest extends BufferTestBase {
     // validate get shuffle data
     ShuffleDataResult sdr =
         shuffleBufferManager.getShuffleData(appId, 2, 0, Constants.INVALID_BLOCK_ID, 60);
-    assertArrayEquals(ByteBufUtils.readBytes(spd2.getBlockList()[0].getData()), sdr.getData());
+    assertArrayEquals(ByteBufUtils.readBytes(expected2), sdr.getData());
     long lastBlockId = spd2.getBlockList()[0].getBlockId();
     sdr = shuffleBufferManager.getShuffleData(appId, 2, 0, lastBlockId, 100);
-    assertArrayEquals(ByteBufUtils.readBytes(spd3.getBlockList()[0].getData()), sdr.getData());
+    assertArrayEquals(ByteBufUtils.readBytes(expected3), sdr.getData());
     // flush happen
     ShufflePartitionedData spd5 = createData(0, 10);
     shuffleBufferManager.cacheShuffleData(appId, 4, false, spd5);
@@ -206,10 +209,10 @@ public class ShuffleBufferManagerTest extends BufferTestBase {
     assertEquals(1, bufferPool.get(appId).get(4).get(0).getBlocks().size());
     // data in flush buffer now, it also can be got before flush finish
     sdr = shuffleBufferManager.getShuffleData(appId, 2, 0, Constants.INVALID_BLOCK_ID, 60);
-    assertArrayEquals(ByteBufUtils.readBytes(spd2.getBlockList()[0].getData()), sdr.getData());
+    assertArrayEquals(ByteBufUtils.readBytes(expected2), sdr.getData());
     lastBlockId = spd2.getBlockList()[0].getBlockId();
     sdr = shuffleBufferManager.getShuffleData(appId, 2, 0, lastBlockId, 100);
-    assertArrayEquals(ByteBufUtils.readBytes(spd3.getBlockList()[0].getData()), sdr.getData());
+    assertArrayEquals(ByteBufUtils.readBytes(expected3), sdr.getData());
     // cache data again, it should cause flush
     spd1 = createData(0, 10);
     shuffleBufferManager.cacheShuffleData(appId, 1, false, spd1);
@@ -268,9 +271,12 @@ public class ShuffleBufferManagerTest extends BufferTestBase {
     assertEquals(0, shuffleSizeMap.get(appId1).get(1).get());
     shuffleBufferManager.releaseMemory(463, true, false);
 
-    shuffleBufferManager.cacheShuffleData(appId1, 1, false, spd1);
-    shuffleBufferManager.cacheShuffleData(appId1, 2, false, spd2);
-    shuffleBufferManager.cacheShuffleData(appId2, 1, false, spd4);
+    ShufflePartitionedData spd7 = createData(0, 67);
+    ShufflePartitionedData spd8 = createData(0, 68);
+    ShufflePartitionedData spd9 = createData(0, 68);
+    shuffleBufferManager.cacheShuffleData(appId1, 1, false, spd7);
+    shuffleBufferManager.cacheShuffleData(appId1, 2, false, spd8);
+    shuffleBufferManager.cacheShuffleData(appId2, 1, false, spd9);
     shuffleBufferManager.removeBuffer(appId1);
     assertNull(shuffleSizeMap.get(appId1));
     assertEquals(100, shuffleSizeMap.get(appId2).get(1).get());
@@ -862,5 +868,10 @@ public class ShuffleBufferManagerTest extends BufferTestBase {
             appId, shuffleId, Arrays.asList(0, 1), Arrays.asList(10, 10), 20);
     assertEquals(1, pair.getRight().size());
     assertEquals(0, pair.getRight().get(0));
+  }
+
+  @Override
+  protected ShuffleBuffer createShuffleBuffer() {
+    return null;
   }
 }

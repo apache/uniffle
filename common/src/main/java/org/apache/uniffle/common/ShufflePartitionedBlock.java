@@ -38,12 +38,13 @@ public class ShufflePartitionedBlock {
       long blockId,
       long taskAttemptId,
       byte[] data) {
-    this.dataLength = dataLength;
-    this.crc = crc;
-    this.blockId = blockId;
-    this.uncompressLength = uncompressLength;
-    this.taskAttemptId = taskAttemptId;
-    this.data = data == null ? Unpooled.EMPTY_BUFFER : Unpooled.wrappedBuffer(data);
+    this(
+        dataLength,
+        uncompressLength,
+        crc,
+        blockId,
+        taskAttemptId,
+        data == null ? Unpooled.EMPTY_BUFFER : Unpooled.wrappedBuffer(data));
   }
 
   public ShufflePartitionedBlock(
@@ -61,6 +62,10 @@ public class ShufflePartitionedBlock {
     this.data = data;
   }
 
+  public boolean isOnLAB() {
+    return false;
+  }
+
   // calculate the data size for this block in memory including metadata which are
   // blockId, crc, taskAttemptId, length, uncompressLength
   public long getEncodedLength() {
@@ -76,15 +81,12 @@ public class ShufflePartitionedBlock {
       return false;
     }
     ShufflePartitionedBlock that = (ShufflePartitionedBlock) o;
-    return dataLength == that.dataLength
-        && crc == that.crc
-        && blockId == that.blockId
-        && data.equals(that.data);
+    return blockId == that.blockId;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(dataLength, crc, blockId, data);
+    return Objects.hash(blockId);
   }
 
   public int getDataLength() {
