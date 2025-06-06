@@ -62,7 +62,7 @@ public class ShufflePartitionedBlock {
     this.data = data;
   }
 
-  public boolean isInLAB() {
+  public boolean isOnLAB() {
     return false;
   }
 

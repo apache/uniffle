@@ -159,7 +159,7 @@ public class Partition<K, V> {
       try {
         // If ByteBuf is released by flush cleanup will throw IllegalReferenceCountException.
         // Then we need get block buffer from file
-        if (block.isInLAB()) {
+        if (block.isOnLAB()) {
           ByteBuf byteBuf = ByteBufUtils.copy(block.getData());
           cachedBlocks.put(blockId, byteBuf);
         } else {

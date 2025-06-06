@@ -47,16 +47,12 @@ public class ChunkCreator {
   private final Map<Integer, Chunk> chunkIdMap = new ConcurrentHashMap<Integer, Chunk>();
   static ChunkCreator instance;
   private final int maxAlloc;
-  private ChunkPool chunksPool;
+  private final ChunkPool chunksPool;
   private final int chunkSize;
 
   ChunkCreator(int chunkSize, long bufferCapacity, int maxAlloc) {
     this.chunkSize = chunkSize;
     this.maxAlloc = maxAlloc;
-    initializePools(chunkSize, bufferCapacity);
-  }
-
-  private void initializePools(int chunkSize, long bufferCapacity) {
     this.chunksPool = initializePool(bufferCapacity, chunkSize);
   }
 
@@ -69,7 +65,7 @@ public class ChunkCreator {
    */
   public static synchronized void initialize(int chunkSize, long bufferCapacity, int maxAlloc) {
     if (instance != null) {
-      return;
+      LOG.warn("ChunkCreator instance is already initialized.");
     }
     instance = new ChunkCreator(chunkSize, bufferCapacity, maxAlloc);
   }

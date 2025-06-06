@@ -69,7 +69,7 @@ public class ShuffleBufferManager {
   private static final Logger LOG = LoggerFactory.getLogger(ShuffleBufferManager.class);
 
   private final ShuffleBufferType shuffleBufferType;
-  private final Boolean enableLAB;
+  private final Boolean isLABEnabled;
   private final int flushTryLockTimeout;
   private ShuffleTaskManager shuffleTaskManager;
   private final ShuffleFlushManager shuffleFlushManager;
@@ -214,8 +214,8 @@ public class ShuffleBufferManager {
           }
         });
 
-    enableLAB = conf.get(ShuffleServerConf.SERVER_SHUFFLE_BUFFER_LAB_ENABLE);
-    if (enableLAB) {
+    isLABEnabled = conf.get(ShuffleServerConf.SERVER_SHUFFLE_BUFFER_LAB_ENABLE);
+    if (isLABEnabled) {
       int chunkSize = conf.get(ShuffleServerConf.SERVER_SHUFFLE_BUFFER_LAB_CHUNK_SIZE);
       double chunkPoolCapacityRatio =
           conf.get(ShuffleServerConf.SERVER_SHUFFLE_BUFFER_LAB_CHUNK_POOL_CAPACITY_RATIO);
@@ -241,10 +241,10 @@ public class ShuffleBufferManager {
       ShuffleBuffer shuffleBuffer;
       if (shuffleBufferType == ShuffleBufferType.SKIP_LIST) {
         shuffleBuffer =
-            enableLAB ? new LABShuffleBufferWithSkipList() : new ShuffleBufferWithSkipList();
+            isLABEnabled ? new LABShuffleBufferWithSkipList() : new ShuffleBufferWithSkipList();
       } else {
         shuffleBuffer =
-            enableLAB ? new LABShuffleBufferWithLinkedList() : new ShuffleBufferWithLinkedList();
+            isLABEnabled ? new LABShuffleBufferWithLinkedList() : new ShuffleBufferWithLinkedList();
       }
       bufferRangeMap.put(Range.closed(startPartition, endPartition), shuffleBuffer);
     } else {

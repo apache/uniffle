@@ -69,7 +69,7 @@ public class LAB {
       // Try to get the chunk
       c = getOrMakeChunk();
       // Try to allocate from this chunk
-      allocOffset = c.alloc(size);
+      allocOffset = c.getAllocOffset(size);
       if (allocOffset != -1) {
         break;
       }

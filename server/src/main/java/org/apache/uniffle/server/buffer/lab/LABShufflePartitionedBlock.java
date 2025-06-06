@@ -34,7 +34,7 @@ public class LABShufflePartitionedBlock extends ShufflePartitionedBlock {
   }
 
   @Override
-  public boolean isInLAB() {
+  public boolean isOnLAB() {
     return true;
   }
 }

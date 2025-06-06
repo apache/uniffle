@@ -71,7 +71,12 @@ public abstract class Chunk {
 
   abstract void allocateDataBuffer();
 
-  public int alloc(int size) {
+  /**
+   * Try to get the allocated offset from the chunk.
+   *
+   * @return the offset of the successful allocation, or -1 to indicate not-enough-space
+   */
+  public int getAllocOffset(int size) {
     if (data.writerIndex() + size > data.capacity()) {
       return -1;
     }

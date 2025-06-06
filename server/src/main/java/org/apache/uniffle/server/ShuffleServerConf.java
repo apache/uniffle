@@ -500,7 +500,7 @@ public class ShuffleServerConf extends RssBaseConf {
                   + "512K, or even 1M");
 
   public static final ConfigOption<Boolean> SERVER_SHUFFLE_BUFFER_LAB_ENABLE =
-      ConfigOptions.key("rss.server.buffer.lab.enable")
+      ConfigOptions.key("rss.server.buffer.lab.enabled")
           .booleanType()
           .defaultValue(false)
           .withDescription("Whether enable LAB(Local allocation buffer) for shuffle buffers.");
