@@ -20,7 +20,7 @@ package org.apache.spark
 import org.apache.commons.lang3.StringUtils
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{SparkListener, SparkListenerEvent, SparkListenerJobEnd, SparkListenerJobStart, SparkListenerTaskEnd}
-import org.apache.spark.shuffle.events.{ShuffleAssignmentInfoEvent, TaskShuffleReadInfoEvent, TaskShuffleWriteInfoEvent}
+import org.apache.spark.shuffle.events.{ShuffleAssignmentInfoEvent, ShuffleWriteTimes, TaskShuffleReadInfoEvent, TaskShuffleWriteInfoEvent}
 import org.apache.spark.status.ElementTrackingStore
 
 import java.util.concurrent.ConcurrentHashMap
@@ -30,6 +30,7 @@ import scala.collection.JavaConverters.mapAsScalaMapConverter
 class UniffleListener(conf: SparkConf, kvstore: ElementTrackingStore)
   extends SparkListener with Logging {
 
+  private val aggregatedShuffleWriteTimes = new ShuffleWriteTimes()
   private val aggregatedShuffleWriteMetric = new ConcurrentHashMap[String, AggregatedShuffleWriteMetric]
   private val aggregatedShuffleReadMetric = new ConcurrentHashMap[String, AggregatedShuffleReadMetric]
 
@@ -54,6 +55,9 @@ class UniffleListener(conf: SparkConf, kvstore: ElementTrackingStore)
       )
       kvstore.write(
         AggregatedTaskInfoUIData(totalTaskCpuTime.get(), totalShuffleWriteTime.get(), totalShuffleReadTime.get(), totalShuffleBytes.get())
+      )
+      kvstore.write(
+        AggregatedShuffleWriteTimesUIData(aggregatedShuffleWriteTimes)
       )
     }
   }
@@ -105,6 +109,7 @@ class UniffleListener(conf: SparkConf, kvstore: ElementTrackingStore)
         agg_metric.lastPushFailureReason = metric._2.getLastFailureReason
       }
     }
+    aggregatedShuffleWriteTimes.inc(event.getWriteTimes)
   }
 
   private def onTaskShuffleReadInfo(event: TaskShuffleReadInfoEvent): Unit = {

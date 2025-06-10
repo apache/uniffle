@@ -645,6 +645,26 @@ public class WriteBufferManager extends MemoryConsumer {
     return writeTime;
   }
 
+  public long getCopyTime() {
+    return copyTime;
+  }
+
+  public long getSerializeTime() {
+    return serializeTime;
+  }
+
+  public long getCompressTime() {
+    return compressTime;
+  }
+
+  public long getSortTime() {
+    return sortTime;
+  }
+
+  public long getRequireMemoryTime() {
+    return requireMemoryTime;
+  }
+
   public String getManagerCostInfo() {
     return "WriteBufferManager cost copyTime["
         + copyTime

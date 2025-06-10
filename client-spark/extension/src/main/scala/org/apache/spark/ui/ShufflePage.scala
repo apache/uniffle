@@ -39,6 +39,16 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
     </td>
   </tr>
 
+  private def shuffleWriteTimesRow(kv: Seq[String]) = <tr>
+    <td>{kv(0)}</td>
+    <td>{kv(1)}</td>
+    <td>{kv(2)}</td>
+    <td>{kv(3)}</td>
+    <td>{kv(4)}</td>
+    <td>{kv(5)}</td>
+    <td>{kv(6)}</td>
+  </tr>
+
   private def allServerRow(kv: (String, String, String, Double, Long, Long, String, String, String, Double)) = <tr>
     <td>{kv._1}</td>
     <td>{kv._2}</td>
@@ -112,6 +122,35 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
       propertyHeader,
       propertyRow,
       rssConf.info,
+      fixedWidth = true
+    )
+
+    // render shuffle write times
+    val writeTimes = runtimeStatusStore.shuffleWriteTimes().times
+    val total = if (writeTimes.getTotal <= 0) -1 else writeTimes.getTotal
+    val writeTimesUI = UIUtils.listingTable(
+      Seq("Total Time", "Copy Time", "Serialize Time", "Compress Time", "Sort Time", "Require Memory Time", "Wait Finish Time"),
+      shuffleWriteTimesRow,
+      Seq(
+        Seq(
+          UIUtils.formatDuration(writeTimes.getTotal),
+          UIUtils.formatDuration(writeTimes.getCopy),
+          UIUtils.formatDuration(writeTimes.getSerialize),
+          UIUtils.formatDuration(writeTimes.getCompress),
+          UIUtils.formatDuration(writeTimes.getSort),
+          UIUtils.formatDuration(writeTimes.getRequireMemory),
+          UIUtils.formatDuration(writeTimes.getWaitFinish)
+        ),
+        Seq(
+          1.toDouble,
+          writeTimes.getCopy.toDouble / total,
+          writeTimes.getSerialize.toDouble / total,
+          writeTimes.getCompress.toDouble / total,
+          writeTimes.getSort.toDouble / total,
+          writeTimes.getRequireMemory.toDouble / total,
+          writeTimes.getWaitFinish.toDouble / total,
+        ).map(x => roundToTwoDecimals(x).toString)
+      ),
       fixedWidth = true
     )
 
@@ -295,6 +334,19 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
           </span>
           <div class="assignment-table collapsible-table collapsed">
             {assignmentTableUI}
+          </div>
+        </div>
+
+        <div>
+          <span class="collapse-write-times-properties collapse-table"
+                onClick="collapseTable('collapse-write-times-properties', 'write-times-table')">
+            <h4>
+              <span class="collapse-table-arrow arrow-closed"></span>
+              <a>Shuffle Write Times</a>
+            </h4>
+          </span>
+          <div class="write-times-table collapsible-table collapsed">
+            {writeTimesUI}
           </div>
         </div>
       </div>

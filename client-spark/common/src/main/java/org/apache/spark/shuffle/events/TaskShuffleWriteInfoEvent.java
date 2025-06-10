@@ -24,13 +24,19 @@ public class TaskShuffleWriteInfoEvent extends UniffleEvent {
   private int shuffleId;
   private long taskId;
   private Map<String, ShuffleWriteMetric> metrics;
+  private ShuffleWriteTimes writeTimes;
 
   public TaskShuffleWriteInfoEvent(
-      int stageId, int shuffleId, long taskId, Map<String, ShuffleWriteMetric> metrics) {
+      int stageId,
+      int shuffleId,
+      long taskId,
+      Map<String, ShuffleWriteMetric> metrics,
+      ShuffleWriteTimes writeTimes) {
     this.stageId = stageId;
     this.shuffleId = shuffleId;
     this.taskId = taskId;
     this.metrics = metrics;
+    this.writeTimes = writeTimes;
   }
 
   public int getStageId() {
@@ -47,5 +53,9 @@ public class TaskShuffleWriteInfoEvent extends UniffleEvent {
 
   public Map<String, ShuffleWriteMetric> getMetrics() {
     return metrics;
+  }
+
+  public ShuffleWriteTimes getWriteTimes() {
+    return writeTimes;
   }
 }

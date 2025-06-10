@@ -18,6 +18,7 @@
 package org.apache.spark
 
 import com.fasterxml.jackson.annotation.JsonIgnore
+import org.apache.spark.shuffle.events.ShuffleWriteTimes
 import org.apache.spark.status.KVUtils.KVIndexParam
 import org.apache.spark.util.Utils
 import org.apache.spark.util.kvstore.{KVIndex, KVStore, KVStoreView}
@@ -45,6 +46,15 @@ class UniffleStatusStore(store: KVStore) {
       store.read(kClass, kClass.getName)
     } catch {
       case _: NoSuchElementException => new BuildInfoUIData(Seq.empty)
+    }
+  }
+
+  def shuffleWriteTimes(): AggregatedShuffleWriteTimesUIData = {
+    val kClass = classOf[AggregatedShuffleWriteTimesUIData]
+    try {
+      store.read(kClass, kClass.getName)
+    } catch {
+      case _: NoSuchElementException => AggregatedShuffleWriteTimesUIData(null)
     }
   }
 
@@ -136,4 +146,10 @@ case class AggregatedTaskInfoUIData(cpuTimeMillis: Long,
   @JsonIgnore
   @KVIndex
   def id: String = classOf[AggregatedTaskInfoUIData].getName()
+}
+
+case class AggregatedShuffleWriteTimesUIData(times: ShuffleWriteTimes) {
+  @JsonIgnore
+  @KVIndex
+  def id: String = classOf[AggregatedShuffleWriteTimesUIData].getName()
 }

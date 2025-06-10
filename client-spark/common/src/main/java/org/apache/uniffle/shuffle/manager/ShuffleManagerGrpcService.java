@@ -34,6 +34,7 @@ import org.apache.spark.SparkException;
 import org.apache.spark.shuffle.RssSparkShuffleUtils;
 import org.apache.spark.shuffle.events.ShuffleReadMetric;
 import org.apache.spark.shuffle.events.ShuffleWriteMetric;
+import org.apache.spark.shuffle.events.ShuffleWriteTimes;
 import org.apache.spark.shuffle.events.TaskShuffleReadInfoEvent;
 import org.apache.spark.shuffle.events.TaskShuffleWriteInfoEvent;
 import org.apache.spark.shuffle.handle.MutableShuffleHandleInfo;
@@ -729,7 +730,8 @@ public class ShuffleManagerGrpcService extends ShuffleManagerImplBase {
             request.getMetricsMap().entrySet().stream()
                 .collect(
                     Collectors.toMap(
-                        Map.Entry::getKey, x -> ShuffleWriteMetric.from(x.getValue()))));
+                        Map.Entry::getKey, x -> ShuffleWriteMetric.from(x.getValue()))),
+            ShuffleWriteTimes.fromProto(request.getShuffleWriteTimes()));
     RssSparkShuffleUtils.getActiveSparkContext().listenerBus().post(event);
     RssProtos.ReportShuffleWriteMetricResponse reply =
         RssProtos.ReportShuffleWriteMetricResponse.newBuilder()

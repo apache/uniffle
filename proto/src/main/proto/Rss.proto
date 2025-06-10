@@ -590,6 +590,17 @@ message ReportShuffleWriteMetricRequest {
   int32 stageId = 2;
   int64 taskId = 3;
   map<string, ShuffleWriteMetric> metrics = 4;
+  ShuffleWriteTimes shuffleWriteTimes = 5;
+}
+
+message ShuffleWriteTimes {
+  int64 total = 1;
+  int64 copy = 2;
+  int64 serialize = 3;
+  int64 compress = 4;
+  int64 sort = 5;
+  int64 requireMemory = 6;
+  int64 waitFinish = 7;
 }
 
 message ShuffleWriteMetric {

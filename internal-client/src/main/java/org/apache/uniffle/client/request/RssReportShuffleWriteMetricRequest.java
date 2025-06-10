@@ -28,13 +28,19 @@ public class RssReportShuffleWriteMetricRequest {
   private int shuffleId;
   private long taskId;
   private Map<String, TaskShuffleWriteMetric> metrics;
+  private TaskShuffleWriteTimes writeTimes;
 
   public RssReportShuffleWriteMetricRequest(
-      int stageId, int shuffleId, long taskId, Map<String, TaskShuffleWriteMetric> metrics) {
+      int stageId,
+      int shuffleId,
+      long taskId,
+      Map<String, TaskShuffleWriteMetric> metrics,
+      TaskShuffleWriteTimes writeTimes) {
     this.stageId = stageId;
     this.shuffleId = shuffleId;
     this.taskId = taskId;
     this.metrics = metrics;
+    this.writeTimes = writeTimes;
   }
 
   public RssProtos.ReportShuffleWriteMetricRequest toProto() {
@@ -45,6 +51,7 @@ public class RssReportShuffleWriteMetricRequest {
         .setShuffleId(request.shuffleId)
         .setStageId(request.stageId)
         .setTaskId(request.taskId)
+        .setShuffleWriteTimes(writeTimes.toProto())
         .putAllMetrics(
             request.metrics.entrySet().stream()
                 .collect(
@@ -62,6 +69,74 @@ public class RssReportShuffleWriteMetricRequest {
                               .build();
                         })));
     return builder.build();
+  }
+
+  public static class TaskShuffleWriteTimes {
+    private long totalTime;
+
+    private long copyTime = 0;
+    private long serializeTime = 0;
+    private long compressTime = 0;
+    private long sortTime = 0;
+    private long requireMemoryTime = 0;
+    private long waitFinishTime = 0;
+
+    public TaskShuffleWriteTimes(
+        long totalTime,
+        long copyTime,
+        long serializeTime,
+        long compressTime,
+        long sortTime,
+        long requireMemoryTime,
+        long waitFinishTime) {
+      this.totalTime = totalTime;
+      this.copyTime = copyTime;
+      this.serializeTime = serializeTime;
+      this.compressTime = compressTime;
+      this.sortTime = sortTime;
+      this.requireMemoryTime = requireMemoryTime;
+      this.waitFinishTime = waitFinishTime;
+    }
+
+    public long getTotalTime() {
+      return totalTime;
+    }
+
+    public long getCopyTime() {
+      return copyTime;
+    }
+
+    public long getSerializeTime() {
+      return serializeTime;
+    }
+
+    public long getCompressTime() {
+      return compressTime;
+    }
+
+    public long getSortTime() {
+      return sortTime;
+    }
+
+    public long getRequireMemoryTime() {
+      return requireMemoryTime;
+    }
+
+    public long getWaitFinishTime() {
+      return waitFinishTime;
+    }
+
+    public RssProtos.ShuffleWriteTimes toProto() {
+      return RssProtos.ShuffleWriteTimes.newBuilder()
+          .setTotal(this.totalTime)
+          .setCopy(this.copyTime)
+          .setSerialize(this.serializeTime)
+          .setCompress(this.compressTime)
+          .setSort(this.sortTime)
+          .setRequireMemory(this.requireMemoryTime)
+          .setWaitFinish(this.waitFinishTime)
+          .build();
+    }
   }
 
   public static class TaskShuffleWriteMetric {

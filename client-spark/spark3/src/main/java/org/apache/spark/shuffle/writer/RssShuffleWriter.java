@@ -143,6 +143,9 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
   private boolean enableWriteFailureRetry;
   private Set<ShuffleServerInfo> recordReportFailedShuffleservers;
 
+  private long totalShuffleWriteMills = 0L;
+  private long checkSendResultMills = 0L;
+
   // Only for tests
   @VisibleForTesting
   public RssShuffleWriter(
@@ -378,6 +381,8 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
     }
     long writeDurationMs = bufferManager.getWriteTime() + (System.currentTimeMillis() - start);
     shuffleWriteMetrics.incWriteTime(TimeUnit.MILLISECONDS.toNanos(writeDurationMs));
+    this.totalShuffleWriteMills = writeDurationMs;
+    this.checkSendResultMills = checkDuration;
     LOG.info(
         "Finish write shuffle for appId["
             + appId
@@ -930,13 +935,23 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
       if (managerClientSupplier != null) {
         ShuffleManagerClient shuffleManagerClient = managerClientSupplier.get();
         if (shuffleManagerClient != null) {
+          RssReportShuffleWriteMetricRequest.TaskShuffleWriteTimes writeTimes =
+              new RssReportShuffleWriteMetricRequest.TaskShuffleWriteTimes(
+                  totalShuffleWriteMills,
+                  bufferManager.getCopyTime(),
+                  bufferManager.getSerializeTime(),
+                  bufferManager.getCompressTime(),
+                  bufferManager.getSortTime(),
+                  bufferManager.getRequireMemoryTime(),
+                  checkSendResultMills);
           RssReportShuffleWriteMetricResponse response =
               shuffleManagerClient.reportShuffleWriteMetric(
                   new RssReportShuffleWriteMetricRequest(
                       taskContext.stageId(),
                       shuffleId,
                       taskContext.taskAttemptId(),
-                      bufferManager.getShuffleServerPushCostTracker().toMetric()));
+                      bufferManager.getShuffleServerPushCostTracker().toMetric(),
+                      writeTimes));
           if (response.getStatusCode() != StatusCode.SUCCESS) {
             LOG.error("Errors on reporting shuffle write metrics to driver");
           }
