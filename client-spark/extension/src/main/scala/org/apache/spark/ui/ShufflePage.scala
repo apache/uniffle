@@ -18,6 +18,7 @@
 package org.apache.spark.ui
 
 import org.apache.spark.internal.Logging
+import org.apache.spark.shuffle.events.ShuffleWriteTimes
 import org.apache.spark.util.Utils
 import org.apache.spark.{AggregatedShuffleMetric, AggregatedShuffleReadMetric, AggregatedShuffleWriteMetric, AggregatedTaskInfoUIData}
 
@@ -126,29 +127,29 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
     )
 
     // render shuffle write times
-    val writeTimes = runtimeStatusStore.shuffleWriteTimes().times
+    val writeTimes = Option(runtimeStatusStore.shuffleWriteTimes()).map(_.times).getOrElse(new ShuffleWriteTimes())
     val total = if (writeTimes.getTotal <= 0) -1 else writeTimes.getTotal
     val writeTimesUI = UIUtils.listingTable(
-      Seq("Total Time", "Copy Time", "Serialize Time", "Compress Time", "Sort Time", "Require Memory Time", "Wait Finish Time"),
+      Seq("Total Time", "Wait Finish Time", "Copy Time", "Serialize Time", "Compress Time", "Sort Time", "Require Memory Time"),
       shuffleWriteTimesRow,
       Seq(
         Seq(
           UIUtils.formatDuration(writeTimes.getTotal),
+          UIUtils.formatDuration(writeTimes.getWaitFinish),
           UIUtils.formatDuration(writeTimes.getCopy),
           UIUtils.formatDuration(writeTimes.getSerialize),
           UIUtils.formatDuration(writeTimes.getCompress),
           UIUtils.formatDuration(writeTimes.getSort),
           UIUtils.formatDuration(writeTimes.getRequireMemory),
-          UIUtils.formatDuration(writeTimes.getWaitFinish)
         ),
         Seq(
           1.toDouble,
+          writeTimes.getWaitFinish.toDouble / total,
           writeTimes.getCopy.toDouble / total,
           writeTimes.getSerialize.toDouble / total,
           writeTimes.getCompress.toDouble / total,
           writeTimes.getSort.toDouble / total,
           writeTimes.getRequireMemory.toDouble / total,
-          writeTimes.getWaitFinish.toDouble / total,
         ).map(x => roundToTwoDecimals(x).toString)
       ),
       fixedWidth = true

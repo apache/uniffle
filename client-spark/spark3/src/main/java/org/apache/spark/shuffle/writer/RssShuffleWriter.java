@@ -380,9 +380,9 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
       sendCommit();
     }
     long writeDurationMs = bufferManager.getWriteTime() + (System.currentTimeMillis() - start);
-    shuffleWriteMetrics.incWriteTime(TimeUnit.MILLISECONDS.toNanos(writeDurationMs));
     this.totalShuffleWriteMills = writeDurationMs;
     this.checkSendResultMills = checkDuration;
+    shuffleWriteMetrics.incWriteTime(TimeUnit.MILLISECONDS.toNanos(writeDurationMs));
     LOG.info(
         "Finish write shuffle for appId["
             + appId
