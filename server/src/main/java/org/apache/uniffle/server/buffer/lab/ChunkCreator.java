@@ -29,6 +29,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
 
+import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.apache.hadoop.util.StringUtils;
 import org.slf4j.Logger;
@@ -125,7 +126,7 @@ public class ChunkCreator {
   private Chunk createChunk(boolean pool, int size) {
     Chunk chunk;
     int id = chunkID.getAndIncrement();
-    assert id > 0;
+    Preconditions.checkArgument(id > 0, "chunkId should be positive.");
     chunk = new OffheapChunk(size, id, pool);
     this.chunkIdMap.put(chunk.getId(), chunk);
     return chunk;
