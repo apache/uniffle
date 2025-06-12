@@ -24,7 +24,7 @@ import org.apache.spark.{AggregatedShuffleMetric, AggregatedShuffleReadMetric, A
 
 import java.util.concurrent.ConcurrentHashMap
 import javax.servlet.http.HttpServletRequest
-import scala.collection.JavaConverters.mapAsScalaMapConverter
+import scala.collection.JavaConverters.{collectionAsScalaIterableConverter, mapAsScalaMapConverter}
 import scala.xml.{Node, NodeSeq}
 
 class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
@@ -102,11 +102,23 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
         AggregatedTaskInfoUIData(0, 0, 0, 0)
       else
         aggTaskInfo
-    val percent =
+    val percent = {
       if (taskInfo.cpuTimeMillis == 0)
         0
-      else
+      else {
         (taskInfo.shuffleWriteMillis + taskInfo.shuffleReadMillis).toDouble / taskInfo.cpuTimeMillis
+      }
+    }
+    // speed unit is MB/sec
+    val clientObservedWriteAvgSpeed = if (aggTaskInfo.shuffleWriteMillis == 0) 0 else {
+      roundToTwoDecimals(aggTaskInfo.shuffleBytes.toDouble / aggTaskInfo.shuffleWriteMillis / 1000)
+    }
+    val clientObservedReadAvgSpeed = if (aggTaskInfo.shuffleReadMillis == 0) 0 else {
+      roundToTwoDecimals(aggTaskInfo.shuffleBytes.toDouble / aggTaskInfo.shuffleReadMillis / 1000)
+    }
+
+    val uniffleWriteAvgSpeed = calculateSpeed(originWriteMetric.metrics.values().asScala.toSeq)
+    val uniffleReadAvgSpeed = calculateSpeed(originReadMetric.metrics.values().asScala.toSeq)
 
     // render build info
     val buildInfo = runtimeStatusStore.buildInfo()
@@ -244,19 +256,32 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
       <div>
         <div>
           <ul class="list-unstyled">
-            <li id="completed-summary" data-relingo-block="true">
+            <li>
               <a>
                 <strong>Total shuffle bytes:</strong>
               </a>
               {Utils.bytesToString(taskInfo.shuffleBytes)}
-            </li><li data-relingo-block="true">
-            <a>
-              <strong>Shuffle Duration (write+read) / Task Duration:</strong>
-            </a>
-            {UIUtils.formatDuration(taskInfo.shuffleWriteMillis + taskInfo.shuffleReadMillis)}
-            ({UIUtils.formatDuration(taskInfo.shuffleWriteMillis)}+{UIUtils.formatDuration(taskInfo.shuffleReadMillis)})
-            / {UIUtils.formatDuration(taskInfo.cpuTimeMillis)} = {roundToTwoDecimals(percent)}
-          </li>
+            </li>
+            <li>
+              <a>
+                <strong>Shuffle Duration (write+read) / Task Duration:</strong>
+              </a>
+              {UIUtils.formatDuration(taskInfo.shuffleWriteMillis + taskInfo.shuffleReadMillis)}
+              ({UIUtils.formatDuration(taskInfo.shuffleWriteMillis)}+{UIUtils.formatDuration(taskInfo.shuffleReadMillis)})
+              / {UIUtils.formatDuration(taskInfo.cpuTimeMillis)} = {roundToTwoDecimals(percent)}
+            </li>
+            <li>
+              <a>
+                <strong>Client Observed Speed (Write/Read) MB/s:</strong>
+              </a>
+              {clientObservedWriteAvgSpeed} / {clientObservedReadAvgSpeed}
+            </li>
+            <li>
+              <a>
+                <strong>Uniffle Speed (Write/Read) MB/s:</strong>
+              </a>
+              {uniffleWriteAvgSpeed} / {uniffleReadAvgSpeed}
+            </li>
           </ul>
         </div>
 
@@ -354,6 +379,20 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
     }
 
     UIUtils.headerSparkPage(request, "Uniffle", summary, parent)
+  }
+
+  private def calculateSpeed(metrics: Seq[AggregatedShuffleMetric]): Double = {
+    if (metrics == null || metrics.isEmpty) {
+      0.0
+    } else {
+      val totalBytes = metrics.map(_.byteSize).sum
+      val totalDuration = metrics.map(_.durationMillis).sum
+      if (totalDuration == 0) {
+        0.0
+      } else {
+        roundToTwoDecimals(totalBytes.toDouble / totalDuration / 1000)
+      }
+    }
   }
 
   private def roundToTwoDecimals(value: Double): Double = {
