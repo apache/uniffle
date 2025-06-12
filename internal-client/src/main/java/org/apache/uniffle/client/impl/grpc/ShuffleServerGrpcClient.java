@@ -969,15 +969,15 @@ public class ShuffleServerGrpcClient extends GrpcClient implements ShuffleServer
     RssGetShuffleDataResponse response;
     switch (rpcResponse.getStatus()) {
       case SUCCESS:
+        byte[] data = rpcResponse.getData().toByteArray();
         LOG.info(
-            "GetShuffleData from {}:{} for {} cost {} ms",
+            "GetShuffleData from {}:{} for {} cost {} ms with {} bytes",
             host,
             port,
             requestInfo,
-            System.currentTimeMillis() - start);
-        response =
-            new RssGetShuffleDataResponse(
-                StatusCode.SUCCESS, ByteBuffer.wrap(rpcResponse.getData().toByteArray()));
+            System.currentTimeMillis() - start,
+            data.length);
+        response = new RssGetShuffleDataResponse(StatusCode.SUCCESS, ByteBuffer.wrap(data));
         break;
       default:
         String msg =
@@ -1028,17 +1028,18 @@ public class ShuffleServerGrpcClient extends GrpcClient implements ShuffleServer
     RssGetShuffleIndexResponse response;
     switch (rpcResponse.getStatus()) {
       case SUCCESS:
+        byte[] data = rpcResponse.getIndexData().toByteArray();
         LOG.info(
-            "GetShuffleIndex from {}:{} for {} cost {} ms",
+            "GetShuffleIndex from {}:{} for {} cost {} ms with {} bytes",
             host,
             port,
             requestInfo,
-            System.currentTimeMillis() - start);
+            System.currentTimeMillis() - start,
+            data.length);
         response =
             new RssGetShuffleIndexResponse(
                 StatusCode.SUCCESS,
-                new NettyManagedBuffer(
-                    Unpooled.wrappedBuffer(rpcResponse.getIndexData().toByteArray())),
+                new NettyManagedBuffer(Unpooled.wrappedBuffer(data)),
                 rpcResponse.getDataFileLen(),
                 rpcResponse.getStorageIdsList().stream().mapToInt(Integer::intValue).toArray());
 
@@ -1105,18 +1106,18 @@ public class ShuffleServerGrpcClient extends GrpcClient implements ShuffleServer
     RssGetInMemoryShuffleDataResponse response;
     switch (rpcResponse.getStatus()) {
       case SUCCESS:
+        byte[] data = rpcResponse.getData().toByteArray();
         LOG.info(
-            "GetInMemoryShuffleData from {}:{} for "
-                + requestInfo
-                + " cost "
-                + (System.currentTimeMillis() - start)
-                + " ms",
+            "GetInMemoryShuffleData from {}:{} for {} cost {} ms with {} bytes",
             host,
-            port);
+            port,
+            requestInfo,
+            System.currentTimeMillis() - start,
+            data.length);
         response =
             new RssGetInMemoryShuffleDataResponse(
                 StatusCode.SUCCESS,
-                ByteBuffer.wrap(rpcResponse.getData().toByteArray()),
+                ByteBuffer.wrap(data),
                 toBufferSegments(rpcResponse.getShuffleDataBlockSegmentsList()));
         break;
       default:
