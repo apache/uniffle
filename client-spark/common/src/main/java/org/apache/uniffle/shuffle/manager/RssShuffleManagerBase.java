@@ -38,6 +38,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+import scala.Option;
 import scala.Tuple2;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -50,6 +51,7 @@ import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.spark.MapOutputTracker;
 import org.apache.spark.MapOutputTrackerMaster;
 import org.apache.spark.SparkConf;
+import org.apache.spark.SparkContext;
 import org.apache.spark.SparkEnv;
 import org.apache.spark.SparkException;
 import org.apache.spark.shuffle.RssShuffleHandle;
@@ -1176,7 +1178,10 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
             reassignTriggeredOnPartitionSplit.get(),
             reassignTriggeredOnBlockSendFailure.get(),
             reassignTriggeredOnStageRetry.get());
-    RssSparkShuffleUtils.getActiveSparkContext().listenerBus().post(reassignInfoEvent);
+    Option<SparkContext> sparkContextOption = SparkContext.getActive();
+    if (sparkContextOption.isDefined()) {
+      sparkContextOption.get().listenerBus().post(reassignInfoEvent);
+    }
 
     if (managerClientSupplier != null
         && managerClientSupplier instanceof ExpiringCloseableSupplier) {
