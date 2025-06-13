@@ -20,7 +20,7 @@ package org.apache.spark
 import org.apache.commons.lang3.StringUtils
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{SparkListener, SparkListenerEvent, SparkListenerJobEnd, SparkListenerJobStart, SparkListenerTaskEnd}
-import org.apache.spark.shuffle.events.{ShuffleAssignmentInfoEvent, ShuffleWriteTimes, TaskShuffleReadInfoEvent, TaskShuffleWriteInfoEvent}
+import org.apache.spark.shuffle.events.{ShuffleAssignmentInfoEvent, ShuffleWriteTimes, TaskReassignInfoEvent, TaskShuffleReadInfoEvent, TaskShuffleWriteInfoEvent}
 import org.apache.spark.status.ElementTrackingStore
 
 import java.util.concurrent.ConcurrentHashMap
@@ -137,7 +137,14 @@ class UniffleListener(conf: SparkConf, kvstore: ElementTrackingStore)
     case e: TaskShuffleWriteInfoEvent => onTaskShuffleWriteInfo(e)
     case e: TaskShuffleReadInfoEvent => onTaskShuffleReadInfo(e)
     case e: ShuffleAssignmentInfoEvent => onAssignmentInfo(e)
+    case e: TaskReassignInfoEvent => onReassignInfo(e)
     case _ => // Ignore
+  }
+
+  private def onReassignInfo(event: TaskReassignInfoEvent) = {
+    kvstore.write(
+      ReassignInfoUIData(event)
+    )
   }
 }
 

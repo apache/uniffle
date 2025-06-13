@@ -59,6 +59,7 @@ import org.apache.spark.shuffle.RssStageResubmitManager;
 import org.apache.spark.shuffle.ShuffleHandleInfoManager;
 import org.apache.spark.shuffle.ShuffleManager;
 import org.apache.spark.shuffle.SparkVersionUtils;
+import org.apache.spark.shuffle.events.TaskReassignInfoEvent;
 import org.apache.spark.shuffle.handle.MutableShuffleHandleInfo;
 import org.apache.spark.shuffle.handle.ShuffleHandleInfo;
 import org.apache.spark.shuffle.handle.SimpleShuffleHandleInfo;
@@ -176,6 +177,10 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
   // Only valid on reassign activation
   private int partitionSplitLoadBalanceServerNum;
   protected PartitionSplitMode partitionSplitMode;
+
+  private AtomicBoolean reassignTriggeredOnPartitionSplit = new AtomicBoolean(false);
+  private AtomicBoolean reassignTriggeredOnBlockSendFailure = new AtomicBoolean(false);
+  private AtomicBoolean reassignTriggeredOnStageRetry = new AtomicBoolean(false);
 
   public RssShuffleManagerBase(SparkConf conf, boolean isDriver) {
     LOG.info(
@@ -994,6 +999,7 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
         "The stage retry has been triggered successfully for the shuffleId: {}, attemptNumber: {}",
         shuffleId,
         stageAttemptNumber);
+    this.reassignTriggeredOnStageRetry.set(true);
     return true;
   }
 
@@ -1117,7 +1123,11 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
           System.currentTimeMillis() - startTime,
           partitionSplit,
           reassignResult);
-
+      if (partitionSplit) {
+        this.reassignTriggeredOnPartitionSplit.set(true);
+      } else {
+        this.reassignTriggeredOnBlockSendFailure.set(true);
+      }
       return internalHandle;
     }
   }
@@ -1160,6 +1170,14 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
 
   @Override
   public void stop() {
+    // send reassign event into spark event store
+    TaskReassignInfoEvent reassignInfoEvent =
+        new TaskReassignInfoEvent(
+            reassignTriggeredOnPartitionSplit.get(),
+            reassignTriggeredOnBlockSendFailure.get(),
+            reassignTriggeredOnStageRetry.get());
+    RssSparkShuffleUtils.getActiveSparkContext().listenerBus().post(reassignInfoEvent);
+
     if (managerClientSupplier != null
         && managerClientSupplier instanceof ExpiringCloseableSupplier) {
       ((ExpiringCloseableSupplier<ShuffleManagerClient>) managerClientSupplier).close();

@@ -120,6 +120,9 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
     val uniffleWriteAvgSpeed = calculateSpeed(originWriteMetric.metrics.values().asScala.toSeq)
     val uniffleReadAvgSpeed = calculateSpeed(originReadMetric.metrics.values().asScala.toSeq)
 
+    // reassign info
+    val reassignInfo = runtimeStatusStore.reassignInfo().event
+
     // render build info
     val buildInfo = runtimeStatusStore.buildInfo()
     val buildInfoTableUI = UIUtils.listingTable(
@@ -281,6 +284,24 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
                 <strong>Uniffle Speed (Write/Read) MB/s:</strong>
               </a>
               {uniffleWriteAvgSpeed} / {uniffleReadAvgSpeed}
+            </li>
+            <li>
+              <a>
+                <strong>ReassignTriggeredOnPartitionSplit: </strong>
+              </a>
+              {reassignInfo.isReassignTriggeredOnPartitionSplit}
+            </li>
+            <li>
+              <a>
+                <strong>ReassignTriggeredOnBlockSendFailure: </strong>
+              </a>
+              {reassignInfo.isReassignTriggeredOnBlockSendFailure}
+            </li>
+            <li>
+              <a>
+                <strong>ReassignTriggeredOnStageRetry: </strong>
+              </a>
+              {reassignInfo.isReassignTriggeredOnStageRetry}
             </li>
           </ul>
         </div>

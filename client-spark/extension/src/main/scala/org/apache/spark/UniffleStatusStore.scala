@@ -18,7 +18,7 @@
 package org.apache.spark
 
 import com.fasterxml.jackson.annotation.JsonIgnore
-import org.apache.spark.shuffle.events.ShuffleWriteTimes
+import org.apache.spark.shuffle.events.{ShuffleWriteTimes, TaskReassignInfoEvent}
 import org.apache.spark.status.KVUtils.KVIndexParam
 import org.apache.spark.util.Utils
 import org.apache.spark.util.kvstore.{KVIndex, KVStore, KVStoreView}
@@ -90,6 +90,15 @@ class UniffleStatusStore(store: KVStore) {
       case _: Exception => AggregatedTaskInfoUIData(0, 0, 0, 0)
     }
   }
+
+  def reassignInfo(): ReassignInfoUIData = {
+    val kClass = classOf[ReassignInfoUIData]
+    try {
+      store.read(kClass, kClass.getName)
+    } catch {
+      case _: Exception => ReassignInfoUIData(new TaskReassignInfoEvent(false, false, false))
+    }
+  }
 }
 
 class UniffleProperties(val info: Seq[(String, String)]) {
@@ -152,4 +161,10 @@ case class AggregatedShuffleWriteTimesUIData(times: ShuffleWriteTimes) {
   @JsonIgnore
   @KVIndex
   def id: String = classOf[AggregatedShuffleWriteTimesUIData].getName()
+}
+
+case class ReassignInfoUIData(event: TaskReassignInfoEvent) {
+  @JsonIgnore
+  @KVIndex
+  def id: String = classOf[ReassignInfoUIData].getName()
 }
