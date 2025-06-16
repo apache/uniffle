@@ -280,6 +280,11 @@ public class MutableShuffleHandleInfo extends ShuffleHandleInfoBase {
   public void checkPartitionReassignServerNum(
       Set<Integer> partitionIds, int legalReassignServerNum) {
     for (int partitionId : partitionIds) {
+      // skip the split partition id. Some tasks may reassign without partition split tag,
+      // but this partition may have been split.
+      if (isPartitionSplit(partitionId)) {
+        continue;
+      }
       Map<Integer, List<ShuffleServerInfo>> replicas =
           partitionReplicaAssignedServers.get(partitionId);
       for (List<ShuffleServerInfo> servers : replicas.values()) {
@@ -402,5 +407,9 @@ public class MutableShuffleHandleInfo extends ShuffleHandleInfoBase {
     return excludedServerForPartitionToReplacements
         .getOrDefault(partitionId, Collections.emptyMap())
         .keySet();
+  }
+
+  public boolean isPartitionSplit(int partitionId) {
+    return excludedServerForPartitionToReplacements.containsKey(partitionId);
   }
 }
