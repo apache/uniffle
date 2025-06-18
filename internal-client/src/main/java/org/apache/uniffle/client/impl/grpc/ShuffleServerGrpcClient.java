@@ -306,7 +306,8 @@ public class ShuffleServerGrpcClient extends GrpcClient implements ShuffleServer
             requireSize,
             retryMax,
             retryIntervalMax,
-            new AtomicReference<>(StatusCode.INTERNAL_ERROR))
+            new AtomicReference<>(StatusCode.INTERNAL_ERROR),
+            null)
         .getLeft();
   }
 
@@ -318,7 +319,8 @@ public class ShuffleServerGrpcClient extends GrpcClient implements ShuffleServer
       int requireSize,
       int retryMax,
       long retryIntervalMax,
-      AtomicReference<StatusCode> failedStatusCodeRef) {
+      AtomicReference<StatusCode> failedStatusCodeRef,
+      ShuffleServerPushCostTracker costTracker) {
     RequireBufferRequest rpcRequest =
         RequireBufferRequest.newBuilder()
             .setShuffleId(shuffleId)
@@ -372,6 +374,10 @@ public class ShuffleServerGrpcClient extends GrpcClient implements ShuffleServer
         return Pair.of(result, needSplitPartitionIds);
       }
       try {
+        ClientInfo clientInfo = getClientInfo();
+        if (clientInfo != null && costTracker != null) {
+          costTracker.recordRequireBufferFailure(clientInfo.getShuffleServerInfo().getId());
+        }
         LOG.info(
             "Can't require buffer for appId: {}, shuffleId: {}, partitionIds: {} with {} bytes from {}:{} due to {}, sleep and try[{}] again",
             appId,
@@ -596,7 +602,8 @@ public class ShuffleServerGrpcClient extends GrpcClient implements ShuffleServer
                       allocateSize,
                       request.getRetryMax() / maxRetryAttempts,
                       request.getRetryIntervalMax(),
-                      failedStatusCode);
+                      failedStatusCode,
+                      costTracker);
               long requireId = allocationResult.getLeft();
               needSplitPartitionIds.addAll(allocationResult.getRight());
               if (requireId == FAILED_REQUIRE_ID) {

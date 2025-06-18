@@ -31,6 +31,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.uniffle.client.api.ClientInfo;
+import org.apache.uniffle.client.common.ShuffleServerPushCostTracker;
 import org.apache.uniffle.client.request.RssGetInMemoryShuffleDataRequest;
 import org.apache.uniffle.client.request.RssGetShuffleDataRequest;
 import org.apache.uniffle.client.request.RssGetShuffleIndexRequest;
@@ -158,6 +159,7 @@ public class ShuffleServerGrpcNettyClient extends ShuffleServerGrpcClient {
         partitionRequireSizes.add(partitionRequireSize);
       }
 
+      ShuffleServerPushCostTracker costTracker = request.getCostTracker();
       SendShuffleDataRequest sendShuffleDataRequest =
           new SendShuffleDataRequest(
               requestId(),
@@ -182,10 +184,15 @@ public class ShuffleServerGrpcNettyClient extends ShuffleServerGrpcClient {
                       allocateSize,
                       request.getRetryMax(),
                       request.getRetryIntervalMax(),
-                      failedStatusCode);
+                      failedStatusCode,
+                      costTracker);
               long requireId = result.getLeft();
               needSplitPartitionIds.addAll(result.getRight());
               if (requireId == FAILED_REQUIRE_ID) {
+                ClientInfo clientInfo = getClientInfo();
+                if (clientInfo != null && costTracker != null) {
+                  costTracker.recordRequireBufferFailure(clientInfo.getShuffleServerInfo().getId());
+                }
                 throw new RssException(
                     String.format(
                         "requirePreAllocation failed! size[%s], host[%s], port[%s]",
