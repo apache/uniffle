@@ -17,6 +17,7 @@
 
 package org.apache.spark.shuffle.reader;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -64,6 +65,7 @@ import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.rpc.StatusCode;
 import org.apache.uniffle.storage.handler.impl.ShuffleServerReadCostTracker;
 
+import static org.apache.spark.shuffle.RssSparkConfig.RSS_READ_REORDER_MULTI_SERVERS_ENABLED;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_RESUBMIT_STAGE_WITH_FETCH_FAILURE_ENABLED;
 
 public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
@@ -256,6 +258,11 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
           continue;
         }
         List<ShuffleServerInfo> shuffleServerInfoList = partitionToShuffleServers.get(partition);
+        if (shuffleServerInfoList != null
+            && shuffleServerInfoList.size() > 1
+            && rssConf.getBoolean(RSS_READ_REORDER_MULTI_SERVERS_ENABLED)) {
+          Collections.shuffle(shuffleServerInfoList);
+        }
         // This mechanism of expectedTaskIdsBitmap filter is to filter out the most of data.
         // especially for AQE skew optimization
         boolean expectedTaskIdsBitmapFilterEnable =

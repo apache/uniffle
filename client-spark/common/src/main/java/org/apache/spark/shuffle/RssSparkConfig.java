@@ -39,6 +39,14 @@ import org.apache.uniffle.common.config.RssConf;
 
 public class RssSparkConfig {
 
+  public static final ConfigOption<Boolean> RSS_READ_REORDER_MULTI_SERVERS_ENABLED =
+      ConfigOptions.key("rss.client.read.reorderMultiServersEnable")
+          .booleanType()
+          .defaultValue(false)
+          .withDescription(
+              "If multiple replicated or load-balanced shuffle servers are assigned for one partition, "
+                  + "this option can be enabled to perform load-balanced reads and avoid hot spots.");
+
   public static final ConfigOption<Boolean> RSS_RESUBMIT_STAGE_ENABLED =
       ConfigOptions.key("rss.stageRetry.enabled")
           .booleanType()
