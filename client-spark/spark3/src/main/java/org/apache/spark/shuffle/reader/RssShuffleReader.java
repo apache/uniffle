@@ -20,6 +20,7 @@ package org.apache.spark.shuffle.reader;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -94,6 +95,9 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
   private Supplier<ShuffleManagerClient> managerClientSupplier;
   private ShuffleServerReadCostTracker shuffleServerReadCostTracker =
       new ShuffleServerReadCostTracker();
+
+  private boolean isShuffleReadFailed = false;
+  private Optional<String> shuffleReadReason = Optional.empty();
 
   public RssShuffleReader(
       int startPartition,
@@ -325,18 +329,25 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
 
     @Override
     public boolean hasNext() {
-      if (dataIterator == null) {
-        return false;
-      }
-      while (!dataIterator.hasNext()) {
-        if (!iterator.hasNext()) {
-          postShuffleReadMetricsToDriver();
+      try {
+        if (dataIterator == null) {
           return false;
         }
-        dataIterator = iterator.next();
-        iterator.remove();
+        while (!dataIterator.hasNext()) {
+          if (!iterator.hasNext()) {
+            postShuffleReadMetricsToDriver();
+            return false;
+          }
+          dataIterator = iterator.next();
+          iterator.remove();
+        }
+        return dataIterator.hasNext();
+      } catch (Exception e) {
+        isShuffleReadFailed = true;
+        shuffleReadReason = Optional.ofNullable(e.getMessage());
+        postShuffleReadMetricsToDriver();
+        throw e;
       }
-      return dataIterator.hasNext();
     }
 
     @Override
@@ -369,7 +380,9 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
                                         x.getValue().getLocalfileReadDurationMillis(),
                                         x.getValue().getLocalfileReadBytes(),
                                         x.getValue().getHadoopReadLocalFileDurationMillis(),
-                                        x.getValue().getHadoopReadLocalFileBytes())))));
+                                        x.getValue().getHadoopReadLocalFileBytes()))),
+                    isShuffleReadFailed,
+                    shuffleReadReason));
         if (response != null && response.getStatusCode() != StatusCode.SUCCESS) {
           LOG.error("Errors on reporting shuffle read metrics to driver");
         }

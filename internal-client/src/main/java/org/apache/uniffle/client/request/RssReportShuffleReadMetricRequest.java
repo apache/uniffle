@@ -18,6 +18,7 @@
 package org.apache.uniffle.client.request;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.apache.uniffle.proto.RssProtos;
@@ -27,13 +28,22 @@ public class RssReportShuffleReadMetricRequest {
   private int shuffleId;
   private long taskId;
   private Map<String, TaskShuffleReadMetric> metrics;
+  private boolean isShuffleReadFailed;
+  private Optional<String> shuffleReadReason;
 
   public RssReportShuffleReadMetricRequest(
-      int stageId, int shuffleId, long taskId, Map<String, TaskShuffleReadMetric> metrics) {
+      int stageId,
+      int shuffleId,
+      long taskId,
+      Map<String, TaskShuffleReadMetric> metrics,
+      boolean isShuffleReadFailed,
+      Optional<String> shuffleReadReason) {
     this.stageId = stageId;
     this.shuffleId = shuffleId;
     this.taskId = taskId;
     this.metrics = metrics;
+    this.isShuffleReadFailed = isShuffleReadFailed;
+    this.shuffleReadReason = shuffleReadReason;
   }
 
   public RssProtos.ReportShuffleReadMetricRequest toProto() {
@@ -44,6 +54,8 @@ public class RssReportShuffleReadMetricRequest {
         .setShuffleId(request.shuffleId)
         .setStageId(request.stageId)
         .setTaskId(request.taskId)
+        .setIsShuffleReadFailed(request.isShuffleReadFailed)
+        .setShuffleReadFailureReason(request.shuffleReadReason.orElse(""))
         .putAllMetrics(
             request.metrics.entrySet().stream()
                 .collect(
