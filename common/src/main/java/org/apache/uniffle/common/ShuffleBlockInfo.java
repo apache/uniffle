@@ -40,6 +40,8 @@ public class ShuffleBlockInfo {
 
   private transient BlockCompletionCallback completionCallback;
 
+  protected ShuffleBlockInfo() {}
+
   public ShuffleBlockInfo(
       int shuffleId,
       int partitionId,
