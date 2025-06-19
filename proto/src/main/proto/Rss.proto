@@ -638,8 +638,8 @@ message ReportShuffleReadMetricRequest {
   int32 stageId = 2;
   int64 taskId = 3;
   map<string, ShuffleReadMetric> metrics = 4;
-  bool isShuffleReadFailed = 6;
-  string shuffleReadFailureReason = 7;
+  bool isShuffleReadFailed = 5;
+  string shuffleReadFailureReason = 6;
 }
 
 message ReportShuffleReadMetricResponse {
