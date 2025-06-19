@@ -79,6 +79,7 @@ import org.apache.uniffle.client.request.RssReportShuffleWriteMetricRequest;
 import org.apache.uniffle.client.response.RssReassignOnBlockSendFailureResponse;
 import org.apache.uniffle.client.response.RssReportShuffleWriteFailureResponse;
 import org.apache.uniffle.client.response.RssReportShuffleWriteMetricResponse;
+import org.apache.uniffle.common.DeferredCompressedBlock;
 import org.apache.uniffle.common.ReceivingFailureServer;
 import org.apache.uniffle.common.ShuffleBlockInfo;
 import org.apache.uniffle.common.ShuffleServerInfo;
@@ -477,7 +478,7 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
                               shuffleServerInfo, k -> Maps.newHashMap());
                       pToBlockIds.computeIfAbsent(partitionId, v -> Sets.newHashSet()).add(blockId);
                     });
-            partitionLengths[partitionId] += sbi.getLength();
+            partitionLengths[partitionId] += getBlockLength(sbi);
           });
       return postBlockEvent(shuffleBlockInfoList);
     }
@@ -851,8 +852,15 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
                     .get(s)
                     .get(block.getPartitionId())
                     .remove(block.getBlockId()));
-    partitionLengths[block.getPartitionId()] -= block.getLength();
+    partitionLengths[block.getPartitionId()] -= getBlockLength(block);
     blockIds.remove(block.getBlockId());
+  }
+
+  private long getBlockLength(ShuffleBlockInfo block) {
+    if (block instanceof DeferredCompressedBlock) {
+      return block.getUncompressLength();
+    }
+    return block.getLength();
   }
 
   @VisibleForTesting
