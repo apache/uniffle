@@ -1050,7 +1050,7 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
           boolean serverHasReplaced = false;
 
           Set<ShuffleServerInfo> updatedReassignServers;
-          if (!partitionSplit) {
+          if (!partitionSplit && !internalHandle.isPartitionSplit(partitionId)) {
             Set<ShuffleServerInfo> replacements = internalHandle.getReplacements(serverId);
             if (CollectionUtils.isEmpty(replacements)) {
               replacements =
