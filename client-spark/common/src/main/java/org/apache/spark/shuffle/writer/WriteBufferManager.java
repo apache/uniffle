@@ -50,11 +50,14 @@ import org.slf4j.LoggerFactory;
 import org.apache.uniffle.client.common.ShuffleServerPushCostTracker;
 import org.apache.uniffle.common.ShuffleBlockInfo;
 import org.apache.uniffle.common.ShuffleServerInfo;
+import org.apache.uniffle.common.UncompressedShuffleBlockInfo;
 import org.apache.uniffle.common.compression.Codec;
 import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.util.BlockIdLayout;
 import org.apache.uniffle.common.util.ChecksumUtils;
+
+import static org.apache.spark.shuffle.RssSparkConfig.RSS_WRITE_OVERLAPPING_COMPRESSION_ENABLED;
 
 public class WriteBufferManager extends MemoryConsumer {
 
@@ -107,6 +110,7 @@ public class WriteBufferManager extends MemoryConsumer {
   private Function<Integer, List<ShuffleServerInfo>> partitionAssignmentRetrieveFunc;
   private int stageAttemptNumber;
   private ShuffleServerPushCostTracker shuffleServerPushCostTracker;
+  private boolean overlappingCompressionEnabled;
 
   public WriteBufferManager(
       int shuffleId,
@@ -182,6 +186,8 @@ public class WriteBufferManager extends MemoryConsumer {
     this.requireMemoryInterval = bufferManagerOptions.getRequireMemoryInterval();
     this.requireMemoryRetryMax = bufferManagerOptions.getRequireMemoryRetryMax();
     this.arrayOutputStream = new WrappedByteArrayOutputStream(serializerBufferSize);
+    this.overlappingCompressionEnabled =
+        rssConf.getBoolean(RSS_WRITE_OVERLAPPING_COMPRESSION_ENABLED);
     // in columnar shuffle, the serializer here is never used
     this.isRowBased = rssConf.getBoolean(RssSparkConfig.RSS_ROW_BASED);
     if (isRowBased) {
@@ -419,8 +425,55 @@ public class WriteBufferManager extends MemoryConsumer {
     return result;
   }
 
+  protected ShuffleBlockInfo createUncompressedShuffleBlock(
+      int partitionId, WriterBuffer writerBuffer) {
+    byte[] data = writerBuffer.getData();
+    final int uncompressLength = data.length;
+    final int memoryUsed = writerBuffer.getMemoryUsed();
+
+    this.blockCounter.incrementAndGet();
+    this.uncompressedDataLen += uncompressLength;
+    this.inSendListBytes.addAndGet(memoryUsed);
+
+    final long blockId =
+        blockIdLayout.getBlockId(getNextSeqNo(partitionId), partitionId, taskAttemptId);
+
+    Function<UncompressedShuffleBlockInfo, ShuffleBlockInfo> compressedFunc =
+        uncompressedShuffleBlockInfo -> {
+          byte[] compressed = data;
+          if (codec.isPresent()) {
+            long start = System.currentTimeMillis();
+            compressed = codec.get().compress(data);
+            this.compressTime += System.currentTimeMillis() - start;
+          }
+          this.compressedDataLen += compressed.length;
+          this.shuffleWriteMetrics.incBytesWritten(compressed.length);
+          final long crc32 = ChecksumUtils.getCrc32(compressed);
+
+          ShuffleBlockInfo blockInfo =
+              new ShuffleBlockInfo(
+                  shuffleId,
+                  partitionId,
+                  blockId,
+                  compressed.length,
+                  crc32,
+                  compressed,
+                  partitionAssignmentRetrieveFunc.apply(partitionId),
+                  uncompressLength,
+                  memoryUsed,
+                  taskAttemptId);
+          return blockInfo;
+        };
+
+    return new UncompressedShuffleBlockInfo(compressedFunc);
+  }
+
   // transform records to shuffleBlock
   protected ShuffleBlockInfo createShuffleBlock(int partitionId, WriterBuffer wb) {
+    if (overlappingCompressionEnabled) {
+      return createUncompressedShuffleBlock(partitionId, wb);
+    }
+
     byte[] data = wb.getData();
     final int uncompressLength = data.length;
     byte[] compressed = data;

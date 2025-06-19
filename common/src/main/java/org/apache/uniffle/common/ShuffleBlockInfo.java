@@ -69,6 +69,8 @@ public class ShuffleBlockInfo {
     this.partitionAssignmentRetrieveFunc = partitionAssignmentRetrieveFunc;
   }
 
+  protected ShuffleBlockInfo() {}
+
   public ShuffleBlockInfo(
       int shuffleId,
       int partitionId,
