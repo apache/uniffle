@@ -57,4 +57,12 @@ public class TaskShuffleReadInfoEvent extends UniffleEvent {
   public Map<String, ShuffleReadMetric> getMetrics() {
     return metrics;
   }
+
+  public boolean isShuffleReadFailed() {
+    return isShuffleReadFailed;
+  }
+
+  public String getFailureReason() {
+    return failureReason;
+  }
 }
