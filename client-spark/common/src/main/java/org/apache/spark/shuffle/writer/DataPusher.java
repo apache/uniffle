@@ -32,6 +32,7 @@ import java.util.concurrent.TimeUnit;
 
 import com.google.common.collect.Queues;
 import com.google.common.collect.Sets;
+import org.apache.commons.collections4.CollectionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -95,6 +96,9 @@ public class DataPusher implements Closeable {
               // filter out the shuffle blocks with stale assignment
               List<ShuffleBlockInfo> validBlocks =
                   filterOutStaleAssignmentBlocks(taskId, shuffleBlockInfoList);
+              if (CollectionUtils.isEmpty(validBlocks)) {
+                return 0L;
+              }
 
               SendShuffleDataResult result = null;
               try {

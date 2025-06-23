@@ -19,12 +19,40 @@ package org.apache.uniffle.common;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Function;
 
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ShuffleBlockInfoTest {
+
+  @Test
+  public void testStaleAssignment() throws Exception {
+    List<ShuffleServerInfo> servers =
+        Collections.singletonList(new ShuffleServerInfo("0", "localhost", 1234));
+    ShuffleBlockInfo blockInfo =
+        new ShuffleBlockInfo(1, 2, 3, 4, 5, new byte[1], servers, 9, 1, 9, null);
+    // case1: null partition assignment function, it should always be false.
+    assertFalse(blockInfo.isStaleAssignment());
+
+    // case2: stale assignment
+    Function<Integer, List<ShuffleServerInfo>> partitionAssignmentRetrieveFunc =
+        integer -> Collections.singletonList(new ShuffleServerInfo("1", "localhost", 1234));
+    blockInfo =
+        new ShuffleBlockInfo(
+            1, 2, 3, 4, 5, new byte[1], servers, 9, 1, 9, partitionAssignmentRetrieveFunc);
+    assertTrue(blockInfo.isStaleAssignment());
+
+    // case3: same assignment
+    partitionAssignmentRetrieveFunc = integer -> servers;
+    blockInfo =
+        new ShuffleBlockInfo(
+            1, 2, 3, 4, 5, new byte[1], servers, 9, 1, 9, partitionAssignmentRetrieveFunc);
+    assertFalse(blockInfo.isStaleAssignment());
+  }
 
   @Test
   public void testToString() {

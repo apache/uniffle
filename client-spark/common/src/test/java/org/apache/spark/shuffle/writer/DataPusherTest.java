@@ -18,6 +18,7 @@
 package org.apache.spark.shuffle.writer;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -86,6 +87,40 @@ public class DataPusherTest {
     public void setFakedShuffleDataResult(SendShuffleDataResult fakedShuffleDataResult) {
       this.fakedShuffleDataResult = fakedShuffleDataResult;
     }
+  }
+
+  @Test
+  public void testFilterOutStaleAssignmentBlocks() {
+    FakedShuffleWriteClient shuffleWriteClient = new FakedShuffleWriteClient();
+
+    Map<String, Set<Long>> taskToSuccessBlockIds = Maps.newConcurrentMap();
+    Map<String, FailedBlockSendTracker> taskToFailedBlockSendTracker = JavaUtils.newConcurrentMap();
+    Set<String> failedTaskIds = new HashSet<>();
+
+    DataPusher dataPusher =
+        new DataPusher(
+            shuffleWriteClient,
+            taskToSuccessBlockIds,
+            taskToFailedBlockSendTracker,
+            failedTaskIds,
+            1,
+            2);
+    dataPusher.setRssAppId("testFilterOutStaleAssignmentBlocks");
+
+    String taskId = "taskId1";
+    List<ShuffleServerInfo> server1 =
+        Collections.singletonList(new ShuffleServerInfo("0", "localhost", 1234));
+    ShuffleBlockInfo staleBlock1 =
+        new ShuffleBlockInfo(
+            1, 1, 3, 1, 1, new byte[1], server1, 1, 100, 1, integer -> Collections.emptyList());
+
+    // case1: will fast fail due to the stale assignment
+    AddBlockEvent event = new AddBlockEvent(taskId, Arrays.asList(staleBlock1));
+    CompletableFuture<Long> f1 = dataPusher.send(event);
+    assertEquals(f1.join(), 0);
+    Set<Long> failedBlockIds = taskToFailedBlockSendTracker.get(taskId).getFailedBlockIds();
+    assertEquals(1, failedBlockIds.size());
+    assertEquals(3, failedBlockIds.stream().findFirst().get());
   }
 
   @Test
