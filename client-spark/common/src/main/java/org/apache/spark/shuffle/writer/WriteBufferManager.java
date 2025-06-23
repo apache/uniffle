@@ -448,7 +448,8 @@ public class WriteBufferManager extends MemoryConsumer {
         partitionAssignmentRetrieveFunc.apply(partitionId),
         uncompressLength,
         wb.getMemoryUsed(),
-        taskAttemptId);
+        taskAttemptId,
+        partitionAssignmentRetrieveFunc);
   }
 
   // it's run in single thread, and is not thread safe

@@ -18,6 +18,7 @@
 package org.apache.uniffle.common;
 
 import java.util.List;
+import java.util.function.Function;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -39,6 +40,34 @@ public class ShuffleBlockInfo {
   private int retryCnt = 0;
 
   private transient BlockCompletionCallback completionCallback;
+
+  private Function<Integer, List<ShuffleServerInfo>> partitionAssignmentRetrieveFunc;
+
+  public ShuffleBlockInfo(
+      int shuffleId,
+      int partitionId,
+      long blockId,
+      int length,
+      long crc,
+      byte[] data,
+      List<ShuffleServerInfo> shuffleServerInfos,
+      int uncompressLength,
+      long freeMemory,
+      long taskAttemptId,
+      Function<Integer, List<ShuffleServerInfo>> partitionAssignmentRetrieveFunc) {
+    this(
+        shuffleId,
+        partitionId,
+        blockId,
+        length,
+        crc,
+        data,
+        shuffleServerInfos,
+        uncompressLength,
+        freeMemory,
+        taskAttemptId);
+    this.partitionAssignmentRetrieveFunc = partitionAssignmentRetrieveFunc;
+  }
 
   public ShuffleBlockInfo(
       int shuffleId,
@@ -181,5 +210,24 @@ public class ShuffleBlockInfo {
       return;
     }
     completionCallback.onBlockCompletion(this, isSuccessful);
+  }
+
+  public boolean isStaleAssignment() {
+    if (partitionAssignmentRetrieveFunc == null) {
+      return false;
+    }
+    List<ShuffleServerInfo> latestAssignment = partitionAssignmentRetrieveFunc.apply(partitionId);
+    if (latestAssignment == null || shuffleServerInfos == null) {
+      return false;
+    }
+    if (latestAssignment.size() != shuffleServerInfos.size()) {
+      return true;
+    }
+    for (int i = 0; i < latestAssignment.size(); i++) {
+      if (!latestAssignment.get(i).getId().equals(shuffleServerInfos.get(i).getId())) {
+        return true;
+      }
+    }
+    return false;
   }
 }

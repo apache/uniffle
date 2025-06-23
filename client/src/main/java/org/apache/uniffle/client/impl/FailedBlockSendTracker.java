@@ -119,4 +119,11 @@ public class FailedBlockSendTracker {
     trackingNeedSplitPartitionStatusQueue.drainTo(trackingPartitionStatusList);
     return trackingPartitionStatusList;
   }
+
+  public boolean isEmpty() {
+    if (trackingBlockStatusMap.isEmpty() && trackingNeedSplitPartitionStatusQueue.isEmpty()) {
+      return true;
+    }
+    return false;
+  }
 }
