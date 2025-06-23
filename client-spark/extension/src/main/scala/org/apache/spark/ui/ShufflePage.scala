@@ -417,7 +417,7 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
   }
 
   private def roundToTwoDecimals(value: Double): Double = {
-    if (value.isNaN || value.isInfinity) {
+    if (value == null || value.isNaN || value.isInfinity) {
       0.0
     } else {
       BigDecimal(value).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
