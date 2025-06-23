@@ -417,7 +417,11 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
   }
 
   private def roundToTwoDecimals(value: Double): Double = {
-    BigDecimal(value).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
+    if (value.isNaN || value.isInfinity) {
+      0.0
+    } else {
+      BigDecimal(value).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
+    }
   }
 
   private def unionByServerId(write: ConcurrentHashMap[String, AggregatedShuffleWriteMetric],
