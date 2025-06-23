@@ -91,7 +91,7 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
     Seq(writeSpeedRow, writeServerIdRow, readSpeedRow, readServerIdRow).flatten
   }
 
-  override def render(request: HttpServletRequest): Seq[Node] = {
+  def doRender(request: HttpServletRequest): Seq[Node] = {
     val originWriteMetric = runtimeStatusStore.aggregatedShuffleWriteMetrics()
     val originReadMetric = runtimeStatusStore.aggregatedShuffleReadMetrics()
 
@@ -400,6 +400,21 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
     }
 
     UIUtils.headerSparkPage(request, "Uniffle", summary, parent)
+  }
+
+  override def render(request: HttpServletRequest): Seq[Node] = {
+    try {
+      doRender(request)
+    } catch {
+      case e: Exception =>
+        logError("Error rendering ShufflePage", e)
+
+        val sw = new java.io.StringWriter()
+        e.printStackTrace(new java.io.PrintWriter(sw))
+        val stackTrace = sw.toString
+
+        UIUtils.headerSparkPage(request, "Uniffle Error", <pre>{stackTrace}</pre>, parent)
+    }
   }
 
   private def calculateSpeed(metrics: Seq[AggregatedShuffleMetric]): Double = {
