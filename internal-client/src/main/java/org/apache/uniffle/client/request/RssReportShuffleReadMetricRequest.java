@@ -54,7 +54,7 @@ public class RssReportShuffleReadMetricRequest {
         .setShuffleId(request.shuffleId)
         .setStageId(request.stageId)
         .setTaskId(request.taskId)
-        .setIsShuffleReadFailed(request.isShuffleReadFailed)
+        .setIsTaskReadFailed(request.isShuffleReadFailed)
         .setShuffleReadFailureReason(request.shuffleReadReason.orElse(""))
         .putAllMetrics(
             request.metrics.entrySet().stream()

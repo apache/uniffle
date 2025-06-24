@@ -59,7 +59,7 @@ public class RssReportShuffleWriteMetricRequest {
         .setStageId(request.stageId)
         .setTaskId(request.taskId)
         .setShuffleWriteTimes(writeTimes.toProto())
-        .setIsShuffleWriteFailed(isShuffleWriteFailed)
+        .setIsTaskWriteFailed(isShuffleWriteFailed)
         .setShuffleWriteFailureReason(shuffleWriteFailureReason.orElse(""))
         .putAllMetrics(
             request.metrics.entrySet().stream()

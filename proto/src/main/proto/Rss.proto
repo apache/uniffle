@@ -591,7 +591,7 @@ message ReportShuffleWriteMetricRequest {
   int64 taskId = 3;
   map<string, ShuffleWriteMetric> metrics = 4;
   ShuffleWriteTimes shuffleWriteTimes = 5;
-  bool isShuffleWriteFailed = 6;
+  bool isTaskWriteFailed = 6;
   string shuffleWriteFailureReason = 7;
 }
 
@@ -638,7 +638,7 @@ message ReportShuffleReadMetricRequest {
   int32 stageId = 2;
   int64 taskId = 3;
   map<string, ShuffleReadMetric> metrics = 4;
-  bool isShuffleReadFailed = 5;
+  bool isTaskReadFailed = 5;
   string shuffleReadFailureReason = 6;
 }
 

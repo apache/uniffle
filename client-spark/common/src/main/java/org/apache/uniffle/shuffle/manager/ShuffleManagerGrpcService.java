@@ -732,7 +732,7 @@ public class ShuffleManagerGrpcService extends ShuffleManagerImplBase {
                     Collectors.toMap(
                         Map.Entry::getKey, x -> ShuffleWriteMetric.from(x.getValue()))),
             ShuffleWriteTimes.fromProto(request.getShuffleWriteTimes()),
-            request.getIsShuffleWriteFailed(),
+            request.getIsTaskWriteFailed(),
             request.getShuffleWriteFailureReason());
     RssSparkShuffleUtils.getActiveSparkContext().listenerBus().post(event);
     RssProtos.ReportShuffleWriteMetricResponse reply =
@@ -766,7 +766,7 @@ public class ShuffleManagerGrpcService extends ShuffleManagerImplBase {
                                 x.getValue().getLocalfileByteSize(),
                                 x.getValue().getHadoopDurationMillis(),
                                 x.getValue().getHadoopByteSize()))),
-            request.getIsShuffleReadFailed(),
+            request.getIsTaskReadFailed(),
             request.getShuffleReadFailureReason());
     RssSparkShuffleUtils.getActiveSparkContext().listenerBus().post(event);
     RssProtos.ReportShuffleReadMetricResponse reply =
