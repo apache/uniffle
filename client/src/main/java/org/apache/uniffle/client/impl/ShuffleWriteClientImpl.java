@@ -99,6 +99,8 @@ import org.apache.uniffle.common.util.JavaUtils;
 import org.apache.uniffle.common.util.ThreadUtils;
 import org.apache.uniffle.proto.RssProtos.MergeContext;
 
+import static org.apache.uniffle.common.config.RssClientConf.RSS_CLIENT_REASSIGN_ENABLED;
+
 public class ShuffleWriteClientImpl implements ShuffleWriteClient {
 
   private static final Logger LOG = LoggerFactory.getLogger(ShuffleWriteClientImpl.class);
@@ -125,6 +127,7 @@ public class ShuffleWriteClientImpl implements ShuffleWriteClient {
   private Set<ShuffleServerInfo> defectiveServers;
   private RssConf rssConf;
   private BlockIdLayout blockIdLayout;
+  private final boolean partitionReassignEnabled;
 
   public ShuffleWriteClientImpl(ShuffleClientFactory.WriteClientBuilder builder) {
     // set default value
@@ -163,6 +166,7 @@ public class ShuffleWriteClientImpl implements ShuffleWriteClient {
     }
     this.rssConf = builder.getRssConf();
     this.blockIdLayout = BlockIdLayout.from(rssConf);
+    this.partitionReassignEnabled = rssConf.get(RSS_CLIENT_REASSIGN_ENABLED);
   }
 
   private boolean sendShuffleDataAsync(
@@ -443,6 +447,9 @@ public class ShuffleWriteClientImpl implements ShuffleWriteClient {
     ShuffleServerPushCostTracker shuffleServerPushCostTracker = new ShuffleServerPushCostTracker();
 
     // sent the primary round of blocks.
+    // if the partition reassignment is disabled and the mechanism of multiple replicas is disabled,
+    // this will fast fail on any data pushing failure.
+    boolean isFastFailOnAnyFailure = !partitionReassignEnabled && secondaryServerToBlocks.isEmpty();
     boolean isAllSuccess =
         sendShuffleDataAsync(
             appId,
@@ -451,7 +458,7 @@ public class ShuffleWriteClientImpl implements ShuffleWriteClient {
             primaryServerToBlockIds,
             blockIdsSendSuccessTracker,
             blockIdsSendFailTracker,
-            secondaryServerToBlocks.isEmpty(),
+            isFastFailOnAnyFailure,
             needCancelRequest,
             shuffleServerPushCostTracker);
 
