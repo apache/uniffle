@@ -26,22 +26,20 @@ import io.netty.buffer.Unpooled;
 import org.apache.uniffle.common.util.ByteBufUtils;
 
 public class ShuffleBlockInfo {
-
   private int partitionId;
   private long blockId;
-  private int length;
   private int shuffleId;
-  private long crc;
   private long taskAttemptId;
-  private ByteBuf data;
   private List<ShuffleServerInfo> shuffleServerInfos;
   private int uncompressLength;
   private long freeMemory;
   private int retryCnt = 0;
-
   private transient BlockCompletionCallback completionCallback;
-
   private Function<Integer, List<ShuffleServerInfo>> partitionAssignmentRetrieveFunc;
+
+  protected int length;
+  protected long crc;
+  protected ByteBuf data;
 
   public ShuffleBlockInfo(
       int shuffleId,
@@ -69,7 +67,24 @@ public class ShuffleBlockInfo {
     this.partitionAssignmentRetrieveFunc = partitionAssignmentRetrieveFunc;
   }
 
-  protected ShuffleBlockInfo() {}
+  protected ShuffleBlockInfo(
+      int shuffleId,
+      int partitionId,
+      long blockId,
+      List<ShuffleServerInfo> shuffleServerInfos,
+      int uncompressLength,
+      long freeMemory,
+      long taskAttemptId,
+      Function<Integer, List<ShuffleServerInfo>> partitionAssignmentRetrieveFunc) {
+    this.shuffleId = shuffleId;
+    this.partitionId = partitionId;
+    this.blockId = blockId;
+    this.shuffleServerInfos = shuffleServerInfos;
+    this.uncompressLength = uncompressLength;
+    this.freeMemory = freeMemory;
+    this.taskAttemptId = taskAttemptId;
+    this.partitionAssignmentRetrieveFunc = partitionAssignmentRetrieveFunc;
+  }
 
   public ShuffleBlockInfo(
       int shuffleId,

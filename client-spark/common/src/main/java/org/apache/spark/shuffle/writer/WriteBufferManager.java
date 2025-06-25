@@ -48,9 +48,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.uniffle.client.common.ShuffleServerPushCostTracker;
+import org.apache.uniffle.common.DeferredCompressedBlock;
 import org.apache.uniffle.common.ShuffleBlockInfo;
 import org.apache.uniffle.common.ShuffleServerInfo;
-import org.apache.uniffle.common.UncompressedShuffleBlockInfo;
 import org.apache.uniffle.common.compression.Codec;
 import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.exception.RssException;
@@ -425,7 +425,7 @@ public class WriteBufferManager extends MemoryConsumer {
     return result;
   }
 
-  protected ShuffleBlockInfo createUncompressedShuffleBlock(
+  protected ShuffleBlockInfo createDeferredCompressedBlock(
       int partitionId, WriterBuffer writerBuffer) {
     byte[] data = writerBuffer.getData();
     final int uncompressLength = data.length;
@@ -438,8 +438,8 @@ public class WriteBufferManager extends MemoryConsumer {
     final long blockId =
         blockIdLayout.getBlockId(getNextSeqNo(partitionId), partitionId, taskAttemptId);
 
-    Function<UncompressedShuffleBlockInfo, ShuffleBlockInfo> compressedFunc =
-        uncompressedShuffleBlockInfo -> {
+    Function<DeferredCompressedBlock, DeferredCompressedBlock> rebuildFunction =
+        block -> {
           byte[] compressed = data;
           if (codec.isPresent()) {
             long start = System.currentTimeMillis();
@@ -450,28 +450,26 @@ public class WriteBufferManager extends MemoryConsumer {
           this.shuffleWriteMetrics.incBytesWritten(compressed.length);
           final long crc32 = ChecksumUtils.getCrc32(compressed);
 
-          ShuffleBlockInfo blockInfo =
-              new ShuffleBlockInfo(
-                  shuffleId,
-                  partitionId,
-                  blockId,
-                  compressed.length,
-                  crc32,
-                  compressed,
-                  partitionAssignmentRetrieveFunc.apply(partitionId),
-                  uncompressLength,
-                  memoryUsed,
-                  taskAttemptId);
-          return blockInfo;
+          block.reset(compressed, compressed.length, crc32);
+          return block;
         };
 
-    return new UncompressedShuffleBlockInfo(compressedFunc);
+    return new DeferredCompressedBlock(
+        shuffleId,
+        partitionId,
+        blockId,
+        partitionAssignmentRetrieveFunc.apply(partitionId),
+        uncompressLength,
+        memoryUsed,
+        taskAttemptId,
+        partitionAssignmentRetrieveFunc,
+        rebuildFunction);
   }
 
   // transform records to shuffleBlock
   protected ShuffleBlockInfo createShuffleBlock(int partitionId, WriterBuffer wb) {
     if (overlappingCompressionEnabled) {
-      return createUncompressedShuffleBlock(partitionId, wb);
+      return createDeferredCompressedBlock(partitionId, wb);
     }
 
     byte[] data = wb.getData();
