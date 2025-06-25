@@ -454,6 +454,11 @@ public class WriteBufferManager extends MemoryConsumer {
           return block;
         };
 
+    int estimatedCompressedSize = data.length;
+    if (codec.isPresent()) {
+      estimatedCompressedSize = codec.get().maxCompressedLength(data.length);
+    }
+
     return new DeferredCompressedBlock(
         shuffleId,
         partitionId,
@@ -463,7 +468,8 @@ public class WriteBufferManager extends MemoryConsumer {
         memoryUsed,
         taskAttemptId,
         partitionAssignmentRetrieveFunc,
-        rebuildFunction);
+        rebuildFunction,
+        estimatedCompressedSize);
   }
 
   // transform records to shuffleBlock
@@ -566,13 +572,20 @@ public class WriteBufferManager extends MemoryConsumer {
     block.getData().release();
   }
 
+  private int getBlockLayoutLength(ShuffleBlockInfo block) {
+    if (block instanceof DeferredCompressedBlock) {
+      return ((DeferredCompressedBlock) block).getEstimatedLayoutSize();
+    }
+    return block.getSize();
+  }
+
   public List<AddBlockEvent> buildBlockEvents(List<ShuffleBlockInfo> shuffleBlockInfoList) {
     long totalSize = 0;
     List<AddBlockEvent> events = new ArrayList<>();
     List<ShuffleBlockInfo> shuffleBlockInfosPerEvent = Lists.newArrayList();
     for (ShuffleBlockInfo sbi : shuffleBlockInfoList) {
       sbi.withCompletionCallback((block, isSuccessful) -> this.releaseBlockResource(block));
-      totalSize += sbi.getSize();
+      totalSize += getBlockLayoutLength(sbi);
       shuffleBlockInfosPerEvent.add(sbi);
       // split shuffle data according to the size
       if (totalSize > sendSizeLimit) {

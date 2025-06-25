@@ -30,6 +30,7 @@ import io.netty.buffer.Unpooled;
  */
 public class DeferredCompressedBlock extends ShuffleBlockInfo {
   private final Function<DeferredCompressedBlock, DeferredCompressedBlock> rebuildFunction;
+  private int estimatedCompressedSize;
   private boolean isInitialized = false;
 
   public DeferredCompressedBlock(
@@ -41,7 +42,8 @@ public class DeferredCompressedBlock extends ShuffleBlockInfo {
       long freeMemory,
       long taskAttemptId,
       Function<Integer, List<ShuffleServerInfo>> partitionAssignmentRetrieveFunc,
-      Function<DeferredCompressedBlock, DeferredCompressedBlock> rebuildFunction) {
+      Function<DeferredCompressedBlock, DeferredCompressedBlock> rebuildFunction,
+      int estimatedCompressedSize) {
     super(
         shuffleId,
         partitionId,
@@ -52,6 +54,7 @@ public class DeferredCompressedBlock extends ShuffleBlockInfo {
         taskAttemptId,
         partitionAssignmentRetrieveFunc);
     this.rebuildFunction = rebuildFunction;
+    this.estimatedCompressedSize = estimatedCompressedSize;
   }
 
   public void reset(byte[] data, int length, long crc) {
@@ -67,26 +70,35 @@ public class DeferredCompressedBlock extends ShuffleBlockInfo {
     }
   }
 
+  public int getEstimatedLayoutSize() {
+    return estimatedCompressedSize + 3 * 8 + 2 * 4;
+  }
+
+  @Override
   public int getLength() {
     initialize();
     return super.getLength();
   }
 
+  @Override
   public int getSize() {
     initialize();
     return super.getSize();
   }
 
+  @Override
   public long getCrc() {
     initialize();
     return super.getCrc();
   }
 
+  @Override
   public ByteBuf getData() {
     initialize();
     return super.getData();
   }
 
+  @Override
   public synchronized void copyDataTo(ByteBuf to) {
     initialize();
     super.copyDataTo(to);
