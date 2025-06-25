@@ -381,7 +381,7 @@ public class WriteBufferManager extends MemoryConsumer {
       partitionList.sort(
           Comparator.comparingInt(o -> buffers.get(o) == null ? 0 : buffers.get(o).getMemoryUsed())
               .reversed());
-      sortTime += start;
+      sortTime += System.currentTimeMillis() - start;
       targetSpillSize = (long) ((getUsedBytes() - getInSendListBytes()) * bufferSpillRatio);
     }
 

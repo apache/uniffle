@@ -80,6 +80,5 @@ public class ShuffleWriteTimes {
     sort += times.getSort();
     requireMemory += times.getRequireMemory();
     waitFinish += times.getWaitFinish();
-    total += times.getTotal();
   }
 }
