@@ -383,7 +383,7 @@ public class ShuffleBufferManager {
     }
     // When we use multi storage and trigger single buffer flush, the buffer size should be bigger
     // than rss.server.flush.cold.storage.threshold.size, otherwise cold storage will be useless.
-    synchronized (this) {
+    synchronized (buffer) {
       if (buffer.getEncodedLength() > this.bufferFlushThreshold
           || buffer.getBlockCount() > bufferFlushBlocksNumThreshold) {
         if (LOG.isDebugEnabled()) {
