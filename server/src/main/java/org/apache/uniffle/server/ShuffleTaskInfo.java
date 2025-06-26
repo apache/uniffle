@@ -243,9 +243,11 @@ public class ShuffleTaskInfo {
   }
 
   public boolean isHugePartition(int shuffleId, int partitionId) {
-    return existHugePartition.get()
-        && hugePartitionTags.containsKey(shuffleId)
-        && hugePartitionTags.get(shuffleId).contains(partitionId);
+    if (!existHugePartition.get()) {
+      return false;
+    }
+    Set<Integer> partitions = hugePartitionTags.get(shuffleId);
+    return partitions != null && partitions.contains(partitionId);
   }
 
   public Set<Integer> getShuffleIds() {

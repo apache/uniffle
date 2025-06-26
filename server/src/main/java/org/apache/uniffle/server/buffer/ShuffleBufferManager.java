@@ -303,15 +303,13 @@ public class ShuffleBufferManager {
         shuffleId,
         spd.getPartitionId());
     updateShuffleSize(appId, shuffleId, size);
-    synchronized (this) {
-      flushSingleBufferIfNecessary(
-          buffer,
-          appId,
-          shuffleId,
-          spd.getPartitionId(),
-          entry.getKey().lowerEndpoint(),
-          entry.getKey().upperEndpoint());
-    }
+    flushSingleBufferIfNecessary(
+        buffer,
+        appId,
+        shuffleId,
+        spd.getPartitionId(),
+        entry.getKey().lowerEndpoint(),
+        entry.getKey().upperEndpoint());
     if (bufferFlushWhenCachingData && needToFlush()) {
       flushIfNecessary();
     }
@@ -374,24 +372,32 @@ public class ShuffleBufferManager {
       int partitionId,
       int startPartition,
       int endPartition) {
+    if (!(buffer.getEncodedLength() > this.bufferFlushThreshold
+        || buffer.getBlockCount() > bufferFlushBlocksNumThreshold)) {
+      return;
+    }
     boolean isHugePartition =
         HugePartitionUtils.isHugePartition(shuffleTaskManager, appId, shuffleId, partitionId);
+    if (!(isHugePartition || this.bufferFlushEnabled)) {
+      return;
+    }
     // When we use multi storage and trigger single buffer flush, the buffer size should be bigger
     // than rss.server.flush.cold.storage.threshold.size, otherwise cold storage will be useless.
-    if ((isHugePartition || this.bufferFlushEnabled)
-        && (buffer.getEncodedLength() > this.bufferFlushThreshold
-            || buffer.getBlockCount() > bufferFlushBlocksNumThreshold)) {
-      if (LOG.isDebugEnabled()) {
-        LOG.debug(
-            "Start to flush single buffer. Details - shuffleId:{}, startPartition:{}, endPartition:{}, isHugePartition:{}, bufferSize:{}, blocksNum:{}",
-            shuffleId,
-            startPartition,
-            endPartition,
-            isHugePartition,
-            buffer.getEncodedLength(),
-            buffer.getBlockCount());
+    synchronized (this) {
+      if (buffer.getEncodedLength() > this.bufferFlushThreshold
+          || buffer.getBlockCount() > bufferFlushBlocksNumThreshold) {
+        if (LOG.isDebugEnabled()) {
+          LOG.debug(
+              "Start to flush single buffer. Details - shuffleId:{}, startPartition:{}, endPartition:{}, isHugePartition:{}, bufferSize:{}, blocksNum:{}",
+              shuffleId,
+              startPartition,
+              endPartition,
+              isHugePartition,
+              buffer.getEncodedLength(),
+              buffer.getBlockCount());
+        }
+        flushBuffer(buffer, appId, shuffleId, startPartition, endPartition, isHugePartition);
       }
-      flushBuffer(buffer, appId, shuffleId, startPartition, endPartition, isHugePartition);
     }
   }
 

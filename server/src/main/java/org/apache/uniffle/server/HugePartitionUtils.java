@@ -52,9 +52,11 @@ public class HugePartitionUtils {
    */
   public static boolean isHugePartition(
       ShuffleTaskManager shuffleTaskManager, String appId, int shuffleId, int partitionId) {
-    return shuffleTaskManager != null
-        && shuffleTaskManager.getShuffleTaskInfo(appId) != null
-        && shuffleTaskManager.getShuffleTaskInfo(appId).isHugePartition(shuffleId, partitionId);
+    if (shuffleTaskManager == null) {
+      return false;
+    }
+    ShuffleTaskInfo taskInfo = shuffleTaskManager.getShuffleTaskInfo(appId);
+    return taskInfo != null && taskInfo.isHugePartition(shuffleId, partitionId);
   }
 
   /**
