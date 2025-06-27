@@ -29,6 +29,7 @@ public class StatisticsCodec extends Codec {
   private static final Logger LOGGER = LoggerFactory.getLogger(StatisticsCodec.class);
 
   private final Codec codec;
+  // todo: decompression could be involved in cost tracking.
   private List<CodecCost> compressCosts;
 
   StatisticsCodec(Codec codec) {
