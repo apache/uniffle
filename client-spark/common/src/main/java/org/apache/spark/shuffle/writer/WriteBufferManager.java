@@ -51,7 +51,7 @@ import org.apache.uniffle.client.common.ShuffleServerPushCostTracker;
 import org.apache.uniffle.common.ShuffleBlockInfo;
 import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.compression.Codec;
-import org.apache.uniffle.common.compression.CodecStatisticsDelegator;
+import org.apache.uniffle.common.compression.StatisticsCodec;
 import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.util.BlockIdLayout;
@@ -724,8 +724,8 @@ public class WriteBufferManager extends MemoryConsumer {
     try {
       if (codec.isPresent()) {
         Codec internalCodec = codec.get();
-        if (internalCodec instanceof CodecStatisticsDelegator) {
-          ((CodecStatisticsDelegator) internalCodec).statistics();
+        if (internalCodec instanceof StatisticsCodec) {
+          ((StatisticsCodec) internalCodec).statistics();
         }
       }
     } catch (Exception e) {

@@ -25,13 +25,13 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class CodecStatisticsDelegator extends Codec {
-  private static final Logger LOGGER = LoggerFactory.getLogger(CodecStatisticsDelegator.class);
+public class StatisticsCodec extends Codec {
+  private static final Logger LOGGER = LoggerFactory.getLogger(StatisticsCodec.class);
 
   private final Codec codec;
   private List<CodecCost> compressCosts;
 
-  public CodecStatisticsDelegator(Codec codec) {
+  StatisticsCodec(Codec codec) {
     this.codec = codec;
     this.compressCosts = new ArrayList<>();
   }

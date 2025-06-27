@@ -30,7 +30,7 @@ public abstract class Codec {
   public static Optional<Codec> create(RssConf rssConf) {
     Optional<Codec> codec = newInstance(rssConf);
     if (codec.isPresent() && rssConf.getBoolean(COMPRESSION_STATISTICS_ENABLED)) {
-      return Optional.of(new CodecStatisticsDelegator(codec.get()));
+      return Optional.of(new StatisticsCodec(codec.get()));
     }
     return codec;
   }
