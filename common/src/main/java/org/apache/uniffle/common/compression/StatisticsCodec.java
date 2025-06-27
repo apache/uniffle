@@ -95,7 +95,7 @@ public class StatisticsCodec extends Codec {
     private int targetByteSize;
     private long duration;
 
-    public CodecCost(int sourceByteSize, int targetByteSize, long duration) {
+    CodecCost(int sourceByteSize, int targetByteSize, long duration) {
       this.sourceByteSize = sourceByteSize;
       this.targetByteSize = targetByteSize;
       this.duration = duration;
