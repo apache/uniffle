@@ -152,6 +152,8 @@ public class ShuffleServerGrpcClient extends GrpcClient implements ShuffleServer
           StatusCode.INTERNAL_NOT_RETRY_ERROR,
           StatusCode.EXCEED_HUGE_PARTITION_HARD_LIMIT);
 
+  private ShuffleServerInfo serverInfo;
+
   @VisibleForTesting
   public ShuffleServerGrpcClient(String host, int port) {
     this(
@@ -164,6 +166,11 @@ public class ShuffleServerGrpcClient extends GrpcClient implements ShuffleServer
         0,
         0,
         -1);
+  }
+
+  public ShuffleServerGrpcClient(RssConf rssConf, ShuffleServerInfo rssServerInfo) {
+    this(rssConf, rssServerInfo.getHost(), rssServerInfo.getGrpcPort());
+    this.serverInfo = rssServerInfo;
   }
 
   public ShuffleServerGrpcClient(RssConf rssConf, String host, int port) {
@@ -1271,7 +1278,8 @@ public class ShuffleServerGrpcClient extends GrpcClient implements ShuffleServer
 
   @Override
   public ClientInfo getClientInfo() {
-    return new ClientInfo(ClientType.GRPC, new ShuffleServerInfo(host, port));
+    return new ClientInfo(
+        ClientType.GRPC, serverInfo == null ? new ShuffleServerInfo(host, port) : serverInfo);
   }
 
   protected void waitOrThrow(
