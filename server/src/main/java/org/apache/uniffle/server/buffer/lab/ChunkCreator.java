@@ -126,6 +126,13 @@ public class ChunkCreator {
   private Chunk createChunk(boolean pool, int size) {
     Chunk chunk;
     int id = chunkID.getAndIncrement();
+    // if chunkID overflow
+    if (id <= 0) {
+      int maxChunkId = chunkIdMap.keySet().stream().mapToInt(Integer::intValue).max().orElse(0);
+      int newStartId = maxChunkId + 1;
+      chunkID.set(newStartId);
+      id = chunkID.getAndIncrement();
+    }
     Preconditions.checkArgument(id > 0, "chunkId should be positive.");
     chunk = new OffheapChunk(size, id, pool);
     this.chunkIdMap.put(chunk.getId(), chunk);
