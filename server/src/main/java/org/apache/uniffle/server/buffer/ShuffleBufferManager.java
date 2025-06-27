@@ -26,6 +26,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -99,6 +100,7 @@ public class ShuffleBufferManager {
   // appId -> shuffleId -> shuffle size in buffer
   protected Map<String, Map<Integer, AtomicLong>> shuffleSizeMap = JavaUtils.newConcurrentMap();
   private final boolean appBlockSizeMetricEnabled;
+  private final ReentrantLock globalFlushLock = new ReentrantLock();
 
   public ShuffleBufferManager(
       ShuffleServerConf conf, ShuffleFlushManager shuffleFlushManager, boolean nettyServerEnabled) {
@@ -406,16 +408,29 @@ public class ShuffleBufferManager {
     return usedMemory.get() - preAllocatedSize.get() - inFlushSize.get() > highWaterMark;
   }
 
-  public synchronized void flushIfNecessary() {
-    if (needToFlush()) {
-      // todo: add a metric here to track how many times flush occurs.
-      LOG.info(
-          "Start to flush with usedMemory[{}], preAllocatedSize[{}], inFlushSize[{}]",
-          usedMemory.get(),
-          preAllocatedSize.get(),
-          inFlushSize.get());
-      Map<String, Set<Integer>> pickedShuffle = pickFlushedShuffle();
-      flush(pickedShuffle);
+  public void flushIfNecessary() {
+    boolean lockAcquired = false;
+    try {
+      lockAcquired = globalFlushLock.tryLock(flushTryLockTimeout, TimeUnit.MILLISECONDS);
+      if (!lockAcquired) {
+        return;
+      }
+      if (needToFlush()) {
+        // todo: add a metric here to track how many times flush occurs.
+        LOG.info(
+            "Start to flush with usedMemory[{}], preAllocatedSize[{}], inFlushSize[{}]",
+            usedMemory.get(),
+            preAllocatedSize.get(),
+            inFlushSize.get());
+        Map<String, Set<Integer>> pickedShuffle = pickFlushedShuffle();
+        flush(pickedShuffle);
+      }
+    } catch (InterruptedException e) {
+      LOG.warn("Ignore the InterruptedException which should be caused by internal killed");
+    } finally {
+      if (lockAcquired) {
+        globalFlushLock.unlock();
+      }
     }
   }
 
