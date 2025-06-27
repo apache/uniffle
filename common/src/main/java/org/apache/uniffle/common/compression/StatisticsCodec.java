@@ -32,6 +32,7 @@ public class StatisticsCodec extends Codec {
   private List<CodecCost> compressCosts;
 
   StatisticsCodec(Codec codec) {
+    LOGGER.info("Statistic codec is enabled");
     this.codec = codec;
     this.compressCosts = new ArrayList<>();
   }
@@ -90,7 +91,7 @@ public class StatisticsCodec extends Codec {
     return values.get(index);
   }
 
-  class CodecCost {
+  static class CodecCost {
     private int sourceByteSize;
     private int targetByteSize;
     private long duration;

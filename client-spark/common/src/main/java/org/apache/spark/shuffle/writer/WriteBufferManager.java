@@ -194,7 +194,7 @@ public class WriteBufferManager extends MemoryConsumer {
             RssSparkConfig.SPARK_SHUFFLE_COMPRESS_KEY.substring(
                 RssSparkConfig.SPARK_RSS_CONFIG_PREFIX.length()),
             RssSparkConfig.SPARK_SHUFFLE_COMPRESS_DEFAULT);
-    this.codec = compress ? Codec.newInstance(rssConf) : Optional.empty();
+    this.codec = compress ? Codec.create(rssConf) : Optional.empty();
     this.spillFunc = spillFunc;
     this.sendSizeLimit = rssConf.get(RssSparkConfig.RSS_CLIENT_SEND_SIZE_LIMITATION);
     this.memorySpillTimeoutSec = rssConf.get(RssSparkConfig.RSS_MEMORY_SPILL_TIMEOUT);
