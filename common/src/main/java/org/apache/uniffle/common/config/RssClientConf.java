@@ -39,6 +39,12 @@ public class RssClientConf {
    */
   public static final String HADOOP_CONFIG_KEY_PREFIX = "rss.hadoop.";
 
+  public static final ConfigOption<Boolean> COMPRESSION_STATISTICS_ENABLED =
+      ConfigOptions.key("rss.client.io.compression.statisticsEnabled")
+          .booleanType()
+          .defaultValue(false)
+          .withDescription("Whether to enable compression statistics on RSS clients");
+
   public static final ConfigOption<Codec.Type> COMPRESSION_TYPE =
       ConfigOptions.key("rss.client.io.compression.codec")
           .enumType(Codec.Type.class)

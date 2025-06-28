@@ -51,6 +51,7 @@ import org.apache.uniffle.client.common.ShuffleServerPushCostTracker;
 import org.apache.uniffle.common.ShuffleBlockInfo;
 import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.compression.Codec;
+import org.apache.uniffle.common.compression.StatisticsCodec;
 import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.util.BlockIdLayout;
@@ -193,7 +194,7 @@ public class WriteBufferManager extends MemoryConsumer {
             RssSparkConfig.SPARK_SHUFFLE_COMPRESS_KEY.substring(
                 RssSparkConfig.SPARK_RSS_CONFIG_PREFIX.length()),
             RssSparkConfig.SPARK_SHUFFLE_COMPRESS_DEFAULT);
-    this.codec = compress ? Codec.newInstance(rssConf) : Optional.empty();
+    this.codec = compress ? Codec.create(rssConf) : Optional.empty();
     this.spillFunc = spillFunc;
     this.sendSizeLimit = rssConf.get(RssSparkConfig.RSS_CLIENT_SEND_SIZE_LIMITATION);
     this.memorySpillTimeoutSec = rssConf.get(RssSparkConfig.RSS_MEMORY_SPILL_TIMEOUT);
@@ -717,5 +718,18 @@ public class WriteBufferManager extends MemoryConsumer {
 
   public ShuffleServerPushCostTracker getShuffleServerPushCostTracker() {
     return shuffleServerPushCostTracker;
+  }
+
+  public void close() {
+    try {
+      if (codec.isPresent()) {
+        Codec internalCodec = codec.get();
+        if (internalCodec instanceof StatisticsCodec) {
+          ((StatisticsCodec) internalCodec).statistics();
+        }
+      }
+    } catch (Exception e) {
+      LOG.error("Errors on closing buffer manager", e);
+    }
   }
 }

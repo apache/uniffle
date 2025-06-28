@@ -22,9 +22,18 @@ import java.util.Optional;
 
 import org.apache.uniffle.common.config.RssConf;
 
+import static org.apache.uniffle.common.config.RssClientConf.COMPRESSION_STATISTICS_ENABLED;
 import static org.apache.uniffle.common.config.RssClientConf.COMPRESSION_TYPE;
 
 public abstract class Codec {
+
+  public static Optional<Codec> create(RssConf rssConf) {
+    Optional<Codec> codec = newInstance(rssConf);
+    if (codec.isPresent() && rssConf.getBoolean(COMPRESSION_STATISTICS_ENABLED)) {
+      return Optional.of(new StatisticsCodec(codec.get()));
+    }
+    return codec;
+  }
 
   public static Optional<Codec> newInstance(RssConf rssConf) {
     Type type = rssConf.get(COMPRESSION_TYPE);

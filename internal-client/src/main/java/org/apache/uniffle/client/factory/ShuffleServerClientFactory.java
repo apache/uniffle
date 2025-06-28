@@ -46,8 +46,7 @@ public class ShuffleServerClientFactory {
   private ShuffleServerClient createShuffleServerClient(
       String clientType, ShuffleServerInfo shuffleServerInfo, RssConf rssConf) {
     if (clientType.equalsIgnoreCase(ClientType.GRPC.name())) {
-      return new ShuffleServerGrpcClient(
-          rssConf, shuffleServerInfo.getHost(), shuffleServerInfo.getGrpcPort());
+      return new ShuffleServerGrpcClient(rssConf, shuffleServerInfo);
     } else if (clientType.equalsIgnoreCase(ClientType.GRPC_NETTY.name())) {
       return new ShuffleServerGrpcNettyClient(
           rssConf,
