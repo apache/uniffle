@@ -51,6 +51,9 @@ public class ChunkCreator {
   private final ChunkPool chunksPool;
   private final int chunkSize;
 
+  // Lock to handle overflow
+  private final Object chunkIdOverflowLock = new Object();
+
   ChunkCreator(int chunkSize, long bufferCapacity, int maxAlloc) {
     this.chunkSize = chunkSize;
     this.maxAlloc = maxAlloc;
@@ -128,15 +131,39 @@ public class ChunkCreator {
     int id = chunkID.getAndIncrement();
     // if chunkID overflow
     if (id <= 0) {
-      int maxChunkId = chunkIdMap.keySet().stream().mapToInt(Integer::intValue).max().orElse(0);
-      int newStartId = maxChunkId + 1;
-      chunkID.set(newStartId);
-      id = chunkID.getAndIncrement();
+      id = handleChunkIdOverflow();
     }
     Preconditions.checkArgument(id > 0, "chunkId should be positive.");
     chunk = new OffheapChunk(size, id, pool);
     this.chunkIdMap.put(chunk.getId(), chunk);
     return chunk;
+  }
+
+  /**
+   * Handles the overflow of chunkID in a thread-safe manner
+   * only one thread resets the counter
+   * IDs remain unique and consecutive.
+   */
+  private int handleChunkIdOverflow() {
+    synchronized (chunkIdOverflowLock) {
+      // Double check
+      int id = chunkID.get();
+      if (id <= 0) {
+        int maxChunkId = chunkIdMap.keySet().stream()
+                .mapToInt(Integer::intValue)
+                .max()
+                .orElse(0);
+        int maxPoolChunkId = 0;
+        if (chunksPool != null) {
+          maxPoolChunkId = chunksPool.getMaxChunkIdInPool();
+        }
+        int newStartId = Math.max(maxChunkId, maxPoolChunkId) + 1;
+        chunkID.set(newStartId);
+        return chunkID.getAndIncrement();
+      } else {
+        return chunkID.getAndIncrement();
+      }
+    }
   }
 
   // Chunks from pool are created covered with strong references anyway
@@ -272,6 +299,13 @@ public class ChunkCreator {
 
     private int getMaxCount() {
       return this.maxCount;
+    }
+
+    public int getMaxChunkIdInPool() {
+      return reclaimedChunks.stream()
+              .mapToInt(Chunk::getId)
+              .max()
+              .orElse(0);
     }
   }
 
