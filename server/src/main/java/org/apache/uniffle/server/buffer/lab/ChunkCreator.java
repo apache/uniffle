@@ -129,7 +129,7 @@ public class ChunkCreator {
   private Chunk createChunk(boolean pool, int size) {
     Chunk chunk;
     int id = chunkID.getAndIncrement();
-    // if chunkID overflow
+    // if chunkID overflow, reset it.
     if (id <= 0) {
       chunkID.compareAndSet(id, chunksPool.maxCount + 1);
       id = chunkID.getAndIncrement();
