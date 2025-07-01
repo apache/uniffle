@@ -131,7 +131,8 @@ public class ChunkCreator {
     int id = chunkID.getAndIncrement();
     // if chunkID overflow
     if (id <= 0) {
-      id = handleChunkIdOverflow();
+      chunkID.compareAndSet(id, chunksPool.maxCount + 1);
+      id = chunkID.getAndIncrement();
     }
     Preconditions.checkArgument(id > 0, "chunkId should be positive.");
     chunk = new OffheapChunk(size, id, pool);
