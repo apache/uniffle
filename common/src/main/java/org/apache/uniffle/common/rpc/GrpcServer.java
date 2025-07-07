@@ -104,15 +104,14 @@ public class GrpcServer implements ServerInterface {
   private Server buildGrpcServer(int serverPort) {
     boolean isMetricsEnabled = rssConf.getBoolean(RssBaseConf.RPC_METRICS_ENABLED);
     long maxInboundMessageSize = rssConf.getLong(RssBaseConf.RPC_MESSAGE_MAX_SIZE);
-    ServerType serverType = rssConf.get(RssBaseConf.RPC_SERVER_TYPE);
     int pageSize = rssConf.getInteger(RssBaseConf.RPC_NETTY_PAGE_SIZE);
     int maxOrder = rssConf.getInteger(RssBaseConf.RPC_NETTY_MAX_ORDER);
     int smallCacheSize = rssConf.getInteger(RssBaseConf.RPC_NETTY_SMALL_CACHE_SIZE);
     PooledByteBufAllocator pooledByteBufAllocator =
-        serverType == ServerType.GRPC
-            ? GrpcNettyUtils.createPooledByteBufAllocator(true, 0, 0, 0, 0)
-            : GrpcNettyUtils.createPooledByteBufAllocatorWithSmallCacheOnly(
-                true, 0, pageSize, maxOrder, smallCacheSize);
+        rssConf.getBoolean(RssBaseConf.RPC_NETTY_SMALL_CACHE_ENABLED)
+            ? GrpcNettyUtils.createPooledByteBufAllocatorWithSmallCacheOnly(
+                true, 0, pageSize, maxOrder, smallCacheSize)
+            : GrpcNettyUtils.createPooledByteBufAllocator(true, 0, 0, 0, 0);
     ServerBuilder<?> builder =
         NettyServerBuilder.forPort(serverPort)
             .executor(pool)

@@ -55,6 +55,13 @@ public class RssBaseConf extends RssConf {
           .defaultValue(true)
           .withDescription("If enable metrics for rpc connection");
 
+  public static final ConfigOption<Boolean> RPC_NETTY_SMALL_CACHE_ENABLED =
+      ConfigOptions.key("rss.rpc.netty.smallCacheEnabled")
+          .booleanType()
+          .defaultValue(true)
+          .withDescription(
+              "The option to control whether the grpc underlying netty allocator small cache is enabled.");
+
   public static final ConfigOption<Integer> RPC_NETTY_PAGE_SIZE =
       ConfigOptions.key("rss.rpc.netty.pageSize")
           .intType()
