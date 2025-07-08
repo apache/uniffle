@@ -38,6 +38,7 @@ class UniffleListener(conf: SparkConf, kvstore: ElementTrackingStore)
   private val totalShuffleReadTime = new AtomicLong(0)
   private val totalShuffleWriteTime = new AtomicLong(0)
   private val totalShuffleBytes = new AtomicLong(0)
+  private val totalUncompressedShuffleBytes = new AtomicLong(0)
 
   private val updateIntervalMillis = 5000
   private var updateLastTimeMillis: Long = -1
@@ -54,7 +55,12 @@ class UniffleListener(conf: SparkConf, kvstore: ElementTrackingStore)
         new AggregatedShuffleReadMetricsUIData(this.aggregatedShuffleReadMetric)
       )
       kvstore.write(
-        AggregatedTaskInfoUIData(totalTaskCpuTime.get(), totalShuffleWriteTime.get(), totalShuffleReadTime.get(), totalShuffleBytes.get())
+        AggregatedTaskInfoUIData(
+          totalTaskCpuTime.get(),
+          totalShuffleWriteTime.get(),
+          totalShuffleReadTime.get(),
+          totalShuffleBytes.get(),
+          totalUncompressedShuffleBytes.get())
       )
       kvstore.write(
         AggregatedShuffleWriteTimesUIData(aggregatedShuffleWriteTimes)
@@ -110,6 +116,7 @@ class UniffleListener(conf: SparkConf, kvstore: ElementTrackingStore)
       }
     }
     aggregatedShuffleWriteTimes.inc(event.getWriteTimes)
+    totalUncompressedShuffleBytes.addAndGet(event.getUncompressedByteSize)
   }
 
   private def onTaskShuffleReadInfo(event: TaskShuffleReadInfoEvent): Unit = {

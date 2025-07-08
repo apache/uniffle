@@ -593,6 +593,7 @@ message ReportShuffleWriteMetricRequest {
   ShuffleWriteTimes shuffleWriteTimes = 5;
   bool isTaskWriteFailed = 6;
   string shuffleWriteFailureReason = 7;
+  int64 uncompressedByteSize = 8;
 }
 
 message ShuffleWriteTimes {

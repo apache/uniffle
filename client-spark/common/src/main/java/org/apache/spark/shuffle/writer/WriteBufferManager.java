@@ -796,4 +796,8 @@ public class WriteBufferManager extends MemoryConsumer {
       LOG.error("Errors on closing buffer manager", e);
     }
   }
+
+  public long getUncompressedDataLen() {
+    return uncompressedDataLen;
+  }
 }

@@ -87,7 +87,7 @@ class UniffleStatusStore(store: KVStore) {
     try {
       store.read(kClass, kClass.getName)
     } catch {
-      case _: Exception => AggregatedTaskInfoUIData(0, 0, 0, 0)
+      case _: Exception => AggregatedTaskInfoUIData(0, 0, 0, 0, 0)
     }
   }
 
@@ -151,7 +151,8 @@ class AggregatedShuffleReadMetric(durationMillis: Long,
 case class AggregatedTaskInfoUIData(cpuTimeMillis: Long,
                                     shuffleWriteMillis: Long,
                                     shuffleReadMillis: Long,
-                                    shuffleBytes: Long) {
+                                    shuffleBytes: Long,
+                                    uncompressedShuffleBytes: Long) {
   @JsonIgnore
   @KVIndex
   def id: String = classOf[AggregatedTaskInfoUIData].getName()

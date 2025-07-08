@@ -33,6 +33,8 @@ public class RssReportShuffleWriteMetricRequest {
   private boolean isShuffleWriteFailed;
   private Optional<String> shuffleWriteFailureReason;
 
+  private long uncompressedByteSize;
+
   public RssReportShuffleWriteMetricRequest(
       int stageId,
       int shuffleId,
@@ -40,7 +42,8 @@ public class RssReportShuffleWriteMetricRequest {
       Map<String, TaskShuffleWriteMetric> metrics,
       TaskShuffleWriteTimes writeTimes,
       boolean isShuffleWriteFailed,
-      Optional<String> shuffleWriteFailureReason) {
+      Optional<String> shuffleWriteFailureReason,
+      long uncompressedByteSize) {
     this.stageId = stageId;
     this.shuffleId = shuffleId;
     this.taskId = taskId;
@@ -48,6 +51,7 @@ public class RssReportShuffleWriteMetricRequest {
     this.writeTimes = writeTimes;
     this.isShuffleWriteFailed = isShuffleWriteFailed;
     this.shuffleWriteFailureReason = shuffleWriteFailureReason;
+    this.uncompressedByteSize = uncompressedByteSize;
   }
 
   public RssProtos.ReportShuffleWriteMetricRequest toProto() {
@@ -61,6 +65,7 @@ public class RssReportShuffleWriteMetricRequest {
         .setShuffleWriteTimes(writeTimes.toProto())
         .setIsTaskWriteFailed(isShuffleWriteFailed)
         .setShuffleWriteFailureReason(shuffleWriteFailureReason.orElse(""))
+        .setUncompressedByteSize(request.uncompressedByteSize)
         .putAllMetrics(
             request.metrics.entrySet().stream()
                 .collect(
