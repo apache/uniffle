@@ -60,7 +60,7 @@ public class RssBaseConf extends RssConf {
           .booleanType()
           .defaultValue(true)
           .withDescription(
-              "The option to control whether the grpc underlying netty allocator small cache is enabled.");
+              "The option to control whether the small cache of the Netty allocator used by gRPC is enabled.");
 
   public static final ConfigOption<Integer> RPC_NETTY_PAGE_SIZE =
       ConfigOptions.key("rss.rpc.netty.pageSize")
