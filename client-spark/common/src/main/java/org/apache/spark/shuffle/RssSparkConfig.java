@@ -45,6 +45,13 @@ public class RssSparkConfig {
           .defaultValue(false)
           .withDescription("Whether to overlapping compress shuffle blocks.");
 
+  public static final ConfigOption<Integer> RSS_WRITE_OVERLAPPING_COMPRESSION_THREADS =
+      ConfigOptions.key("rss.client.write.overlappingCompressionThreads")
+          .intType()
+          .defaultValue(-1)
+          .withDescription(
+              "The number of threads to overlapping compress shuffle blocks. If <= 0, this will be disabled.");
+
   public static final ConfigOption<Boolean> RSS_READ_REORDER_MULTI_SERVERS_ENABLED =
       ConfigOptions.key("rss.client.read.reorderMultiServersEnable")
           .booleanType()

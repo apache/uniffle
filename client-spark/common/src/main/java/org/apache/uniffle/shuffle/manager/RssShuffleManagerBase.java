@@ -66,6 +66,7 @@ import org.apache.spark.shuffle.handle.SimpleShuffleHandleInfo;
 import org.apache.spark.shuffle.handle.StageAttemptShuffleHandleInfo;
 import org.apache.spark.shuffle.writer.AddBlockEvent;
 import org.apache.spark.shuffle.writer.DataPusher;
+import org.apache.spark.shuffle.writer.OverlappingCompressionDataPusher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -338,14 +339,32 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
     LOG.info("Rss data pusher is starting...");
     int poolSize = sparkConf.get(RssSparkConfig.RSS_CLIENT_SEND_THREAD_POOL_SIZE);
     int keepAliveTime = sparkConf.get(RssSparkConfig.RSS_CLIENT_SEND_THREAD_POOL_KEEPALIVE);
-    this.dataPusher =
-        new DataPusher(
-            shuffleWriteClient,
-            taskToSuccessBlockIds,
-            taskToFailedBlockSendTracker,
-            failedTaskIds,
-            poolSize,
-            keepAliveTime);
+
+    boolean overlappingCompressionEnabled =
+        rssConf.get(RssSparkConfig.RSS_WRITE_OVERLAPPING_COMPRESSION_ENABLED);
+    int overlappingCompressionThreads =
+        rssConf.get(RssSparkConfig.RSS_WRITE_OVERLAPPING_COMPRESSION_THREADS);
+    if (overlappingCompressionEnabled && overlappingCompressionThreads > 0) {
+      this.dataPusher =
+          new OverlappingCompressionDataPusher(
+              shuffleWriteClient,
+              taskToSuccessBlockIds,
+              taskToFailedBlockSendTracker,
+              failedTaskIds,
+              poolSize,
+              keepAliveTime,
+              rssConf);
+    } else {
+      this.dataPusher =
+          new DataPusher(
+              shuffleWriteClient,
+              taskToSuccessBlockIds,
+              taskToFailedBlockSendTracker,
+              failedTaskIds,
+              poolSize,
+              keepAliveTime);
+    }
+
     this.partitionReassignMaxServerNum =
         rssConf.get(RSS_PARTITION_REASSIGN_MAX_REASSIGNMENT_SERVER_NUM);
     this.shuffleHandleInfoManager = new ShuffleHandleInfoManager();
