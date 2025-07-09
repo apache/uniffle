@@ -272,6 +272,12 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
             </li>
             <li>
               <a>
+                <strong>CompressionRatio: </strong>
+              </a>
+              {Utils.bytesToString(taskInfo.uncompressedShuffleBytes)}/{Utils.bytesToString(taskInfo.shuffleBytes)}={roundToTwoDecimals(compressionRatio)}
+            </li>
+            <li>
+              <a>
                 <strong>Shuffle Duration (write+read) / Task Duration:</strong>
               </a>
               {UIUtils.formatDuration(taskInfo.shuffleWriteMillis + taskInfo.shuffleReadMillis)}
@@ -307,11 +313,6 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
                 <strong>ReassignTriggeredOnStageRetry: </strong>
               </a>
               {reassignInfo.isReassignTriggeredOnStageRetry}
-            </li>
-            <li>
-              <a>
-                CompressionRatio: {Utils.bytesToString(taskInfo.uncompressedShuffleBytes)}/{Utils.bytesToString(taskInfo.shuffleBytes)}={roundToTwoDecimals(compressionRatio)}
-              </a>
             </li>
           </ul>
         </div>
