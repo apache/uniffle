@@ -31,6 +31,7 @@ import org.apache.uniffle.client.api.ShuffleWriteClient;
 import org.apache.uniffle.client.impl.FailedBlockSendTracker;
 import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.exception.RssException;
+import org.apache.uniffle.common.util.ThreadUtils;
 
 /**
  * The extension of {@link DataPusher} is used only when the overlapping compression is activated.
@@ -65,7 +66,9 @@ public class OverlappingCompressionDataPusher extends DataPusher {
               + ": "
               + compressionThreads);
     }
-    this.compressionThreadPool = Executors.newFixedThreadPool(compressionThreads);
+    this.compressionThreadPool =
+        Executors.newFixedThreadPool(
+            compressionThreads, ThreadUtils.getThreadFactory("compression-thread"));
   }
 
   @Override
