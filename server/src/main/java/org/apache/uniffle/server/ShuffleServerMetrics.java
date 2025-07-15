@@ -149,7 +149,13 @@ public class ShuffleServerMetrics {
   private static final String TOTAL_REMOVE_RESOURCE_TIME = "total_remove_resource_time";
   private static final String TOTAL_REMOVE_RESOURCE_BY_SHUFFLE_IDS_TIME =
       "total_remove_resource_by_shuffle_ids_time";
-
+  private static final String LAB_CREATED_CHUNK_COUNT = "lab_created_chunk_count";
+  private static final String LAB_REUSED_CHUNK_COUNT = "lab_reused_chunk_count";
+  private static final String LAB_RECLAIMED_CHUNK_COUNT = "lab_reclaimed_chunk_count";
+  private static final String LAB_CHUNK_POOL_REMAIN_PERCENT = "lab_chunk_pool_remain_percent";
+  private static final String NOT_ON_LAB_BLOCK_COUNT = "not_on_lab_block_count";
+  private static final String ON_LAB_BLOCK_COUNT = "on_lab_block_count";
+  private static final String BUFFER_BLOCK_SIZE = "buffer_block_size";
   public static final String TOPN_OF_TOTAL_DATA_SIZE_FOR_APP = "topN_of_total_data_size_for_app";
   public static final String TOPN_OF_IN_MEMORY_DATA_SIZE_FOR_APP =
       "topN_of_in_memory_data_size_for_app";
@@ -268,6 +274,13 @@ public class ShuffleServerMetrics {
   public static Counter counterHadoopEventFlush;
   public static Counter counterPreAllocatedBufferExpired;
   public static Counter counterAppNotFound;
+  public static Counter counterLABChunkCreated;
+  public static Counter counterLABChunkReused;
+  public static Gauge gaugeLABChunkReclaimed;
+  public static Gauge gaugeLABChunkPoolRemainPercent;
+  public static Counter counterBlockNotOnLAB;
+  public static Counter counterBlockOnLAB;
+  public static Summary summaryBufferBlockSize;
 
   private static MetricsManager metricsManager;
   private static boolean isRegister = false;
@@ -504,7 +517,14 @@ public class ShuffleServerMetrics {
     summaryTotalRemoveResourceTime = metricsManager.addSummary(TOTAL_REMOVE_RESOURCE_TIME);
     summaryTotalRemoveResourceByShuffleIdsTime =
         metricsManager.addSummary(TOTAL_REMOVE_RESOURCE_BY_SHUFFLE_IDS_TIME);
+    counterLABChunkCreated = metricsManager.addCounter(LAB_CREATED_CHUNK_COUNT);
+    counterLABChunkReused = metricsManager.addCounter(LAB_REUSED_CHUNK_COUNT);
+    gaugeLABChunkReclaimed = metricsManager.addGauge(LAB_RECLAIMED_CHUNK_COUNT);
+    gaugeLABChunkPoolRemainPercent = metricsManager.addGauge(LAB_CHUNK_POOL_REMAIN_PERCENT);
 
+    counterBlockNotOnLAB = metricsManager.addCounter(NOT_ON_LAB_BLOCK_COUNT);
+    counterBlockOnLAB = metricsManager.addCounter(ON_LAB_BLOCK_COUNT);
+    summaryBufferBlockSize = metricsManager.addSummary(BUFFER_BLOCK_SIZE);
     gaugeTotalDataSizeUsage =
         Gauge.build()
             .name(TOPN_OF_TOTAL_DATA_SIZE_FOR_APP)

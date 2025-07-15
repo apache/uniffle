@@ -21,6 +21,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 import org.apache.uniffle.common.ShufflePartitionedBlock;
+import org.apache.uniffle.server.ShuffleServerMetrics;
 
 /**
  * Local allocation buffer.
@@ -61,6 +62,7 @@ public class LAB {
   public ShufflePartitionedBlock tryCopyBlockToChunk(ShufflePartitionedBlock block) {
     int size = block.getDataLength();
     if (size > maxAlloc) {
+      ShuffleServerMetrics.counterBlockNotOnLAB.inc();
       return block;
     }
     Chunk c;
@@ -77,6 +79,7 @@ public class LAB {
       currChunk = null;
     }
     c.getData().writeBytes(block.getData());
+    ShuffleServerMetrics.counterBlockOnLAB.inc();
     return new LABShufflePartitionedBlock(
         block.getDataLength(),
         block.getUncompressLength(),

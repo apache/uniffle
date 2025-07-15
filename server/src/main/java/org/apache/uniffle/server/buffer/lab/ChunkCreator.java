@@ -35,6 +35,8 @@ import org.apache.hadoop.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.uniffle.server.ShuffleServerMetrics;
+
 /**
  * Does the management of LAB chunk creations. A monotonically incrementing id is associated with
  * every chunk
@@ -102,10 +104,12 @@ public class ChunkCreator {
     if (pool != null) {
       chunk = pool.getChunk();
       if (chunk == null) {
-        LOG.warn(
-            "The chunk pool is full. Reached maxCount= "
-                + pool.getMaxCount()
-                + ". Creating chunk outside of the pool.");
+        if (LOG.isDebugEnabled()) {
+          LOG.debug(
+              "The chunk pool is full. Reached maxCount= "
+                  + pool.getMaxCount()
+                  + ". Creating chunk outside of the pool.");
+        }
       }
     }
 
@@ -134,6 +138,7 @@ public class ChunkCreator {
     Preconditions.checkArgument(id > 0, "chunkId should be positive.");
     chunk = new OffheapChunk(size, id, pool);
     this.chunkIdMap.put(chunk.getId(), chunk);
+    ShuffleServerMetrics.counterLABChunkCreated.inc();
     return chunk;
   }
 
@@ -207,6 +212,10 @@ public class ChunkCreator {
       if (chunk != null) {
         chunk.reset();
         reusedChunkCount.increment();
+        ShuffleServerMetrics.gaugeLABChunkReclaimed.set(reclaimedChunks.size());
+        ShuffleServerMetrics.gaugeLABChunkPoolRemainPercent.set(
+            reclaimedChunks.size() * 100d / chunkCount.get());
+        ShuffleServerMetrics.counterLABChunkReused.inc();
       } else {
         // Make a chunk if we have not yet created the maxCount chunks
         while (true) {
@@ -314,5 +323,8 @@ public class ChunkCreator {
         LOG.warn("Chunk {} can not be found in chunkIdMap, ignore it", chunkID);
       }
     }
+    ShuffleServerMetrics.gaugeLABChunkReclaimed.set(chunksPool.reclaimedChunks.size());
+    ShuffleServerMetrics.gaugeLABChunkPoolRemainPercent.set(
+        chunksPool.reclaimedChunks.size() * 100d / chunksPool.chunkCount.get());
   }
 }
