@@ -22,6 +22,7 @@ import java.io.FileWriter;
 import java.io.PrintWriter;
 import java.net.URI;
 import java.nio.file.Paths;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -423,6 +424,41 @@ public class SimpleClusterManagerTest {
   }
 
   @Test
+  public void updateNodeTagTest() throws Exception {
+    String nodeTagsFolder =
+        (new File(ClassLoader.getSystemResource("empty").getFile())).getParent();
+    String nodeTagsPath = nodeTagsFolder + "/nodeTags";
+    CoordinatorConf ssc = new CoordinatorConf();
+    ssc.setString(
+        CoordinatorConf.COORDINATOR_NODE_TAGS_FILE_PATH, URI.create(nodeTagsPath).toString());
+    ssc.setLong(CoordinatorConf.COORDINATOR_NODE_TAGS_CHECK_INTERVAL, 1000);
+    try (SimpleClusterManager clusterManager = new SimpleClusterManager(ssc, new Configuration())) {
+      Map<String, String[]> nodeToTags = new HashMap<>();
+      nodeToTags.put("node1-1999", new String[] {"t1"});
+      nodeToTags.put("node2-1999", new String[] {"t2", "t3"});
+      writeHostTags(nodeTagsPath, nodeToTags);
+      await()
+          .atMost(3, TimeUnit.SECONDS)
+          .until(() -> clusterManager.getDynamicNodeToTags().containsKey("node1-1999"));
+      clusterManager.add(
+          new ServerNode("node1-1999", "ip", 0, 100L, 50L, 20, 10, Sets.newHashSet("t")));
+      clusterManager.add(
+          new ServerNode("node2-1999", "ip", 0, 100L, 50L, 20, 10, Sets.newHashSet("t")));
+      List<ServerNode> nodes = clusterManager.getServerList(Sets.newHashSet());
+      assertEquals(2, nodes.size());
+      nodes = clusterManager.getServerList(Sets.newHashSet("t1"));
+      assertEquals(1, nodes.size());
+      assertEquals("node1-1999", nodes.get(0).getId());
+      nodes = clusterManager.getServerList(Sets.newHashSet("t2"));
+      assertEquals(1, nodes.size());
+      assertEquals("node2-1999", nodes.get(0).getId());
+      nodes = clusterManager.getServerList(Sets.newHashSet("t3"));
+      assertEquals(1, nodes.size());
+      assertEquals("node2-1999", nodes.get(0).getId());
+    }
+  }
+
+  @Test
   public void updateExcludeNodesTest() throws Exception {
     String excludeNodesFolder =
         (new File(ClassLoader.getSystemResource("empty").getFile())).getParent();
@@ -527,6 +563,17 @@ public class SimpleClusterManagerTest {
       pw.write("\n");
       for (String value : values) {
         pw.write(value + "\n");
+      }
+    }
+  }
+
+  private void writeHostTags(String path, Map<String, String[]> nodeToTags) throws Exception {
+    try (PrintWriter pw = new PrintWriter(new FileWriter(path))) {
+      // have empty line as value
+      pw.write("\n");
+      for (Map.Entry<String, String[]> entry : nodeToTags.entrySet()) {
+        pw.write(entry.getKey() + " " + String.join(",", entry.getValue()));
+        pw.write("\n");
       }
     }
   }

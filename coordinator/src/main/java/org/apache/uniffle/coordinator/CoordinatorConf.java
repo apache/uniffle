@@ -53,6 +53,16 @@ public class CoordinatorConf extends RssBaseConf {
           .longType()
           .defaultValue(60 * 1000L)
           .withDescription("Update interval for exclude nodes");
+  public static final ConfigOption<String> COORDINATOR_NODE_TAGS_FILE_PATH =
+      ConfigOptions.key("rss.coordinator.node.tags.filePath")
+          .stringType()
+          .noDefaultValue()
+          .withDescription("The path of configuration file which have tags for nodes");
+  public static final ConfigOption<Long> COORDINATOR_NODE_TAGS_CHECK_INTERVAL =
+      ConfigOptions.key("rss.coordinator.node.tags.checkIntervalMs")
+          .longType()
+          .defaultValue(60 * 1000L)
+          .withDescription("Update interval for node tags");
   public static final ConfigOption<Long> COORDINATOR_HEARTBEAT_TIMEOUT =
       ConfigOptions.key("rss.coordinator.server.heartbeat.timeout")
           .longType()
