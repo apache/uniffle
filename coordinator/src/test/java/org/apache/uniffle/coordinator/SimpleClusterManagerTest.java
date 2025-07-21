@@ -451,6 +451,8 @@ public class SimpleClusterManagerTest {
           remainNodes, availableNodes.stream().map(ServerNode::getId).collect(Collectors.toSet()));
 
       final Set<String> nodes2 = Sets.newHashSet("node3-1999", "node4-1999");
+      // Make sure last modification time change
+      Thread.sleep(1000);
       writeExcludeHosts(excludeNodesPath, nodes2);
       await().atMost(3, TimeUnit.SECONDS).until(() -> scm.getExcludedNodes().equals(nodes2));
       assertEquals(nodes2, scm.getExcludedNodes());
