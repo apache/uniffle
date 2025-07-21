@@ -45,12 +45,12 @@ public class RssSparkConfig {
           .defaultValue(false)
           .withDescription("Whether to overlapping compress shuffle blocks.");
 
-  public static final ConfigOption<Integer> RSS_WRITE_OVERLAPPING_COMPRESSION_THREADS =
-      ConfigOptions.key("rss.client.write.overlappingCompressionThreads")
+  public static final ConfigOption<Integer> RSS_WRITE_OVERLAPPING_COMPRESSION_THREADS_PER_VCORE =
+      ConfigOptions.key("rss.client.write.overlappingCompressionThreadsPerVcore")
           .intType()
           .defaultValue(-1)
           .withDescription(
-              "The number of threads to overlapping compress shuffle blocks. If <= 0, this will be disabled.");
+              "Specifies the ratio between the number of overlapping compression threads and the number of Spark executor vcores. It's disabled by default.");
 
   public static final ConfigOption<Boolean> RSS_READ_REORDER_MULTI_SERVERS_ENABLED =
       ConfigOptions.key("rss.client.read.reorderMultiServersEnable")

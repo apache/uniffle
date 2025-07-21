@@ -26,7 +26,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 import com.google.common.collect.Maps;
-import org.apache.spark.shuffle.RssSparkConfig;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -37,6 +36,7 @@ import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.util.JavaUtils;
 
+import static org.apache.spark.shuffle.RssSparkConfig.RSS_WRITE_OVERLAPPING_COMPRESSION_THREADS_PER_VCORE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class OverlappingCompressionDataPusherTest {
@@ -51,6 +51,7 @@ public class OverlappingCompressionDataPusherTest {
     Set<String> failedTaskIds = new HashSet<>();
 
     RssConf rssConf = new RssConf();
+    int threads = rssConf.get(RSS_WRITE_OVERLAPPING_COMPRESSION_THREADS_PER_VCORE);
 
     // case1: Illegal thread number of compression
     Assertions.assertThrows(
@@ -63,11 +64,10 @@ public class OverlappingCompressionDataPusherTest {
               failedTaskIds,
               1,
               2,
-              rssConf);
+              threads);
         });
 
     // case2: Propagated into the underlying data pusher
-    rssConf.set(RssSparkConfig.RSS_WRITE_OVERLAPPING_COMPRESSION_THREADS, 1);
     DataPusher pusher =
         new OverlappingCompressionDataPusher(
             shuffleWriteClient,
@@ -76,7 +76,7 @@ public class OverlappingCompressionDataPusherTest {
             failedTaskIds,
             1,
             2,
-            rssConf);
+            1);
     pusher.setRssAppId("testSend");
 
     String taskId = "taskId1";

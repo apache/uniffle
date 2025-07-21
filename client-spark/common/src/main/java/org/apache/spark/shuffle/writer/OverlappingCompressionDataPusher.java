@@ -29,7 +29,6 @@ import org.slf4j.LoggerFactory;
 
 import org.apache.uniffle.client.api.ShuffleWriteClient;
 import org.apache.uniffle.client.impl.FailedBlockSendTracker;
-import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.util.ThreadUtils;
 
@@ -48,7 +47,7 @@ public class OverlappingCompressionDataPusher extends DataPusher {
       Set<String> failedTaskIds,
       int threadPoolSize,
       int threadKeepAliveTime,
-      RssConf rssConf) {
+      int compressionThreads) {
     super(
         shuffleWriteClient,
         taskToSuccessBlockIds,
@@ -56,13 +55,10 @@ public class OverlappingCompressionDataPusher extends DataPusher {
         failedTaskIds,
         threadPoolSize,
         threadKeepAliveTime);
-
-    int compressionThreads =
-        rssConf.getInteger(RssSparkConfig.RSS_WRITE_OVERLAPPING_COMPRESSION_THREADS);
     if (compressionThreads <= 0) {
       throw new RssException(
           "Invalid rss configuration of "
-              + RssSparkConfig.RSS_WRITE_OVERLAPPING_COMPRESSION_THREADS.key()
+              + RssSparkConfig.RSS_WRITE_OVERLAPPING_COMPRESSION_THREADS_PER_VCORE.key()
               + ": "
               + compressionThreads);
     }

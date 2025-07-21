@@ -106,6 +106,7 @@ import org.apache.uniffle.common.util.ThreadUtils;
 import org.apache.uniffle.shuffle.BlockIdManager;
 import org.apache.uniffle.shuffle.ShuffleIdMappingManager;
 
+import static org.apache.spark.launcher.SparkLauncher.EXECUTOR_CORES;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_BLOCK_ID_SELF_MANAGEMENT_ENABLED;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_PARTITION_REASSIGN_MAX_REASSIGNMENT_SERVER_NUM;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_RESUBMIT_STAGE_WITH_FETCH_FAILURE_ENABLED;
@@ -342,9 +343,11 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
 
     boolean overlappingCompressionEnabled =
         rssConf.get(RssSparkConfig.RSS_WRITE_OVERLAPPING_COMPRESSION_ENABLED);
-    int overlappingCompressionThreads =
-        rssConf.get(RssSparkConfig.RSS_WRITE_OVERLAPPING_COMPRESSION_THREADS);
-    if (overlappingCompressionEnabled && overlappingCompressionThreads > 0) {
+    int overlappingCompressionThreadsPerVcore =
+        rssConf.get(RssSparkConfig.RSS_WRITE_OVERLAPPING_COMPRESSION_THREADS_PER_VCORE);
+    if (overlappingCompressionEnabled && overlappingCompressionThreadsPerVcore > 0) {
+      int compressionThreads =
+          overlappingCompressionThreadsPerVcore * sparkConf.getInt(EXECUTOR_CORES, 1);
       this.dataPusher =
           new OverlappingCompressionDataPusher(
               shuffleWriteClient,
@@ -353,7 +356,7 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
               failedTaskIds,
               poolSize,
               keepAliveTime,
-              rssConf);
+              compressionThreads);
     } else {
       this.dataPusher =
           new DataPusher(
