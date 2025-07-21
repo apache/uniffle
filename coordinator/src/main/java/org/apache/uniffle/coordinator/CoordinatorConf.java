@@ -256,6 +256,16 @@ public class CoordinatorConf extends RssBaseConf {
           .asList()
           .defaultValues("appHeartbeat", "heartbeat")
           .withDescription("Exclude record rpc audit operation list, separated by ','");
+  public static final ConfigOption<String> COORDINATOR_ACCESS_BANNED_ID_PROVIDER =
+      ConfigOptions.key("rss.coordinator.access.bannedIdProvider")
+          .stringType()
+          .noDefaultValue()
+          .withDescription("Get the banned id from Access banned id provider ");
+  public static final ConfigOption<String> COORDINATOR_ACCESS_BANNED_ID_PROVIDER_REG_PATTERN =
+      ConfigOptions.key("rss.coordinator.access.bannedIdProviderPattern")
+          .stringType()
+          .defaultValue("(.*)")
+          .withDescription("The regular banned id pattern to extract");
 
   public CoordinatorConf() {}
 
