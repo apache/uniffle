@@ -1442,8 +1442,7 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
 
   protected RemoteStorageInfo getRemoteStorageInfo() {
     String storageType = sparkConf.get(RssSparkConfig.RSS_STORAGE_TYPE.key());
-    RemoteStorageInfo defaultRemoteStorage =
-        new RemoteStorageInfo(sparkConf.get(RssSparkConfig.RSS_REMOTE_STORAGE_PATH.key(), ""));
+    RemoteStorageInfo defaultRemoteStorage = getDefaultRemoteStorageInfo(sparkConf);
     return ClientUtils.fetchRemoteStorage(
         appId, defaultRemoteStorage, dynamicConfEnabled, storageType, shuffleWriteClient);
   }
