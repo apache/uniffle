@@ -54,7 +54,7 @@ class UniffleStatusStore(store: KVStore) {
     try {
       store.read(kClass, kClass.getName)
     } catch {
-      case _: NoSuchElementException => AggregatedShuffleWriteTimesUIData(null)
+      case _: NoSuchElementException => AggregatedShuffleWriteTimesUIData(new ShuffleWriteTimes())
     }
   }
 

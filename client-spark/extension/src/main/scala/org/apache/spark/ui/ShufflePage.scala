@@ -147,7 +147,7 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
     )
 
     // render shuffle write times
-    val writeTimes = Option(runtimeStatusStore.shuffleWriteTimes()).map(_.times).getOrElse(new ShuffleWriteTimes())
+    val writeTimes = runtimeStatusStore.shuffleWriteTimes().times
     val total = if (writeTimes.getTotal <= 0) -1 else writeTimes.getTotal
     val writeTimesUI = UIUtils.listingTable(
       Seq("Total Time", "Wait Finish Time", "Copy Time", "Serialize Time", "Compress Time", "Sort Time", "Require Memory Time"),
