@@ -190,6 +190,7 @@ public class HadoopClientReadHandler extends AbstractClientReadHandler {
           readHandlers.add(handler);
         } catch (Exception e) {
           LOG.warn("Can't create ShuffleReaderHandler for " + filePrefix, e);
+          throw new RssException(e);
         }
       }
       Collections.shuffle(readHandlers);
