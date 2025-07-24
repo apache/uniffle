@@ -538,7 +538,7 @@ public class ShuffleServerConf extends RssBaseConf {
   public static final ConfigOption<Double> SERVER_SHUFFLE_BUFFER_LAB_CHUNK_POOL_CAPACITY_RATIO =
       ConfigOptions.key("rss.server.buffer.lab.chunkPoolCapacityRatio")
           .doubleType()
-          .defaultValue(1.0)
+          .defaultValue(0.1)
           .withDescription(
               "Controls the maximum memory capacity ratio between LAB's chunk pool and the configured buffer capacity. "
                   + "The ratio represents (total memory of chunk pool) / "
