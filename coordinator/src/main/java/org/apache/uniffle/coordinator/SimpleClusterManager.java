@@ -220,19 +220,17 @@ public class SimpleClusterManager implements ClusterManager {
         if (nodeTagLastModify.get() != latestModificationTime) {
           dynamicNodeToTags = parseNodeTagFile(fsForNodeTags.open(hadoopPath));
           nodeTagLastModify.set(latestModificationTime);
+          LOG.info("Updated node tags [{}]", gson.toJson(dynamicNodeToTags));
         }
       } else {
+        LOG.info("Node tags file not found, resetting node tags to empty.");
         dynamicNodeToTags = new HashMap<>();
       }
     } catch (FileNotFoundException fileNotFoundException) {
+      LOG.info("Node tags file not found, resetting node tags to empty.");
       dynamicNodeToTags = new HashMap<>();
     } catch (Exception e) {
       LOG.warn("Error when updating node tags, the node tags file path: {}.", path, e);
-    }
-    if (dynamicNodeToTags.size() == 0) {
-      LOG.info("Node tags file not found, resetting node tags to empty.");
-    } else {
-      LOG.info("Updated node tags [{}]", gson.toJson(dynamicNodeToTags));
     }
   }
 
