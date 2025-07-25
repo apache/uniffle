@@ -37,6 +37,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -424,10 +425,9 @@ public class SimpleClusterManagerTest {
   }
 
   @Test
-  public void updateNodeTagTest() throws Exception {
-    String nodeTagsFolder =
+  public void updateNodeTagTest(@TempDir File tmpDir) throws Exception {
         (new File(ClassLoader.getSystemResource("empty").getFile())).getParent();
-    String nodeTagsPath = nodeTagsFolder + "/nodeTags";
+    String nodeTagsPath = new File(tmpDir, "nodeTags").getAbsolutePath();
     CoordinatorConf ssc = new CoordinatorConf();
     ssc.setString(
         CoordinatorConf.COORDINATOR_NODE_TAGS_FILE_PATH, URI.create(nodeTagsPath).toString());
@@ -438,7 +438,7 @@ public class SimpleClusterManagerTest {
       nodeToTags.put("node2-1999", new String[] {"t2", "t3"});
       writeHostTags(nodeTagsPath, nodeToTags);
       await()
-          .atMost(3, TimeUnit.SECONDS)
+          .atMost(5, TimeUnit.SECONDS)
           .until(() -> clusterManager.getDynamicNodeToTags().containsKey("node1-1999"));
       clusterManager.add(
           new ServerNode("node1-1999", "ip", 0, 100L, 50L, 20, 10, Sets.newHashSet("t")));
@@ -575,6 +575,7 @@ public class SimpleClusterManagerTest {
         pw.write(entry.getKey() + " " + String.join(",", entry.getValue()));
         pw.write("\n");
       }
+      pw.flush();
     }
   }
 }

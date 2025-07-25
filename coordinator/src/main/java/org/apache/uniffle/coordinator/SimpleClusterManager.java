@@ -135,7 +135,7 @@ public class SimpleClusterManager implements ClusterManager {
       this.fsForNodeTags =
           HadoopFilesystemProvider.getFilesystem(new Path(nodeTagsPath), hadoopConf);
       long updateNodeTagsInterval =
-          conf.getLong(CoordinatorConf.COORDINATOR_EXCLUDE_NODES_CHECK_INTERVAL);
+          conf.getLong(CoordinatorConf.COORDINATOR_NODE_TAGS_CHECK_INTERVAL);
       checkNodeTagExecutorService =
           ThreadUtils.getDaemonSingleThreadScheduledExecutor("UpdateNodeTags");
       checkNodeTagExecutorService.scheduleAtFixedRate(
@@ -220,6 +220,7 @@ public class SimpleClusterManager implements ClusterManager {
         if (nodeTagLastModify.get() != latestModificationTime) {
           dynamicNodeToTags = parseNodeTagFile(fsForNodeTags.open(hadoopPath));
           nodeTagLastModify.set(latestModificationTime);
+          System.out.println("Updated node tags [{}]" + gson.toJson(dynamicNodeToTags));
           LOG.info("Updated node tags [{}]", gson.toJson(dynamicNodeToTags));
         }
       } else {
@@ -364,16 +365,16 @@ public class SimpleClusterManager implements ClusterManager {
   public void add(ServerNode node) {
     if (!servers.containsKey(node.getId())) {
       LOG.info("Newly registering node: {}", node.getId());
-      Set<String> tags = node.getTags();
-      // remove node with all tags to deal with the situation of tag change
-      for (Set<ServerNode> nodes : tagToNodes.values()) {
-        nodes.remove(node);
-      }
-      // add node to related tags
-      for (String tag : tags) {
-        Set<ServerNode> nodes = tagToNodes.computeIfAbsent(tag, key -> Sets.newConcurrentHashSet());
-        nodes.add(node);
-      }
+    }
+    Set<String> tags = node.getTags();
+    // remove node with all tags to deal with the situation of tag change
+    for (Set<ServerNode> nodes : tagToNodes.values()) {
+      nodes.remove(node);
+    }
+    // add node to related tags
+    for (String tag : tags) {
+      Set<ServerNode> nodes = tagToNodes.computeIfAbsent(tag, key -> Sets.newConcurrentHashSet());
+      nodes.add(node);
     }
     servers.put(node.getId(), node);
     String[] dynamicTags = dynamicNodeToTags.get(node.getId());
