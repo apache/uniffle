@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +41,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import com.google.gson.Gson;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
@@ -72,13 +74,16 @@ public class SimpleClusterManager implements ClusterManager {
   Set<ServerNode> unhealthyNodes = Sets.newHashSet();
   // tag -> nodes
   private Map<String, Set<ServerNode>> tagToNodes = JavaUtils.newConcurrentMap();
+  private Map<String, String[]> dynamicNodeToTags = new HashMap<>();
   private AtomicLong excludeLastModify = new AtomicLong(0L);
+  private final AtomicLong nodeTagLastModify = new AtomicLong(0L);
   private long heartbeatTimeout;
   private ReconfigurableConfManager.Reconfigurable<Integer> shuffleNodesMax;
   private ScheduledExecutorService scheduledExecutorService;
   private ScheduledExecutorService checkNodesExecutorService;
   private FileSystem hadoopFileSystem;
-
+  private ScheduledExecutorService checkNodeTagExecutorService;
+  private FileSystem fsForNodeTags;
   private long outputAliveServerCount = 0;
   private final long periodicOutputIntervalTimes;
 
@@ -87,6 +92,7 @@ public class SimpleClusterManager implements ClusterManager {
   private long startupSilentPeriodDurationMs;
   private boolean readyForServe = false;
   private String excludedNodesPath;
+  private Gson gson = new Gson();
 
   public SimpleClusterManager(CoordinatorConf conf, Configuration hadoopConf) throws Exception {
     this.shuffleNodesMax =
@@ -121,6 +127,19 @@ public class SimpleClusterManager implements ClusterManager {
           0,
           updateNodesInterval,
           TimeUnit.MILLISECONDS);
+    }
+
+    // update node tags
+    String nodeTagsPath = conf.get(CoordinatorConf.COORDINATOR_NODE_TAGS_FILE_PATH);
+    if (!StringUtils.isEmpty(nodeTagsPath)) {
+      this.fsForNodeTags =
+          HadoopFilesystemProvider.getFilesystem(new Path(nodeTagsPath), hadoopConf);
+      long updateNodeTagsInterval =
+          conf.getLong(CoordinatorConf.COORDINATOR_NODE_TAGS_CHECK_INTERVAL);
+      checkNodeTagExecutorService =
+          ThreadUtils.getDaemonSingleThreadScheduledExecutor("UpdateNodeTags");
+      checkNodeTagExecutorService.scheduleAtFixedRate(
+          () -> updateNodeTag(nodeTagsPath), 0, updateNodeTagsInterval, TimeUnit.MILLISECONDS);
     }
 
     long clientExpiredTime = conf.get(CoordinatorConf.COORDINATOR_NODES_CLIENT_CACHE_EXPIRED);
@@ -190,6 +209,52 @@ public class SimpleClusterManager implements ClusterManager {
   @VisibleForTesting
   public void nodesCheckTest() {
     nodesCheck();
+  }
+
+  private void updateNodeTag(String path) {
+    try {
+      Path hadoopPath = new Path(path);
+      FileStatus fileStatus = fsForNodeTags.getFileStatus(hadoopPath);
+      if (fileStatus != null && fileStatus.isFile()) {
+        long latestModificationTime = fileStatus.getModificationTime();
+        if (nodeTagLastModify.get() != latestModificationTime) {
+          dynamicNodeToTags = parseNodeTagFile(fsForNodeTags.open(hadoopPath));
+          nodeTagLastModify.set(latestModificationTime);
+          System.out.println("Updated node tags [{}]" + gson.toJson(dynamicNodeToTags));
+          LOG.info("Updated node tags [{}]", gson.toJson(dynamicNodeToTags));
+        }
+      } else {
+        LOG.info("Node tags file not found, resetting node tags to empty.");
+        dynamicNodeToTags = new HashMap<>();
+      }
+    } catch (FileNotFoundException fileNotFoundException) {
+      LOG.info("Node tags file not found, resetting node tags to empty.");
+      dynamicNodeToTags = new HashMap<>();
+    } catch (Exception e) {
+      LOG.warn("Error when updating node tags, the node tags file path: {}.", path, e);
+    }
+  }
+
+  private Map<String, String[]> parseNodeTagFile(DataInputStream fsDataInputStream)
+      throws IOException {
+    Map<String, String[]> tagsMap = new HashMap<>();
+    try (BufferedReader br =
+        new BufferedReader(new InputStreamReader(fsDataInputStream, StandardCharsets.UTF_8))) {
+      String line;
+      while ((line = br.readLine()) != null) {
+        if (!StringUtils.isEmpty(line) && !line.trim().startsWith("#")) {
+          String[] segments = StringUtils.split(line, " ");
+          if (segments.length != 2) {
+            LOG.warn("Invalid tag line: {}, ignored.", line);
+          }
+          String node = segments[0];
+          String tagStr = segments[1];
+          String[] tags = StringUtils.split(tagStr, ",");
+          tagsMap.put(node, tags);
+        }
+      }
+    }
+    return tagsMap;
   }
 
   private synchronized void updateExcludedNodes(String path) {
@@ -298,16 +363,9 @@ public class SimpleClusterManager implements ClusterManager {
 
   @Override
   public void add(ServerNode node) {
-    ServerNode pre = servers.get(node.getId());
-    if (pre == null) {
+    if (!servers.containsKey(node.getId())) {
       LOG.info("Newly registering node: {}", node.getId());
-    } else {
-      long regTime = pre.getRegistrationTime();
-      // inherit registration time
-      node.setRegistrationTime(regTime);
     }
-    servers.put(node.getId(), node);
-
     Set<String> tags = node.getTags();
     // remove node with all tags to deal with the situation of tag change
     for (Set<ServerNode> nodes : tagToNodes.values()) {
@@ -315,8 +373,17 @@ public class SimpleClusterManager implements ClusterManager {
     }
     // add node to related tags
     for (String tag : tags) {
-      tagToNodes.computeIfAbsent(tag, key -> Sets.newConcurrentHashSet());
-      tagToNodes.get(tag).add(node);
+      Set<ServerNode> nodes = tagToNodes.computeIfAbsent(tag, key -> Sets.newConcurrentHashSet());
+      nodes.add(node);
+    }
+    servers.put(node.getId(), node);
+    String[] dynamicTags = dynamicNodeToTags.get(node.getId());
+    if (dynamicTags != null) {
+      for (String tag : dynamicTags) {
+        Set<ServerNode> nodes = tagToNodes.computeIfAbsent(tag, key -> Sets.newConcurrentHashSet());
+        node.getTags().add(tag);
+        nodes.add(node);
+      }
     }
   }
 
@@ -373,6 +440,11 @@ public class SimpleClusterManager implements ClusterManager {
 
   public Map<String, Set<ServerNode>> getTagToNodes() {
     return tagToNodes;
+  }
+
+  @VisibleForTesting
+  Map<String, String[]> getDynamicNodeToTags() {
+    return dynamicNodeToTags;
   }
 
   @Override
@@ -481,13 +553,18 @@ public class SimpleClusterManager implements ClusterManager {
     if (hadoopFileSystem != null) {
       hadoopFileSystem.close();
     }
-
+    if (fsForNodeTags != null) {
+      fsForNodeTags.close();
+    }
     if (scheduledExecutorService != null) {
       scheduledExecutorService.shutdown();
     }
 
     if (checkNodesExecutorService != null) {
       checkNodesExecutorService.shutdown();
+    }
+    if (checkNodeTagExecutorService != null) {
+      checkNodeTagExecutorService.shutdown();
     }
   }
 
