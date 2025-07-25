@@ -426,7 +426,7 @@ public class SimpleClusterManagerTest {
 
   @Test
   public void updateNodeTagTest(@TempDir File tmpDir) throws Exception {
-        (new File(ClassLoader.getSystemResource("empty").getFile())).getParent();
+    (new File(ClassLoader.getSystemResource("empty").getFile())).getParent();
     String nodeTagsPath = new File(tmpDir, "nodeTags").getAbsolutePath();
     CoordinatorConf ssc = new CoordinatorConf();
     ssc.setString(
