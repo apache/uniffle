@@ -979,7 +979,11 @@ public class ShuffleWriteClientImpl implements ShuffleWriteClient {
               LOG.warn("Failed to send heartbeat to " + shuffleServerInfo);
             }
           } catch (Exception e) {
-            LOG.warn("Error happened when send heartbeat to " + shuffleServerInfo, e);
+            if (LOG.isDebugEnabled()) {
+              LOG.debug("Error happened when send heartbeat to " + shuffleServerInfo, e);
+            } else {
+              LOG.warn("Error happened when send heartbeat to " + shuffleServerInfo);
+            }
           }
           return null;
         },
