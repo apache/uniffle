@@ -26,6 +26,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import org.apache.uniffle.client.util.RssClientConfig;
+import org.apache.uniffle.common.RemoteStorageInfo;
 import org.apache.uniffle.common.ShuffleDataDistributionType;
 import org.apache.uniffle.common.config.ConfigOption;
 import org.apache.uniffle.common.config.RssClientConf;
@@ -94,6 +95,26 @@ public class RssShuffleManagerTest extends RssShuffleManagerTestBase {
           RssClientConf.DATA_DISTRIBUTION_TYPE.defaultValue(),
           RssShuffleManager.getDataDistributionType(sparkConf));
     }
+  }
+
+  @Test
+  public void testGetRemoteStorageInfo() {
+    setupMockedRssShuffleUtils(StatusCode.SUCCESS);
+
+    SparkConf conf = new SparkConf();
+    conf.set(RssSparkConfig.RSS_DYNAMIC_CLIENT_CONF_ENABLED.key(), "false");
+    conf.set(RssSparkConfig.RSS_COORDINATOR_QUORUM.key(), "m1:8001,m2:8002");
+    conf.set("spark.driver.host", "localhost");
+    conf.set("spark.rss.storage.type", StorageType.LOCALFILE.name());
+    conf.set(RssSparkConfig.RSS_TEST_MODE_ENABLE, true);
+
+    // inject some hadoop configs
+    conf.set("spark.rss.hadoop.k1", "v1");
+    conf.set("spark.rss.hadoop.k2", "v2");
+
+    RssShuffleManager shuffleManager = new RssShuffleManager(conf, true);
+    RemoteStorageInfo remoteStorageInfo = shuffleManager.getRemoteStorageInfo();
+    assertEquals(2, remoteStorageInfo.getConfItems().size());
   }
 
   @Test
