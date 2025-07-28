@@ -80,12 +80,12 @@ public class MultiReplicaClientReadHandler extends AbstractClientReadHandler {
           // If this is not the last server, then read next.
           if (readHandlerIndex < handlers.size() - 1) {
             LOG.info(
-                "Finished read from {}/{} [{}], haven't finished read all the blocks. Will read from next server {}",
+                "Finished read from {}/{} [{}], haven't finished read all the blocks. Will read from next server {}. message: {}",
                 readHandlerIndex + 1,
                 handlers.size(),
                 shuffleServerInfos.get(readHandlerIndex).getId(),
                 shuffleServerInfos.get(readHandlerIndex + 1).getId(),
-                e);
+                e.getMessage());
           } else {
             LOG.warn(
                 "Finished read from {}/{} [{}], but haven't finished read all the blocks.",
