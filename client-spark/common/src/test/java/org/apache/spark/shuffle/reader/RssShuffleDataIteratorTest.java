@@ -229,7 +229,8 @@ public class RssShuffleDataIteratorTest extends AbstractRssReaderTest {
       }
       fail(EXPECTED_EXCEPTION_MESSAGE);
     } catch (Exception e) {
-      assertTrue(e.getMessage().startsWith("Blocks read inconsistent: expected"));
+      // the underlying hdfs files have been deleted, so that the reader will initialize failed
+      assertTrue(e.getMessage().contains("don't exist or is not a file"));
     }
   }
 
