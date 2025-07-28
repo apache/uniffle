@@ -230,7 +230,13 @@ public class ShuffleReadClientImplTest extends HadoopTestBase {
     // data file is deleted after readClient checkExpectedBlockIds
     fs.delete(dataFile, true);
 
-    assertNull(readClient.readShuffleBlockData());
+    try {
+      readClient.readShuffleBlockData();
+      fail("Hdfs file reader should fail due to non-existence");
+    } catch (Exception e) {
+      // ignore
+    }
+
     try {
       fs.listStatus(dataFile);
       fail("Index file should be deleted");
