@@ -470,7 +470,7 @@ public class ShuffleBufferManager {
         return false;
       }
       int flushEventCount = buffer.getInFlushEventCount();
-      if (flushEventCount >= maxFlushEventCountPerBuffer) {
+      if (maxFlushEventCountPerBuffer > 0 && flushEventCount >= maxFlushEventCountPerBuffer) {
         LOG.warn(
             "Shuffle[{}] for app[{}] already has [{}] flush events, ignore it.",
             shuffleId,
