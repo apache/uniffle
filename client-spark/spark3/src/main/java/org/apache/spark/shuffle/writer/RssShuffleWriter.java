@@ -766,9 +766,17 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
       }
       MutableShuffleHandleInfo handle = MutableShuffleHandleInfo.fromProto(response.getHandle());
       taskAttemptAssignment.update(handle);
-      LOG.info(
-          "Success to reassign. The latest available assignment is {}",
-          handle.getAvailablePartitionServersForWriter());
+
+      // print the lastest assignment for those reassignment partition ids
+      Map<Integer, List<String>> reassignments = new HashMap<>();
+      for (Map.Entry<Integer, List<ReceivingFailureServer>> entry :
+          failurePartitionToServers.entrySet()) {
+        int partitionId = entry.getKey();
+        List<ShuffleServerInfo> servers = taskAttemptAssignment.retrieve(partitionId);
+        reassignments.put(
+            partitionId, servers.stream().map(x -> x.getId()).collect(Collectors.toList()));
+      }
+      LOG.info("Succeed to reassign that the latest assignment is {}", reassignments);
     } catch (Exception e) {
       throw new RssException(
           "Errors on reassign on block send failure. failure partition->servers : "
@@ -827,6 +835,11 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
       // It can not work if we want to use multiple replicas.
       ShuffleServerInfo replacement = servers.get(0);
       if (blockStatus.getShuffleServerInfo().getId().equals(replacement.getId())) {
+        LOG.warn(
+            "PartitionId:{} has the following assigned servers: {}. But currently the replacement server:{} is the same with previous one!",
+            block.getPartitionId(),
+            taskAttemptAssignment.list(block.getPartitionId()),
+            replacement);
         throw new RssException(
             "No available replacement server for: " + blockStatus.getShuffleServerInfo().getId());
       }

@@ -17,6 +17,7 @@
 
 package org.apache.spark.shuffle.writer;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -65,5 +66,17 @@ public class TaskAttemptAssignment {
     // for those load balance partition split, once split, skip the following split.
     PartitionSplitInfo splitInfo = this.handle.getPartitionSplitInfo(partitionId);
     return splitInfo.isSplit() && splitInfo.getMode() == PartitionSplitMode.LOAD_BALANCE;
+  }
+
+  /**
+   * @param partitionId
+   * @return all assigned shuffle servers for one partition id
+   */
+  public List<ShuffleServerInfo> list(int partitionId) {
+    Map<Integer, List<ShuffleServerInfo>> servers = this.handle.getAllPartitionServersForReader();
+    if (servers == null) {
+      return Collections.emptyList();
+    }
+    return servers.get(partitionId);
   }
 }
