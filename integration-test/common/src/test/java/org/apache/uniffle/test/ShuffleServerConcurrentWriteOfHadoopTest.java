@@ -87,6 +87,7 @@ public class ShuffleServerConcurrentWriteOfHadoopTest extends ShuffleServerWithH
         ShuffleServerConf.SERVER_MAX_CONCURRENCY_OF_ONE_PARTITION, MAX_CONCURRENCY);
     shuffleServerConf.setBoolean(shuffleServerConf.SINGLE_BUFFER_FLUSH_ENABLED, true);
     shuffleServerConf.setLong(shuffleServerConf.SINGLE_BUFFER_FLUSH_SIZE_THRESHOLD, 1024 * 1024L);
+    shuffleServerConf.setInteger(shuffleServerConf.MAX_FLUSH_EVENT_COUNT_PER_BUFFER, -1);
     return shuffleServerConf;
   }
 

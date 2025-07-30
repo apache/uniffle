@@ -72,6 +72,7 @@ public class ShuffleBufferManager {
   private final ShuffleBufferType shuffleBufferType;
   private final Boolean isLABEnabled;
   private final int flushTryLockTimeout;
+  private final int maxFlushEventCountPerBuffer;
   private ShuffleTaskManager shuffleTaskManager;
   private final ShuffleFlushManager shuffleFlushManager;
   private long capacity;
@@ -228,6 +229,7 @@ public class ShuffleBufferManager {
       int maxAlloc = (int) (chunkSize * maxAllocRatio);
       ChunkCreator.initialize(chunkSize, (long) (capacity * chunkPoolCapacityRatio), maxAlloc);
     }
+    this.maxFlushEventCountPerBuffer = conf.get(ShuffleServerConf.MAX_FLUSH_EVENT_COUNT_PER_BUFFER);
   }
 
   public void setShuffleTaskManager(ShuffleTaskManager taskManager) {
@@ -450,7 +452,7 @@ public class ShuffleBufferManager {
     }
   }
 
-  protected void flushBuffer(
+  protected boolean flushBuffer(
       ShuffleBuffer buffer,
       String appId,
       int shuffleId,
@@ -465,7 +467,16 @@ public class ShuffleBufferManager {
             "Shuffle[{}] for app[{}] has already been removed, no need to flush the buffer",
             shuffleId,
             appId);
-        return;
+        return false;
+      }
+      int flushEventCount = buffer.getInFlushEventCount();
+      if (maxFlushEventCountPerBuffer > 0 && flushEventCount >= maxFlushEventCountPerBuffer) {
+        LOG.warn(
+            "Shuffle[{}] for app[{}] already has [{}] flush events, ignore it.",
+            shuffleId,
+            appId,
+            flushEventCount);
+        return false;
       }
       ShuffleDataFlushEvent event =
           buffer.toFlushEvent(
@@ -484,10 +495,12 @@ public class ShuffleBufferManager {
         }
         ShuffleServerMetrics.gaugeInFlushBufferSize.set(inFlushSize.get());
         shuffleFlushManager.addToFlushQueue(event);
+        return true;
       }
     } finally {
       readLock.unlock();
     }
+    return false;
   }
 
   public void removeBuffer(String appId) {
@@ -664,15 +677,19 @@ public class ShuffleBufferManager {
                   shuffleIdToBuffers.getValue().asMapOfRanges().entrySet()) {
                 Range<Integer> range = rangeEntry.getKey();
                 ShuffleBuffer shuffleBuffer = rangeEntry.getValue();
-                pickedFlushSize += shuffleBuffer.getEncodedLength();
-                flushBuffer(
-                    shuffleBuffer,
-                    appId,
-                    shuffleId,
-                    range.lowerEndpoint(),
-                    range.upperEndpoint(),
-                    HugePartitionUtils.isHugePartition(
-                        shuffleTaskManager, appId, shuffleId, range.lowerEndpoint()));
+                long bufferEncodedLength = shuffleBuffer.getEncodedLength();
+                boolean success =
+                    flushBuffer(
+                        shuffleBuffer,
+                        appId,
+                        shuffleId,
+                        range.lowerEndpoint(),
+                        range.upperEndpoint(),
+                        HugePartitionUtils.isHugePartition(
+                            shuffleTaskManager, appId, shuffleId, range.lowerEndpoint()));
+                if (success) {
+                  pickedFlushSize += bufferEncodedLength;
+                }
                 if (pickedFlushSize > expectedFlushSize) {
                   LOG.info("Already picked enough buffers to flush {} bytes", pickedFlushSize);
                   return;

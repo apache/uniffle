@@ -154,6 +154,11 @@ public class ShuffleBufferWithLinkedList extends AbstractShuffleBuffer {
   }
 
   @Override
+  public int getInFlushEventCount() {
+    return inFlushBlockMap.size();
+  }
+
+  @Override
   public synchronized long release() {
     Throwable lastException = null;
     int failedToReleaseSize = 0;

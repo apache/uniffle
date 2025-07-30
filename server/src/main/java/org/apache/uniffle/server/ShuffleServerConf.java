@@ -445,6 +445,12 @@ public class ShuffleServerConf extends RssBaseConf {
                   + "This can cause severe garbage collection issues on the server side, and may even lead to out-of-heap-memory errors. "
                   + "If the threshold is set too high, it becomes meaningless. It won't be enabled by default.");
 
+  public static final ConfigOption<Integer> MAX_FLUSH_EVENT_COUNT_PER_BUFFER =
+      ConfigOptions.key("rss.server.buffer.maxFlushEventCountPerBuffer")
+          .intType()
+          .defaultValue(5)
+          .withDescription("The max flush event count for a single buffer.");
+
   public static final ConfigOption<Long> SERVER_LEAK_SHUFFLE_DATA_CHECK_INTERVAL =
       ConfigOptions.key("rss.server.leak.shuffledata.check.interval")
           .longType()
