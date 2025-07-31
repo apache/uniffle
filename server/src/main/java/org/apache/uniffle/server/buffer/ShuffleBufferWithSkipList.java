@@ -39,7 +39,6 @@ import org.apache.uniffle.common.util.Constants;
 import org.apache.uniffle.common.util.JavaUtils;
 import org.apache.uniffle.server.ShuffleDataFlushEvent;
 import org.apache.uniffle.server.ShuffleFlushManager;
-import org.apache.uniffle.server.ShuffleServerMetrics;
 
 public class ShuffleBufferWithSkipList extends AbstractShuffleBuffer {
   private ConcurrentSkipListMap<Long, ShufflePartitionedBlock> blocksMap;
@@ -67,7 +66,6 @@ public class ShuffleBufferWithSkipList extends AbstractShuffleBuffer {
     long currentDataLength = 0;
 
     for (ShufflePartitionedBlock block : data.getBlockList()) {
-      ShuffleServerMetrics.summaryBufferBlockSize.observe(block.getDataLength());
       // If sendShuffleData retried, we may receive duplicate block. The duplicate
       // block would gc without release. Here we must release the duplicated block.
       if (!blocksMap.containsKey(block.getBlockId())) {
