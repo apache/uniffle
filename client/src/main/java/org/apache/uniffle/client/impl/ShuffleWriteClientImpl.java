@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -1228,16 +1229,10 @@ public class ShuffleWriteClientImpl implements ShuffleWriteClient {
   }
 
   void addShuffleServer(String appId, int shuffleId, ShuffleServerInfo serverInfo) {
-    Map<Integer, Set<ShuffleServerInfo>> appServerMap = shuffleServerInfoMap.get(appId);
-    if (appServerMap == null) {
-      appServerMap = JavaUtils.newConcurrentMap();
-      shuffleServerInfoMap.put(appId, appServerMap);
-    }
-    Set<ShuffleServerInfo> shuffleServerInfos = appServerMap.get(shuffleId);
-    if (shuffleServerInfos == null) {
-      shuffleServerInfos = Sets.newConcurrentHashSet();
-      appServerMap.put(shuffleId, shuffleServerInfos);
-    }
+    Map<Integer, Set<ShuffleServerInfo>> appServerMap =
+        shuffleServerInfoMap.computeIfAbsent(appId, x -> new ConcurrentHashMap<>());
+    Set<ShuffleServerInfo> shuffleServerInfos =
+        appServerMap.computeIfAbsent(shuffleId, x -> Sets.newConcurrentHashSet());
     shuffleServerInfos.add(serverInfo);
   }
 
