@@ -33,9 +33,12 @@ public class JavaUtils {
   private static final Logger logger = LoggerFactory.getLogger(JavaUtils.class);
   private static final String JAVA_9 = "JAVA_9";
 
+  private static final boolean JAVA9_PLUS =
+      Enums.getIfPresent(JavaVersion.class, JAVA_9).isPresent()
+          && SystemUtils.isJavaVersionAtLeast(JavaVersion.JAVA_9);
+
   public static boolean isJavaVersionAtLeastJava9() {
-    return Enums.getIfPresent(JavaVersion.class, JAVA_9).isPresent()
-        && SystemUtils.isJavaVersionAtLeast(JavaVersion.JAVA_9);
+    return JAVA9_PLUS;
   }
 
   /** Closes the given object, ignoring IOExceptions. */
