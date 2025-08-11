@@ -114,7 +114,7 @@ public class ShuffleServerInfo implements Serializable {
     }
   }
 
-  private static ShuffleServerInfo convertFromShuffleServerId(
+  public static ShuffleServerInfo convertFromShuffleServerId(
       RssProtos.ShuffleServerId shuffleServerId) {
     ShuffleServerInfo shuffleServerInfo =
         new ShuffleServerInfo(

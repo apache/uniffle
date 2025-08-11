@@ -30,6 +30,7 @@ import java.util.stream.Collectors;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.spark.TaskContext;
 import org.apache.spark.shuffle.handle.split.PartitionSplitInfo;
 import org.slf4j.Logger;
@@ -301,27 +302,38 @@ public class MutableShuffleHandleInfo extends ShuffleHandleInfoBase {
 
   public static RssProtos.MutableShuffleHandleInfo toProto(MutableShuffleHandleInfo handleInfo) {
     synchronized (handleInfo) {
-      Map<Integer, RssProtos.PartitionReplicaServers> partitionToServers = new HashMap<>();
+      Map<ShuffleServerInfo, List<Pair<Integer, Integer>>> serverToPartitions = new HashMap<>();
       for (Map.Entry<Integer, Map<Integer, List<ShuffleServerInfo>>> entry :
           handleInfo.partitionReplicaAssignedServers.entrySet()) {
         int partitionId = entry.getKey();
-
-        Map<Integer, RssProtos.ReplicaServersItem> replicaServersProto = new HashMap<>();
         Map<Integer, List<ShuffleServerInfo>> replicaServers = entry.getValue();
         for (Map.Entry<Integer, List<ShuffleServerInfo>> replicaServerEntry :
             replicaServers.entrySet()) {
-          RssProtos.ReplicaServersItem item =
-              RssProtos.ReplicaServersItem.newBuilder()
-                  .addAllServerId(ShuffleServerInfo.toProto(replicaServerEntry.getValue()))
-                  .build();
-          replicaServersProto.put(replicaServerEntry.getKey(), item);
+          int replicaIndex = replicaServerEntry.getKey();
+          List<ShuffleServerInfo> servers = replicaServerEntry.getValue();
+          for (ShuffleServerInfo server : servers) {
+            serverToPartitions
+                .computeIfAbsent(server, x -> new ArrayList<>())
+                .add(Pair.of(partitionId, replicaIndex));
+          }
         }
-
-        RssProtos.PartitionReplicaServers partitionReplicaServerProto =
-            RssProtos.PartitionReplicaServers.newBuilder()
-                .putAllReplicaServers(replicaServersProto)
-                .build();
-        partitionToServers.put(partitionId, partitionReplicaServerProto);
+      }
+      List<RssProtos.ServerToPartitionsItem> protoServerToPartitionsItems = new ArrayList<>();
+      for (Map.Entry<ShuffleServerInfo, List<Pair<Integer, Integer>>> entry :
+          serverToPartitions.entrySet()) {
+        List<RssProtos.PartitionReplicaItem> replicaItems = new ArrayList<>();
+        for (Pair<Integer, Integer> partitionReplica : entry.getValue()) {
+          replicaItems.add(
+              RssProtos.PartitionReplicaItem.newBuilder()
+                  .setPartitionId(partitionReplica.getKey())
+                  .setReplicaIndex(partitionReplica.getValue())
+                  .build());
+        }
+        protoServerToPartitionsItems.add(
+            RssProtos.ServerToPartitionsItem.newBuilder()
+                .setServerId(ShuffleServerInfo.convertToShuffleServerId(entry.getKey()))
+                .addAllPartitionToReplicaItems(replicaItems)
+                .build());
       }
 
       Map<String, RssProtos.ReplacementServers> excludeToReplacements = new HashMap<>();
@@ -347,8 +359,8 @@ public class MutableShuffleHandleInfo extends ShuffleHandleInfoBase {
                       .setPath(handleInfo.remoteStorage.getPath())
                       .putAllConfItems(handleInfo.remoteStorage.getConfItems())
                       .build())
-              .putAllPartitionToServers(partitionToServers)
               .putAllExcludedServerToReplacements(excludeToReplacements)
+              .addAllServerToPartitionItem(protoServerToPartitionsItems)
               .setPartitionSplitMode(mode)
               .addAllSplitPartitionId(handleInfo.excludedServerForPartitionToReplacements.keySet())
               .build();
@@ -361,16 +373,17 @@ public class MutableShuffleHandleInfo extends ShuffleHandleInfoBase {
       return null;
     }
     Map<Integer, Map<Integer, List<ShuffleServerInfo>>> partitionToServers = new HashMap<>();
-    for (Map.Entry<Integer, RssProtos.PartitionReplicaServers> entry :
-        handleProto.getPartitionToServersMap().entrySet()) {
-      Map<Integer, List<ShuffleServerInfo>> replicaServers =
-          partitionToServers.computeIfAbsent(entry.getKey(), x -> new HashMap<>());
-      for (Map.Entry<Integer, RssProtos.ReplicaServersItem> serverEntry :
-          entry.getValue().getReplicaServersMap().entrySet()) {
-        int replicaIdx = serverEntry.getKey();
-        List<ShuffleServerInfo> shuffleServerInfos =
-            ShuffleServerInfo.fromProto(serverEntry.getValue().getServerIdList());
-        replicaServers.put(replicaIdx, shuffleServerInfos);
+    for (RssProtos.ServerToPartitionsItem item : handleProto.getServerToPartitionItemList()) {
+      ShuffleServerInfo shuffleServerInfo =
+          ShuffleServerInfo.convertFromShuffleServerId(item.getServerId());
+      for (RssProtos.PartitionReplicaItem partitionReplicaItem :
+          item.getPartitionToReplicaItemsList()) {
+        int partitionId = partitionReplicaItem.getPartitionId();
+        int replicaIndex = partitionReplicaItem.getReplicaIndex();
+        partitionToServers
+            .computeIfAbsent(partitionId, k -> new HashMap<>())
+            .computeIfAbsent(replicaIndex, k -> new ArrayList<>())
+            .add(shuffleServerInfo);
       }
     }
 

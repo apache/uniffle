@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Test;
 import org.apache.uniffle.client.PartitionDataReplicaRequirementTracking;
 import org.apache.uniffle.common.RemoteStorageInfo;
 import org.apache.uniffle.common.ShuffleServerInfo;
+import org.apache.uniffle.proto.RssProtos;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -39,6 +40,46 @@ public class MutableShuffleHandleInfoTest {
 
   private ShuffleServerInfo createFakeServerInfo(String id) {
     return new ShuffleServerInfo(id, id, 1);
+  }
+
+  private static boolean mapsIsEqual(
+      Map<Integer, List<ShuffleServerInfo>> map1, Map<Integer, List<ShuffleServerInfo>> map2) {
+
+    if (map1 == map2) {
+      return true;
+    }
+    if (map1 == null || map2 == null) {
+      return false;
+    }
+    if (map1.size() != map2.size()) {
+      return false;
+    }
+    for (Map.Entry<Integer, List<ShuffleServerInfo>> entry : map1.entrySet()) {
+      List<ShuffleServerInfo> list1 = entry.getValue();
+      List<ShuffleServerInfo> list2 = map2.get(entry.getKey());
+      if (list2 == null || list1.size() != list2.size()) {
+        return false;
+      }
+      if (!new HashSet<>(list1).equals(new HashSet<>(list2))) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  @Test
+  public void testSerializationWithProtobuf() {
+    Map<Integer, List<ShuffleServerInfo>> partitionToServers = new HashMap<>();
+    partitionToServers.put(1, Arrays.asList(createFakeServerInfo("a"), createFakeServerInfo("b")));
+    partitionToServers.put(2, Arrays.asList(createFakeServerInfo("c")));
+
+    MutableShuffleHandleInfo handleInfo =
+        new MutableShuffleHandleInfo(1, partitionToServers, new RemoteStorageInfo(""));
+
+    RssProtos.MutableShuffleHandleInfo serialized = MutableShuffleHandleInfo.toProto(handleInfo);
+    MutableShuffleHandleInfo deserialized = MutableShuffleHandleInfo.fromProto(serialized);
+
+    assert (mapsIsEqual(deserialized.getAllPartitionServersForReader(), partitionToServers));
   }
 
   @Test
