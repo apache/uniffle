@@ -702,6 +702,8 @@ message ServerToPartitionsItem {
 message PartitionReplicaItem {
   int32 partitionId = 1;
   int32 replicaIndex = 2;
+  // the index of assigned servers list
+  int32 sequenceIndex = 3;
 }
 
 enum PartitionSplitMode {

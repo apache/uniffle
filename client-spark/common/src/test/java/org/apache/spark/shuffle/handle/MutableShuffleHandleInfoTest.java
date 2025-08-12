@@ -61,8 +61,11 @@ public class MutableShuffleHandleInfoTest {
       if (list2 == null || list1.size() != list2.size()) {
         return false;
       }
-      if (!new HashSet<>(list1).equals(new HashSet<>(list2))) {
-        return false;
+      // all the elements should be equal with the same index
+      for (int i = 0; i < list1.size(); i++) {
+        if (!list2.get(i).equals(list1.get(i))) {
+          return false;
+        }
       }
     }
     return true;
