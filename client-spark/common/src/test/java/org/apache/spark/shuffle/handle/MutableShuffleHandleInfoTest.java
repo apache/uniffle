@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import org.junit.jupiter.api.Test;
 
@@ -73,6 +74,7 @@ public class MutableShuffleHandleInfoTest {
     partitionToServers.put(1, Arrays.asList(createFakeServerInfo("a"), createFakeServerInfo("b")));
     partitionToServers.put(2, Arrays.asList(createFakeServerInfo("c")));
 
+    // case1: with single replica
     MutableShuffleHandleInfo handleInfo =
         new MutableShuffleHandleInfo(1, partitionToServers, new RemoteStorageInfo(""));
 
@@ -80,6 +82,32 @@ public class MutableShuffleHandleInfoTest {
     MutableShuffleHandleInfo deserialized = MutableShuffleHandleInfo.fromProto(serialized);
 
     assert (mapsIsEqual(deserialized.getAllPartitionServersForReader(), partitionToServers));
+
+    // case2: with multi replicas
+    Map<Integer, Map<Integer, List<ShuffleServerInfo>>> partitionWithReplicaServers =
+        new HashMap<>();
+    partitionWithReplicaServers.put(
+        1,
+        ImmutableMap.of(
+            0, Arrays.asList(createFakeServerInfo("a"), createFakeServerInfo("b")),
+            1, Arrays.asList(createFakeServerInfo("c"), createFakeServerInfo("d"))));
+    partitionWithReplicaServers.put(
+        2, ImmutableMap.of(0, Arrays.asList(createFakeServerInfo("c"))));
+    MutableShuffleHandleInfo replicaHandleInfo =
+        new MutableShuffleHandleInfo(2, new RemoteStorageInfo(""), partitionWithReplicaServers);
+    serialized = MutableShuffleHandleInfo.toProto(replicaHandleInfo);
+    deserialized = MutableShuffleHandleInfo.fromProto(serialized);
+
+    assert (mapsIsEqual(
+        deserialized.getAllPartitionServersForReader(),
+        ImmutableMap.of(
+            1,
+                Arrays.asList(
+                    createFakeServerInfo("a"),
+                    createFakeServerInfo("b"),
+                    createFakeServerInfo("c"),
+                    createFakeServerInfo("d")),
+            2, Arrays.asList(createFakeServerInfo("c")))));
   }
 
   @Test
