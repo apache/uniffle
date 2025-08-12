@@ -19,6 +19,7 @@ package org.apache.spark.shuffle.handle;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -30,6 +31,7 @@ import java.util.stream.Collectors;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.spark.TaskContext;
 import org.apache.spark.shuffle.handle.split.PartitionSplitInfo;
@@ -381,7 +383,8 @@ public class MutableShuffleHandleInfo extends ShuffleHandleInfoBase {
     if (handleProto == null) {
       return null;
     }
-    Map<Integer, Map<Integer, List<ShuffleServerInfo>>> partitionToServers = new HashMap<>();
+    Map<Integer, Map<Integer, List<Pair<Integer, ShuffleServerInfo>>>> partitionToServers =
+        new HashMap<>();
     for (RssProtos.ServerToPartitionsItem item : handleProto.getServerToPartitionItemList()) {
       ShuffleServerInfo shuffleServerInfo =
           ShuffleServerInfo.convertFromShuffleServerId(item.getServerId());
@@ -393,8 +396,28 @@ public class MutableShuffleHandleInfo extends ShuffleHandleInfoBase {
         partitionToServers
             .computeIfAbsent(partitionId, k -> new HashMap<>())
             .computeIfAbsent(replicaIndex, k -> new ArrayList<>())
-            .add(sequenceIndex, shuffleServerInfo);
+            .add(Pair.of(sequenceIndex, shuffleServerInfo));
       }
+    }
+    Map<Integer, Map<Integer, List<ShuffleServerInfo>>> partitionReplicaAssignedServers =
+        new HashMap<>();
+    for (Map.Entry<Integer, Map<Integer, List<Pair<Integer, ShuffleServerInfo>>>> partitionEntry :
+        partitionToServers.entrySet()) {
+      int partitionId = partitionEntry.getKey();
+      Map<Integer, List<Pair<Integer, ShuffleServerInfo>>> replicaMap = partitionEntry.getValue();
+      Map<Integer, List<ShuffleServerInfo>> replicaAssignedMap = new HashMap<>();
+      for (Map.Entry<Integer, List<Pair<Integer, ShuffleServerInfo>>> replicaEntry :
+          replicaMap.entrySet()) {
+        int replicaIndex = replicaEntry.getKey();
+        List<Pair<Integer, ShuffleServerInfo>> pairs = replicaEntry.getValue();
+
+        pairs.sort(Comparator.comparingInt(Pair::getLeft));
+
+        List<ShuffleServerInfo> servers =
+            pairs.stream().map(Pair::getRight).collect(Collectors.toList());
+        replicaAssignedMap.put(replicaIndex, servers);
+      }
+      partitionReplicaAssignedServers.put(partitionId, replicaAssignedMap);
     }
 
     Map<String, Set<ShuffleServerInfo>> excludeToReplacements = new HashMap<>();
@@ -416,7 +439,7 @@ public class MutableShuffleHandleInfo extends ShuffleHandleInfoBase {
             handleProto.getRemoteStorageInfo().getConfItemsMap());
     MutableShuffleHandleInfo handle =
         new MutableShuffleHandleInfo(handleProto.getShuffleId(), remoteStorageInfo);
-    handle.partitionReplicaAssignedServers = partitionToServers;
+    handle.partitionReplicaAssignedServers = partitionReplicaAssignedServers;
     handle.partitionSplitMode =
         handleProto.getPartitionSplitMode() == RssProtos.PartitionSplitMode.LOAD_BALANCE
             ? PartitionSplitMode.LOAD_BALANCE
