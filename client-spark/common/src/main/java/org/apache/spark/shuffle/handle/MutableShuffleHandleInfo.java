@@ -209,10 +209,18 @@ public class MutableShuffleHandleInfo extends ShuffleHandleInfoBase {
       PartitionSplitInfo splitInfo = this.getPartitionSplitInfo(partitionId);
       for (Map.Entry<Integer, List<ShuffleServerInfo>> replicaServerEntry :
           replicaServers.entrySet()) {
-        ShuffleServerInfo candidate;
-        int candidateSize = replicaServerEntry.getValue().size();
-        // Use the last one for each replica writing
-        candidate = replicaServerEntry.getValue().get(candidateSize - 1);
+
+        // For normal partition reassignment, the latest replacement shuffle server is always used.
+        // However, this data structure does not preserve ordering, so we must filter out the
+        // excluded servers instead.
+        Optional<ShuffleServerInfo> candidateOptional =
+            replicaServerEntry.getValue().stream()
+                .filter(x -> !excludedServerToReplacements.containsKey(x.getId()))
+                .findFirst();
+        // Get the unexcluded server for each replica writing
+        ShuffleServerInfo candidate =
+            candidateOptional.orElseGet(
+                () -> replicaServerEntry.getValue().get(replicaServerEntry.getValue().size() - 1));
 
         long taskAttemptId =
             Optional.ofNullable(TaskContext.get()).map(x -> x.taskAttemptId()).orElse(-1L);
@@ -302,6 +310,7 @@ public class MutableShuffleHandleInfo extends ShuffleHandleInfoBase {
 
   public static RssProtos.MutableShuffleHandleInfo toProto(MutableShuffleHandleInfo handleInfo) {
     synchronized (handleInfo) {
+      // value: (PartitionId, ReplicaIndex)
       Map<ShuffleServerInfo, List<Pair<Integer, Integer>>> serverToPartitions = new HashMap<>();
       for (Map.Entry<Integer, Map<Integer, List<ShuffleServerInfo>>> entry :
           handleInfo.partitionReplicaAssignedServers.entrySet()) {
