@@ -118,7 +118,7 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
   private Map<ShuffleServerInfo, Map<Integer, Set<Long>>> serverToPartitionToBlockIds;
   private final ShuffleWriteClient shuffleWriteClient;
   private final Set<ShuffleServerInfo> shuffleServersForData;
-  private final long[] partitionLengths;
+  private final PartitionLengthStatistic partitionLengthStatistic;
   // Gluten needs this variable
   protected final boolean isMemoryShuffleEnabled;
   private final Function<String, Boolean> taskFailureCallback;
@@ -220,8 +220,7 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
     this.serverToPartitionToBlockIds = Maps.newHashMap();
     this.shuffleWriteClient = shuffleWriteClient;
     this.shuffleServersForData = shuffleHandleInfo.getServers();
-    this.partitionLengths = new long[partitioner.numPartitions()];
-    Arrays.fill(partitionLengths, 0);
+    this.partitionLengthStatistic = new PartitionLengthStatistic(partitioner.numPartitions());
     this.isMemoryShuffleEnabled =
         isMemoryShuffleEnabled(sparkConf.get(RssSparkConfig.RSS_STORAGE_TYPE.key()));
     this.taskFailureCallback = taskFailureCallback;
@@ -478,7 +477,6 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
                               shuffleServerInfo, k -> Maps.newHashMap());
                       pToBlockIds.computeIfAbsent(partitionId, v -> Sets.newHashSet()).add(blockId);
                     });
-            partitionLengths[partitionId] += getBlockLength(sbi);
           });
       return postBlockEvent(shuffleBlockInfoList);
     }
@@ -496,6 +494,7 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
               (completionBlock, isSuccessful) -> {
                 if (isSuccessful) {
                   bufferManager.releaseBlockResource(completionBlock);
+                  partitionLengthStatistic.inc(completionBlock);
                 }
               });
         }
@@ -865,7 +864,6 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
                     .get(s)
                     .get(block.getPartitionId())
                     .remove(block.getBlockId()));
-    partitionLengths[block.getPartitionId()] -= getBlockLength(block);
     blockIds.remove(block.getBlockId());
   }
 
@@ -946,7 +944,8 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
                 DUMMY_HOST,
                 DUMMY_PORT,
                 Option.apply(Long.toString(taskAttemptId)));
-        MapStatus mapStatus = MapStatus.apply(blockManagerId, partitionLengths, taskAttemptId);
+        MapStatus mapStatus =
+            MapStatus.apply(blockManagerId, partitionLengthStatistic.toArray(), taskAttemptId);
         return Option.apply(mapStatus);
       } else {
         return Option.empty();
