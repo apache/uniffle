@@ -262,13 +262,10 @@ public class RssSparkShuffleUtils {
    * Get current active {@link SparkContext}. It should be called inside Driver since we don't mean
    * to create any new {@link SparkContext} here.
    *
-   * <p>Note: We could use "SparkContext.getActive()" instead of "SparkContext.getOrCreate()" if the
-   * "getActive" method is not declared as package private in Scala.
-   *
    * @return Active SparkContext created by Driver.
    */
   public static SparkContext getActiveSparkContext() {
-    return SparkContext.getOrCreate();
+    return SparkContext.getActive().get();
   }
 
   /**
