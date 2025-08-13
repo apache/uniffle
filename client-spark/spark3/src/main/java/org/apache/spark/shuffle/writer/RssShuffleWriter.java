@@ -867,13 +867,6 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
     blockIds.remove(block.getBlockId());
   }
 
-  private long getBlockLength(ShuffleBlockInfo block) {
-    if (block instanceof DeferredCompressedBlock) {
-      return block.getUncompressLength();
-    }
-    return block.getLength();
-  }
-
   @VisibleForTesting
   protected void sendCommit() {
     ExecutorService executor = Executors.newSingleThreadExecutor();
