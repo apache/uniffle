@@ -19,6 +19,7 @@ package org.apache.spark.shuffle;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -265,7 +266,16 @@ public class RssSparkShuffleUtils {
    * @return Active SparkContext created by Driver.
    */
   public static SparkContext getActiveSparkContext() {
-    return SparkContext.getActive().get();
+    try {
+      Class<?> clazz = Class.forName("org.apache.spark.SparkContext$");
+      Object module = clazz.getField("MODULE$").get(null);
+      Method getActiveMethod = clazz.getMethod("getActive");
+      Object scOpt = getActiveMethod.invoke(module);
+      return ((Option<SparkContext>) scOpt).get();
+    } catch (Exception e) {
+      LOG.error("Failed to get active SparkContext", e);
+      throw new RssException(e);
+    }
   }
 
   /**
