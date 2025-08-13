@@ -24,40 +24,20 @@ import java.util.Set;
 import com.google.common.collect.Maps;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.spark.SparkConf;
-import org.apache.spark.SparkContext;
 import org.junit.jupiter.api.Test;
 
 import org.apache.uniffle.client.util.RssClientConfig;
-import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.util.Constants;
 import org.apache.uniffle.storage.util.StorageType;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 public class RssSparkShuffleUtilsTest {
 
   private static final String EXPECTED_EXCEPTION_MESSAGE = "Exception should be thrown";
-
-  @Test
-  public void testGetActiveSparkContext() {
-    assertThrows(RssException.class, RssSparkShuffleUtils::getActiveSparkContext);
-    SparkConf conf = new SparkConf();
-    conf.setMaster("local[1]");
-    conf.setAppName("test");
-    SparkContext sc = null;
-    try {
-      sc = SparkContext.getOrCreate(conf);
-      assertEquals(sc, RssSparkShuffleUtils.getActiveSparkContext());
-    } finally {
-      if (sc != null) {
-        sc.stop();
-      }
-    }
-  }
 
   @Test
   public void testAssignmentTags() {

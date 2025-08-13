@@ -17,13 +17,36 @@
 
 package org.apache.spark.shuffle;
 
+import org.apache.spark.SparkConf;
+import org.apache.spark.SparkContext;
 import org.junit.jupiter.api.Test;
 
+import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.exception.RssFetchFailedException;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class RssSpark2ShuffleUtilsTest {
+
+  @Test
+  public void testGetActiveSparkContext() {
+    assertThrows(RssException.class, RssSparkShuffleUtils::getActiveSparkContext);
+    SparkConf conf = new SparkConf();
+    conf.setMaster("local[1]");
+    conf.setAppName("test");
+    SparkContext sc = null;
+    try {
+      sc = SparkContext.getOrCreate(conf);
+      assertEquals(sc, RssSparkShuffleUtils.getActiveSparkContext());
+    } finally {
+      if (sc != null) {
+        sc.stop();
+      }
+    }
+  }
+
   @Test
   public void testCreateFetchFailedException() {
     FetchFailedException ffe = RssSparkShuffleUtils.createFetchFailedException(0, -1, 10, null);
