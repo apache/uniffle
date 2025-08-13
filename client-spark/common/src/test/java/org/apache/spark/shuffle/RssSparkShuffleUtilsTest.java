@@ -25,10 +25,10 @@ import com.google.common.collect.Maps;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
-import org.apache.uniffle.common.exception.RssException;
 import org.junit.jupiter.api.Test;
 
 import org.apache.uniffle.client.util.RssClientConfig;
+import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.util.Constants;
 import org.apache.uniffle.storage.util.StorageType;
 
@@ -49,9 +49,9 @@ public class RssSparkShuffleUtilsTest {
       sc = SparkContext.getOrCreate(conf);
       assertEquals(sc, RssSparkShuffleUtils.getActiveSparkContext());
     } finally {
-        if (sc != null) {
-          sc.stop();
-        }
+      if (sc != null) {
+        sc.stop();
+      }
     }
   }
 
