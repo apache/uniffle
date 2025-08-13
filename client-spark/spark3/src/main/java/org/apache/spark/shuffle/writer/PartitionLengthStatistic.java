@@ -31,7 +31,7 @@ public class PartitionLengthStatistic {
 
   public PartitionLengthStatistic(int numPartitions) {
     this.partitionLens = new AtomicLong[numPartitions];
-    Arrays.fill(partitionLens, 0);
+    Arrays.fill(partitionLens, new AtomicLong(0));
   }
 
   public void inc(ShuffleBlockInfo block) {
