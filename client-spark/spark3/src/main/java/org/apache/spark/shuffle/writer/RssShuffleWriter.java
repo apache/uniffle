@@ -486,17 +486,17 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
       List<ShuffleBlockInfo> shuffleBlockInfoList) {
     List<CompletableFuture<Long>> futures = new ArrayList<>();
     for (AddBlockEvent event : bufferManager.buildBlockEvents(shuffleBlockInfoList)) {
-      if (blockFailSentRetryEnabled) {
-        // do nothing if failed.
-        for (ShuffleBlockInfo block : event.getShuffleDataInfoList()) {
-          block.withCompletionCallback(
-              (completionBlock, isSuccessful) -> {
-                if (isSuccessful) {
-                  bufferManager.releaseBlockResource(completionBlock);
-                  partitionLengthStatistic.inc(completionBlock);
-                }
-              });
-        }
+      for (ShuffleBlockInfo block : event.getShuffleDataInfoList()) {
+        block.withCompletionCallback(
+            (b, isSuccessful) -> {
+              // If partition reassignment is enabled, the block is only released upon successful
+              // completion.
+              // Otherwise, the block is released immediately once completed.
+              if (!blockFailSentRetryEnabled || isSuccessful) {
+                bufferManager.releaseBlockResource(b);
+                partitionLengthStatistic.inc(b);
+              }
+            });
       }
       event.addCallback(
           () -> {
