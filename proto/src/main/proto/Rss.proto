@@ -685,12 +685,25 @@ message StageAttemptShuffleHandleInfo {
 
 message MutableShuffleHandleInfo {
   int32 shuffleId = 1;
-  map<int32, PartitionReplicaServers> partitionToServers = 2;
+  repeated ServerToPartitionsItem serverToPartitionItem = 2;
   RemoteStorageInfo remoteStorageInfo = 3;
 
   map<string, ReplacementServers> excludedServerToReplacements = 4;
   repeated int32 splitPartitionId = 5;
   PartitionSplitMode partitionSplitMode = 6;
+
+}
+
+message ServerToPartitionsItem {
+  ShuffleServerId serverId = 1;
+  repeated PartitionReplicaItem partitionToReplicaItems = 2;
+}
+
+message PartitionReplicaItem {
+  int32 partitionId = 1;
+  int32 replicaIndex = 2;
+  // the index of assigned servers list
+  int32 sequenceIndex = 3;
 }
 
 enum PartitionSplitMode {

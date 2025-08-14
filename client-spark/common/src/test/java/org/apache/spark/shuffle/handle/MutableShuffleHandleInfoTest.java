@@ -25,12 +25,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import org.junit.jupiter.api.Test;
 
 import org.apache.uniffle.client.PartitionDataReplicaRequirementTracking;
 import org.apache.uniffle.common.RemoteStorageInfo;
 import org.apache.uniffle.common.ShuffleServerInfo;
+import org.apache.uniffle.proto.RssProtos;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -39,6 +41,76 @@ public class MutableShuffleHandleInfoTest {
 
   private ShuffleServerInfo createFakeServerInfo(String id) {
     return new ShuffleServerInfo(id, id, 1);
+  }
+
+  private static boolean mapsIsEqual(
+      Map<Integer, List<ShuffleServerInfo>> map1, Map<Integer, List<ShuffleServerInfo>> map2) {
+
+    if (map1 == map2) {
+      return true;
+    }
+    if (map1 == null || map2 == null) {
+      return false;
+    }
+    if (map1.size() != map2.size()) {
+      return false;
+    }
+    for (Map.Entry<Integer, List<ShuffleServerInfo>> entry : map1.entrySet()) {
+      List<ShuffleServerInfo> list1 = entry.getValue();
+      List<ShuffleServerInfo> list2 = map2.get(entry.getKey());
+      if (list2 == null || list1.size() != list2.size()) {
+        return false;
+      }
+      // all the elements should be equal with the same index
+      for (int i = 0; i < list1.size(); i++) {
+        if (!list2.get(i).equals(list1.get(i))) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  @Test
+  public void testSerializationWithProtobuf() {
+    Map<Integer, List<ShuffleServerInfo>> partitionToServers = new HashMap<>();
+    partitionToServers.put(1, Arrays.asList(createFakeServerInfo("a"), createFakeServerInfo("b")));
+    partitionToServers.put(2, Arrays.asList(createFakeServerInfo("c")));
+
+    // case1: with single replica
+    MutableShuffleHandleInfo handleInfo =
+        new MutableShuffleHandleInfo(1, partitionToServers, new RemoteStorageInfo(""));
+
+    RssProtos.MutableShuffleHandleInfo serialized = MutableShuffleHandleInfo.toProto(handleInfo);
+    MutableShuffleHandleInfo deserialized = MutableShuffleHandleInfo.fromProto(serialized);
+
+    assert (mapsIsEqual(deserialized.getAllPartitionServersForReader(), partitionToServers));
+
+    // case2: with multi replicas
+    Map<Integer, Map<Integer, List<ShuffleServerInfo>>> partitionWithReplicaServers =
+        new HashMap<>();
+    partitionWithReplicaServers.put(
+        1,
+        ImmutableMap.of(
+            0, Arrays.asList(createFakeServerInfo("a"), createFakeServerInfo("b")),
+            1, Arrays.asList(createFakeServerInfo("c"), createFakeServerInfo("d"))));
+    partitionWithReplicaServers.put(
+        2, ImmutableMap.of(0, Arrays.asList(createFakeServerInfo("c"))));
+    MutableShuffleHandleInfo replicaHandleInfo =
+        new MutableShuffleHandleInfo(2, new RemoteStorageInfo(""), partitionWithReplicaServers);
+    serialized = MutableShuffleHandleInfo.toProto(replicaHandleInfo);
+    deserialized = MutableShuffleHandleInfo.fromProto(serialized);
+
+    assert (mapsIsEqual(
+        deserialized.getAllPartitionServersForReader(),
+        ImmutableMap.of(
+            1,
+                Arrays.asList(
+                    createFakeServerInfo("a"),
+                    createFakeServerInfo("b"),
+                    createFakeServerInfo("c"),
+                    createFakeServerInfo("d")),
+            2, Arrays.asList(createFakeServerInfo("c")))));
   }
 
   @Test
