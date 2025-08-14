@@ -267,11 +267,17 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
             && rssConf.getBoolean(RSS_READ_REORDER_MULTI_SERVERS_ENABLED)) {
           Collections.shuffle(shuffleServerInfoList);
         }
-        // This mechanism of expectedTaskIdsBitmap filter is to filter out the most of data.
-        // especially for AQE skew optimization
+
+        // This mechanism of taskId filter is to filter out the most of data for AQE skew and multi
+        // replicas cases
+        boolean isReplicaFilterEnabled =
+            rssConf.getInteger(
+                        RssClientConfig.RSS_DATA_REPLICA,
+                        RssClientConfig.RSS_DATA_REPLICA_DEFAULT_VALUE)
+                    > 1
+                && shuffleServerInfoList.size() > 1;
         boolean expectedTaskIdsBitmapFilterEnable =
-            !(mapStartIndex == 0 && mapEndIndex == Integer.MAX_VALUE)
-                || shuffleServerInfoList.size() > 1;
+            !(mapStartIndex == 0 && mapEndIndex == Integer.MAX_VALUE) || isReplicaFilterEnabled;
         int retryMax =
             rssConf.getInteger(
                 RssClientConfig.RSS_CLIENT_RETRY_MAX,
