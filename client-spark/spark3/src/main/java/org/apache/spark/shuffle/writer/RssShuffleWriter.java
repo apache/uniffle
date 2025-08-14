@@ -79,7 +79,6 @@ import org.apache.uniffle.client.request.RssReportShuffleWriteMetricRequest;
 import org.apache.uniffle.client.response.RssReassignOnBlockSendFailureResponse;
 import org.apache.uniffle.client.response.RssReportShuffleWriteFailureResponse;
 import org.apache.uniffle.client.response.RssReportShuffleWriteMetricResponse;
-import org.apache.uniffle.common.DeferredCompressedBlock;
 import org.apache.uniffle.common.ReceivingFailureServer;
 import org.apache.uniffle.common.ShuffleBlockInfo;
 import org.apache.uniffle.common.ShuffleServerInfo;
@@ -118,7 +117,7 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
   private Map<ShuffleServerInfo, Map<Integer, Set<Long>>> serverToPartitionToBlockIds;
   private final ShuffleWriteClient shuffleWriteClient;
   private final Set<ShuffleServerInfo> shuffleServersForData;
-  private final long[] partitionLengths;
+  private final PartitionLengthStatistic partitionLengthStatistic;
   // Gluten needs this variable
   protected final boolean isMemoryShuffleEnabled;
   private final Function<String, Boolean> taskFailureCallback;
@@ -220,8 +219,7 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
     this.serverToPartitionToBlockIds = Maps.newHashMap();
     this.shuffleWriteClient = shuffleWriteClient;
     this.shuffleServersForData = shuffleHandleInfo.getServers();
-    this.partitionLengths = new long[partitioner.numPartitions()];
-    Arrays.fill(partitionLengths, 0);
+    this.partitionLengthStatistic = new PartitionLengthStatistic(partitioner.numPartitions());
     this.isMemoryShuffleEnabled =
         isMemoryShuffleEnabled(sparkConf.get(RssSparkConfig.RSS_STORAGE_TYPE.key()));
     this.taskFailureCallback = taskFailureCallback;
@@ -478,7 +476,6 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
                               shuffleServerInfo, k -> Maps.newHashMap());
                       pToBlockIds.computeIfAbsent(partitionId, v -> Sets.newHashSet()).add(blockId);
                     });
-            partitionLengths[partitionId] += getBlockLength(sbi);
           });
       return postBlockEvent(shuffleBlockInfoList);
     }
@@ -489,16 +486,17 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
       List<ShuffleBlockInfo> shuffleBlockInfoList) {
     List<CompletableFuture<Long>> futures = new ArrayList<>();
     for (AddBlockEvent event : bufferManager.buildBlockEvents(shuffleBlockInfoList)) {
-      if (blockFailSentRetryEnabled) {
-        // do nothing if failed.
-        for (ShuffleBlockInfo block : event.getShuffleDataInfoList()) {
-          block.withCompletionCallback(
-              (completionBlock, isSuccessful) -> {
-                if (isSuccessful) {
-                  bufferManager.releaseBlockResource(completionBlock);
-                }
-              });
-        }
+      for (ShuffleBlockInfo block : event.getShuffleDataInfoList()) {
+        block.withCompletionCallback(
+            (b, isSuccessful) -> {
+              // If partition reassignment is enabled, the block is only released upon successful
+              // completion.
+              // Otherwise, the block is released immediately once completed.
+              if (!blockFailSentRetryEnabled || isSuccessful) {
+                bufferManager.releaseBlockResource(b);
+                partitionLengthStatistic.inc(b);
+              }
+            });
       }
       event.addCallback(
           () -> {
@@ -865,15 +863,7 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
                     .get(s)
                     .get(block.getPartitionId())
                     .remove(block.getBlockId()));
-    partitionLengths[block.getPartitionId()] -= getBlockLength(block);
     blockIds.remove(block.getBlockId());
-  }
-
-  private long getBlockLength(ShuffleBlockInfo block) {
-    if (block instanceof DeferredCompressedBlock) {
-      return block.getUncompressLength();
-    }
-    return block.getLength();
   }
 
   @VisibleForTesting
@@ -946,7 +936,8 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
                 DUMMY_HOST,
                 DUMMY_PORT,
                 Option.apply(Long.toString(taskAttemptId)));
-        MapStatus mapStatus = MapStatus.apply(blockManagerId, partitionLengths, taskAttemptId);
+        MapStatus mapStatus =
+            MapStatus.apply(blockManagerId, partitionLengthStatistic.toArray(), taskAttemptId);
         return Option.apply(mapStatus);
       } else {
         return Option.empty();
