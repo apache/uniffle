@@ -24,6 +24,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.uniffle.common.ShuffleBlockInfo;
+import org.apache.uniffle.common.exception.RssException;
 
 public class PartitionLengthStatistic {
   private static final Logger LOGGER = LoggerFactory.getLogger(PartitionLengthStatistic.class);
@@ -31,10 +32,21 @@ public class PartitionLengthStatistic {
 
   public PartitionLengthStatistic(int numPartitions) {
     this.partitionLens = new AtomicLong[numPartitions];
-    Arrays.fill(partitionLens, new AtomicLong(0));
+    for (int i = 0; i < numPartitions; i++) {
+      partitionLens[i] = new AtomicLong(0);
+    }
   }
 
   public void inc(ShuffleBlockInfo block) {
+    int partitionId = block.getPartitionId();
+    if (partitionId >= partitionLens.length) {
+      throw new RssException(
+          "Partition ID "
+              + partitionId
+              + " is out of bounds (should be less than "
+              + partitionLens.length
+              + ")");
+    }
     partitionLens[block.getPartitionId()].addAndGet(block.getLength());
   }
 
