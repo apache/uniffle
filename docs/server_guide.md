@@ -175,6 +175,25 @@ When enabling Netty, we should also consider memory related configurations.
 
 Note: The reserved memory can be adjusted according to the actual situation, if the memory is relatively small, configuring 1g is completely sufficient.
 
+#### Local allocation buffer(LAB)
+* The LAB is basically a bump-the-pointer allocator that allocates big chunks from and
+then doles it out to threads that request slices into the array. These chunks can get pooled as
+well.
+* The purpose of this is to combat heap fragmentation in the shuffle server. By ensuring that
+all blocks in a given partition refer only to large chunks of contiguous memory, we ensure that
+large blocks get freed up when the partition is flushed.
+* Without the LAB, the byte array allocated during insertion end up interleaved throughout the
+heap, and the old generation gets progressively more fragmented until a stop-the-world compacting
+collection occurs.
+* To turn on LAB, we need to add the extra configs as follows:
+
+| Property Name                                | Default | Description                                                                                                                                                                                                                                                                                                                                                                    |
+|----------------------------------------------|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| rss.server.buffer.lab.enabled                | false   | Whether enable LAB(Local allocation buffer) for shuffle buffers.                                                                                                                                                                                                                                                                                                               |
+| rss.server.buffer.lab.chunkSize              | 102400  | Defines the pre-allocated chunk size per partition for LAB. Each partition reserves one chunk of this size. Larger values may cause memory waste when processing many partitions, while smaller values generate excessive small chunks, increasing GC frequency and overhead. Configure based on expected data size, available memory, and GC tolerance to balance efficiency. |
+| rss.server.buffer.lab.maxAllocRatio          | 0.2     | If the block size is not small, we don't need to put it in the chunk. If the ratio is 0.2, it means the blocks which size is less or equal than `rss.server.buffer.lab.chunkSize` * 0.2 will be put in the chunk.                                                                                                                                                              |
+| rss.server.buffer.lab.chunkPoolCapacityRatio | 0.1     | Controls the maximum memory capacity ratio between LAB's chunk pool and the configured buffer capacity. The ratio represents (total memory of chunk pool) / `rss.server.buffer.capacity`.                                                                                                                                                                                      |
+
 ##### rss-env.sh
 
 Assuming the machine has 470g of memory.
