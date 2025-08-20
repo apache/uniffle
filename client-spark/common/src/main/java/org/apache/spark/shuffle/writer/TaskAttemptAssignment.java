@@ -44,14 +44,14 @@ public class TaskAttemptAssignment {
   private final long taskAttemptId;
 
   // key: partitionId, values: exclusive servers.
-  // this is for the partition split mechanism of load balance mode
+  // this is for the partition split mechanism with load balance mode
   private final Map<Integer, Set<ShuffleServerInfo>> exclusiveServersForPartition;
 
   public TaskAttemptAssignment(long taskAttemptId, ShuffleHandleInfo shuffleHandleInfo) {
+    this.exclusiveServersForPartition = JavaUtils.newConcurrentMap();
     this.update(shuffleHandleInfo);
     this.handle = shuffleHandleInfo;
     this.taskAttemptId = taskAttemptId;
-    this.exclusiveServersForPartition = JavaUtils.newConcurrentMap();
   }
 
   /**
