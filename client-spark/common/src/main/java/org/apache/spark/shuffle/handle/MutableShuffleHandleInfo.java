@@ -202,21 +202,21 @@ public class MutableShuffleHandleInfo extends ShuffleHandleInfoBase {
   }
 
   @Override
-  public Map<Integer, List<ShuffleServerInfo>> getAvailablePartitionServersForWriter() {
+  public Map<Integer, List<ShuffleServerInfo>> getAvailablePartitionServersForWriter(
+      Map<Integer, List<ShuffleServerInfo>> exclusiveServers) {
+    Map<Integer, List<ShuffleServerInfo>> requestExclusiveServers =
+        exclusiveServers == null ? Collections.emptyMap() : exclusiveServers;
     Map<Integer, List<ShuffleServerInfo>> assignment = new HashMap<>();
     for (Map.Entry<Integer, Map<Integer, List<ShuffleServerInfo>>> entry :
         partitionReplicaAssignedServers.entrySet()) {
       int partitionId = entry.getKey();
+      List<ShuffleServerInfo> partitionExclusiveServers =
+          requestExclusiveServers.getOrDefault(partitionId, Collections.emptyList());
       Map<Integer, List<ShuffleServerInfo>> replicaServers = entry.getValue();
       PartitionSplitInfo splitInfo = this.getPartitionSplitInfo(partitionId);
       for (Map.Entry<Integer, List<ShuffleServerInfo>> replicaServerEntry :
           replicaServers.entrySet()) {
 
-        // For normal partition reassignment, the latest replacement shuffle server is always used.
-        Optional<ShuffleServerInfo> candidateOptional =
-            replicaServerEntry.getValue().stream()
-                .filter(x -> !excludedServerToReplacements.containsKey(x.getId()))
-                .findFirst();
         // Get the unexcluded server for each replica writing
         ShuffleServerInfo candidate =
             replicaServerEntry.getValue().get(replicaServerEntry.getValue().size() - 1);
@@ -230,6 +230,7 @@ public class MutableShuffleHandleInfo extends ShuffleHandleInfoBase {
           List<ShuffleServerInfo> servers =
               replicaServerEntry.getValue().stream()
                   .filter(x -> !excludedServerToReplacements.containsKey(x.getId()))
+                  .filter(x -> !partitionExclusiveServers.contains(x))
                   .collect(Collectors.toList());
 
           // 2. exclude the first partition split triggered node.

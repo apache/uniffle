@@ -17,9 +17,13 @@
 
 package org.apache.spark.shuffle.writer;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.stream.Collectors;
 
 import org.apache.spark.shuffle.handle.ShuffleHandleInfo;
 import org.apache.spark.shuffle.handle.split.PartitionSplitInfo;
@@ -29,6 +33,7 @@ import org.slf4j.LoggerFactory;
 import org.apache.uniffle.common.PartitionSplitMode;
 import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.exception.RssException;
+import org.apache.uniffle.common.util.JavaUtils;
 
 /** This class is to get the partition assignment for ShuffleWriter. */
 public class TaskAttemptAssignment {
@@ -38,10 +43,15 @@ public class TaskAttemptAssignment {
   private ShuffleHandleInfo handle;
   private final long taskAttemptId;
 
+  // key: partitionId, values: exclusive servers.
+  // this is for the partition split mechanism of load balance mode
+  private final Map<Integer, Set<ShuffleServerInfo>> exclusiveServersForPartition;
+
   public TaskAttemptAssignment(long taskAttemptId, ShuffleHandleInfo shuffleHandleInfo) {
     this.update(shuffleHandleInfo);
     this.handle = shuffleHandleInfo;
     this.taskAttemptId = taskAttemptId;
+    this.exclusiveServersForPartition = JavaUtils.newConcurrentMap();
   }
 
   /**
@@ -58,14 +68,36 @@ public class TaskAttemptAssignment {
     if (handle == null) {
       throw new RssException("Errors on updating shuffle handle by the empty handleInfo.");
     }
-    this.assignment = handle.getAvailablePartitionServersForWriter();
+    this.assignment =
+        handle.getAvailablePartitionServersForWriter(
+            this.exclusiveServersForPartition.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, x -> new ArrayList<>(x.getValue()))));
     this.handle = handle;
   }
 
-  public boolean isSkipPartitionSplit(int partitionId) {
-    // for those load balance partition split, once split, skip the following split.
+  private boolean hasBeenLoadBalanced(int partitionId) {
     PartitionSplitInfo splitInfo = this.handle.getPartitionSplitInfo(partitionId);
     return splitInfo.isSplit() && splitInfo.getMode() == PartitionSplitMode.LOAD_BALANCE;
+  }
+
+  /**
+   * If partition has been load balanced and marked as split, it could update assignment by the next
+   * servers. Otherwise, it will directly return false that will trigger reassignment.
+   *
+   * @param partitionId
+   * @param exclusiveServers
+   * @return
+   */
+  public boolean updatePartitionAssignment(
+      int partitionId, List<ShuffleServerInfo> exclusiveServers) {
+    if (hasBeenLoadBalanced(partitionId)) {
+      Set<ShuffleServerInfo> servers =
+          this.exclusiveServersForPartition.computeIfAbsent(
+              partitionId, k -> new ConcurrentSkipListSet<>());
+      servers.addAll(exclusiveServers);
+      return true;
+    }
+    return false;
   }
 
   /**

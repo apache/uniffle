@@ -28,6 +28,7 @@ import org.apache.spark.shuffle.handle.split.PartitionSplitInfo;
 import org.apache.uniffle.client.PartitionDataReplicaRequirementTracking;
 import org.apache.uniffle.common.RemoteStorageInfo;
 import org.apache.uniffle.common.ShuffleServerInfo;
+import org.apache.uniffle.common.exception.RssException;
 
 /**
  * Class for holding, 1. partition ID -> shuffle servers mapping. 2. remote storage info
@@ -54,7 +55,12 @@ public class SimpleShuffleHandleInfo extends ShuffleHandleInfoBase implements Se
   }
 
   @Override
-  public Map<Integer, List<ShuffleServerInfo>> getAvailablePartitionServersForWriter() {
+  public Map<Integer, List<ShuffleServerInfo>> getAvailablePartitionServersForWriter(
+      Map<Integer, List<ShuffleServerInfo>> exclusiveServers) {
+    if (exclusiveServers != null && !exclusiveServers.isEmpty()) {
+      throw new RssException(
+          "Exclusive servers are not supported when getting available partition servers for shuffle writer");
+    }
     return partitionToServers;
   }
 

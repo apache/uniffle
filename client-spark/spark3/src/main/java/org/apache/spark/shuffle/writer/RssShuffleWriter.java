@@ -704,9 +704,13 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
     for (Map.Entry<Integer, List<ReceivingFailureServer>> entry :
         failurePartitionToServers.entrySet()) {
       int partitionId = entry.getKey();
-      boolean isSkip = taskAttemptAssignment.isSkipPartitionSplit(partitionId);
-      if (!isSkip) {
-        partitionToServersReassignList.put(partitionId, entry.getValue());
+      List<ReceivingFailureServer> failureServers = entry.getValue();
+      if (!taskAttemptAssignment.updatePartitionAssignment(
+          partitionId,
+          failureServers.stream()
+              .map(x -> ShuffleServerInfo.from(x.getServerId()))
+              .collect(Collectors.toList()))) {
+        partitionToServersReassignList.put(partitionId, failureServers);
       }
     }
 

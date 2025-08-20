@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 public class ShuffleServerInfoTest {
 
@@ -59,5 +60,22 @@ public class ShuffleServerInfoTest {
             + newInfo.getNettyPort()
             + "]}",
         newInfo.toString());
+  }
+
+  @Test
+  public void testFromServerId() {
+    // case1
+    ShuffleServerInfo info = new ShuffleServerInfo("localhost", 1234);
+    String serverId = info.getId();
+    assertEquals(info, ShuffleServerInfo.from(serverId));
+
+    // case2
+    info = new ShuffleServerInfo("localhost", 1234, 5678);
+    serverId = info.getId();
+    assertEquals(info, ShuffleServerInfo.from(serverId));
+
+    // case3: illegal server id
+    String illegalServerId = "illegal";
+    assertNull(ShuffleServerInfo.from(illegalServerId));
   }
 }

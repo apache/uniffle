@@ -63,8 +63,9 @@ public class StageAttemptShuffleHandleInfo extends ShuffleHandleInfoBase {
   }
 
   @Override
-  public Map<Integer, List<ShuffleServerInfo>> getAvailablePartitionServersForWriter() {
-    return current.getAvailablePartitionServersForWriter();
+  public Map<Integer, List<ShuffleServerInfo>> getAvailablePartitionServersForWriter(
+      Map<Integer, List<ShuffleServerInfo>> exclusiveServers) {
+    return current.getAvailablePartitionServersForWriter(exclusiveServers);
   }
 
   @Override

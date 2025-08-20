@@ -22,11 +22,16 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import com.google.common.annotations.VisibleForTesting;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.apache.uniffle.proto.RssProtos;
 
 public class ShuffleServerInfo implements Serializable {
+  private static final Logger LOGGER = LoggerFactory.getLogger(ShuffleServerInfo.class);
+  private static final String DELIMITER = "-";
   private static final long serialVersionUID = 0L;
+
   private String id;
 
   private String host;
@@ -37,14 +42,14 @@ public class ShuffleServerInfo implements Serializable {
 
   @VisibleForTesting
   public ShuffleServerInfo(String host, int port) {
-    this.id = host + "-" + port;
+    this.id = host + DELIMITER + port;
     this.host = host;
     this.grpcPort = port;
   }
 
   @VisibleForTesting
   public ShuffleServerInfo(String host, int grpcPort, int nettyPort) {
-    this.id = host + "-" + grpcPort + "-" + nettyPort;
+    this.id = host + DELIMITER + grpcPort + DELIMITER + nettyPort;
     this.host = host;
     this.grpcPort = grpcPort;
     this.nettyPort = nettyPort;
@@ -148,5 +153,21 @@ public class ShuffleServerInfo implements Serializable {
     return shuffleServerInfos.stream()
         .map(server -> convertToShuffleServerId(server))
         .collect(Collectors.toList());
+  }
+
+  public static ShuffleServerInfo from(String serverId) {
+    if (serverId == null || serverId.isEmpty()) {
+      LOGGER.warn("Server id is null or empty");
+      return null;
+    }
+    String[] parts = serverId.split(DELIMITER);
+    if (parts.length == 2) {
+      return new ShuffleServerInfo(parts[0], Integer.parseInt(parts[1]));
+    } else if (parts.length == 3) {
+      return new ShuffleServerInfo(
+          parts[0], Integer.parseInt(parts[1]), Integer.parseInt(parts[2]));
+    }
+    LOGGER.warn("Server id is invalid. {}", serverId);
+    return null;
   }
 }

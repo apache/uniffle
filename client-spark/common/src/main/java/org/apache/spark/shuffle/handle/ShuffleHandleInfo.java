@@ -17,6 +17,7 @@
 
 package org.apache.spark.shuffle.handle;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -36,7 +37,12 @@ public interface ShuffleHandleInfo {
    * shuffleServers. Implementations might return dynamic, up-to-date information here. Returns
    * partitionId -> [replica1, replica2, ...]
    */
-  Map<Integer, List<ShuffleServerInfo>> getAvailablePartitionServersForWriter();
+  default Map<Integer, List<ShuffleServerInfo>> getAvailablePartitionServersForWriter() {
+    return getAvailablePartitionServersForWriter(Collections.emptyMap());
+  }
+
+  Map<Integer, List<ShuffleServerInfo>> getAvailablePartitionServersForWriter(
+      Map<Integer, List<ShuffleServerInfo>> exclusivePartitionServers);
 
   /**
    * Get all servers ever assigned to writers group by partitionId for reader to get the data
