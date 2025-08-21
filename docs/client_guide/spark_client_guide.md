@@ -192,3 +192,15 @@ spark.plugins org.apache.spark.UnifflePlugin
 
 To enable this feature in the Spark History Server, place the Uniffle client JAR file into the jars directory of your Spark HOME. 
 A restart of the History Server may be required for the changes to take effect.
+
+### Overlapping compression for shuffle write
+
+This mechanism allows compression to overlap with upstream data reading, maximizing shuffle write throughput. It can improve shuffle write speed by up to 50%. Now this is enabled by default.
+
+The feature can be enabled or disabled through the following configuration:
+
+| Property Name                                          | Default   | Description                                                                                                                                      |
+|--------------------------------------------------------|-----------|--------------------------------------------------------------------------------------------------------------------------------------------------|
+| spark.rss.client.write.overlappingCompressionEnable    | true      | Whether to overlapping compress shuffle blocks.                                                                                                  |
+| rss.client.write.overlappingCompressionThreadsPerVcore | -1        | Specifies the ratio of overlapping compression threads to Spark executor vCores. By default, all cores on the machine are used for compression.  | 
+

@@ -42,7 +42,7 @@ public class RssSparkConfig {
   public static final ConfigOption<Boolean> RSS_WRITE_OVERLAPPING_COMPRESSION_ENABLED =
       ConfigOptions.key("rss.client.write.overlappingCompressionEnable")
           .booleanType()
-          .defaultValue(false)
+          .defaultValue(true)
           .withDescription("Whether to overlapping compress shuffle blocks.");
 
   public static final ConfigOption<Integer> RSS_WRITE_OVERLAPPING_COMPRESSION_THREADS_PER_VCORE =
