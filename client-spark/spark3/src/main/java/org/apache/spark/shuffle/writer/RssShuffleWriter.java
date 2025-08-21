@@ -705,7 +705,7 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
         failurePartitionToServers.entrySet()) {
       int partitionId = entry.getKey();
       List<ReceivingFailureServer> failureServers = entry.getValue();
-      if (!taskAttemptAssignment.updatePartitionAssignment(
+      if (!taskAttemptAssignment.updatePartitionSplitAssignment(
           partitionId,
           failureServers.stream()
               .map(x -> ShuffleServerInfo.from(x.getServerId()))
