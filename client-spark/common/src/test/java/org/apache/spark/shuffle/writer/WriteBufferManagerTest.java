@@ -120,6 +120,10 @@ public class WriteBufferManagerTest {
     conf.set(
         RssSparkConfig.SPARK_RSS_CONFIG_PREFIX + RssClientConf.BLOCKID_TASK_ATTEMPT_ID_BITS.key(),
         String.valueOf(layout.taskAttemptIdBits));
+    conf.set(
+        RssSparkConfig.SPARK_RSS_CONFIG_PREFIX
+            + RssSparkConfig.RSS_WRITE_OVERLAPPING_COMPRESSION_ENABLED.key(),
+        "false");
     if (!compress) {
       conf.set(RssSparkConfig.SPARK_SHUFFLE_COMPRESS_KEY, String.valueOf(false));
     }
