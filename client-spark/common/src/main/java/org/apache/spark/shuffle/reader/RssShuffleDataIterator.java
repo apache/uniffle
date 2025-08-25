@@ -162,8 +162,8 @@ public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C
 
     int uncompressedLen = rawBlock.getUncompressLength();
     if (uncompressedLen < 0) {
-        LOG.error("Uncompressed length is negative: {}", uncompressedLen);
-        throw new IllegalArgumentException("Uncompressed length is negative: " + uncompressedLen);
+      LOG.error("Uncompressed length is negative: {}", uncompressedLen);
+      throw new IllegalArgumentException("Uncompressed length is negative: " + uncompressedLen);
     }
     if (codec.isPresent()) {
       if (uncompressedData == null
