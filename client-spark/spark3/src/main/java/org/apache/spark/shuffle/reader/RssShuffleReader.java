@@ -369,27 +369,27 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
       if (client != null) {
         try {
           RssReportShuffleReadMetricResponse response =
-                  client.reportShuffleReadMetric(
-                          new RssReportShuffleReadMetricRequest(
-                                  context.stageId(),
-                                  shuffleId,
-                                  context.taskAttemptId(),
-                                  shuffleServerReadCostTracker.list().entrySet().stream()
-                                          .collect(
-                                                  Collectors.toMap(
-                                                          Map.Entry::getKey,
-                                                          x ->
-                                                                  new RssReportShuffleReadMetricRequest.TaskShuffleReadMetric(
-                                                                          x.getValue().getDurationMillis(),
-                                                                          x.getValue().getReadBytes(),
-                                                                          x.getValue().getMemoryReadDurationMillis(),
-                                                                          x.getValue().getMemoryReadBytes(),
-                                                                          x.getValue().getLocalfileReadDurationMillis(),
-                                                                          x.getValue().getLocalfileReadBytes(),
-                                                                          x.getValue().getHadoopReadLocalFileDurationMillis(),
-                                                                          x.getValue().getHadoopReadLocalFileBytes()))),
-                                  isShuffleReadFailed,
-                                  shuffleReadReason));
+              client.reportShuffleReadMetric(
+                  new RssReportShuffleReadMetricRequest(
+                      context.stageId(),
+                      shuffleId,
+                      context.taskAttemptId(),
+                      shuffleServerReadCostTracker.list().entrySet().stream()
+                          .collect(
+                              Collectors.toMap(
+                                  Map.Entry::getKey,
+                                  x ->
+                                      new RssReportShuffleReadMetricRequest.TaskShuffleReadMetric(
+                                          x.getValue().getDurationMillis(),
+                                          x.getValue().getReadBytes(),
+                                          x.getValue().getMemoryReadDurationMillis(),
+                                          x.getValue().getMemoryReadBytes(),
+                                          x.getValue().getLocalfileReadDurationMillis(),
+                                          x.getValue().getLocalfileReadBytes(),
+                                          x.getValue().getHadoopReadLocalFileDurationMillis(),
+                                          x.getValue().getHadoopReadLocalFileBytes()))),
+                      isShuffleReadFailed,
+                      shuffleReadReason));
           if (response != null && response.getStatusCode() != StatusCode.SUCCESS) {
             LOG.error("Errors on reporting shuffle read metrics to driver");
           }
