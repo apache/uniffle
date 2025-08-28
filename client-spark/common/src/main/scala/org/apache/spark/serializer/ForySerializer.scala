@@ -31,15 +31,6 @@ class ForySerializerInstance extends org.apache.spark.serializer.SerializerInsta
     f
   })
 
-  private def createFuryInstance(): Fory = {
-    Fory.builder()
-      .withLanguage(Language.JAVA)
-      .withRefTracking(true)
-      .withCompatibleMode(CompatibleMode.COMPATIBLE)
-      .requireClassRegistration(false)
-      .build()
-  }
-
   override def serialize[T: ClassTag](t: T): ByteBuffer = {
     val bytes = fury.get().serialize(t.asInstanceOf[AnyRef])
     ByteBuffer.wrap(bytes)
