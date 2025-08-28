@@ -312,8 +312,7 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
                         .retryIntervalMax(retryIntervalMax)
                         .rssConf(rssConf));
         RssShuffleDataIterator<K, C> iterator =
-            new RssShuffleDataIterator<>(
-                shuffleDependency.serializer(), shuffleReadClient, readMetrics, rssConf);
+            new RssShuffleDataIterator<>(serializer, shuffleReadClient, readMetrics, rssConf);
         CompletionIterator<Product2<K, C>, RssShuffleDataIterator<K, C>> completionIterator =
             CompletionIterator$.MODULE$.apply(
                 iterator,
