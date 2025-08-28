@@ -17,7 +17,7 @@
 
 package org.apache.spark.serializer
 
-import org.apache.fory.Fory
+import org.apache.fory.{Fory, ThreadLocalFory}
 import org.apache.fory.config.{CompatibleMode, Language}
 import org.apache.spark.internal.Logging
 
@@ -37,19 +37,15 @@ class ForySerializer extends org.apache.spark.serializer.Serializer
 
 class ForySerializerInstance extends org.apache.spark.serializer.SerializerInstance {
 
-  // Thread-local Fury instance for thread safety
-  private val fury: ThreadLocal[Fory] = ThreadLocal.withInitial(() => {
-    val f = Fory.builder()
-      .withLanguage(Language.JAVA)
-      .withRefTracking(true)
-      .withCompatibleMode(CompatibleMode.COMPATIBLE)
-      .requireClassRegistration(false)
-      .build()
-    f
-  })
+  private val fury = Fory.builder()
+    .withLanguage(Language.JAVA)
+    .withRefTracking(true)
+    .withCompatibleMode(CompatibleMode.SCHEMA_CONSISTENT)
+    .requireClassRegistration(false)
+    .buildThreadLocalFory();
 
   override def serialize[T: ClassTag](t: T): ByteBuffer = {
-    val bytes = fury.get().serialize(t.asInstanceOf[AnyRef])
+    val bytes = fury.serialize(t.asInstanceOf[AnyRef])
     ByteBuffer.wrap(bytes)
   }
 
@@ -63,7 +59,7 @@ class ForySerializerInstance extends org.apache.spark.serializer.SerializerInsta
       bytes.get(array)
       array
     }
-    fury.get().deserialize(array).asInstanceOf[T]
+    fury.deserialize(array).asInstanceOf[T]
   }
 
   override def deserialize[T: ClassTag](bytes: ByteBuffer, loader: ClassLoader): T = {
@@ -72,15 +68,15 @@ class ForySerializerInstance extends org.apache.spark.serializer.SerializerInsta
   }
 
   override def serializeStream(s: OutputStream): SerializationStream = {
-    new ForySerializationStream(fury.get(), s)
+    new ForySerializationStream(fury, s)
   }
 
   override def deserializeStream(s: InputStream): DeserializationStream = {
-    new ForyDeserializationStream(fury.get(), s)
+    new ForyDeserializationStream(fury, s)
   }
 }
 
-class ForySerializationStream(fury: Fory, outputStream: OutputStream)
+class ForySerializationStream(fury: ThreadLocalFory, outputStream: OutputStream)
   extends org.apache.spark.serializer.SerializationStream {
 
   private val out = outputStream
@@ -122,7 +118,7 @@ class ForySerializationStream(fury: Fory, outputStream: OutputStream)
   }
 }
 
-class ForyDeserializationStream(fury: Fory, inputStream: InputStream)
+class ForyDeserializationStream(fury: ThreadLocalFory, inputStream: InputStream)
   extends org.apache.spark.serializer.DeserializationStream {
 
   private val in = inputStream
@@ -132,7 +128,7 @@ class ForyDeserializationStream(fury: Fory, inputStream: InputStream)
     if (closed) {
       throw new IllegalStateException("Stream is closed")
     }
-    
+
     try {
       val length = readInt()
       if (length < 0) {
@@ -161,11 +157,11 @@ class ForyDeserializationStream(fury: Fory, inputStream: InputStream)
     val b2 = in.read()
     val b3 = in.read()
     val b4 = in.read()
-    
+
     if ((b1 | b2 | b3 | b4) < 0) {
       throw new java.io.EOFException()
     }
-    
+
     (b1 << 24) + (b2 << 16) + (b3 << 8) + b4
   }
 
