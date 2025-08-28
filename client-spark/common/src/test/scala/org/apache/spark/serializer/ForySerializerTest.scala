@@ -1,7 +1,8 @@
 package org.apache.spark.serializer
 
 import org.scalatest.funsuite.AnyFunSuite
-import org.scalatest.matchers.should.Matchers
+import org.scalatest.matchers.must.Matchers
+import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper
 
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
 import scala.collection.mutable

@@ -1,8 +1,8 @@
 package org.apache.spark.serializer
 
-import org.apache.spark.internal.Logging
 import org.apache.fory.Fory
 import org.apache.fory.config.{CompatibleMode, Language}
+import org.apache.spark.internal.Logging
 
 import java.io.{InputStream, OutputStream, Serializable}
 import java.nio.ByteBuffer
