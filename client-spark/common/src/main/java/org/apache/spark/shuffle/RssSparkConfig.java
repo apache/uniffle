@@ -36,6 +36,7 @@ import org.apache.uniffle.common.config.ConfigOptions;
 import org.apache.uniffle.common.config.ConfigUtils;
 import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.common.config.RssConf;
+import org.apache.uniffle.shuffle.ShuffleSerializer;
 
 public class RssSparkConfig {
 
@@ -109,6 +110,12 @@ public class RssSparkConfig {
           .booleanType()
           .defaultValue(true)
           .withDescription("indicates row based shuffle, set false when use in columnar shuffle");
+
+  public static final ConfigOption<ShuffleSerializer> RSS_SHUFFLE_SERIALIZER =
+      ConfigOptions.key("rss.client.shuffle.serializer")
+          .enumType(ShuffleSerializer.class)
+          .noDefaultValue()
+          .withDescription("Shuffle serializer type");
 
   public static final ConfigOption<Boolean> RSS_MEMORY_SPILL_ENABLED =
       ConfigOptions.key("rss.client.memory.spill.enabled")

@@ -42,6 +42,7 @@ import org.apache.spark.InterruptibleIterator;
 import org.apache.spark.ShuffleDependency;
 import org.apache.spark.TaskContext;
 import org.apache.spark.executor.ShuffleReadMetrics;
+import org.apache.spark.serializer.ForySerializer;
 import org.apache.spark.serializer.Serializer;
 import org.apache.spark.shuffle.FunctionUtils;
 import org.apache.spark.shuffle.RssShuffleHandle;
@@ -68,6 +69,7 @@ import org.apache.uniffle.storage.handler.impl.ShuffleServerReadCostTracker;
 
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_READ_REORDER_MULTI_SERVERS_ENABLED;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_RESUBMIT_STAGE_WITH_FETCH_FAILURE_ENABLED;
+import static org.apache.spark.shuffle.RssSparkConfig.RSS_SHUFFLE_SERIALIZER;
 
 public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
   private static final Logger LOG = LoggerFactory.getLogger(RssShuffleReader.class);
@@ -125,7 +127,10 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
     this.numMaps = rssShuffleHandle.getNumMaps();
     this.shuffleDependency = rssShuffleHandle.getDependency();
     this.shuffleId = shuffleDependency.shuffleId();
-    this.serializer = rssShuffleHandle.getDependency().serializer();
+    this.serializer =
+        rssConf.contains(RSS_SHUFFLE_SERIALIZER)
+            ? new ForySerializer()
+            : rssShuffleHandle.getDependency().serializer();
     this.taskId = "" + context.taskAttemptId() + "_" + context.attemptNumber();
     this.basePath = basePath;
     this.partitionNum = partitionNum;
@@ -307,8 +312,7 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
                         .retryIntervalMax(retryIntervalMax)
                         .rssConf(rssConf));
         RssShuffleDataIterator<K, C> iterator =
-            new RssShuffleDataIterator<>(
-                shuffleDependency.serializer(), shuffleReadClient, readMetrics, rssConf);
+            new RssShuffleDataIterator<>(serializer, shuffleReadClient, readMetrics, rssConf);
         CompletionIterator<Product2<K, C>, RssShuffleDataIterator<K, C>> completionIterator =
             CompletionIterator$.MODULE$.apply(
                 iterator,
