@@ -40,9 +40,9 @@ import org.apache.spark.executor.ShuffleWriteMetrics;
 import org.apache.spark.memory.MemoryConsumer;
 import org.apache.spark.memory.MemoryMode;
 import org.apache.spark.memory.TaskMemoryManager;
+import org.apache.spark.serializer.ForySerializerInstance;
 import org.apache.spark.serializer.SerializationStream;
 import org.apache.spark.serializer.Serializer;
-import org.apache.spark.serializer.SerializerInstance;
 import org.apache.spark.shuffle.RssSparkConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,6 +58,7 @@ import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.util.BlockIdLayout;
 import org.apache.uniffle.common.util.ChecksumUtils;
 
+import static org.apache.spark.shuffle.RssSparkConfig.RSS_SHUFFLE_SERIALIZER;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_WRITE_OVERLAPPING_COMPRESSION_ENABLED;
 
 public class WriteBufferManager extends MemoryConsumer {
@@ -81,7 +82,6 @@ public class WriteBufferManager extends MemoryConsumer {
   private int shuffleId;
   private String taskId;
   private long taskAttemptId;
-  private SerializerInstance instance;
   private ShuffleWriteMetrics shuffleWriteMetrics;
   // cache partition -> records
   private Map<Integer, WriterBuffer> buffers;
@@ -192,8 +192,11 @@ public class WriteBufferManager extends MemoryConsumer {
     // in columnar shuffle, the serializer here is never used
     this.isRowBased = rssConf.getBoolean(RssSparkConfig.RSS_ROW_BASED);
     if (isRowBased) {
-      this.instance = serializer.newInstance();
-      this.serializeStream = instance.serializeStream(arrayOutputStream);
+      if (rssConf.contains(RSS_SHUFFLE_SERIALIZER)) {
+        this.serializeStream = new ForySerializerInstance().serializeStream(arrayOutputStream);
+      } else {
+        this.serializeStream = serializer.newInstance().serializeStream(arrayOutputStream);
+      }
     }
     boolean compress =
         rssConf.getBoolean(
