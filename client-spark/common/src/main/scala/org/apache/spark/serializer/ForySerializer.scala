@@ -26,6 +26,7 @@ import java.io.{InputStream, OutputStream, Serializable}
 import java.nio.ByteBuffer
 import scala.reflect.ClassTag
 
+@SerialVersionUID(1L)
 class ForySerializer extends org.apache.spark.serializer.Serializer
   with Logging
   with Serializable {
