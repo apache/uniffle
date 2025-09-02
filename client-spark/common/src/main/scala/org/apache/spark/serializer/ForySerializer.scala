@@ -17,8 +17,9 @@
 
 package org.apache.spark.serializer
 
-import org.apache.fory.{Fory, ThreadLocalFory}
 import org.apache.fory.config.{CompatibleMode, Language}
+import org.apache.fory.io.ForyInputStream
+import org.apache.fory.{Fory, ThreadLocalFory}
 import org.apache.spark.internal.Logging
 
 import java.io.{InputStream, OutputStream, Serializable}
@@ -42,7 +43,7 @@ class ForySerializerInstance extends org.apache.spark.serializer.SerializerInsta
     .withRefTracking(true)
     .withCompatibleMode(CompatibleMode.SCHEMA_CONSISTENT)
     .requireClassRegistration(false)
-    .buildThreadLocalFory();
+    .buildThreadLocalFory()
 
   override def serialize[T: ClassTag](t: T): ByteBuffer = {
     val bytes = fury.serialize(t.asInstanceOf[AnyRef])
@@ -50,16 +51,7 @@ class ForySerializerInstance extends org.apache.spark.serializer.SerializerInsta
   }
 
   override def deserialize[T: ClassTag](bytes: ByteBuffer): T = {
-    val array = if (bytes.hasArray) {
-      val offset = bytes.arrayOffset() + bytes.position()
-      val length = bytes.remaining()
-      java.util.Arrays.copyOfRange(bytes.array(), offset, offset + length)
-    } else {
-      val array = new Array[Byte](bytes.remaining())
-      bytes.get(array)
-      array
-    }
-    fury.deserialize(array).asInstanceOf[T]
+    fury.deserialize(bytes).asInstanceOf[T]
   }
 
   override def deserialize[T: ClassTag](bytes: ByteBuffer, loader: ClassLoader): T = {
@@ -79,38 +71,26 @@ class ForySerializerInstance extends org.apache.spark.serializer.SerializerInsta
 class ForySerializationStream(fury: ThreadLocalFory, outputStream: OutputStream)
   extends org.apache.spark.serializer.SerializationStream {
 
-  private val out = outputStream
   private var closed = false
 
   override def writeObject[T: ClassTag](t: T): SerializationStream = {
     if (closed) {
       throw new IllegalStateException("Stream is closed")
     }
-    
-    val bytes = fury.serialize(t.asInstanceOf[AnyRef])
-    // Write length first, then data
-    writeInt(bytes.length)
-    out.write(bytes)
+    fury.serialize(outputStream, t)
     this
-  }
-
-  private def writeInt(value: Int): Unit = {
-    out.write((value >>> 24) & 0xFF)
-    out.write((value >>> 16) & 0xFF)
-    out.write((value >>> 8) & 0xFF)
-    out.write(value & 0xFF)
   }
 
   override def flush(): Unit = {
     if (!closed) {
-      out.flush()
+      outputStream.flush()
     }
   }
 
   override def close(): Unit = {
     if (!closed) {
       try {
-        out.close()
+        outputStream.close()
       } finally {
         closed = true
       }
@@ -121,54 +101,20 @@ class ForySerializationStream(fury: ThreadLocalFory, outputStream: OutputStream)
 class ForyDeserializationStream(fury: ThreadLocalFory, inputStream: InputStream)
   extends org.apache.spark.serializer.DeserializationStream {
 
-  private val in = inputStream
   private var closed = false
+  private val foryStream = new ForyInputStream(inputStream)
 
   override def readObject[T: ClassTag](): T = {
     if (closed) {
       throw new IllegalStateException("Stream is closed")
     }
-
-    try {
-      val length = readInt()
-      if (length < 0) {
-        throw new java.io.EOFException("Reached end of stream")
-      }
-      
-      val bytes = new Array[Byte](length)
-      var bytesRead = 0
-      while (bytesRead < length) {
-        val read = in.read(bytes, bytesRead, length - bytesRead)
-        if (read == -1) {
-          throw new java.io.EOFException("Unexpected end of stream")
-        }
-        bytesRead += read
-      }
-      
-      fury.deserialize(bytes).asInstanceOf[T]
-    } catch {
-      case _: java.io.EOFException =>
-        throw new java.io.EOFException("Reached end of stream")
-    }
-  }
-
-  private def readInt(): Int = {
-    val b1 = in.read()
-    val b2 = in.read()
-    val b3 = in.read()
-    val b4 = in.read()
-
-    if ((b1 | b2 | b3 | b4) < 0) {
-      throw new java.io.EOFException()
-    }
-
-    (b1 << 24) + (b2 << 16) + (b3 << 8) + b4
+    fury.deserialize(foryStream).asInstanceOf[T]
   }
 
   override def close(): Unit = {
     if (!closed) {
       try {
-        in.close()
+        foryStream.close()
       } finally {
         closed = true
       }
