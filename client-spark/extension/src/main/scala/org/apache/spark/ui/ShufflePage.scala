@@ -163,7 +163,7 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
       shuffleReadTimesRow,
       Seq(
         Seq(
-          UIUtils.formatDuration(readTimes.getTotal),
+          UIUtils.formatDuration(readTotal),
           UIUtils.formatDuration(readTimes.getFetch),
           UIUtils.formatDuration(readTimes.getCopy),
           UIUtils.formatDuration(readTimes.getCrc),
@@ -171,8 +171,7 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
           UIUtils.formatDuration(readTimes.getDeserialize),
         ),
         Seq(
-          1.toDouble,
-          readTimes.getTotal / readTotal,
+          1,
           readTimes.getFetch.toDouble / readTotal,
           readTimes.getCopy.toDouble / readTotal,
           readTimes.getCrc.toDouble / readTotal,
