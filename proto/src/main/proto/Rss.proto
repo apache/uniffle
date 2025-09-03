@@ -641,6 +641,15 @@ message ReportShuffleReadMetricRequest {
   map<string, ShuffleReadMetric> metrics = 4;
   bool isTaskReadFailed = 5;
   string shuffleReadFailureReason = 6;
+  ShuffleReadTimes shuffleReadTimes = 7;
+}
+
+message ShuffleReadTimes {
+  int64 fetch = 1;
+  int64 crc = 2;
+  int64 copy = 3;
+  int64 deserialize = 4;
+  int64 decompress = 5;
 }
 
 message ReportShuffleReadMetricResponse {

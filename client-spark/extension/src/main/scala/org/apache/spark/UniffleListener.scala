@@ -22,6 +22,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{SparkListener, SparkListenerEvent, SparkListenerJobEnd, SparkListenerJobStart, SparkListenerTaskEnd}
 import org.apache.spark.shuffle.events.{ShuffleAssignmentInfoEvent, ShuffleWriteTimes, TaskReassignInfoEvent, TaskShuffleReadInfoEvent, TaskShuffleWriteInfoEvent}
 import org.apache.spark.status.ElementTrackingStore
+import org.apache.uniffle.common.ShuffleReadTimes
 
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
@@ -30,6 +31,7 @@ import scala.collection.JavaConverters.mapAsScalaMapConverter
 class UniffleListener(conf: SparkConf, kvstore: ElementTrackingStore)
   extends SparkListener with Logging {
 
+  private val aggregatedShuffleReadTimes = new ShuffleReadTimes()
   private val aggregatedShuffleWriteTimes = new ShuffleWriteTimes()
   private val aggregatedShuffleWriteMetric = new ConcurrentHashMap[String, AggregatedShuffleWriteMetric]
   private val aggregatedShuffleReadMetric = new ConcurrentHashMap[String, AggregatedShuffleReadMetric]
@@ -64,6 +66,9 @@ class UniffleListener(conf: SparkConf, kvstore: ElementTrackingStore)
       )
       kvstore.write(
         AggregatedShuffleWriteTimesUIData(aggregatedShuffleWriteTimes)
+      )
+      kvstore.write(
+        AggregatedShuffleReadTimesUIData(aggregatedShuffleReadTimes)
       )
     }
   }
@@ -137,6 +142,7 @@ class UniffleListener(conf: SparkConf, kvstore: ElementTrackingStore)
       agg_metric.hadoopByteSize += rmetric.getHadoopByteSize
       agg_metric.hadoopDurationMillis += rmetric.getHadoopDurationMillis
     }
+    aggregatedShuffleReadTimes.merge(event.getShuffleReadTimes)
   }
 
   override def onOtherEvent(event: SparkListenerEvent): Unit = event match {

@@ -18,6 +18,7 @@
 package org.apache.uniffle.client.api;
 
 import org.apache.uniffle.client.response.CompressedShuffleBlock;
+import org.apache.uniffle.common.ShuffleReadTimes;
 
 public interface ShuffleReadClient {
 
@@ -28,4 +29,6 @@ public interface ShuffleReadClient {
   void close();
 
   void logStatics();
+
+  ShuffleReadTimes getShuffleReadTimes();
 }

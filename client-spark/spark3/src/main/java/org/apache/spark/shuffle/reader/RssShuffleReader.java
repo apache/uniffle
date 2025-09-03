@@ -60,6 +60,7 @@ import org.apache.uniffle.client.request.RssReportShuffleReadMetricRequest;
 import org.apache.uniffle.client.response.RssReportShuffleReadMetricResponse;
 import org.apache.uniffle.client.util.RssClientConfig;
 import org.apache.uniffle.common.ShuffleDataDistributionType;
+import org.apache.uniffle.common.ShuffleReadTimes;
 import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.common.config.RssConf;
@@ -98,6 +99,8 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
 
   private boolean isShuffleReadFailed = false;
   private Optional<String> shuffleReadReason = Optional.empty();
+
+  private ShuffleReadTimes shuffleReadTimes = new ShuffleReadTimes();
 
   public RssShuffleReader(
       int startPartition,
@@ -314,6 +317,7 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
                 iterator,
                 FunctionUtils.once(
                     () -> {
+                      shuffleReadTimes.merge(iterator.getReadTimes());
                       context.taskMetrics().mergeShuffleReadMetrics();
                       return iterator.cleanup();
                     }));
@@ -389,7 +393,8 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
                                           x.getValue().getHadoopReadLocalFileDurationMillis(),
                                           x.getValue().getHadoopReadLocalFileBytes()))),
                       isShuffleReadFailed,
-                      shuffleReadReason));
+                      shuffleReadReason,
+                      shuffleReadTimes));
           if (response != null && response.getStatusCode() != StatusCode.SUCCESS) {
             LOG.error("Errors on reporting shuffle read metrics to driver");
           }

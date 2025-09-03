@@ -40,6 +40,15 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
     </td>
   </tr>
 
+  private def shuffleReadTimesRow(kv: Seq[String]) = <tr>
+    <td>{kv(0)}</td>
+    <td>{kv(1)}</td>
+    <td>{kv(2)}</td>
+    <td>{kv(3)}</td>
+    <td>{kv(4)}</td>
+    <td>{kv(5)}</td>
+  </tr>
+
   private def shuffleWriteTimesRow(kv: Seq[String]) = <tr>
     <td>{kv(0)}</td>
     <td>{kv(1)}</td>
@@ -146,9 +155,37 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
       fixedWidth = true
     )
 
+    // render shuffle read times
+    val readTimes = runtimeStatusStore.shuffleReadTimes().times
+    val readTotal = if (readTimes.getTotal <= 0) -1 else readTimes.getTotal
+    val readTimesUI = UIUtils.listingTable(
+      Seq("Total", "Fetch", "Copy", "CRC", "Decompress", "Deserialize"),
+      shuffleReadTimesRow,
+      Seq(
+        Seq(
+          UIUtils.formatDuration(readTimes.getTotal),
+          UIUtils.formatDuration(readTimes.getFetch),
+          UIUtils.formatDuration(readTimes.getCopy),
+          UIUtils.formatDuration(readTimes.getCrc),
+          UIUtils.formatDuration(readTimes.getDecompress),
+          UIUtils.formatDuration(readTimes.getDeserialize),
+        ),
+        Seq(
+          1.toDouble,
+          readTimes.getTotal / readTotal,
+          readTimes.getFetch.toDouble / readTotal,
+          readTimes.getCopy.toDouble / readTotal,
+          readTimes.getCrc.toDouble / readTotal,
+          readTimes.getDecompress.toDouble / readTotal,
+          readTimes.getDeserialize.toDouble / readTotal,
+        ).map(x => roundToTwoDecimals(x).toString)
+      ),
+      fixedWidth = true
+    )
+
     // render shuffle write times
     val writeTimes = runtimeStatusStore.shuffleWriteTimes().times
-    val total = if (writeTimes.getTotal <= 0) -1 else writeTimes.getTotal
+    val writeTotal = if (writeTimes.getTotal <= 0) -1 else writeTimes.getTotal
     val writeTimesUI = UIUtils.listingTable(
       Seq("Total Time", "Wait Finish Time", "Copy Time", "Serialize Time", "Compress Time", "Sort Time", "Require Memory Time"),
       shuffleWriteTimesRow,
@@ -164,12 +201,12 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
         ),
         Seq(
           1.toDouble,
-          writeTimes.getWaitFinish.toDouble / total,
-          writeTimes.getCopy.toDouble / total,
-          writeTimes.getSerialize.toDouble / total,
-          writeTimes.getCompress.toDouble / total,
-          writeTimes.getSort.toDouble / total,
-          writeTimes.getRequireMemory.toDouble / total,
+          writeTimes.getWaitFinish.toDouble / writeTotal,
+          writeTimes.getCopy.toDouble / writeTotal,
+          writeTimes.getSerialize.toDouble / writeTotal,
+          writeTimes.getCompress.toDouble / writeTotal,
+          writeTimes.getSort.toDouble / writeTotal,
+          writeTimes.getRequireMemory.toDouble / writeTotal,
         ).map(x => roundToTwoDecimals(x).toString)
       ),
       fixedWidth = true
@@ -405,6 +442,19 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
           </span>
           <div class="write-times-table collapsible-table collapsed">
             {writeTimesUI}
+          </div>
+        </div>
+
+        <div>
+          <span class="collapse-read-times-properties collapse-table"
+                onClick="collapseTable('collapse-read-times-properties', 'read-times-table')">
+            <h4>
+              <span class="collapse-table-arrow arrow-closed"></span>
+              <a>Shuffle Read Times</a>
+            </h4>
+          </span>
+          <div class="read-times-table collapsible-table collapsed">
+            {readTimesUI}
           </div>
         </div>
       </div>

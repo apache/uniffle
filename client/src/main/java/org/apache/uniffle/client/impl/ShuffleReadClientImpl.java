@@ -40,6 +40,7 @@ import org.apache.uniffle.client.util.DefaultIdHelper;
 import org.apache.uniffle.common.BufferSegment;
 import org.apache.uniffle.common.ShuffleDataDistributionType;
 import org.apache.uniffle.common.ShuffleDataResult;
+import org.apache.uniffle.common.ShuffleReadTimes;
 import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.common.config.RssConf;
@@ -355,5 +356,10 @@ public class ShuffleReadClientImpl implements ShuffleReadClient {
             + crcCheckTime
             + " ms");
     clientReadHandler.logConsumedBlockInfo();
+  }
+
+  @Override
+  public ShuffleReadTimes getShuffleReadTimes() {
+    return new ShuffleReadTimes(readDataTime.get(), copyTime.get(), crcCheckTime.get());
   }
 }

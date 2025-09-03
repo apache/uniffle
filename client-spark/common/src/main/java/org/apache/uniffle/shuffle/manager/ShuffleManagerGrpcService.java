@@ -44,6 +44,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.uniffle.common.ReceivingFailureServer;
+import org.apache.uniffle.common.ShuffleReadTimes;
 import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.util.JavaUtils;
@@ -768,7 +769,8 @@ public class ShuffleManagerGrpcService extends ShuffleManagerImplBase {
                                 x.getValue().getHadoopDurationMillis(),
                                 x.getValue().getHadoopByteSize()))),
             request.getIsTaskReadFailed(),
-            request.getShuffleReadFailureReason());
+            request.getShuffleReadFailureReason(),
+            ShuffleReadTimes.fromProto(request.getShuffleReadTimes()));
     RssSparkShuffleUtils.getActiveSparkContext().listenerBus().post(event);
     RssProtos.ReportShuffleReadMetricResponse reply =
         RssProtos.ReportShuffleReadMetricResponse.newBuilder()

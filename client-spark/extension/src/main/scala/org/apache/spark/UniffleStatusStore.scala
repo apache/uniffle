@@ -22,6 +22,7 @@ import org.apache.spark.shuffle.events.{ShuffleWriteTimes, TaskReassignInfoEvent
 import org.apache.spark.status.KVUtils.KVIndexParam
 import org.apache.spark.util.Utils
 import org.apache.spark.util.kvstore.{KVIndex, KVStore, KVStoreView}
+import org.apache.uniffle.common.ShuffleReadTimes
 
 import java.util.concurrent.ConcurrentHashMap
 import scala.collection.JavaConverters.asScalaIteratorConverter
@@ -46,6 +47,15 @@ class UniffleStatusStore(store: KVStore) {
       store.read(kClass, kClass.getName)
     } catch {
       case _: NoSuchElementException => new BuildInfoUIData(Seq.empty)
+    }
+  }
+
+  def shuffleReadTimes(): AggregatedShuffleReadTimesUIData = {
+    val kClass = classOf[AggregatedShuffleReadTimesUIData]
+    try {
+      store.read(kClass, kClass.getName)
+    } catch {
+      case _: NoSuchElementException => AggregatedShuffleReadTimesUIData(new ShuffleReadTimes())
     }
   }
 
@@ -162,6 +172,12 @@ case class AggregatedShuffleWriteTimesUIData(times: ShuffleWriteTimes) {
   @JsonIgnore
   @KVIndex
   def id: String = classOf[AggregatedShuffleWriteTimesUIData].getName()
+}
+
+case class AggregatedShuffleReadTimesUIData(times: ShuffleReadTimes) {
+  @JsonIgnore
+  @KVIndex
+  def id: String = classOf[AggregatedShuffleReadTimesUIData].getName()
 }
 
 case class ReassignInfoUIData(event: TaskReassignInfoEvent) {

@@ -19,6 +19,8 @@ package org.apache.spark.shuffle.events;
 
 import java.util.Map;
 
+import org.apache.uniffle.common.ShuffleReadTimes;
+
 public class TaskShuffleReadInfoEvent extends UniffleEvent {
   private int stageId;
   private int shuffleId;
@@ -26,6 +28,7 @@ public class TaskShuffleReadInfoEvent extends UniffleEvent {
   private Map<String, ShuffleReadMetric> metrics;
   private boolean isShuffleReadFailed;
   private String failureReason;
+  private ShuffleReadTimes shuffleReadTimes;
 
   public TaskShuffleReadInfoEvent(
       int stageId,
@@ -33,13 +36,15 @@ public class TaskShuffleReadInfoEvent extends UniffleEvent {
       long taskId,
       Map<String, ShuffleReadMetric> metrics,
       boolean isShuffleReadFailed,
-      String failureReason) {
+      String failureReason,
+      ShuffleReadTimes shuffleReadTimes) {
     this.stageId = stageId;
     this.shuffleId = shuffleId;
     this.taskId = taskId;
     this.metrics = metrics;
     this.isShuffleReadFailed = isShuffleReadFailed;
     this.failureReason = failureReason;
+    this.shuffleReadTimes = shuffleReadTimes;
   }
 
   public int getStageId() {
@@ -64,5 +69,9 @@ public class TaskShuffleReadInfoEvent extends UniffleEvent {
 
   public String getFailureReason() {
     return failureReason;
+  }
+
+  public ShuffleReadTimes getShuffleReadTimes() {
+    return shuffleReadTimes;
   }
 }

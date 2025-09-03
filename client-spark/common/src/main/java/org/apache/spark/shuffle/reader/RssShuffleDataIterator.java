@@ -40,6 +40,7 @@ import org.slf4j.LoggerFactory;
 
 import org.apache.uniffle.client.api.ShuffleReadClient;
 import org.apache.uniffle.client.response.CompressedShuffleBlock;
+import org.apache.uniffle.common.ShuffleReadTimes;
 import org.apache.uniffle.common.compression.Codec;
 import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.util.RssUtils;
@@ -229,5 +230,12 @@ public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C
   @VisibleForTesting
   protected ShuffleReadMetrics getShuffleReadMetrics() {
     return shuffleReadMetrics;
+  }
+
+  public ShuffleReadTimes getReadTimes() {
+    ShuffleReadTimes times = shuffleReadClient.getShuffleReadTimes();
+    times.withDecompressed(decompressTime);
+    times.withDeserialized(serializeTime);
+    return times;
   }
 }
