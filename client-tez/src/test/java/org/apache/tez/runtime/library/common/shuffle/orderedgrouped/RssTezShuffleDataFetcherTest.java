@@ -66,6 +66,7 @@ import org.slf4j.LoggerFactory;
 
 import org.apache.uniffle.client.api.ShuffleReadClient;
 import org.apache.uniffle.client.response.CompressedShuffleBlock;
+import org.apache.uniffle.common.ShuffleReadTimes;
 import org.apache.uniffle.common.compression.Codec;
 import org.apache.uniffle.common.compression.Lz4Codec;
 
