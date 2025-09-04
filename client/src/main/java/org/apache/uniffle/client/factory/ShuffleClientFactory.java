@@ -29,6 +29,7 @@ import org.apache.uniffle.client.impl.ShuffleWriteClientImpl;
 import org.apache.uniffle.common.ClientType;
 import org.apache.uniffle.common.ShuffleDataDistributionType;
 import org.apache.uniffle.common.ShuffleServerInfo;
+import org.apache.uniffle.common.compression.Codec;
 import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.util.IdHelper;
 import org.apache.uniffle.storage.handler.impl.ShuffleServerReadCostTracker;
@@ -226,6 +227,27 @@ public class ShuffleClientFactory {
     private int retryMax;
     private long retryIntervalMax;
     private ShuffleServerReadCostTracker readCostTracker;
+
+    private boolean overlappingDecompressionEnabled;
+    private int overlappingDecompressionThreadNum;
+    private Codec codec;
+
+    public ReadClientBuilder overlappingDecompressionEnabled(
+        boolean overlappingDecompressionEnabled) {
+      this.overlappingDecompressionEnabled = overlappingDecompressionEnabled;
+      return this;
+    }
+
+    public ReadClientBuilder overlappingDecompressionThreadNum(
+        int overlappingDecompressionThreadNum) {
+      this.overlappingDecompressionThreadNum = overlappingDecompressionThreadNum;
+      return this;
+    }
+
+    public ReadClientBuilder codec(Codec codec) {
+      this.codec = codec;
+      return this;
+    }
 
     public ReadClientBuilder readCostTracker(ShuffleServerReadCostTracker tracker) {
       this.readCostTracker = tracker;
@@ -427,6 +449,18 @@ public class ShuffleClientFactory {
 
     public long getRetryIntervalMax() {
       return retryIntervalMax;
+    }
+
+    public boolean isOverlappingDecompressionEnabled() {
+      return overlappingDecompressionEnabled;
+    }
+
+    public int getOverlappingDecompressionThreadNum() {
+      return overlappingDecompressionThreadNum;
+    }
+
+    public Codec getCodec() {
+      return codec;
     }
 
     public ShuffleReadClientImpl build() {

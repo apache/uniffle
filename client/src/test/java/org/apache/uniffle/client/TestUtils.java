@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.uniffle.client.api.ShuffleReadClient;
-import org.apache.uniffle.client.response.CompressedShuffleBlock;
+import org.apache.uniffle.client.response.ShuffleBlock;
 import org.apache.uniffle.common.BufferSegment;
 import org.apache.uniffle.common.ShuffleDataResult;
 
@@ -52,7 +52,7 @@ public class TestUtils {
         }
       }
       assertTrue(match);
-      CompressedShuffleBlock csb = readClient.readShuffleBlockData();
+      ShuffleBlock csb = readClient.readShuffleBlockData();
       if (csb == null) {
         data = null;
       } else {

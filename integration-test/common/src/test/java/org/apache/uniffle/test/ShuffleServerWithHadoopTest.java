@@ -42,8 +42,8 @@ import org.apache.uniffle.client.request.RssFinishShuffleRequest;
 import org.apache.uniffle.client.request.RssRegisterShuffleRequest;
 import org.apache.uniffle.client.request.RssSendCommitRequest;
 import org.apache.uniffle.client.request.RssSendShuffleDataRequest;
-import org.apache.uniffle.client.response.CompressedShuffleBlock;
 import org.apache.uniffle.client.response.RssSendShuffleDataResponse;
+import org.apache.uniffle.client.response.ShuffleBlock;
 import org.apache.uniffle.common.ClientType;
 import org.apache.uniffle.common.PartitionRange;
 import org.apache.uniffle.common.ShuffleBlockInfo;
@@ -247,7 +247,7 @@ public class ShuffleServerWithHadoopTest extends ShuffleReadWriteBase {
       ShuffleReadClientImpl readClient,
       Map<Long, byte[]> expectedData,
       Roaring64NavigableMap blockIdBitmap) {
-    CompressedShuffleBlock csb = readClient.readShuffleBlockData();
+    ShuffleBlock csb = readClient.readShuffleBlockData();
     Roaring64NavigableMap matched = Roaring64NavigableMap.bitmapOf();
     while (csb != null && csb.getByteBuffer() != null) {
       for (Entry<Long, byte[]> entry : expectedData.entrySet()) {

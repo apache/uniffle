@@ -44,8 +44,8 @@ import org.apache.uniffle.client.request.RssRegisterShuffleRequest;
 import org.apache.uniffle.client.request.RssReportShuffleResultRequest;
 import org.apache.uniffle.client.request.RssSendCommitRequest;
 import org.apache.uniffle.client.request.RssSendShuffleDataRequest;
-import org.apache.uniffle.client.response.CompressedShuffleBlock;
 import org.apache.uniffle.client.response.RssSendShuffleDataResponse;
+import org.apache.uniffle.client.response.ShuffleBlock;
 import org.apache.uniffle.common.ClientType;
 import org.apache.uniffle.common.PartitionRange;
 import org.apache.uniffle.common.ShuffleBlockInfo;
@@ -180,7 +180,7 @@ public abstract class HybridStorageFaultToleranceBase extends ShuffleReadWriteBa
             .shuffleServerInfoList(Lists.newArrayList(ssi))
             .hadoopConf(conf)
             .build();
-    CompressedShuffleBlock csb = readClient.readShuffleBlockData();
+    ShuffleBlock csb = readClient.readShuffleBlockData();
     Roaring64NavigableMap matched = Roaring64NavigableMap.bitmapOf();
     while (csb != null && csb.getByteBuffer() != null) {
       for (Map.Entry<Long, byte[]> entry : expectedData.entrySet()) {

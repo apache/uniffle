@@ -45,8 +45,8 @@ import org.apache.uniffle.client.request.RssFinishShuffleRequest;
 import org.apache.uniffle.client.request.RssRegisterShuffleRequest;
 import org.apache.uniffle.client.request.RssSendCommitRequest;
 import org.apache.uniffle.client.request.RssSendShuffleDataRequest;
-import org.apache.uniffle.client.response.CompressedShuffleBlock;
 import org.apache.uniffle.client.response.RssSendShuffleDataResponse;
+import org.apache.uniffle.client.response.ShuffleBlock;
 import org.apache.uniffle.common.ClientType;
 import org.apache.uniffle.common.KerberizedHadoopBase;
 import org.apache.uniffle.common.PartitionRange;
@@ -365,7 +365,7 @@ public class ShuffleServerWithKerberizedHadoopTest extends KerberizedHadoopBase 
       ShuffleReadClientImpl readClient,
       Map<Long, byte[]> expectedData,
       Roaring64NavigableMap blockIdBitmap) {
-    CompressedShuffleBlock csb = readClient.readShuffleBlockData();
+    ShuffleBlock csb = readClient.readShuffleBlockData();
     Roaring64NavigableMap matched = Roaring64NavigableMap.bitmapOf();
     while (csb != null && csb.getByteBuffer() != null) {
       for (Map.Entry<Long, byte[]> entry : expectedData.entrySet()) {

@@ -40,6 +40,7 @@ import org.slf4j.LoggerFactory;
 
 import org.apache.uniffle.client.api.ShuffleReadClient;
 import org.apache.uniffle.client.response.CompressedShuffleBlock;
+import org.apache.uniffle.client.response.ShuffleBlock;
 import org.apache.uniffle.common.ShuffleReadTimes;
 import org.apache.uniffle.common.compression.Codec;
 import org.apache.uniffle.common.config.RssConf;
@@ -63,20 +64,32 @@ public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C
   private ByteBuffer uncompressedData;
   private Optional<Codec> codec;
 
+  // only for tests
+  @VisibleForTesting
   public RssShuffleDataIterator(
       Serializer serializer,
       ShuffleReadClient shuffleReadClient,
       ShuffleReadMetrics shuffleReadMetrics,
       RssConf rssConf) {
-    this.serializerInstance = serializer.newInstance();
-    this.shuffleReadClient = shuffleReadClient;
-    this.shuffleReadMetrics = shuffleReadMetrics;
+    this(serializer, shuffleReadClient, shuffleReadMetrics, rssConf, Optional.empty());
     boolean compress =
         rssConf.getBoolean(
             RssSparkConfig.SPARK_SHUFFLE_COMPRESS_KEY.substring(
                 RssSparkConfig.SPARK_RSS_CONFIG_PREFIX.length()),
             RssSparkConfig.SPARK_SHUFFLE_COMPRESS_DEFAULT);
     this.codec = compress ? Codec.newInstance(rssConf) : Optional.empty();
+  }
+
+  public RssShuffleDataIterator(
+      Serializer serializer,
+      ShuffleReadClient shuffleReadClient,
+      ShuffleReadMetrics shuffleReadMetrics,
+      RssConf rssConf,
+      Optional<Codec> codec) {
+    this.serializerInstance = serializer.newInstance();
+    this.shuffleReadClient = shuffleReadClient;
+    this.shuffleReadMetrics = shuffleReadMetrics;
+    this.codec = codec;
   }
 
   public Iterator<Tuple2<Object, Object>> createKVIterator(ByteBuffer data) {
@@ -114,17 +127,28 @@ public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C
       // read next segment
       long startFetch = System.currentTimeMillis();
       // depends on spark.shuffle.compress, shuffled block may not be compressed
-      CompressedShuffleBlock rawBlock = shuffleReadClient.readShuffleBlockData();
-      // If ShuffleServer delete
+      ShuffleBlock shuffleBlock = shuffleReadClient.readShuffleBlockData();
+      ByteBuffer rawData = shuffleBlock != null ? shuffleBlock.getByteBuffer() : null;
 
-      ByteBuffer rawData = rawBlock != null ? rawBlock.getByteBuffer() : null;
       long fetchDuration = System.currentTimeMillis() - startFetch;
       shuffleReadMetrics.incFetchWaitTime(fetchDuration);
       if (rawData != null) {
-        uncompress(rawBlock, rawData);
+        // collect metrics from raw data
+        long rawDataLength = rawData.limit() - rawData.position();
+        totalRawBytesLength += rawDataLength;
+        shuffleReadMetrics.incRemoteBytesRead(rawDataLength);
+
+        // get initial data
+        ByteBuffer decompressed = uncompressedData;
+        if (shuffleBlock instanceof CompressedShuffleBlock) {
+          uncompress(shuffleBlock, rawData);
+        } else {
+          decompressed = shuffleBlock.getByteBuffer();
+        }
+
         // create new iterator for shuffle data
         long startSerialization = System.currentTimeMillis();
-        recordsIterator = createKVIterator(uncompressedData);
+        recordsIterator = createKVIterator(decompressed);
         long serializationDuration = System.currentTimeMillis() - startSerialization;
         readTime += fetchDuration;
         serializeTime += serializationDuration;
@@ -156,11 +180,7 @@ public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C
     return left.isDirect() == right.isDirect();
   }
 
-  private int uncompress(CompressedShuffleBlock rawBlock, ByteBuffer rawData) {
-    long rawDataLength = rawData.limit() - rawData.position();
-    totalRawBytesLength += rawDataLength;
-    shuffleReadMetrics.incRemoteBytesRead(rawDataLength);
-
+  private int uncompress(ShuffleBlock rawBlock, ByteBuffer rawData) {
     int uncompressedLen = rawBlock.getUncompressLength();
     if (uncompressedLen < 0) {
       LOG.error("Uncompressed length is negative: {}", uncompressedLen);

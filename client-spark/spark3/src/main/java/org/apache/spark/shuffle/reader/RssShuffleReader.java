@@ -45,6 +45,7 @@ import org.apache.spark.executor.ShuffleReadMetrics;
 import org.apache.spark.serializer.Serializer;
 import org.apache.spark.shuffle.FunctionUtils;
 import org.apache.spark.shuffle.RssShuffleHandle;
+import org.apache.spark.shuffle.RssSparkConfig;
 import org.apache.spark.shuffle.ShuffleReader;
 import org.apache.spark.util.CompletionIterator;
 import org.apache.spark.util.CompletionIterator$;
@@ -62,11 +63,14 @@ import org.apache.uniffle.client.util.RssClientConfig;
 import org.apache.uniffle.common.ShuffleDataDistributionType;
 import org.apache.uniffle.common.ShuffleReadTimes;
 import org.apache.uniffle.common.ShuffleServerInfo;
+import org.apache.uniffle.common.compression.Codec;
 import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.rpc.StatusCode;
 import org.apache.uniffle.storage.handler.impl.ShuffleServerReadCostTracker;
 
+import static org.apache.spark.shuffle.RssSparkConfig.RSS_READ_OVERLAPPING_DECOMPRESSION_ENABLED;
+import static org.apache.spark.shuffle.RssSparkConfig.RSS_READ_OVERLAPPING_DECOMPRESSION_THREADS;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_READ_REORDER_MULTI_SERVERS_ENABLED;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_RESUBMIT_STAGE_WITH_FETCH_FAILURE_ENABLED;
 
@@ -289,29 +293,42 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
             rssConf.getLong(
                 RssClientConfig.RSS_CLIENT_RETRY_INTERVAL_MAX,
                 RssClientConfig.RSS_CLIENT_RETRY_INTERVAL_MAX_DEFAULT_VALUE);
+        boolean compress =
+            rssConf.getBoolean(
+                RssSparkConfig.SPARK_SHUFFLE_COMPRESS_KEY.substring(
+                    RssSparkConfig.SPARK_RSS_CONFIG_PREFIX.length()),
+                RssSparkConfig.SPARK_SHUFFLE_COMPRESS_DEFAULT);
+        Optional<Codec> codec = compress ? Codec.newInstance(rssConf) : Optional.empty();
+        ShuffleClientFactory.ReadClientBuilder builder =
+            ShuffleClientFactory.newReadBuilder()
+                .readCostTracker(shuffleServerReadCostTracker)
+                .appId(appId)
+                .shuffleId(shuffleId)
+                .partitionId(partition)
+                .basePath(basePath)
+                .partitionNumPerRange(1)
+                .partitionNum(partitionNum)
+                .blockIdBitmap(partitionToExpectBlocks.get(partition))
+                .taskIdBitmap(taskIdBitmap)
+                .shuffleServerInfoList(shuffleServerInfoList)
+                .hadoopConf(hadoopConf)
+                .shuffleDataDistributionType(dataDistributionType)
+                .expectedTaskIdsBitmapFilterEnable(expectedTaskIdsBitmapFilterEnable)
+                .retryMax(retryMax)
+                .retryIntervalMax(retryIntervalMax)
+                .rssConf(rssConf);
+        if (codec.isPresent() && rssConf.get(RSS_READ_OVERLAPPING_DECOMPRESSION_ENABLED)) {
+          builder
+              .overlappingDecompressionEnabled(true)
+              .codec(codec.get())
+              .overlappingDecompressionThreadNum(
+                  rssConf.get(RSS_READ_OVERLAPPING_DECOMPRESSION_THREADS));
+        }
         ShuffleReadClient shuffleReadClient =
-            ShuffleClientFactory.getInstance()
-                .createShuffleReadClient(
-                    ShuffleClientFactory.newReadBuilder()
-                        .readCostTracker(shuffleServerReadCostTracker)
-                        .appId(appId)
-                        .shuffleId(shuffleId)
-                        .partitionId(partition)
-                        .basePath(basePath)
-                        .partitionNumPerRange(1)
-                        .partitionNum(partitionNum)
-                        .blockIdBitmap(partitionToExpectBlocks.get(partition))
-                        .taskIdBitmap(taskIdBitmap)
-                        .shuffleServerInfoList(shuffleServerInfoList)
-                        .hadoopConf(hadoopConf)
-                        .shuffleDataDistributionType(dataDistributionType)
-                        .expectedTaskIdsBitmapFilterEnable(expectedTaskIdsBitmapFilterEnable)
-                        .retryMax(retryMax)
-                        .retryIntervalMax(retryIntervalMax)
-                        .rssConf(rssConf));
+            ShuffleClientFactory.getInstance().createShuffleReadClient(builder);
         RssShuffleDataIterator<K, C> iterator =
             new RssShuffleDataIterator<>(
-                shuffleDependency.serializer(), shuffleReadClient, readMetrics, rssConf);
+                shuffleDependency.serializer(), shuffleReadClient, readMetrics, rssConf, codec);
         CompletionIterator<Product2<K, C>, RssShuffleDataIterator<K, C>> completionIterator =
             CompletionIterator$.MODULE$.apply(
                 iterator,

@@ -36,6 +36,8 @@ import org.slf4j.LoggerFactory;
 import org.apache.uniffle.client.api.ShuffleReadClient;
 import org.apache.uniffle.client.factory.ShuffleClientFactory;
 import org.apache.uniffle.client.response.CompressedShuffleBlock;
+import org.apache.uniffle.client.response.DecompressedShuffleBlock;
+import org.apache.uniffle.client.response.ShuffleBlock;
 import org.apache.uniffle.client.util.DefaultIdHelper;
 import org.apache.uniffle.common.BufferSegment;
 import org.apache.uniffle.common.ShuffleDataDistributionType;
@@ -44,6 +46,7 @@ import org.apache.uniffle.common.ShuffleReadTimes;
 import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.common.config.RssConf;
+import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.exception.RssFetchFailedException;
 import org.apache.uniffle.common.util.BlockIdLayout;
 import org.apache.uniffle.common.util.ChecksumUtils;
@@ -74,6 +77,10 @@ public class ShuffleReadClientImpl implements ShuffleReadClient {
   private IdHelper idHelper;
   private BlockIdLayout blockIdLayout;
   private ShuffleServerReadCostTracker readCostTracker;
+
+  private DecompressionWorker decompressionWorker;
+  private int batchIndex = 0;
+  private int segmentIndex = 0;
 
   public ShuffleReadClientImpl(ShuffleClientFactory.ReadClientBuilder builder) {
     // add default value
@@ -149,6 +156,11 @@ public class ShuffleReadClientImpl implements ShuffleReadClient {
   }
 
   private void init(ShuffleClientFactory.ReadClientBuilder builder) {
+    if (builder.isOverlappingDecompressionEnabled()) {
+      this.decompressionWorker =
+          new DecompressionWorker(
+              builder.getCodec(), builder.getOverlappingDecompressionThreadNum());
+    }
     this.shuffleId = builder.getShuffleId();
     this.partitionId = builder.getPartitionId();
     this.blockIdBitmap = builder.getBlockIdBitmap();
@@ -206,7 +218,7 @@ public class ShuffleReadClientImpl implements ShuffleReadClient {
   }
 
   @Override
-  public CompressedShuffleBlock readShuffleBlockData() {
+  public ShuffleBlock readShuffleBlockData() {
     while (true) {
       // empty data expected, just return null
       if (blockIdBitmap.isEmpty()) {
@@ -286,10 +298,18 @@ public class ShuffleReadClientImpl implements ShuffleReadClient {
       }
 
       if (bs != null) {
-        ByteBuffer compressedBuffer = readBuffer.duplicate();
-        compressedBuffer.position(bs.getOffset());
-        compressedBuffer.limit(bs.getOffset() + bs.getLength());
-        return new CompressedShuffleBlock(compressedBuffer, bs.getUncompressLength());
+        if (decompressionWorker == null) {
+          ByteBuffer compressedBuffer = readBuffer.duplicate();
+          compressedBuffer.position(bs.getOffset());
+          compressedBuffer.limit(bs.getOffset() + bs.getLength());
+          return new CompressedShuffleBlock(compressedBuffer, bs.getUncompressLength());
+        } else {
+          DecompressedShuffleBlock block = decompressionWorker.get(batchIndex - 1, segmentIndex++);
+          if (block == null) {
+            throw new RssException("Should not happen that missing block!");
+          }
+          return block;
+        }
       }
       // current segment hasn't data, try next segment
     }
@@ -312,7 +332,12 @@ public class ShuffleReadClientImpl implements ShuffleReadClient {
       // when an exception is thrown by clientReadHandler.readShuffleData().
       sdr = null;
     }
-    sdr = clientReadHandler.readShuffleData();
+    final ShuffleDataResult shuffleDataResult = clientReadHandler.readShuffleData();
+    if (decompressionWorker != null) {
+      decompressionWorker.add(batchIndex++, shuffleDataResult);
+      segmentIndex = 0;
+    }
+    sdr = shuffleDataResult;
     readDataTime.addAndGet(System.currentTimeMillis() - start);
     if (sdr == null) {
       return 0;

@@ -39,6 +39,18 @@ import org.apache.uniffle.common.config.RssConf;
 
 public class RssSparkConfig {
 
+  public static final ConfigOption<Boolean> RSS_READ_OVERLAPPING_DECOMPRESSION_ENABLED =
+      ConfigOptions.key("rss.client.read.overlappingDecompressionEnable")
+          .booleanType()
+          .defaultValue(true)
+          .withDescription("Whether to overlapping decompress shuffle blocks.");
+
+  public static final ConfigOption<Integer> RSS_READ_OVERLAPPING_DECOMPRESSION_THREADS =
+      ConfigOptions.key("rss.client.read.overlappingDecompressionThreads")
+          .intType()
+          .defaultValue(1)
+          .withDescription("Number of threads to use for overlapping decompress shuffle blocks.");
+
   public static final ConfigOption<Boolean> RSS_WRITE_OVERLAPPING_COMPRESSION_ENABLED =
       ConfigOptions.key("rss.client.write.overlappingCompressionEnable")
           .booleanType()

@@ -36,8 +36,8 @@ import org.apache.uniffle.client.factory.ShuffleServerClientFactory;
 import org.apache.uniffle.client.impl.ShuffleReadClientImpl;
 import org.apache.uniffle.client.impl.ShuffleWriteClientImpl;
 import org.apache.uniffle.client.impl.grpc.ShuffleServerGrpcClient;
-import org.apache.uniffle.client.response.CompressedShuffleBlock;
 import org.apache.uniffle.client.response.SendShuffleDataResult;
+import org.apache.uniffle.client.response.ShuffleBlock;
 import org.apache.uniffle.common.ClientType;
 import org.apache.uniffle.common.PartitionRange;
 import org.apache.uniffle.common.RemoteStorageInfo;
@@ -1032,7 +1032,7 @@ public class QuorumTest extends ShuffleReadWriteBase {
       ShuffleReadClientImpl readClient,
       Map<Long, byte[]> expectedData,
       Roaring64NavigableMap blockIdBitmap) {
-    CompressedShuffleBlock csb = readClient.readShuffleBlockData();
+    ShuffleBlock csb = readClient.readShuffleBlockData();
     Roaring64NavigableMap matched = Roaring64NavigableMap.bitmapOf();
     while (csb != null && csb.getByteBuffer() != null) {
       for (Map.Entry<Long, byte[]> entry : expectedData.entrySet()) {

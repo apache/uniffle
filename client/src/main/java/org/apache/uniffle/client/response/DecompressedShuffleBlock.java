@@ -18,23 +18,29 @@
 package org.apache.uniffle.client.response;
 
 import java.nio.ByteBuffer;
+import java.util.concurrent.CompletableFuture;
 
-public class CompressedShuffleBlock implements ShuffleBlock {
-  private ByteBuffer byteBuffer;
-  private int uncompressLength;
+import org.apache.uniffle.common.exception.RssException;
 
-  public CompressedShuffleBlock(ByteBuffer byteBuffer, int uncompressLength) {
-    this.byteBuffer = byteBuffer;
-    this.uncompressLength = uncompressLength;
+public class DecompressedShuffleBlock implements ShuffleBlock {
+  private CompletableFuture<ByteBuffer> f;
+
+  public DecompressedShuffleBlock(CompletableFuture<ByteBuffer> f) {
+    this.f = f;
   }
 
   @Override
   public int getUncompressLength() {
-    return uncompressLength;
+    ByteBuffer buffer = getByteBuffer();
+    return buffer.limit() - buffer.position();
   }
 
   @Override
   public ByteBuffer getByteBuffer() {
-    return byteBuffer;
+    try {
+      return f.get();
+    } catch (Exception e) {
+      throw new RssException(e);
+    }
   }
 }
