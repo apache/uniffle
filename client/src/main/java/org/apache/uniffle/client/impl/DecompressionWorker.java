@@ -59,7 +59,10 @@ public class DecompressionWorker {
     List<BufferSegment> bufferSegments = shuffleDataResult.getBufferSegments();
     ByteBuffer sharedByteBuffer = shuffleDataResult.getDataBuffer();
     int index = 0;
-    LOG.info("Adding {} buffers to decompression worker", bufferSegments.size());
+    LOG.info(
+        "Adding {} segments with batch index:{} to decompression worker",
+        bufferSegments.size(),
+        batchIndex);
     for (BufferSegment bufferSegment : bufferSegments) {
       CompletableFuture<ByteBuffer> f =
           CompletableFuture.supplyAsync(
@@ -73,7 +76,10 @@ public class DecompressionWorker {
                 int uncompressedLen = bufferSegment.getUncompressLength();
                 ByteBuffer dst = bufferLocal.get();
                 if (dst.capacity() < uncompressedLen) {
-                  dst = ByteBuffer.allocate(uncompressedLen);
+                  dst =
+                      dst.isDirect()
+                          ? ByteBuffer.allocateDirect(uncompressedLen)
+                          : ByteBuffer.allocate(uncompressedLen);
                   bufferLocal.set(dst);
                 }
                 dst.clear();

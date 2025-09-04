@@ -139,9 +139,10 @@ public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C
         shuffleReadMetrics.incRemoteBytesRead(rawDataLength);
 
         // get initial data
-        ByteBuffer decompressed = uncompressedData;
+        ByteBuffer decompressed = null;
         if (shuffleBlock instanceof CompressedShuffleBlock) {
           uncompress(shuffleBlock, rawData);
+          decompressed = uncompressedData;
         } else {
           decompressed = shuffleBlock.getByteBuffer();
         }

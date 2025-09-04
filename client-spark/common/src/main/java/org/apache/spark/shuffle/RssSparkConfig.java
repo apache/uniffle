@@ -42,7 +42,7 @@ public class RssSparkConfig {
   public static final ConfigOption<Boolean> RSS_READ_OVERLAPPING_DECOMPRESSION_ENABLED =
       ConfigOptions.key("rss.client.read.overlappingDecompressionEnable")
           .booleanType()
-          .defaultValue(true)
+          .defaultValue(false)
           .withDescription("Whether to overlapping decompress shuffle blocks.");
 
   public static final ConfigOption<Integer> RSS_READ_OVERLAPPING_DECOMPRESSION_THREADS =
