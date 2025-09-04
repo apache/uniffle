@@ -363,6 +363,9 @@ public class ShuffleReadClientImpl implements ShuffleReadClient {
     if (clientReadHandler != null) {
       clientReadHandler.close();
     }
+    if (decompressionWorker != null) {
+      decompressionWorker.close();
+    }
   }
 
   @Override

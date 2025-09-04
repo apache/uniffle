@@ -39,8 +39,9 @@ public class DecompressionWorker {
   private final ExecutorService executorService;
   private final ConcurrentHashMap<Integer, ConcurrentHashMap<Integer, DecompressedShuffleBlock>>
       tasks;
-
   private Codec codec;
+  private final ThreadLocal<ByteBuffer> bufferLocal =
+      ThreadLocal.withInitial(() -> ByteBuffer.allocate(0));
 
   public DecompressionWorker(Codec codec, int threads) {
     if (codec == null) {
@@ -58,6 +59,7 @@ public class DecompressionWorker {
     List<BufferSegment> bufferSegments = shuffleDataResult.getBufferSegments();
     ByteBuffer sharedByteBuffer = shuffleDataResult.getDataBuffer();
     int index = 0;
+    LOG.info("Adding {} buffers to decompression worker", bufferSegments.size());
     for (BufferSegment bufferSegment : bufferSegments) {
       CompletableFuture<ByteBuffer> f =
           CompletableFuture.supplyAsync(
@@ -68,9 +70,15 @@ public class DecompressionWorker {
                 buffer.position(offset);
                 buffer.limit(offset + length);
 
-                // todo: reuse buffer for better performance
                 int uncompressedLen = bufferSegment.getUncompressLength();
-                ByteBuffer dst = ByteBuffer.allocate(uncompressedLen);
+                ByteBuffer dst = bufferLocal.get();
+                if (dst.capacity() < uncompressedLen) {
+                  dst = ByteBuffer.allocate(uncompressedLen);
+                  bufferLocal.set(dst);
+                }
+                dst.clear();
+                dst.limit(uncompressedLen);
+
                 codec.decompress(buffer, uncompressedLen, dst, 0);
                 return dst;
               },
@@ -88,5 +96,9 @@ public class DecompressionWorker {
     }
     DecompressedShuffleBlock block = blocks.remove(segmentIndex);
     return block;
+  }
+
+  public void close() {
+    executorService.shutdown();
   }
 }

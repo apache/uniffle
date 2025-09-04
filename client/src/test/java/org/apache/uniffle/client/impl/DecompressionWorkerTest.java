@@ -61,7 +61,7 @@ public class DecompressionWorkerTest {
       ByteBuffer buffer = createByteBuffer(segmentLength);
       ByteBuffer dest = ByteBuffer.wrap(codec.compress(buffer.array()));
       buffers.add(buffer);
-      segments.add(new BufferSegment(i, offset, dest.remaining(), segmentLength, 1, i));
+      segments.add(new BufferSegment(i, offset, dest.remaining(), buffer.remaining(), 1, i));
       offset += dest.remaining();
     }
     ByteBuffer merged = ByteBuffer.allocate(offset);
