@@ -118,17 +118,21 @@ public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C
       // If ShuffleServer delete
 
       ByteBuffer rawData = rawBlock != null ? rawBlock.getByteBuffer() : null;
-      long fetchDuration = System.currentTimeMillis() - startFetch;
-      shuffleReadMetrics.incFetchWaitTime(fetchDuration);
+      long readDuration = System.currentTimeMillis() - startFetch;
       if (rawData != null) {
+        long startUncompression = System.currentTimeMillis();
         uncompress(rawBlock, rawData);
+        long uncompressionDuration = System.currentTimeMillis() - startUncompression;
         // create new iterator for shuffle data
         long startSerialization = System.currentTimeMillis();
         recordsIterator = createKVIterator(uncompressedData);
         long serializationDuration = System.currentTimeMillis() - startSerialization;
-        readTime += fetchDuration;
+        shuffleReadMetrics.incFetchWaitTime(serializationDuration + uncompressionDuration);
+        readTime += readDuration;
         serializeTime += serializationDuration;
       } else {
+        // inc the fetch wait time, although there is no data.
+        shuffleReadMetrics.incFetchWaitTime(readDuration);
         // finish reading records, check data consistent
         shuffleReadClient.checkProcessedBlockIds();
         shuffleReadClient.logStatics();
