@@ -359,6 +359,11 @@ public class RssTezFetcherTest {
 
     @Override
     public void logStatics() {}
+
+    @Override
+    public ShuffleReadTimes getShuffleReadTimes() {
+      return new ShuffleReadTimes();
+    }
   }
 
   /**

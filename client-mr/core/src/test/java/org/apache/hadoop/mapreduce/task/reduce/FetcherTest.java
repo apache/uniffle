@@ -621,6 +621,11 @@ public class FetcherTest {
 
     @Override
     public void logStatics() {}
+
+    @Override
+    public ShuffleReadTimes getShuffleReadTimes() {
+      return new ShuffleReadTimes();
+    }
   }
 
   static class MockedReporter implements Reporter {
