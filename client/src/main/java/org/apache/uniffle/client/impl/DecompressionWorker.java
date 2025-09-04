@@ -59,7 +59,7 @@ public class DecompressionWorker {
     List<BufferSegment> bufferSegments = shuffleDataResult.getBufferSegments();
     ByteBuffer sharedByteBuffer = shuffleDataResult.getDataBuffer();
     int index = 0;
-    LOG.info(
+    LOG.debug(
         "Adding {} segments with batch index:{} to decompression worker",
         bufferSegments.size(),
         batchIndex);
@@ -74,17 +74,10 @@ public class DecompressionWorker {
                 buffer.limit(offset + length);
 
                 int uncompressedLen = bufferSegment.getUncompressLength();
-                ByteBuffer dst = bufferLocal.get();
-                if (dst.capacity() < uncompressedLen) {
-                  dst =
-                      dst.isDirect()
-                          ? ByteBuffer.allocateDirect(uncompressedLen)
-                          : ByteBuffer.allocate(uncompressedLen);
-                  bufferLocal.set(dst);
-                }
-                dst.clear();
-                dst.limit(uncompressedLen);
-
+                ByteBuffer dst =
+                    buffer.isDirect()
+                        ? ByteBuffer.allocateDirect(uncompressedLen)
+                        : ByteBuffer.allocate(uncompressedLen);
                 codec.decompress(buffer, uncompressedLen, dst, 0);
                 return dst;
               },
