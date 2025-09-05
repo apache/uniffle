@@ -153,7 +153,7 @@ public class RssFetcher<K, V> {
     // fetch a block
     if (!hasPendingData) {
       final long startFetch = System.currentTimeMillis();
-      compressedBlock = shuffleReadClient.readShuffleBlockData();
+      compressedBlock = (CompressedShuffleBlock) (shuffleReadClient.readShuffleBlockData());
       if (compressedBlock != null) {
         compressedData = compressedBlock.getByteBuffer();
       }

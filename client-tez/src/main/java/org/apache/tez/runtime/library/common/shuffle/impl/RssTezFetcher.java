@@ -101,7 +101,7 @@ public class RssTezFetcher {
     if (!hasPendingData) {
       final long startFetch = System.currentTimeMillis();
       blockStartFetch = System.currentTimeMillis();
-      compressedBlock = shuffleReadClient.readShuffleBlockData();
+      compressedBlock = (CompressedShuffleBlock) (shuffleReadClient.readShuffleBlockData());
       if (compressedBlock != null) {
         compressedData = compressedBlock.getByteBuffer();
       }
