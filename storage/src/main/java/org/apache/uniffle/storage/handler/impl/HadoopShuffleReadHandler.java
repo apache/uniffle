@@ -107,6 +107,11 @@ public class HadoopShuffleReadHandler extends DataSkippableReadHandler {
   }
 
   @Override
+  protected void reportReadPlan(List<ShuffleDataSegment> segments) {
+    // ignore
+  }
+
+  @Override
   protected ShuffleIndexResult readShuffleIndex() {
     long start = System.currentTimeMillis();
     try {

@@ -58,6 +58,7 @@ public class CreateShuffleReadHandlerRequest {
   private boolean offHeapEnabled;
   private RssConf clientConf;
   private ShuffleServerReadCostTracker readCostTracker;
+  private boolean reportLocalReadPlanEnabled;
 
   private IdHelper idHelper;
 
@@ -255,6 +256,14 @@ public class CreateShuffleReadHandlerRequest {
 
   public void setReadCostTracker(ShuffleServerReadCostTracker readCostTracker) {
     this.readCostTracker = readCostTracker;
+  }
+
+  public boolean isReportLocalReadPlanEnabled() {
+    return reportLocalReadPlanEnabled;
+  }
+
+  public void setReportLocalReadPlanEnabled(boolean reportLocalReadPlanEnabled) {
+    this.reportLocalReadPlanEnabled = reportLocalReadPlanEnabled;
   }
 
   public Optional<PrefetchableClientReadHandler.PrefetchOption> getPrefetchOption() {

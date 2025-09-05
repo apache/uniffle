@@ -66,6 +66,9 @@ public abstract class DataSkippableReadHandler extends PrefetchableClientReadHan
     this.expectTaskIds = expectTaskIds;
   }
 
+  // todo: maybe this should be placed in another class
+  protected abstract void reportReadPlan(List<ShuffleDataSegment> segments);
+
   protected abstract ShuffleIndexResult readShuffleIndex();
 
   protected abstract ShuffleDataResult readShuffleData(ShuffleDataSegment segment);
@@ -83,6 +86,7 @@ public abstract class DataSkippableReadHandler extends PrefetchableClientReadHan
             SegmentSplitterFactory.getInstance()
                 .get(distributionType, expectTaskIds, readBufferSize)
                 .split(shuffleIndexResult);
+        reportReadPlan(shuffleDataSegments);
       } finally {
         shuffleIndexResult.release();
       }
