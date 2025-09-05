@@ -321,7 +321,7 @@ public class ShuffleReadClientImpl implements ShuffleReadClient {
   }
 
   private int read() {
-    long start = System.currentTimeMillis();
+    final long start = System.currentTimeMillis();
     // In order to avoid copying, we postpone the release here instead of in the Decoder.
     // RssUtils.releaseByteBuffer(readBuffer) cannot actually release the memory,
     // because PlatformDependent.freeDirectBuffer can only release the ByteBuffer with cleaner.
