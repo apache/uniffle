@@ -1179,6 +1179,20 @@ public class ShuffleServerGrpcService extends ShuffleServerImplBase {
   }
 
   @Override
+  public void reportLocalReadPlan(
+      RssProtos.ReportLocalReadPlanRequest request,
+      StreamObserver<RssProtos.ReportLocalReadPlanResponse> responseObserver) {
+    // todo: store the read plan and then use the page cache to optimize read latency
+    RssProtos.ReportLocalReadPlanResponse reply =
+        RssProtos.ReportLocalReadPlanResponse.newBuilder()
+            .setStatus(RssProtos.StatusCode.SUCCESS)
+            .setRetMsg("")
+            .build();
+    responseObserver.onNext(reply);
+    responseObserver.onCompleted();
+  }
+
+  @Override
   public void getLocalShuffleIndex(
       GetLocalShuffleIndexRequest request,
       StreamObserver<GetLocalShuffleIndexResponse> responseObserver) {
