@@ -368,4 +368,10 @@ public class RssClientConf {
           .intType()
           .defaultValue(120)
           .withDescription("Read prefetch timeout seconds");
+
+  public static final ConfigOption<Boolean> READ_CLIENT_REPORT_LOCAL_READ_PLAN_ENABLED =
+      ConfigOptions.key("rss.client.read.reportLocalReadPlanEnabled")
+          .booleanType()
+          .defaultValue(false)
+          .withDescription("Report local read plan enabled");
 }
