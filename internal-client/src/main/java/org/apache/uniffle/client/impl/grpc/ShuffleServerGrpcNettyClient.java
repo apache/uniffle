@@ -43,6 +43,7 @@ import org.apache.uniffle.client.response.RssGetShuffleIndexResponse;
 import org.apache.uniffle.client.response.RssGetSortedShuffleDataResponse;
 import org.apache.uniffle.client.response.RssSendShuffleDataResponse;
 import org.apache.uniffle.common.ClientType;
+import org.apache.uniffle.common.ReadSegment;
 import org.apache.uniffle.common.ShuffleBlockInfo;
 import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.config.RssClientConf;
@@ -57,6 +58,7 @@ import org.apache.uniffle.common.netty.client.TransportContext;
 import org.apache.uniffle.common.netty.protocol.GetLocalShuffleDataRequest;
 import org.apache.uniffle.common.netty.protocol.GetLocalShuffleDataResponse;
 import org.apache.uniffle.common.netty.protocol.GetLocalShuffleDataV2Request;
+import org.apache.uniffle.common.netty.protocol.GetLocalShuffleDataV3Request;
 import org.apache.uniffle.common.netty.protocol.GetLocalShuffleIndexRequest;
 import org.apache.uniffle.common.netty.protocol.GetLocalShuffleIndexResponse;
 import org.apache.uniffle.common.netty.protocol.GetMemoryShuffleDataRequest;
@@ -387,9 +389,11 @@ public class ShuffleServerGrpcNettyClient extends ShuffleServerGrpcClient {
   public RssGetShuffleDataResponse getShuffleData(RssGetShuffleDataRequest request) {
     TransportClient transportClient = getTransportClient();
     // Construct old version or v2 get shuffle data request to compatible with old server
-    GetLocalShuffleDataRequest getLocalShuffleIndexRequest =
-        request.storageIdSpecified()
-            ? new GetLocalShuffleDataV2Request(
+    GetLocalShuffleDataRequest getLocalShuffleDataRequest = null;
+    if (request.storageIdSpecified()) {
+      if (request.isNextReadSegmentsReportEnabled()) {
+        getLocalShuffleDataRequest =
+            new GetLocalShuffleDataV3Request(
                 requestId(),
                 request.getAppId(),
                 request.getShuffleId(),
@@ -399,8 +403,11 @@ public class ShuffleServerGrpcNettyClient extends ShuffleServerGrpcClient {
                 request.getOffset(),
                 request.getLength(),
                 request.getStorageId(),
-                System.currentTimeMillis())
-            : new GetLocalShuffleDataRequest(
+                ReadSegment.from(request.getNextReadSegments()),
+                System.currentTimeMillis());
+      } else {
+        getLocalShuffleDataRequest =
+            new GetLocalShuffleDataV2Request(
                 requestId(),
                 request.getAppId(),
                 request.getShuffleId(),
@@ -409,7 +416,22 @@ public class ShuffleServerGrpcNettyClient extends ShuffleServerGrpcClient {
                 request.getPartitionNum(),
                 request.getOffset(),
                 request.getLength(),
+                request.getStorageId(),
                 System.currentTimeMillis());
+      }
+    } else {
+      getLocalShuffleDataRequest =
+          new GetLocalShuffleDataRequest(
+              requestId(),
+              request.getAppId(),
+              request.getShuffleId(),
+              request.getPartitionId(),
+              request.getPartitionNumPerRange(),
+              request.getPartitionNum(),
+              request.getOffset(),
+              request.getLength(),
+              System.currentTimeMillis());
+    }
     String requestInfo =
         "appId["
             + request.getAppId()
@@ -423,7 +445,7 @@ public class ShuffleServerGrpcNettyClient extends ShuffleServerGrpcClient {
     RpcResponse rpcResponse;
     GetLocalShuffleDataResponse getLocalShuffleDataResponse;
     while (true) {
-      rpcResponse = transportClient.sendRpcSync(getLocalShuffleIndexRequest, rpcTimeout);
+      rpcResponse = transportClient.sendRpcSync(getLocalShuffleDataRequest, rpcTimeout);
       getLocalShuffleDataResponse = (GetLocalShuffleDataResponse) rpcResponse;
       if (rpcResponse.getStatusCode() != StatusCode.NO_BUFFER) {
         break;

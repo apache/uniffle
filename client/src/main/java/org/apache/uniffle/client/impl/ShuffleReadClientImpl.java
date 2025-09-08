@@ -57,7 +57,8 @@ import org.apache.uniffle.storage.handler.api.ClientReadHandler;
 import org.apache.uniffle.storage.handler.impl.ShuffleServerReadCostTracker;
 import org.apache.uniffle.storage.request.CreateShuffleReadHandlerRequest;
 
-import static org.apache.uniffle.common.config.RssClientConf.READ_CLIENT_NEXT_SEGMENTS_COUNT;
+import static org.apache.uniffle.common.config.RssClientConf.READ_CLIENT_NEXT_SEGMENTS_REPORT_COUNT;
+import static org.apache.uniffle.common.config.RssClientConf.READ_CLIENT_NEXT_SEGMENTS_REPORT_ENABLED;
 
 public class ShuffleReadClientImpl implements ShuffleReadClient {
 
@@ -173,7 +174,10 @@ public class ShuffleReadClientImpl implements ShuffleReadClient {
     this.readCostTracker = builder.getReadCostTracker();
 
     CreateShuffleReadHandlerRequest request = new CreateShuffleReadHandlerRequest();
-    request.setNextReadSegmentCount(builder.getRssConf().get(READ_CLIENT_NEXT_SEGMENTS_COUNT));
+    request.setNextReadSegmentsReportCount(
+        builder.getRssConf().get(READ_CLIENT_NEXT_SEGMENTS_REPORT_COUNT));
+    request.setNextReadSegmentsReportEnabled(
+        builder.getRssConf().get(READ_CLIENT_NEXT_SEGMENTS_REPORT_ENABLED));
     request.setStorageType(builder.getStorageType());
     request.setAppId(builder.getAppId());
     request.setShuffleId(shuffleId);

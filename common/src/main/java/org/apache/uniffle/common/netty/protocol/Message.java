@@ -67,6 +67,7 @@ public abstract class Message implements Encodable {
     GET_SORTED_SHUFFLE_DATA_RESPONSE(22),
     GET_LOCAL_SHUFFLE_INDEX_V2_RESPONSE(23),
     GET_LOCAL_SHUFFLE_DATA_V2_REQUEST(24),
+    GET_LOCAL_SHUFFLE_DATA_V3_REQUEST(25),
     ;
 
     private final byte id;
