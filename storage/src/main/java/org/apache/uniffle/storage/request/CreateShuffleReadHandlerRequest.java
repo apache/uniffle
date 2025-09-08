@@ -62,6 +62,8 @@ public class CreateShuffleReadHandlerRequest {
   private boolean nextReadSegmentsReportEnabled;
   private int nextReadSegmentsReportCount;
 
+  private long taskAttemptId;
+
   private IdHelper idHelper;
 
   private ClientType clientType;
@@ -78,6 +80,14 @@ public class CreateShuffleReadHandlerRequest {
 
   public void setNextReadSegmentsReportCount(int nextReadSegmentsReportCount) {
     this.nextReadSegmentsReportCount = nextReadSegmentsReportCount;
+  }
+
+  public long getTaskAttemptId() {
+    return taskAttemptId;
+  }
+
+  public void setTaskAttemptId(long taskAttemptId) {
+    this.taskAttemptId = taskAttemptId;
   }
 
   public boolean isNextReadSegmentsReportEnabled() {

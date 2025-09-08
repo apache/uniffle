@@ -27,6 +27,7 @@ import org.apache.uniffle.common.util.ByteBufUtils;
 
 public class GetLocalShuffleDataV3Request extends GetLocalShuffleDataV2Request {
   private final List<ReadSegment> nextReadSegments;
+  private final long taskAttemptId;
 
   public GetLocalShuffleDataV3Request(
       long requestId,
@@ -39,7 +40,8 @@ public class GetLocalShuffleDataV3Request extends GetLocalShuffleDataV2Request {
       int length,
       int storageId,
       List<ReadSegment> nextReadSegments,
-      long timestamp) {
+      long timestamp,
+      long taskAttemptId) {
     super(
         requestId,
         appId,
@@ -52,6 +54,7 @@ public class GetLocalShuffleDataV3Request extends GetLocalShuffleDataV2Request {
         storageId,
         timestamp);
     this.nextReadSegments = nextReadSegments;
+    this.taskAttemptId = taskAttemptId;
   }
 
   @Override
@@ -72,6 +75,7 @@ public class GetLocalShuffleDataV3Request extends GetLocalShuffleDataV2Request {
       buf.writeLong(segment.getOffset());
       buf.writeLong(segment.getLength());
     }
+    buf.writeLong(taskAttemptId);
   }
 
   public static GetLocalShuffleDataV3Request decode(ByteBuf byteBuf) {
@@ -91,6 +95,7 @@ public class GetLocalShuffleDataV3Request extends GetLocalShuffleDataV2Request {
     for (int i = 0; i < readSegmentCount; i++) {
       readSegments.add(new ReadSegment(byteBuf.readLong(), byteBuf.readLong()));
     }
+    long taskAttemptId = byteBuf.readLong();
     return new GetLocalShuffleDataV3Request(
         requestId,
         appId,
@@ -102,7 +107,8 @@ public class GetLocalShuffleDataV3Request extends GetLocalShuffleDataV2Request {
         length,
         storageId,
         readSegments,
-        timestamp);
+        timestamp,
+        taskAttemptId);
   }
 
   @Override

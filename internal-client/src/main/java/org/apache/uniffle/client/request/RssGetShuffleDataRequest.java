@@ -34,6 +34,7 @@ public class RssGetShuffleDataRequest extends RetryableRequest {
   private final long offset;
   private final int length;
   private final int storageId;
+  private final long taskAttemptId;
   private final List<ShuffleDataSegment> nextReadSegments;
   private final boolean nextReadSegmentsReportEnabled;
 
@@ -48,6 +49,7 @@ public class RssGetShuffleDataRequest extends RetryableRequest {
       int storageId,
       int retryMax,
       long retryIntervalMax,
+      long taskAttemptId,
       List<ShuffleDataSegment> nextReadSegments,
       boolean nextReadSegmentsReportEnabled) {
     this.appId = appId;
@@ -62,6 +64,7 @@ public class RssGetShuffleDataRequest extends RetryableRequest {
     this.retryIntervalMax = retryIntervalMax;
     this.nextReadSegments = nextReadSegments;
     this.nextReadSegmentsReportEnabled = nextReadSegmentsReportEnabled;
+    this.taskAttemptId = taskAttemptId;
   }
 
   @VisibleForTesting
@@ -83,6 +86,7 @@ public class RssGetShuffleDataRequest extends RetryableRequest {
         length,
         -1,
         1,
+        0,
         0,
         Collections.emptyList(),
         false);
@@ -130,6 +134,10 @@ public class RssGetShuffleDataRequest extends RetryableRequest {
 
   public boolean isNextReadSegmentsReportEnabled() {
     return nextReadSegmentsReportEnabled;
+  }
+
+  public long getTaskAttemptId() {
+    return taskAttemptId;
   }
 
   @Override

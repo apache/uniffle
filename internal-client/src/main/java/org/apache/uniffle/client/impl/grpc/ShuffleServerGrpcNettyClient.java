@@ -404,7 +404,8 @@ public class ShuffleServerGrpcNettyClient extends ShuffleServerGrpcClient {
                 request.getLength(),
                 request.getStorageId(),
                 ReadSegment.from(request.getNextReadSegments()),
-                System.currentTimeMillis());
+                System.currentTimeMillis(),
+                request.getTaskAttemptId());
       } else {
         getLocalShuffleDataRequest =
             new GetLocalShuffleDataV2Request(

@@ -227,6 +227,12 @@ public class ShuffleClientFactory {
     private int retryMax;
     private long retryIntervalMax;
     private ShuffleServerReadCostTracker readCostTracker;
+    private long taskAttemptId;
+
+    public ReadClientBuilder taskAttemptId(long taskAttemptId) {
+      this.taskAttemptId = taskAttemptId;
+      return this;
+    }
 
     private boolean overlappingDecompressionEnabled;
     private int overlappingDecompressionThreadNum;
@@ -461,6 +467,10 @@ public class ShuffleClientFactory {
 
     public Codec getCodec() {
       return codec;
+    }
+
+    public long getTaskAttemptId() {
+      return taskAttemptId;
     }
 
     public ShuffleReadClientImpl build() {

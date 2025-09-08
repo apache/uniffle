@@ -167,7 +167,8 @@ public class ShuffleHandlerFactory {
         request.getPrefetchOption(),
         request.getReadCostTracker(),
         request.isNextReadSegmentsReportEnabled(),
-        request.getNextReadSegmentsReportCount());
+        request.getNextReadSegmentsReportCount(),
+        request.getTaskAttemptId());
   }
 
   private ClientReadHandler getHadoopClientReadHandler(

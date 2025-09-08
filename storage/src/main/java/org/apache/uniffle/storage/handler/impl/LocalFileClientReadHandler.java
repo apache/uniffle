@@ -48,6 +48,7 @@ public class LocalFileClientReadHandler extends DataSkippableReadHandler {
   private long retryIntervalMax;
   private ShuffleServerReadCostTracker readCostTracker;
   private boolean nextReadSegmentsReportEnabled;
+  private long taskAttemptId;
 
   public LocalFileClientReadHandler(
       String appId,
@@ -67,7 +68,8 @@ public class LocalFileClientReadHandler extends DataSkippableReadHandler {
       Optional<PrefetchOption> prefetchOption,
       ShuffleServerReadCostTracker readCostTracker,
       boolean nextReadSegmentsReportEnabled,
-      int nextReadSegmentCount) {
+      int nextReadSegmentCount,
+      long taskAttemptId) {
     super(
         appId,
         shuffleId,
@@ -86,6 +88,7 @@ public class LocalFileClientReadHandler extends DataSkippableReadHandler {
     this.retryIntervalMax = retryIntervalMax;
     this.readCostTracker = readCostTracker;
     this.nextReadSegmentsReportEnabled = nextReadSegmentsReportEnabled;
+    this.taskAttemptId = taskAttemptId;
   }
 
   @VisibleForTesting
@@ -118,7 +121,8 @@ public class LocalFileClientReadHandler extends DataSkippableReadHandler {
         Optional.empty(),
         new ShuffleServerReadCostTracker(),
         false,
-        4);
+        4,
+        0);
   }
 
   @Override
@@ -181,6 +185,7 @@ public class LocalFileClientReadHandler extends DataSkippableReadHandler {
             shuffleDataSegment.getStorageId(),
             retryMax,
             retryIntervalMax,
+            taskAttemptId,
             nextReadSegments,
             nextReadSegmentsReportEnabled);
     try {

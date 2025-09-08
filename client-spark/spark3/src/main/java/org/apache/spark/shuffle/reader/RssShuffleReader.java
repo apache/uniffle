@@ -316,7 +316,8 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
                 .expectedTaskIdsBitmapFilterEnable(expectedTaskIdsBitmapFilterEnable)
                 .retryMax(retryMax)
                 .retryIntervalMax(retryIntervalMax)
-                .rssConf(rssConf);
+                .rssConf(rssConf)
+                .taskAttemptId(TaskContext.get().taskAttemptId());
         if (codec.isPresent() && rssConf.get(RSS_READ_OVERLAPPING_DECOMPRESSION_ENABLED)) {
           builder
               .overlappingDecompressionEnabled(true)
