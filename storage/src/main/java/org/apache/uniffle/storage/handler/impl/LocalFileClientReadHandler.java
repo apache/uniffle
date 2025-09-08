@@ -64,7 +64,8 @@ public class LocalFileClientReadHandler extends DataSkippableReadHandler {
       int retryMax,
       long retryIntervalMax,
       Optional<PrefetchOption> prefetchOption,
-      ShuffleServerReadCostTracker readCostTracker) {
+      ShuffleServerReadCostTracker readCostTracker,
+      int nextReadSegmentCount) {
     super(
         appId,
         shuffleId,
@@ -74,7 +75,8 @@ public class LocalFileClientReadHandler extends DataSkippableReadHandler {
         processBlockIds,
         distributionType,
         expectTaskIds,
-        prefetchOption);
+        prefetchOption,
+        nextReadSegmentCount);
     this.shuffleServerClient = shuffleServerClient;
     this.partitionNumPerRange = partitionNumPerRange;
     this.partitionNum = partitionNum;
@@ -111,7 +113,8 @@ public class LocalFileClientReadHandler extends DataSkippableReadHandler {
         1,
         0,
         Optional.empty(),
-        new ShuffleServerReadCostTracker());
+        new ShuffleServerReadCostTracker(),
+        4);
   }
 
   @Override

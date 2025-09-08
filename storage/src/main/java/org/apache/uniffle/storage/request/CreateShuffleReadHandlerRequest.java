@@ -58,6 +58,7 @@ public class CreateShuffleReadHandlerRequest {
   private boolean offHeapEnabled;
   private RssConf clientConf;
   private ShuffleServerReadCostTracker readCostTracker;
+  private int nextReadSegmentCount;
 
   private IdHelper idHelper;
 
@@ -67,6 +68,14 @@ public class CreateShuffleReadHandlerRequest {
 
   public RssBaseConf getRssBaseConf() {
     return rssBaseConf;
+  }
+
+  public int getNextReadSegmentCount() {
+    return nextReadSegmentCount;
+  }
+
+  public void setNextReadSegmentCount(int nextReadSegmentCount) {
+    this.nextReadSegmentCount = nextReadSegmentCount;
   }
 
   public void setRssBaseConf(RssBaseConf rssBaseConf) {

@@ -47,6 +47,8 @@ public abstract class DataSkippableReadHandler extends PrefetchableClientReadHan
   protected ShuffleDataDistributionType distributionType;
   protected Roaring64NavigableMap expectTaskIds;
 
+  private int nextReadSegmentCount;
+
   public DataSkippableReadHandler(
       String appId,
       int shuffleId,
@@ -56,7 +58,8 @@ public abstract class DataSkippableReadHandler extends PrefetchableClientReadHan
       Set<Long> processBlockIds,
       ShuffleDataDistributionType distributionType,
       Roaring64NavigableMap expectTaskIds,
-      Optional<PrefetchOption> prefetchOption) {
+      Optional<PrefetchOption> prefetchOption,
+      int nextReadSegmentCount) {
     super(prefetchOption);
     this.appId = appId;
     this.shuffleId = shuffleId;
@@ -66,6 +69,7 @@ public abstract class DataSkippableReadHandler extends PrefetchableClientReadHan
     this.processBlockIds = processBlockIds;
     this.distributionType = distributionType;
     this.expectTaskIds = expectTaskIds;
+    this.nextReadSegmentCount = nextReadSegmentCount;
   }
 
   protected abstract ShuffleIndexResult readShuffleIndex();
@@ -106,8 +110,7 @@ public abstract class DataSkippableReadHandler extends PrefetchableClientReadHan
           result =
               readShuffleData(
                   segment,
-                  getNextSegments(
-                      shuffleDataSegments, segmentIndex + 1, DEFAULT_NEXT_READ_BATCH_NUMBER));
+                  getNextSegments(shuffleDataSegments, segmentIndex + 1, nextReadSegmentCount));
           segmentIndex++;
           break;
         }

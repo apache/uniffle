@@ -71,7 +71,8 @@ public class HadoopShuffleReadHandler extends DataSkippableReadHandler {
         processBlockIds,
         distributionType,
         expectTaskIds,
-        prefetchOption);
+        prefetchOption,
+        4);
     this.filePrefix = filePrefix;
     this.indexReader =
         createHadoopReader(ShuffleStorageUtils.generateIndexFileName(filePrefix), conf);

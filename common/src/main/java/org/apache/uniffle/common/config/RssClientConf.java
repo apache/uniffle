@@ -368,4 +368,10 @@ public class RssClientConf {
           .intType()
           .defaultValue(120)
           .withDescription("Read prefetch timeout seconds");
+
+  public static final ConfigOption<Integer> READ_CLIENT_NEXT_SEGMENTS_COUNT =
+      ConfigOptions.key("rss.client.read.nextReadSegmentCount")
+          .intType()
+          .defaultValue(4)
+          .withDescription("Next read segment count for shuffle-server read ahead");
 }
