@@ -40,7 +40,6 @@ service ShuffleServer {
   rpc appHeartbeat(AppHeartBeatRequest) returns (AppHeartBeatResponse);
   rpc startSortMerge (StartSortMergeRequest) returns (StartSortMergeResponse);
   rpc getSortedShuffleData (GetSortedShuffleDataRequest) returns (GetSortedShuffleDataResponse);
-  rpc reportLocalReadPlan (ReportLocalReadPlanRequest) returns (ReportLocalReadPlanResponse);
 }
 
 message FinishShuffleRequest {
@@ -127,25 +126,6 @@ message GetLocalShuffleIndexResponse {
   string retMsg = 3;
   int64 dataFileLen = 4;
   repeated int32 storageIds = 5;
-}
-
-message ReportLocalReadPlanRequest {
-  string appId = 1;
-  int32 shuffleId = 2;
-  int32 partitionId = 3;
-  int32 partitionNumPerRange = 4;
-  int32 partitionNum = 5;
-  repeated LocalReadSegment segments = 6;
-}
-
-message LocalReadSegment {
-  int64 offset = 1;
-  int64 length = 2;
-}
-
-message ReportLocalReadPlanResponse {
-  StatusCode status = 1;
-  string retMsg = 2;
 }
 
 message ReportShuffleResultRequest {

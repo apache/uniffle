@@ -57,8 +57,6 @@ import org.apache.uniffle.storage.handler.api.ClientReadHandler;
 import org.apache.uniffle.storage.handler.impl.ShuffleServerReadCostTracker;
 import org.apache.uniffle.storage.request.CreateShuffleReadHandlerRequest;
 
-import static org.apache.uniffle.common.config.RssClientConf.READ_CLIENT_REPORT_LOCAL_READ_PLAN_ENABLED;
-
 public class ShuffleReadClientImpl implements ShuffleReadClient {
 
   private static final Logger LOG = LoggerFactory.getLogger(ShuffleReadClientImpl.class);
@@ -173,8 +171,6 @@ public class ShuffleReadClientImpl implements ShuffleReadClient {
     this.readCostTracker = builder.getReadCostTracker();
 
     CreateShuffleReadHandlerRequest request = new CreateShuffleReadHandlerRequest();
-    request.setReportLocalReadPlanEnabled(
-        builder.getRssConf().getBoolean(READ_CLIENT_REPORT_LOCAL_READ_PLAN_ENABLED));
     request.setStorageType(builder.getStorageType());
     request.setAppId(builder.getAppId());
     request.setShuffleId(shuffleId);

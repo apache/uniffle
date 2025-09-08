@@ -17,7 +17,6 @@
 
 package org.apache.uniffle.storage.handler.impl;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -30,9 +29,7 @@ import org.apache.uniffle.client.api.ClientInfo;
 import org.apache.uniffle.client.api.ShuffleServerClient;
 import org.apache.uniffle.client.request.RssGetShuffleDataRequest;
 import org.apache.uniffle.client.request.RssGetShuffleIndexRequest;
-import org.apache.uniffle.client.request.RssReportLocalfileReadPlanRequest;
 import org.apache.uniffle.client.response.RssGetShuffleDataResponse;
-import org.apache.uniffle.client.response.RssReportLocalfileReadPlanResponse;
 import org.apache.uniffle.common.ShuffleDataDistributionType;
 import org.apache.uniffle.common.ShuffleDataResult;
 import org.apache.uniffle.common.ShuffleDataSegment;
@@ -40,7 +37,6 @@ import org.apache.uniffle.common.ShuffleIndexResult;
 import org.apache.uniffle.common.StorageType;
 import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.exception.RssFetchFailedException;
-import org.apache.uniffle.common.rpc.StatusCode;
 
 public class LocalFileClientReadHandler extends DataSkippableReadHandler {
   private static final Logger LOG = LoggerFactory.getLogger(LocalFileClientReadHandler.class);
@@ -50,7 +46,6 @@ public class LocalFileClientReadHandler extends DataSkippableReadHandler {
   private int retryMax;
   private long retryIntervalMax;
   private ShuffleServerReadCostTracker readCostTracker;
-  private final boolean reportLocalReadPlanEnabled;
 
   public LocalFileClientReadHandler(
       String appId,
@@ -68,8 +63,7 @@ public class LocalFileClientReadHandler extends DataSkippableReadHandler {
       int retryMax,
       long retryIntervalMax,
       Optional<PrefetchOption> prefetchOption,
-      ShuffleServerReadCostTracker readCostTracker,
-      boolean reportLocalReadPlanEnabled) {
+      ShuffleServerReadCostTracker readCostTracker) {
     super(
         appId,
         shuffleId,
@@ -86,7 +80,6 @@ public class LocalFileClientReadHandler extends DataSkippableReadHandler {
     this.retryMax = retryMax;
     this.retryIntervalMax = retryIntervalMax;
     this.readCostTracker = readCostTracker;
-    this.reportLocalReadPlanEnabled = reportLocalReadPlanEnabled;
   }
 
   @VisibleForTesting
@@ -117,33 +110,7 @@ public class LocalFileClientReadHandler extends DataSkippableReadHandler {
         1,
         0,
         Optional.empty(),
-        new ShuffleServerReadCostTracker(),
-        false);
-  }
-
-  @Override
-  protected void reportReadPlan(List<ShuffleDataSegment> segments) {
-    if (!reportLocalReadPlanEnabled) {
-      return;
-    }
-    long start = System.currentTimeMillis();
-    try {
-      RssReportLocalfileReadPlanResponse response =
-          shuffleServerClient.reportShuffleReadPlan(
-              new RssReportLocalfileReadPlanRequest(
-                  appId, shuffleId, partitionId, partitionNumPerRange, partitionNum, segments));
-      if (response.getStatusCode() != StatusCode.SUCCESS) {
-        LOG.warn(
-            "Unexpected status code: {} when reporting the localfile read plan",
-            response.getStatusCode());
-      }
-    } catch (Exception e) {
-      LOG.warn("Errors on reporting the localfile read plan. Ignore this exception.", e);
-    } finally {
-      LOG.info(
-          "The operation of reporting the localfile read plan took {} ms",
-          System.currentTimeMillis() - start);
-    }
+        new ShuffleServerReadCostTracker());
   }
 
   @Override

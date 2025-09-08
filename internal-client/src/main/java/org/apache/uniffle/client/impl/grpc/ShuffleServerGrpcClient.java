@@ -51,7 +51,6 @@ import org.apache.uniffle.client.request.RssGetShuffleResultForMultiPartRequest;
 import org.apache.uniffle.client.request.RssGetShuffleResultRequest;
 import org.apache.uniffle.client.request.RssGetSortedShuffleDataRequest;
 import org.apache.uniffle.client.request.RssRegisterShuffleRequest;
-import org.apache.uniffle.client.request.RssReportLocalfileReadPlanRequest;
 import org.apache.uniffle.client.request.RssReportShuffleResultRequest;
 import org.apache.uniffle.client.request.RssSendCommitRequest;
 import org.apache.uniffle.client.request.RssSendShuffleDataRequest;
@@ -66,7 +65,6 @@ import org.apache.uniffle.client.response.RssGetShuffleIndexResponse;
 import org.apache.uniffle.client.response.RssGetShuffleResultResponse;
 import org.apache.uniffle.client.response.RssGetSortedShuffleDataResponse;
 import org.apache.uniffle.client.response.RssRegisterShuffleResponse;
-import org.apache.uniffle.client.response.RssReportLocalfileReadPlanResponse;
 import org.apache.uniffle.client.response.RssReportShuffleResultResponse;
 import org.apache.uniffle.client.response.RssSendCommitResponse;
 import org.apache.uniffle.client.response.RssSendShuffleDataResponse;
@@ -1074,16 +1072,6 @@ public class ShuffleServerGrpcClient extends GrpcClient implements ShuffleServer
         throw new RssFetchFailedException(msg);
     }
     return response;
-  }
-
-  @Override
-  public RssReportLocalfileReadPlanResponse reportShuffleReadPlan(
-      RssReportLocalfileReadPlanRequest request) {
-    RssProtos.ReportLocalReadPlanRequest planRequest = request.toProto();
-    RssProtos.ReportLocalReadPlanResponse response =
-        getBlockingStub().reportLocalReadPlan(planRequest);
-    return new RssReportLocalfileReadPlanResponse(
-        StatusCode.fromCode(response.getStatus().getNumber()), response.getRetMsg());
   }
 
   @Override
