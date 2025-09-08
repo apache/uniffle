@@ -87,6 +87,12 @@ message GetLocalShuffleDataRequest {
   int32 length = 7;
   int64 timestamp = 8;
   int32 storageId = 9;
+  repeated ReadSegment nextReadSegments = 10;
+}
+
+message ReadSegment {
+  int64 offset = 1;
+  int64 length = 2;
 }
 
 message GetLocalShuffleDataResponse {

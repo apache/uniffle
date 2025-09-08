@@ -26,6 +26,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
@@ -958,6 +959,15 @@ public class ShuffleServerGrpcClient extends GrpcClient implements ShuffleServer
             .setLength(request.getLength())
             .setTimestamp(start)
             .setStorageId(request.getStorageId())
+            .addAllNextReadSegments(
+                request.getNextReadSegments().stream()
+                    .map(
+                        x ->
+                            RssProtos.ReadSegment.newBuilder()
+                                .setLength(x.getLength())
+                                .setOffset(x.getOffset())
+                                .build())
+                    .collect(Collectors.toList()))
             .build();
     String requestInfo =
         "appId["

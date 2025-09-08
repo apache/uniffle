@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import org.roaringbitmap.longlong.Roaring64NavigableMap;
 import org.slf4j.Logger;
@@ -35,6 +36,7 @@ import org.apache.uniffle.common.segment.SegmentSplitterFactory;
 
 public abstract class DataSkippableReadHandler extends PrefetchableClientReadHandler {
   private static final Logger LOG = LoggerFactory.getLogger(DataSkippableReadHandler.class);
+  private static final int DEFAULT_NEXT_READ_BATCH_NUMBER = 4;
 
   protected List<ShuffleDataSegment> shuffleDataSegments = Lists.newArrayList();
   protected int segmentIndex = 0;
@@ -68,7 +70,8 @@ public abstract class DataSkippableReadHandler extends PrefetchableClientReadHan
 
   protected abstract ShuffleIndexResult readShuffleIndex();
 
-  protected abstract ShuffleDataResult readShuffleData(ShuffleDataSegment segment);
+  protected abstract ShuffleDataResult readShuffleData(
+      ShuffleDataSegment segment, List<ShuffleDataSegment> nextReadSegments);
 
   @Override
   public ShuffleDataResult doReadShuffleData() {
@@ -100,7 +103,11 @@ public abstract class DataSkippableReadHandler extends PrefetchableClientReadHan
         // skip processed blockIds
         blocksOfSegment.removeAll(processBlockIds);
         if (!blocksOfSegment.isEmpty()) {
-          result = readShuffleData(segment);
+          result =
+              readShuffleData(
+                  segment,
+                  getNextSegments(
+                      shuffleDataSegments, segmentIndex + 1, DEFAULT_NEXT_READ_BATCH_NUMBER));
           segmentIndex++;
           break;
         }
@@ -108,5 +115,18 @@ public abstract class DataSkippableReadHandler extends PrefetchableClientReadHan
       segmentIndex++;
     }
     return result;
+  }
+
+  @VisibleForTesting
+  protected static List<ShuffleDataSegment> getNextSegments(
+      List<ShuffleDataSegment> shuffleDataSegments, int startIndex, int number) {
+    List<ShuffleDataSegment> nextSegments = Lists.newArrayList();
+    for (int i = startIndex; i < shuffleDataSegments.size(); i++) {
+      if (nextSegments.size() >= number) {
+        break;
+      }
+      nextSegments.add(shuffleDataSegments.get(i));
+    }
+    return nextSegments;
   }
 }

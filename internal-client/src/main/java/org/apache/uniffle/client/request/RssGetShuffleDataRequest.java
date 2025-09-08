@@ -17,7 +17,12 @@
 
 package org.apache.uniffle.client.request;
 
+import java.util.Collections;
+import java.util.List;
+
 import com.google.common.annotations.VisibleForTesting;
+
+import org.apache.uniffle.common.ShuffleDataSegment;
 
 public class RssGetShuffleDataRequest extends RetryableRequest {
 
@@ -29,6 +34,7 @@ public class RssGetShuffleDataRequest extends RetryableRequest {
   private final long offset;
   private final int length;
   private final int storageId;
+  private final List<ShuffleDataSegment> nextReadSegments;
 
   public RssGetShuffleDataRequest(
       String appId,
@@ -40,7 +46,8 @@ public class RssGetShuffleDataRequest extends RetryableRequest {
       int length,
       int storageId,
       int retryMax,
-      long retryIntervalMax) {
+      long retryIntervalMax,
+      List<ShuffleDataSegment> nextReadSegments) {
     this.appId = appId;
     this.shuffleId = shuffleId;
     this.partitionId = partitionId;
@@ -51,6 +58,7 @@ public class RssGetShuffleDataRequest extends RetryableRequest {
     this.storageId = storageId;
     this.retryMax = retryMax;
     this.retryIntervalMax = retryIntervalMax;
+    this.nextReadSegments = nextReadSegments;
   }
 
   @VisibleForTesting
@@ -72,7 +80,8 @@ public class RssGetShuffleDataRequest extends RetryableRequest {
         length,
         -1,
         1,
-        0);
+        0,
+        Collections.emptyList());
   }
 
   public String getAppId() {
@@ -109,6 +118,10 @@ public class RssGetShuffleDataRequest extends RetryableRequest {
 
   public boolean storageIdSpecified() {
     return storageId != -1;
+  }
+
+  public List<ShuffleDataSegment> getNextReadSegments() {
+    return nextReadSegments;
   }
 
   @Override

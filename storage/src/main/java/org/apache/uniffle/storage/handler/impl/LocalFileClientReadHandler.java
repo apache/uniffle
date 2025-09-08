@@ -17,6 +17,7 @@
 
 package org.apache.uniffle.storage.handler.impl;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -144,7 +145,8 @@ public class LocalFileClientReadHandler extends DataSkippableReadHandler {
   }
 
   @Override
-  public ShuffleDataResult readShuffleData(ShuffleDataSegment shuffleDataSegment) {
+  public ShuffleDataResult readShuffleData(
+      ShuffleDataSegment shuffleDataSegment, List<ShuffleDataSegment> nextReadSegments) {
     ShuffleDataResult result = null;
     int expectedLength = shuffleDataSegment.getLength();
     if (expectedLength <= 0) {
@@ -171,7 +173,8 @@ public class LocalFileClientReadHandler extends DataSkippableReadHandler {
             expectedLength,
             shuffleDataSegment.getStorageId(),
             retryMax,
-            retryIntervalMax);
+            retryIntervalMax,
+            nextReadSegments);
     try {
       long start = System.currentTimeMillis();
       RssGetShuffleDataResponse response = shuffleServerClient.getShuffleData(request);

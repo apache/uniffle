@@ -135,7 +135,8 @@ public class HadoopShuffleReadHandler extends DataSkippableReadHandler {
     return new ShuffleIndexResult();
   }
 
-  protected ShuffleDataResult readShuffleData(ShuffleDataSegment shuffleDataSegment) {
+  protected ShuffleDataResult readShuffleData(
+      ShuffleDataSegment shuffleDataSegment, List<ShuffleDataSegment> nextReadSegments) {
     // Here we make an assumption that the rest of the file is corrupted, if an unexpected data is
     // read.
     int expectedLength = shuffleDataSegment.getLength();
