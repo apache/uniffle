@@ -130,14 +130,14 @@ public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C
       ShuffleBlock shuffleBlock = shuffleReadClient.readShuffleBlockData();
       ByteBuffer rawData = shuffleBlock != null ? shuffleBlock.getByteBuffer() : null;
 
-      long fetchDuration = System.currentTimeMillis() - startFetch;
-      shuffleReadMetrics.incFetchWaitTime(fetchDuration);
+      long readDuration = System.currentTimeMillis() - startFetch;
       if (rawData != null) {
         // collect metrics from raw data
         long rawDataLength = rawData.limit() - rawData.position();
         totalRawBytesLength += rawDataLength;
         shuffleReadMetrics.incRemoteBytesRead(rawDataLength);
 
+        long startUncompression = System.currentTimeMillis();
         // get initial data
         ByteBuffer decompressed = null;
         if (shuffleBlock instanceof CompressedShuffleBlock) {
@@ -146,12 +146,14 @@ public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C
         } else {
           decompressed = shuffleBlock.getByteBuffer();
         }
+        long uncompressionDuration = System.currentTimeMillis() - startUncompression;
 
         // create new iterator for shuffle data
         long startSerialization = System.currentTimeMillis();
         recordsIterator = createKVIterator(decompressed);
         long serializationDuration = System.currentTimeMillis() - startSerialization;
-        readTime += fetchDuration;
+        shuffleReadMetrics.incFetchWaitTime(serializationDuration + uncompressionDuration);
+        readTime += readDuration;
         serializeTime += serializationDuration;
       } else {
         // finish reading records, check data consistent
