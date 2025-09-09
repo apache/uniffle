@@ -125,6 +125,12 @@ public class RssClientConf {
           .defaultValue(3)
           .withDescription("When we fail to send RPC calls, we will retry for maxAttempts times.");
 
+  public static final ConfigOption<Long> RPC_RETRY_BACKOFF_MS =
+      ConfigOptions.key("rss.client.rpc.retry.backoff.ms")
+          .longType()
+          .defaultValue(500L)
+          .withDescription("The backoff in milliseconds for RPC retries");
+
   public static final ConfigOption<Integer> RPC_NETTY_PAGE_SIZE =
       ConfigOptions.key("rss.client.rpc.netty.pageSize")
           .intType()
