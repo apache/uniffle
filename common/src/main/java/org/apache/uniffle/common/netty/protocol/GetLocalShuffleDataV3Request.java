@@ -64,7 +64,10 @@ public class GetLocalShuffleDataV3Request extends GetLocalShuffleDataV2Request {
 
   @Override
   public int encodedLength() {
-    return super.encodedLength() + Long.BYTES * 2 * nextReadSegments.size();
+    return super.encodedLength()
+        + Integer.BYTES
+        + Long.BYTES * 2 * nextReadSegments.size()
+        + Long.BYTES;
   }
 
   @Override
