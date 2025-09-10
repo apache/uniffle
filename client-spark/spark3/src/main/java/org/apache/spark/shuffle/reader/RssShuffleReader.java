@@ -86,6 +86,7 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
   private ShuffleDependency<K, ?, C> shuffleDependency;
   private int numMaps;
   private Serializer serializer;
+  private long taskAttemptId;
   private String taskId;
   private String basePath;
   private int partitionNum;
@@ -134,6 +135,7 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
     this.shuffleId = shuffleDependency.shuffleId();
     this.serializer = rssShuffleHandle.getDependency().serializer();
     this.taskId = "" + context.taskAttemptId() + "_" + context.attemptNumber();
+    this.taskAttemptId = context.taskAttemptId();
     this.basePath = basePath;
     this.partitionNum = partitionNum;
     this.partitionToExpectBlocks = partitionToExpectBlocks;
@@ -317,10 +319,7 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
                 .retryMax(retryMax)
                 .retryIntervalMax(retryIntervalMax)
                 .rssConf(rssConf)
-                .taskAttemptId(
-                    Optional.ofNullable(TaskContext.get())
-                        .map(taskContext -> taskContext.taskAttemptId())
-                        .orElse(0L));
+                .taskAttemptId(taskAttemptId);
         if (codec.isPresent() && rssConf.get(RSS_READ_OVERLAPPING_DECOMPRESSION_ENABLED)) {
           builder
               .overlappingDecompressionEnabled(true)
