@@ -98,4 +98,6 @@ public class RssClientConfig {
   public static final String RSS_MERGED_BLOCK_SZIE = "rss.merged.block.size";
   public static final int RSS_MERGED_BLOCK_SZIE_DEFAULT = -1;
   public static final String RSS_REMOTE_MERGE_CLASS_LOADER = "rss.remote.merge.classloader";
+
+  public static final String RSS_CLIENT_COMBINER_ENABLE = "rss.client.combiner.enable";
 }

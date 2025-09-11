@@ -206,6 +206,10 @@ public class RssMRConfig {
   public static final String RSS_REMOTE_MERGE_CLASS_LOADER =
       MR_CONFIG_PREFIX + RssClientConfig.RSS_REMOTE_MERGE_CLASS_LOADER;
 
+  public static final String RSS_CLIENT_COMBINER_ENABLE =
+      MR_CONFIG_PREFIX + RssClientConfig.RSS_CLIENT_COMBINER_ENABLE;
+  public static final boolean RSS_CLIENT_COMBINER_ENABLE_DEFAULT = false;
+
   public static RssConf toRssConf(Configuration jobConf) {
     RssConf rssConf = new RssConf();
     for (Map.Entry<String, String> entry : jobConf) {

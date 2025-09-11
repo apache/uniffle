@@ -78,12 +78,60 @@ public class RssMapOutputCollector<K extends Object, V extends Object>
       throw new IOException("Invalid  sort memory use threshold : " + sortThreshold);
     }
 
-    // combiner
-    final Counters.Counter combineInputCounter =
-        reporter.getCounter(TaskCounter.COMBINE_INPUT_RECORDS);
-    combinerRunner =
-        Task.CombinerRunner.create(
-            mrJobConf, mapTask.getTaskID(), combineInputCounter, reporter, null);
+    boolean enableCombiner =
+       RssMRUtils.getBoolean(
+            rssJobConf,
+            RssMRConfig.RSS_CLIENT_COMBINER_ENABLE,
+            RssMRConfig.RSS_CLIENT_COMBINER_ENABLE_DEFAULT);
+
+    boolean isUserCombinerConfigured = false;
+    String combinerClassName = null;
+
+    try {
+      Class<? extends Reducer> combinerClassFromAPI = mrJobConf.getCombinerClass();
+      if (combinerClassFromAPI != null) {
+        isUserCombinerConfigured = true;
+        combinerClassName = combinerClassFromAPI.getName();
+        LOG.debug("Got combiner class via getCombinerClass(): {}", combinerClassName);
+      }
+    } catch (Exception e) {
+      LOG.debug("Failed to get combiner class via getCombinerClass() API", e);
+    }
+
+    if (combinerClassName == null) {
+      combinerClassName = mrJobConf.get("mapreduce.job.combine.class");
+    }
+    if (combinerClassName == null) {
+      combinerClassName = mrJobConf.get("mapred.combiner.class");
+    }
+
+    if (combinerClassName != null && !combinerClassName.trim().isEmpty()) {
+      isUserCombinerConfigured = true;
+      LOG.debug("Got combiner class from config property: {}", combinerClassName);
+    }
+
+    combinerRunner = null;
+    if (enableCombiner) {
+      if (isUserCombinerConfigured) {
+        final Counters.Counter combineInputCounter =
+                reporter.getCounter(TaskCounter.COMBINE_INPUT_RECORDS);
+        combinerRunner =
+                Task.CombinerRunner.create(
+                        mrJobConf, mapTask.getTaskID(), combineInputCounter, reporter, null);
+        LOG.info("Map-stage combiner is enabled for class: {}", combinerClassName);
+      } else {
+        LOG.info("RSS client combiner is enabled by configuration (via {}), but no combiner class is " +
+                        "set in the job. Consider setting it to false to avoid this check.",
+                RssMRConfig.RSS_CLIENT_COMBINER_ENABLE);
+      }
+    } else {
+      if (isUserCombinerConfigured) {
+        LOG.warn("A combiner is set ({}) but is DISABLED in the RSS client to prevent GC issues. " +
+                        "To enable it (at the risk of job instability), set {} to true.",
+                combinerClassName,
+                RssMRConfig.RSS_CLIENT_COMBINER_ENABLE);
+      }
+    }
 
     int batch =
         RssMRUtils.getInt(
