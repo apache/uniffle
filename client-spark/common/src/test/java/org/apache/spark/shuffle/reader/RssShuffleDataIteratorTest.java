@@ -338,7 +338,7 @@ public class RssShuffleDataIteratorTest extends AbstractRssReaderTest {
     assertEquals(20, rssShuffleDataIterator.getShuffleReadMetrics().recordsRead());
     ShuffleReadTimes readTimes = rssShuffleDataIterator.getReadTimes();
     ShuffleReadMetrics shuffleReadMetrics = rssShuffleDataIterator.getShuffleReadMetrics();
-    shuffleReadMetrics.incFetchWaitTime(TimeUnit.MILLISECONDS.toNanos(readTimes.getReadTime()));
+    shuffleReadMetrics.incFetchWaitTime(TimeUnit.MILLISECONDS.toNanos(readTimes.getTotal()));
     assertTrue(shuffleReadMetrics.fetchWaitTime() > 0);
   }
 
