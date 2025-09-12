@@ -87,21 +87,16 @@ public class RssMapOutputCollector<K extends Object, V extends Object>
     combinerRunner = null;
     if (enableCombiner) {
       try {
-        if (mrJobConf.getCombinerClass() != null ||
-                mrJobConf.get("mapreduce.job.combine.class") != null ||
-                mrJobConf.get("mapreduce.combine.class") != null ||
-                mrJobConf.get("mapred.combiner.class") != null) {
-
-          final Counters.Counter combineInputCounter =
-                  reporter.getCounter(TaskCounter.COMBINE_INPUT_RECORDS);
-          combinerRunner = Task.CombinerRunner.create(
-                  mrJobConf, mapTask.getTaskID(), combineInputCounter, reporter, null);
-          if (combinerRunner != null) {
-            LOG.info("Map-stage combiner enabled. Warning: This may cause GC issues in large jobs. " +
-                            "Consider setting {}=false if experiencing instability",
-                    RssMRConfig.RSS_CLIENT_COMBINER_ENABLE);
-          }
+        final Counters.Counter combineInputCounter =
+                reporter.getCounter(TaskCounter.COMBINE_INPUT_RECORDS);
+        combinerRunner = Task.CombinerRunner.create(
+                mrJobConf, mapTask.getTaskID(), combineInputCounter, reporter, null);
+        if (combinerRunner != null) {
+          LOG.info("Map-stage combiner enabled. Warning: This may cause GC issues in large jobs. " +
+                          "Consider setting {}=false if experiencing instability",
+                  RssMRConfig.RSS_CLIENT_COMBINER_ENABLE);
         }
+
       } catch (Exception e) {
         LOG.error("Get CombinerClass failed", e);
       }
