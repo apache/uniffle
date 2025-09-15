@@ -88,13 +88,15 @@ public class RssMapOutputCollector<K extends Object, V extends Object>
     if (enableCombiner) {
       try {
         final Counters.Counter combineInputCounter =
-                reporter.getCounter(TaskCounter.COMBINE_INPUT_RECORDS);
-        combinerRunner = Task.CombinerRunner.create(
+            reporter.getCounter(TaskCounter.COMBINE_INPUT_RECORDS);
+        combinerRunner =
+            Task.CombinerRunner.create(
                 mrJobConf, mapTask.getTaskID(), combineInputCounter, reporter, null);
         if (combinerRunner != null) {
-          LOG.info("Map-stage combiner enabled. Warning: This may cause GC issues in large jobs. " +
-                          "Consider setting {}=false if experiencing instability",
-                  RssMRConfig.RSS_CLIENT_COMBINER_ENABLE);
+          LOG.info(
+              "Map-stage combiner enabled. Warning: This may cause GC issues in large jobs. "
+                  + "Consider setting {}=false if experiencing instability",
+              RssMRConfig.RSS_CLIENT_COMBINER_ENABLE);
         }
 
       } catch (Exception e) {
