@@ -562,7 +562,8 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
     }
   }
 
-  private void checkDataIfAnyFailure() {
+  // This method should remain protected so that Gluten can invoke it
+  protected void checkDataIfAnyFailure() {
     if (blockFailSentRetryEnabled) {
       collectFailedBlocksToResend();
     } else {
