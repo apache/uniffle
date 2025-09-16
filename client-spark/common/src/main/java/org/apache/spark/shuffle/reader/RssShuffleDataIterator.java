@@ -152,7 +152,8 @@ public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C
         long startSerialization = System.currentTimeMillis();
         recordsIterator = createKVIterator(decompressed);
         long serializationDuration = System.currentTimeMillis() - startSerialization;
-        shuffleReadMetrics.incFetchWaitTime(serializationDuration + uncompressionDuration);
+        shuffleReadMetrics.incFetchWaitTime(
+            serializationDuration + uncompressionDuration + readDuration);
         readTime += readDuration;
         serializeTime += serializationDuration;
       } else {

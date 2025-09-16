@@ -21,7 +21,6 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import com.google.common.collect.Lists;
@@ -47,7 +46,6 @@ import org.apache.uniffle.client.api.ShuffleReadClient;
 import org.apache.uniffle.client.factory.ShuffleClientFactory;
 import org.apache.uniffle.client.impl.ShuffleReadClientImpl;
 import org.apache.uniffle.common.ClientType;
-import org.apache.uniffle.common.ShuffleReadTimes;
 import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.compression.Codec;
 import org.apache.uniffle.common.config.RssConf;
@@ -336,10 +334,7 @@ public class RssShuffleDataIteratorTest extends AbstractRssReaderTest {
 
     validateResult(rssShuffleDataIterator, expectedData, 20);
     assertEquals(20, rssShuffleDataIterator.getShuffleReadMetrics().recordsRead());
-    ShuffleReadTimes readTimes = rssShuffleDataIterator.getReadTimes();
-    ShuffleReadMetrics shuffleReadMetrics = rssShuffleDataIterator.getShuffleReadMetrics();
-    shuffleReadMetrics.incFetchWaitTime(TimeUnit.MILLISECONDS.toNanos(readTimes.getTotal()));
-    assertTrue(shuffleReadMetrics.fetchWaitTime() > 0);
+    assertTrue(rssShuffleDataIterator.getShuffleReadMetrics().fetchWaitTime() > 0);
   }
 
   @Test
