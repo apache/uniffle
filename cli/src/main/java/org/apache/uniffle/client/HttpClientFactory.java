@@ -20,9 +20,7 @@ package org.apache.uniffle.client;
 import javax.net.ssl.SSLContext;
 
 import org.apache.http.client.config.RequestConfig;
-import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
-import org.apache.http.conn.ssl.TrustStrategy;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.ssl.SSLContexts;
@@ -42,10 +40,11 @@ public class HttpClientFactory {
             .build();
     SSLConnectionSocketFactory sslSocketFactory;
     try {
-      TrustStrategy acceptingTrustStrategy = (cert, authType) -> true;
-      SSLContext sslContext =
-          SSLContexts.custom().loadTrustMaterial(null, acceptingTrustStrategy).build();
-      sslSocketFactory = new SSLConnectionSocketFactory(sslContext, NoopHostnameVerifier.INSTANCE);
+      // Use the JVM/system default truststore and perform hostname verification.
+      SSLContext sslContext = SSLContexts.createSystemDefault();
+      sslSocketFactory =
+          new SSLConnectionSocketFactory(
+              sslContext, SSLConnectionSocketFactory.getDefaultHostnameVerifier());
     } catch (Exception e) {
       LOG.error("Error: ", e);
       throw new UniffleRestException("Failed to create HttpClient", e);
