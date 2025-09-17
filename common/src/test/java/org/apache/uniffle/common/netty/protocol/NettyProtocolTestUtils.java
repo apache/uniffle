@@ -138,4 +138,26 @@ public class NettyProtocolTestUtils {
     }
     return comparePartitionToBlockListV1(req1.getPartitionToBlocks(), req2.getPartitionToBlocks());
   }
+
+  public static boolean compareGetLocalShuffleDataV3Request(
+      GetLocalShuffleDataV3Request req1, GetLocalShuffleDataV3Request req2) {
+    if (req1 == req2) {
+      return true;
+    }
+    if (req1 == null || req2 == null) {
+      return false;
+    }
+    return req1.getRequestId() == req2.getRequestId()
+        && req1.getAppId().equals(req2.getAppId())
+        && req1.getShuffleId() == req2.getShuffleId()
+        && req1.getPartitionId() == req2.getPartitionId()
+        && req1.getPartitionNumPerRange() == req2.getPartitionNumPerRange()
+        && req1.getPartitionNum() == req2.getPartitionNum()
+        && req1.getOffset() == req2.getOffset()
+        && req1.getLength() == req2.getLength()
+        && req1.getTimestamp() == req2.getTimestamp()
+        && req1.getStorageId() == req2.getStorageId()
+        && req1.getTaskAttemptId() == req2.getTaskAttemptId()
+        && req1.getNextReadSegments().equals(req2.getNextReadSegments());
+  }
 }

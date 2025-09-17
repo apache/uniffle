@@ -118,4 +118,12 @@ public class GetLocalShuffleDataV3Request extends GetLocalShuffleDataV2Request {
   public String getOperationType() {
     return "getLocalShuffleDataV3";
   }
+
+  public List<ReadSegment> getNextReadSegments() {
+    return nextReadSegments;
+  }
+
+  public long getTaskAttemptId() {
+    return taskAttemptId;
+  }
 }
