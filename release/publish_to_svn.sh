@@ -39,7 +39,7 @@ fi
 
 RELEASE_TAG="${RELEASE_VERSION}-rc${RELEASE_RC_NO}"
 
-SVN_STAGING_REPO="https://dist.apache.org/repos/dist/dev/incubator/uniffle"
+SVN_STAGING_REPO="https://dist.apache.org/repos/dist/dev/uniffle"
 
 RELEASE_DIR="${PROJECT_DIR}/tmp"
 SVN_STAGING_DIR="${PROJECT_DIR}/tmp/dev/uniffle"
