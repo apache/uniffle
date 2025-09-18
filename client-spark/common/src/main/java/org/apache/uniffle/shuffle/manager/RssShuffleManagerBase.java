@@ -1024,7 +1024,7 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
         "The stage retry has been triggered successfully for the shuffleId: {}, attemptNumber: {}",
         shuffleId,
         stageAttemptNumber);
-    this.reassignTriggeredOnStageRetry.set(true);
+    postReassignTriggeredEvent(reassignTriggeredOnStageRetry);
     return true;
   }
 
@@ -1148,12 +1148,21 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
           System.currentTimeMillis() - startTime,
           partitionSplit,
           reassignResult);
-      if (partitionSplit) {
-        this.reassignTriggeredOnPartitionSplit.set(true);
-      } else {
-        this.reassignTriggeredOnBlockSendFailure.set(true);
-      }
+      postReassignTriggeredEvent(
+          partitionSplit ? reassignTriggeredOnPartitionSplit : reassignTriggeredOnBlockSendFailure);
       return internalHandle;
+    }
+  }
+
+  /** This method will check the historical state to avoid posting duplicate events */
+  private void postReassignTriggeredEvent(AtomicBoolean tag) {
+    if (tag.compareAndSet(false, true)) {
+      TaskReassignInfoEvent reassignInfoEvent =
+          new TaskReassignInfoEvent(
+              reassignTriggeredOnPartitionSplit.get(),
+              reassignTriggeredOnBlockSendFailure.get(),
+              reassignTriggeredOnStageRetry.get());
+      RssSparkShuffleUtils.getActiveSparkContext().listenerBus().post(reassignInfoEvent);
     }
   }
 
@@ -1195,16 +1204,6 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
 
   @Override
   public void stop() {
-    if (this.isDriver && partitionReassignEnabled) {
-      // send reassign event into spark event store
-      TaskReassignInfoEvent reassignInfoEvent =
-          new TaskReassignInfoEvent(
-              reassignTriggeredOnPartitionSplit.get(),
-              reassignTriggeredOnBlockSendFailure.get(),
-              reassignTriggeredOnStageRetry.get());
-      RssSparkShuffleUtils.getActiveSparkContext().listenerBus().post(reassignInfoEvent);
-    }
-
     if (managerClientSupplier != null
         && managerClientSupplier instanceof ExpiringCloseableSupplier) {
       ((ExpiringCloseableSupplier<ShuffleManagerClient>) managerClientSupplier).close();
