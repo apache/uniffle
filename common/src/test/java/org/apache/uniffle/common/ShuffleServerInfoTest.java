@@ -26,6 +26,16 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 public class ShuffleServerInfoTest {
 
   @Test
+  public void testCompareTo() {
+    ShuffleServerInfo info1 = new ShuffleServerInfo("localhost", 1234);
+    ShuffleServerInfo info2 = new ShuffleServerInfo("localhost", 1235);
+    ShuffleServerInfo info3 = new ShuffleServerInfo("localhost", 1235);
+    assertEquals(-1, info1.compareTo(info2));
+    assertEquals(1, info2.compareTo(info1));
+    assertEquals(0, info2.compareTo(info3));
+  }
+
+  @Test
   public void testEquals() {
     ShuffleServerInfo info = new ShuffleServerInfo("1", "localhost", 1234);
     ShuffleServerInfo info2 = new ShuffleServerInfo("1", "localhost", 1234);

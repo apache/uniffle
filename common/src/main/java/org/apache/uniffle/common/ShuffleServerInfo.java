@@ -27,7 +27,7 @@ import org.slf4j.LoggerFactory;
 
 import org.apache.uniffle.proto.RssProtos;
 
-public class ShuffleServerInfo implements Serializable {
+public class ShuffleServerInfo implements Serializable, Comparable<ShuffleServerInfo> {
   private static final Logger LOGGER = LoggerFactory.getLogger(ShuffleServerInfo.class);
   private static final String DELIMITER = "-";
   private static final long serialVersionUID = 0L;
@@ -169,5 +169,10 @@ public class ShuffleServerInfo implements Serializable {
     }
     LOGGER.warn("Server id is invalid. {}", serverId);
     return null;
+  }
+
+  @Override
+  public int compareTo(ShuffleServerInfo o) {
+    return this.id.compareTo(o.id);
   }
 }
