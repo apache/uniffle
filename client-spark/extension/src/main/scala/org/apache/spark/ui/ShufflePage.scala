@@ -334,9 +334,9 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
             </li>
             <li>
               <a>
-                <strong>Reassign Status(partitionSplit/blockSentFailure/stageRetry):</strong>
+                <strong>Reassign Status:</strong>
               </a>
-              {reassignInfo.isReassignTriggeredOnPartitionSplit} / {reassignInfo.isReassignTriggeredOnBlockSendFailure} / {reassignInfo.isReassignTriggeredOnStageRetry}
+              partitionSplit={reassignInfo.isReassignTriggeredOnPartitionSplit}, blockSentFailure={reassignInfo.isReassignTriggeredOnBlockSendFailure}, stageRetry={reassignInfo.isReassignTriggeredOnStageRetry}
             </li>
           </ul>
         </div>
