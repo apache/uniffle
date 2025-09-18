@@ -64,6 +64,9 @@ public class ShuffleReadTimes {
   }
 
   public void merge(ShuffleReadTimes other) {
+    if (other == null) {
+      return;
+    }
     this.fetch += other.fetch;
     this.crc += other.crc;
     this.copy += other.copy;
