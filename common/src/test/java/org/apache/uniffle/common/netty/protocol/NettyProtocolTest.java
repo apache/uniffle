@@ -18,6 +18,7 @@
 package org.apache.uniffle.common.netty.protocol;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -189,6 +190,35 @@ public class NettyProtocolTest {
     ByteBuf byteBuf = Unpooled.buffer(encodeLength, encodeLength);
     request.encode(byteBuf);
     assertEquals(encodeLength, byteBuf.readableBytes());
+    GetLocalShuffleDataV3Request decodedRequest = GetLocalShuffleDataV3Request.decode(byteBuf);
+    assertTrue(NettyProtocolTestUtils.compareGetLocalShuffleDataV3Request(request, decodedRequest));
+    byteBuf.release();
+  }
+
+  @Test
+  public void testGetLocalShuffleDataV3RequestWithEmptySegments() {
+    // Edge case: Test with an empty list of read segments.
+    List<ReadSegment> readSegments = Collections.emptyList();
+    GetLocalShuffleDataV3Request request =
+        new GetLocalShuffleDataV3Request(
+            2L,
+            "test_app_empty",
+            2,
+            2,
+            2,
+            200,
+            0,
+            300,
+            2,
+            readSegments,
+            System.currentTimeMillis(),
+            456L);
+
+    int encodeLength = request.encodedLength();
+    ByteBuf byteBuf = Unpooled.buffer(encodeLength, encodeLength);
+    request.encode(byteBuf);
+    assertEquals(encodeLength, byteBuf.readableBytes());
+
     GetLocalShuffleDataV3Request decodedRequest = GetLocalShuffleDataV3Request.decode(byteBuf);
     assertTrue(NettyProtocolTestUtils.compareGetLocalShuffleDataV3Request(request, decodedRequest));
     byteBuf.release();
