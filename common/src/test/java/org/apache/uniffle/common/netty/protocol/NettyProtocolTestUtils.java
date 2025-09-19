@@ -21,6 +21,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.uniffle.common.ReadSegment;
 import org.apache.uniffle.common.ShuffleBlockInfo;
 import org.apache.uniffle.common.ShufflePartitionedBlock;
 
@@ -139,6 +140,23 @@ public class NettyProtocolTestUtils {
     return comparePartitionToBlockListV1(req1.getPartitionToBlocks(), req2.getPartitionToBlocks());
   }
 
+  private static boolean compareReadSegment(List<ReadSegment> list1, List<ReadSegment> list2) {
+    if (list1 == list2) {
+      return true;
+    }
+    if (list1 == null || list2 == null || list1.size() != list2.size()) {
+      return false;
+    }
+    for (int i = 0; i < list1.size(); ++i) {
+      ReadSegment seg1 = list1.get(i);
+      ReadSegment seg2 = list2.get(i);
+      if (seg1.getOffset() != seg2.getOffset() || seg1.getLength() != seg2.getLength()) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   public static boolean compareGetLocalShuffleDataV3Request(
       GetLocalShuffleDataV3Request req1, GetLocalShuffleDataV3Request req2) {
     if (req1 == req2) {
@@ -158,6 +176,6 @@ public class NettyProtocolTestUtils {
         && req1.getTimestamp() == req2.getTimestamp()
         && req1.getStorageId() == req2.getStorageId()
         && req1.getTaskAttemptId() == req2.getTaskAttemptId()
-        && req1.getNextReadSegments().equals(req2.getNextReadSegments());
+        && compareReadSegment(req1.getNextReadSegments(), req2.getNextReadSegments());
   }
 }
