@@ -18,6 +18,7 @@
 package org.apache.uniffle.common.netty.protocol;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -29,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import org.roaringbitmap.longlong.Roaring64NavigableMap;
 
 import org.apache.uniffle.common.BufferSegment;
+import org.apache.uniffle.common.ReadSegment;
 import org.apache.uniffle.common.ShuffleBlockInfo;
 import org.apache.uniffle.common.ShufflePartitionedBlock;
 import org.apache.uniffle.common.ShuffleServerInfo;
@@ -164,6 +166,62 @@ public class NettyProtocolTest {
     assertEquals(getLocalShuffleDataRequest.getLength(), getLocalShuffleDataRequest1.getLength());
     assertEquals(
         getLocalShuffleDataRequest.getTimestamp(), getLocalShuffleDataRequest1.getTimestamp());
+  }
+
+  @Test
+  public void testGetLocalShuffleDataV3Request() {
+    List<ReadSegment> readSegments =
+        Lists.newArrayList(new ReadSegment(100, 100), new ReadSegment(200, 200));
+    GetLocalShuffleDataV3Request request =
+        new GetLocalShuffleDataV3Request(
+            1L,
+            "test_app",
+            1,
+            1,
+            1,
+            100,
+            0,
+            200,
+            1,
+            readSegments,
+            System.currentTimeMillis(),
+            123L);
+    int encodeLength = request.encodedLength();
+    ByteBuf byteBuf = Unpooled.buffer(encodeLength, encodeLength);
+    request.encode(byteBuf);
+    assertEquals(encodeLength, byteBuf.readableBytes());
+    GetLocalShuffleDataV3Request decodedRequest = GetLocalShuffleDataV3Request.decode(byteBuf);
+    assertTrue(NettyProtocolTestUtils.compareGetLocalShuffleDataV3Request(request, decodedRequest));
+    byteBuf.release();
+  }
+
+  @Test
+  public void testGetLocalShuffleDataV3RequestWithEmptySegments() {
+    // Edge case: Test with an empty list of read segments.
+    List<ReadSegment> readSegments = Collections.emptyList();
+    GetLocalShuffleDataV3Request request =
+        new GetLocalShuffleDataV3Request(
+            2L,
+            "test_app_empty",
+            2,
+            2,
+            2,
+            200,
+            0,
+            300,
+            2,
+            readSegments,
+            System.currentTimeMillis(),
+            456L);
+
+    int encodeLength = request.encodedLength();
+    ByteBuf byteBuf = Unpooled.buffer(encodeLength, encodeLength);
+    request.encode(byteBuf);
+    assertEquals(encodeLength, byteBuf.readableBytes());
+
+    GetLocalShuffleDataV3Request decodedRequest = GetLocalShuffleDataV3Request.decode(byteBuf);
+    assertTrue(NettyProtocolTestUtils.compareGetLocalShuffleDataV3Request(request, decodedRequest));
+    byteBuf.release();
   }
 
   @Test

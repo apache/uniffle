@@ -21,6 +21,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.uniffle.common.ReadSegment;
 import org.apache.uniffle.common.ShuffleBlockInfo;
 import org.apache.uniffle.common.ShufflePartitionedBlock;
 
@@ -137,5 +138,44 @@ public class NettyProtocolTestUtils {
       return false;
     }
     return comparePartitionToBlockListV1(req1.getPartitionToBlocks(), req2.getPartitionToBlocks());
+  }
+
+  private static boolean compareReadSegment(List<ReadSegment> list1, List<ReadSegment> list2) {
+    if (list1 == list2) {
+      return true;
+    }
+    if (list1 == null || list2 == null || list1.size() != list2.size()) {
+      return false;
+    }
+    for (int i = 0; i < list1.size(); ++i) {
+      ReadSegment seg1 = list1.get(i);
+      ReadSegment seg2 = list2.get(i);
+      if (seg1.getOffset() != seg2.getOffset() || seg1.getLength() != seg2.getLength()) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  public static boolean compareGetLocalShuffleDataV3Request(
+      GetLocalShuffleDataV3Request req1, GetLocalShuffleDataV3Request req2) {
+    if (req1 == req2) {
+      return true;
+    }
+    if (req1 == null || req2 == null) {
+      return false;
+    }
+    return req1.getRequestId() == req2.getRequestId()
+        && req1.getAppId().equals(req2.getAppId())
+        && req1.getShuffleId() == req2.getShuffleId()
+        && req1.getPartitionId() == req2.getPartitionId()
+        && req1.getPartitionNumPerRange() == req2.getPartitionNumPerRange()
+        && req1.getPartitionNum() == req2.getPartitionNum()
+        && req1.getOffset() == req2.getOffset()
+        && req1.getLength() == req2.getLength()
+        && req1.getTimestamp() == req2.getTimestamp()
+        && req1.getStorageId() == req2.getStorageId()
+        && req1.getTaskAttemptId() == req2.getTaskAttemptId()
+        && compareReadSegment(req1.getNextReadSegments(), req2.getNextReadSegments());
   }
 }
