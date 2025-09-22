@@ -1155,8 +1155,8 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
   }
 
   /** This method will check the historical state to avoid posting duplicate events */
-  private void postReassignTriggeredEvent(AtomicBoolean tag) {
-    if (tag.compareAndSet(false, true)) {
+  private void postReassignTriggeredEvent(AtomicBoolean isReassign) {
+    if (isReassign.compareAndSet(false, true)) {
       TaskReassignInfoEvent reassignInfoEvent =
           new TaskReassignInfoEvent(
               reassignTriggeredOnPartitionSplit.get(),
