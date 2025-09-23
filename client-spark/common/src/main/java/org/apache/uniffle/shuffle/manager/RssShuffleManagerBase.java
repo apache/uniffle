@@ -957,11 +957,13 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
       String driver = rssConf.getString("driver.host", "");
       int port = rssConf.get(RssClientConf.SHUFFLE_MANAGER_GRPC_PORT);
       long rpcTimeout = rssConf.getLong(RssClientConf.RPC_TIMEOUT_MS);
+      int maxAttempts = rssConf.getInteger(RssClientConf.RPC_MAX_ATTEMPTS);
       this.managerClientSupplier =
           ExpiringCloseableSupplier.of(
               () ->
                   ShuffleManagerClientFactory.getInstance()
-                      .createShuffleManagerClient(ClientType.GRPC, driver, port, rpcTimeout));
+                      .createShuffleManagerClient(
+                          ClientType.GRPC, driver, port, rpcTimeout, maxAttempts));
     }
     return managerClientSupplier;
   }

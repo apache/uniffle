@@ -33,11 +33,16 @@ public class ShuffleManagerClientFactory {
   private ShuffleManagerClientFactory() {}
 
   public ShuffleManagerGrpcClient createShuffleManagerClient(
-      ClientType clientType, String host, int port, long rpcTimeout) {
+      ClientType clientType, String host, int port, long rpcTimeout, int maxAttempts) {
     if (ClientType.GRPC.equals(clientType)) {
-      return new ShuffleManagerGrpcClient(host, port, rpcTimeout);
+      return new ShuffleManagerGrpcClient(host, port, rpcTimeout, maxAttempts);
     } else {
       throw new UnsupportedOperationException("Unsupported client type " + clientType);
     }
+  }
+
+  public ShuffleManagerGrpcClient createShuffleManagerClient(
+      ClientType clientType, String host, int port, long rpcTimeout) {
+    return createShuffleManagerClient(clientType, host, port, rpcTimeout, 3);
   }
 }
