@@ -969,19 +969,25 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
                   bufferManager.getSortTime(),
                   bufferManager.getRequireMemoryTime(),
                   checkSendResultMills);
-          RssReportShuffleWriteMetricResponse response =
-              shuffleManagerClient.reportShuffleWriteMetric(
-                  new RssReportShuffleWriteMetricRequest(
-                      taskContext.stageId(),
-                      shuffleId,
-                      taskContext.taskAttemptId(),
-                      bufferManager.getShuffleServerPushCostTracker().toMetric(),
-                      writeTimes,
-                      isShuffleWriteFailed,
-                      shuffleWriteFailureReason,
-                      bufferManager.getUncompressedDataLen()));
-          if (response.getStatusCode() != StatusCode.SUCCESS) {
-            LOG.error("Errors on reporting shuffle write metrics to driver");
+          try {
+            RssReportShuffleWriteMetricResponse response =
+                shuffleManagerClient.reportShuffleWriteMetric(
+                    new RssReportShuffleWriteMetricRequest(
+                        taskContext.stageId(),
+                        shuffleId,
+                        taskContext.taskAttemptId(),
+                        bufferManager.getShuffleServerPushCostTracker().toMetric(),
+                        writeTimes,
+                        isShuffleWriteFailed,
+                        shuffleWriteFailureReason,
+                        bufferManager.getUncompressedDataLen()));
+            if (response.getStatusCode() != StatusCode.SUCCESS) {
+              LOG.error(
+                  "Errors on reporting shuffle write metrics to driver. status_code: {}",
+                  response.getStatusCode());
+            }
+          } catch (Exception e) {
+            LOG.error("Errors on reporting shuffle write metrics to driver", e);
           }
         }
       }
