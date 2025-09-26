@@ -23,6 +23,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,6 +33,7 @@ import org.apache.uniffle.common.BufferSegment;
 import org.apache.uniffle.common.ShuffleDataResult;
 import org.apache.uniffle.common.compression.Codec;
 import org.apache.uniffle.common.util.JavaUtils;
+import org.apache.uniffle.common.util.ThreadUtils;
 
 public class DecompressionWorker {
   private static final Logger LOG = LoggerFactory.getLogger(DecompressionWorker.class);
@@ -39,9 +41,13 @@ public class DecompressionWorker {
   private final ExecutorService executorService;
   private final ConcurrentHashMap<Integer, ConcurrentHashMap<Integer, DecompressedShuffleBlock>>
       tasks;
-  private Codec codec;
-  private final ThreadLocal<ByteBuffer> bufferLocal =
-      ThreadLocal.withInitial(() -> ByteBuffer.allocate(0));
+  private final Codec codec;
+
+  private final AtomicLong decompressionMillis = new AtomicLong(0);
+  private final AtomicLong decompressionBufferAllocationMillis = new AtomicLong(0);
+
+  // the millis for the block get operation to measure profit from overlapping decompression
+  private final AtomicLong waitMillis = new AtomicLong(0);
 
   public DecompressionWorker(Codec codec, int threads) {
     if (codec == null) {
@@ -51,7 +57,8 @@ public class DecompressionWorker {
       throw new IllegalArgumentException("Threads must be greater than 0");
     }
     this.tasks = JavaUtils.newConcurrentMap();
-    this.executorService = Executors.newFixedThreadPool(threads);
+    this.executorService =
+        Executors.newFixedThreadPool(threads, ThreadUtils.getThreadFactory("decompressionWorker"));
     this.codec = codec;
   }
 
@@ -74,17 +81,27 @@ public class DecompressionWorker {
                 buffer.limit(offset + length);
 
                 int uncompressedLen = bufferSegment.getUncompressLength();
+
+                long startBufferAllocation = System.currentTimeMillis();
                 ByteBuffer dst =
                     buffer.isDirect()
                         ? ByteBuffer.allocateDirect(uncompressedLen)
                         : ByteBuffer.allocate(uncompressedLen);
+                decompressionBufferAllocationMillis.addAndGet(
+                    System.currentTimeMillis() - startBufferAllocation);
+
+                long startDecompression = System.currentTimeMillis();
                 codec.decompress(buffer, uncompressedLen, dst, 0);
+                decompressionMillis.addAndGet(System.currentTimeMillis() - startDecompression);
+
                 return dst;
               },
               executorService);
       ConcurrentHashMap<Integer, DecompressedShuffleBlock> blocks =
           tasks.computeIfAbsent(batchIndex, k -> new ConcurrentHashMap<>());
-      blocks.put(index++, new DecompressedShuffleBlock(f));
+      blocks.put(
+          index++,
+          new DecompressedShuffleBlock(f, waitMillis -> this.waitMillis.addAndGet(waitMillis)));
     }
   }
 
@@ -98,6 +115,16 @@ public class DecompressionWorker {
   }
 
   public void close() {
+    long bufferAllocation = decompressionBufferAllocationMillis.get();
+    long decompression = decompressionMillis.get();
+    long wait = waitMillis.get();
+    LOG.info(
+        "The statistic of overlapping compression is that bufferAllocation: {}(ms), "
+            + "decompression: {}(ms), wait: {}(ms), overlappingRatio((bufferAllocation+decompression)/wait)={}",
+        bufferAllocation,
+        decompression,
+        wait,
+        wait == 0 ? 0 : (bufferAllocation + decompression) / wait);
     executorService.shutdown();
   }
 }
