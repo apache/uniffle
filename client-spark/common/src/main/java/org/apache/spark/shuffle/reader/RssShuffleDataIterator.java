@@ -219,10 +219,11 @@ public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C
       unCompressedBytesLength += uncompressedLen;
       long decompressDuration = System.currentTimeMillis() - startDecompress;
       decompressTime += decompressDuration;
+
       // uncompressedData's limit is not updated by `codec.decompress`, however this information is
-      // used
-      // by `createKVIterator`. Update limit here.
-      uncompressedData.limit(uncompressedData.position() + uncompressedLen);
+      // used by `createKVIterator`. update position and limit
+      uncompressedData.position(0);
+      uncompressedData.limit(uncompressedLen);
     } else {
       uncompressedData = rawData;
     }
