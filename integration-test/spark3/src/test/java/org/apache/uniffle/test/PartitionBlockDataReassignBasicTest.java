@@ -35,6 +35,7 @@ import org.apache.uniffle.server.ShuffleServerConf;
 import org.apache.uniffle.server.buffer.ShuffleBufferManager;
 import org.apache.uniffle.storage.util.StorageType;
 
+import static org.apache.spark.shuffle.RssSparkConfig.RSS_READ_SHUFFLE_HANDLE_CACHE_ENABLED;
 import static org.apache.uniffle.client.util.RssClientConfig.RSS_CLIENT_ASSIGNMENT_SHUFFLE_SERVER_NUMBER;
 import static org.apache.uniffle.client.util.RssClientConfig.RSS_CLIENT_RETRY_MAX;
 import static org.apache.uniffle.common.config.RssClientConf.RSS_CLIENT_REASSIGN_ENABLED;
@@ -99,6 +100,7 @@ public class PartitionBlockDataReassignBasicTest extends SparkSQLTest {
         "spark." + RSS_CLIENT_ASSIGNMENT_SHUFFLE_SERVER_NUMBER,
         String.valueOf(grpcShuffleServers.size()));
     sparkConf.set("spark." + RSS_CLIENT_REASSIGN_ENABLED.key(), "true");
+    sparkConf.set("spark." + RSS_READ_SHUFFLE_HANDLE_CACHE_ENABLED.key(), "true");
   }
 
   @Override
