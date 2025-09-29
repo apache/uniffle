@@ -109,6 +109,7 @@ import org.apache.uniffle.shuffle.ShuffleIdMappingManager;
 import static org.apache.spark.launcher.SparkLauncher.EXECUTOR_CORES;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_BLOCK_ID_SELF_MANAGEMENT_ENABLED;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_PARTITION_REASSIGN_MAX_REASSIGNMENT_SERVER_NUM;
+import static org.apache.spark.shuffle.RssSparkConfig.RSS_READ_SHUFFLE_HANDLE_CACHE_ENABLED;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_RESUBMIT_STAGE_WITH_FETCH_FAILURE_ENABLED;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_RESUBMIT_STAGE_WITH_WRITE_FAILURE_ENABLED;
 import static org.apache.spark.shuffle.RssSparkShuffleUtils.isSparkUIEnabled;
@@ -183,6 +184,11 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
   private AtomicBoolean reassignTriggeredOnPartitionSplit = new AtomicBoolean(false);
   private AtomicBoolean reassignTriggeredOnBlockSendFailure = new AtomicBoolean(false);
   private AtomicBoolean reassignTriggeredOnStageRetry = new AtomicBoolean(false);
+
+  // cache to shuffle handle info to reduce the RPC cost when getting the reader.
+  // this is only valid when the partition reassign is enabled.
+  protected final boolean readShuffleHandleCacheEnabled;
+  private Map<Integer, ShuffleHandleInfo> readShuffleHandleCache = Maps.newConcurrentMap();
 
   private boolean isDriver = false;
 
@@ -373,6 +379,8 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
     this.shuffleHandleInfoManager = new ShuffleHandleInfoManager();
     this.rssStageResubmitManager = new RssStageResubmitManager();
     this.shuffleIdMappingManager = new ShuffleIdMappingManager();
+
+    this.readShuffleHandleCacheEnabled = rssConf.get(RSS_READ_SHUFFLE_HANDLE_CACHE_ENABLED);
   }
 
   @VisibleForTesting
@@ -424,6 +432,7 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
     this.shuffleHandleInfoManager = new ShuffleHandleInfoManager();
     this.rssStageResubmitManager = new RssStageResubmitManager();
     this.shuffleIdMappingManager = new ShuffleIdMappingManager();
+    this.readShuffleHandleCacheEnabled = rssConf.get(RSS_READ_SHUFFLE_HANDLE_CACHE_ENABLED);
   }
 
   public BlockIdManager getBlockIdManager() {
@@ -443,6 +452,9 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
     try {
       if (blockIdManager != null) {
         blockIdManager.remove(shuffleId);
+      }
+      if (readShuffleHandleCache != null) {
+        readShuffleHandleCache.remove(shuffleId);
       }
       if (SparkEnv.get().executorId().equals("driver")) {
         shuffleWriteClient.unregisterShuffle(getAppId(), shuffleId);
@@ -1573,5 +1585,30 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
       return dataPusher.send(event);
     }
     return new CompletableFuture<>();
+  }
+
+  public ShuffleHandleInfo getOrFetchShuffleHandle(
+      int shuffleId, Supplier<ShuffleHandleInfo> func) {
+    ShuffleHandleInfo handle =
+        readShuffleHandleCache.computeIfAbsent(
+            shuffleId,
+            integer -> {
+              long start = System.currentTimeMillis();
+              try {
+                return func.get();
+              } catch (Exception e) {
+                LOG.error("Fail to get the shuffle handle for {}", shuffleId, e);
+              } finally {
+                LOG.info(
+                    "Gotten the shuffle handle for shuffle: {} that costs {} ms",
+                    shuffleId,
+                    System.currentTimeMillis() - start);
+              }
+              return null;
+            });
+    if (handle == null) {
+      throw new RssException("Shuffle handle id " + shuffleId + " not found");
+    }
+    return handle;
   }
 }

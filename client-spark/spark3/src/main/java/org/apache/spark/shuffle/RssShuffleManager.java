@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import scala.Tuple2;
@@ -365,16 +366,22 @@ public class RssShuffleManager extends RssShuffleManagerBase {
     final int partitionNum = rssShuffleHandle.getDependency().partitioner().numPartitions();
     int shuffleId = rssShuffleHandle.getShuffleId();
     ShuffleHandleInfo shuffleHandleInfo;
-    if (shuffleManagerRpcServiceEnabled && rssStageRetryForWriteFailureEnabled) {
-      // In Stage Retry mode, Get the ShuffleServer list from the Driver based on the shuffleId.
-      shuffleHandleInfo =
-          getRemoteShuffleHandleInfoWithStageRetry(
-              context.stageId(), context.stageAttemptNumber(), shuffleId, false);
-    } else if (shuffleManagerRpcServiceEnabled && partitionReassignEnabled) {
-      // In Block Retry mode, Get the ShuffleServer list from the Driver based on the shuffleId.
-      shuffleHandleInfo =
-          getRemoteShuffleHandleInfoWithBlockRetry(
-              context.stageId(), context.stageAttemptNumber(), shuffleId, false);
+
+    if (shuffleManagerRpcServiceEnabled
+        && (rssStageRetryForWriteFailureEnabled || partitionReassignEnabled)) {
+      Supplier<ShuffleHandleInfo> func =
+          rssStageRetryForWriteFailureEnabled
+              ? () ->
+                  getRemoteShuffleHandleInfoWithStageRetry(
+                      context.stageId(), context.stageAttemptNumber(), shuffleId, false)
+              : () ->
+                  getRemoteShuffleHandleInfoWithBlockRetry(
+                      context.stageId(), context.stageAttemptNumber(), shuffleId, false);
+      if (readShuffleHandleCacheEnabled) {
+        shuffleHandleInfo = super.getOrFetchShuffleHandle(shuffleId, func);
+      } else {
+        shuffleHandleInfo = func.get();
+      }
     } else {
       shuffleHandleInfo =
           new SimpleShuffleHandleInfo(
