@@ -17,14 +17,22 @@
 
 package org.apache.spark.shuffle;
 
+import java.util.Collections;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Supplier;
+
 import org.apache.spark.Partitioner;
 import org.apache.spark.ShuffleDependency;
 import org.apache.spark.SparkConf;
+import org.apache.spark.shuffle.handle.ShuffleHandleInfo;
+import org.apache.spark.shuffle.handle.SimpleShuffleHandleInfo;
 import org.apache.spark.sql.internal.SQLConf;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import org.apache.uniffle.client.impl.FailedBlockSendTracker;
 import org.apache.uniffle.client.util.RssClientConfig;
 import org.apache.uniffle.common.RemoteStorageInfo;
 import org.apache.uniffle.common.ShuffleDataDistributionType;
@@ -33,6 +41,7 @@ import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.rpc.StatusCode;
 import org.apache.uniffle.common.util.BlockIdLayout;
+import org.apache.uniffle.common.util.JavaUtils;
 import org.apache.uniffle.storage.util.StorageType;
 
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_RESUBMIT_STAGE_WITH_FETCH_FAILURE_ENABLED;
@@ -42,6 +51,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrowsExactly;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -251,5 +261,43 @@ public class RssShuffleManagerTest extends RssShuffleManagerTestBase {
     conf.set("spark.task.maxFailures", "4");
     conf.set("spark.driver.host", "localhost");
     return conf;
+  }
+
+  @Test
+  public void testReadCacheShuffleInfo() {
+    SparkConf conf = new SparkConf();
+    conf.setAppName("testApp")
+        .setMaster("local[2]")
+        .set(RssSparkConfig.RSS_TEST_FLAG.key(), "true")
+        .set(RssSparkConfig.RSS_TEST_MODE_ENABLE.key(), "true")
+        .set(RssSparkConfig.RSS_CLIENT_SEND_CHECK_TIMEOUT_MS.key(), "10000")
+        .set(RssSparkConfig.RSS_CLIENT_RETRY_MAX.key(), "10")
+        .set(RssSparkConfig.RSS_CLIENT_SEND_CHECK_INTERVAL_MS.key(), "1000")
+        .set(RssSparkConfig.RSS_STORAGE_TYPE.key(), StorageType.LOCALFILE.name())
+        .set(RssSparkConfig.RSS_COORDINATOR_QUORUM.key(), "127.0.0.1:12345,127.0.0.1:12346");
+    Map<String, Set<Long>> successBlocks = JavaUtils.newConcurrentMap();
+    Map<String, FailedBlockSendTracker> taskToFailedBlockSendTracker = JavaUtils.newConcurrentMap();
+    RssShuffleManager manager =
+        TestUtils.createShuffleManager(
+            conf, false, null, successBlocks, taskToFailedBlockSendTracker);
+
+    // case1: legal fetch and cache
+    Supplier<ShuffleHandleInfo> func1 =
+        () ->
+            new SimpleShuffleHandleInfo(
+                1, Collections.emptyMap(), RemoteStorageInfo.EMPTY_REMOTE_STORAGE);
+    ShuffleHandleInfo handle1 = manager.getOrFetchShuffleHandle(1, func1);
+    ShuffleHandleInfo handle2 = manager.getOrFetchShuffleHandle(1, func1);
+    assertEquals(handle1, handle2);
+
+    // case2: illegal fetch
+    manager.clearShuffleHandleCache();
+    Supplier<ShuffleHandleInfo> func2 = () -> null;
+    try {
+      ShuffleHandleInfo handle3 = manager.getOrFetchShuffleHandle(1, func2);
+      fail();
+    } catch (Exception e) {
+      // ignore
+    }
   }
 }

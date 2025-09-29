@@ -1587,6 +1587,11 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
     return new CompletableFuture<>();
   }
 
+  // only for tests
+  public void clearShuffleHandleCache() {
+    readShuffleHandleCache.clear();
+  }
+
   public ShuffleHandleInfo getOrFetchShuffleHandle(
       int shuffleId, Supplier<ShuffleHandleInfo> func) {
     ShuffleHandleInfo handle =
