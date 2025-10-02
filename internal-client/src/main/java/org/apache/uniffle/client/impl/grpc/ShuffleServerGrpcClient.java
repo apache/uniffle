@@ -279,7 +279,6 @@ public class ShuffleServerGrpcClient extends GrpcClient implements ShuffleServer
 
   private AppHeartBeatResponse doSendHeartBeat(String appId, long timeout) {
     AppHeartBeatRequest request = AppHeartBeatRequest.newBuilder().setAppId(appId).build();
-    return blockingStub.withDeadlineAfter(timeout, TimeUnit.MILLISECONDS).appHeartbeat(request);
     try {
       return RetryUtils.retryWithCondition(
           () ->
