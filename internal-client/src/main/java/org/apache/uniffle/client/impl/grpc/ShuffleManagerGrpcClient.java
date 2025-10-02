@@ -214,7 +214,7 @@ public class ShuffleManagerGrpcClient extends GrpcClient implements ShuffleManag
     } catch (Throwable e) {
       String msg = "Get shuffle result from host:port[" + host + ":" + port + "] failed";
       LOG.warn(msg, e);
-      throw new RuntimeException(msg, e);
+      throw new RssException(msg, e);
     }
   }
 
@@ -234,7 +234,7 @@ public class ShuffleManagerGrpcClient extends GrpcClient implements ShuffleManag
       String msg =
           "Get shuffle result for multiport from host:port[" + host + ":" + port + "] failed";
       LOG.warn(msg, e);
-      throw new RuntimeException(msg, e);
+      throw new RssException(msg, e);
     }
   }
 
@@ -252,7 +252,7 @@ public class ShuffleManagerGrpcClient extends GrpcClient implements ShuffleManag
     } catch (Throwable e) {
       String msg = "Report shuffle result to host:port[" + host + ":" + port + "] failed";
       LOG.warn(msg, e);
-      throw new RuntimeException(msg, e);
+      throw new RssException(msg, e);
     }
   }
 
@@ -271,7 +271,7 @@ public class ShuffleManagerGrpcClient extends GrpcClient implements ShuffleManag
     } catch (Throwable e) {
       String msg = "Report shuffle write metric to host:port[" + host + ":" + port + "] failed";
       LOG.warn(msg, e);
-      throw new RuntimeException(msg, e);
+      throw new RssException(msg, e);
     }
   }
 
@@ -290,7 +290,7 @@ public class ShuffleManagerGrpcClient extends GrpcClient implements ShuffleManag
     } catch (Throwable e) {
       String msg = "Report shuffle read metric to host:port[" + host + ":" + port + "] failed";
       LOG.warn(msg, e);
-      throw new RuntimeException(msg, e);
+      throw new RssException(msg, e);
     }
   }
 
