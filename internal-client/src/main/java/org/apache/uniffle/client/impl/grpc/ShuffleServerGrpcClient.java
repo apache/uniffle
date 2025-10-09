@@ -574,7 +574,7 @@ public class ShuffleServerGrpcClient extends GrpcClient implements ShuffleServer
         int partitionRequireSize = 0;
         for (ShuffleBlockInfo sbi : ptb.getValue()) {
           if (sbi.getData().refCnt() == 0) {
-              continue;
+            continue;
           }
           shuffleBlocks.add(
               ShuffleBlock.newBuilder()
