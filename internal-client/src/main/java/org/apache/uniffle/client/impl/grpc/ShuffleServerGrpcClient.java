@@ -573,6 +573,9 @@ public class ShuffleServerGrpcClient extends GrpcClient implements ShuffleServer
         List<ShuffleBlock> shuffleBlocks = Lists.newArrayList();
         int partitionRequireSize = 0;
         for (ShuffleBlockInfo sbi : ptb.getValue()) {
+          if (sbi.getData().refCnt() == 0) {
+              continue;
+          }
           shuffleBlocks.add(
               ShuffleBlock.newBuilder()
                   .setBlockId(sbi.getBlockId())
