@@ -116,7 +116,7 @@ public class ComposedClientReadHandler extends AbstractClientReadHandler {
       String message =
           "Failed to read shuffle data from "
               + currentTier.name()
-              + "handler, error: "
+              + " handler, error: "
               + e.getMessage();
       throw new RssFetchFailedException(message, cause);
     } catch (Exception e) {
