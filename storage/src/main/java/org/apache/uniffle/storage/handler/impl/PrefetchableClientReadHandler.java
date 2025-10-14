@@ -145,18 +145,26 @@ public abstract class PrefetchableClientReadHandler extends AbstractClientReadHa
     }
   }
 
+  private long getBackgroundFetchTime() {
+    long fetch = 0;
+    if (fetchTime != null) {
+      fetch = fetchTime.get();
+    }
+    return fetch;
+  }
+
   @Override
   public void logConsumedBlockInfo() {
     LOG.info(
         "Metrics for shuffleId[{}], partitionId[{}], background fetch cost {} ms",
         shuffleId,
         partitionId,
-        fetchTime.get());
+        getBackgroundFetchTime());
     super.logConsumedBlockInfo();
   }
 
   @Override
   public ClientReadMetrics getMetrics() {
-    return new PrefetchableClientReadMetrics(fetchTime.get());
+    return new PrefetchableClientReadMetrics(getBackgroundFetchTime());
   }
 }
