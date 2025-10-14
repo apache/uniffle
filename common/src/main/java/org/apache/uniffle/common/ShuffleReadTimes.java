@@ -78,6 +78,7 @@ public class ShuffleReadTimes {
     this.copy += other.copy;
     this.deserialize += other.deserialize;
     this.decompress += other.decompress;
+    this.backgroundDecompress += other.backgroundDecompress;
   }
 
   public long getTotal() {
