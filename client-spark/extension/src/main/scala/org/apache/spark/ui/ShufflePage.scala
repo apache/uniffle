@@ -159,7 +159,7 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
     val readTimes = runtimeStatusStore.shuffleReadTimes().times
     val readTotal = if (readTimes.getTotal <= 0) -1 else readTimes.getTotal
     val readTimesUI = UIUtils.listingTable(
-      Seq("Total", "Fetch", "Copy", "CRC", "Decompress", "Deserialize"),
+      Seq("Total", "Fetch", "Copy", "CRC", "Decompress", "Deserialize", "Background Decompress"),
       shuffleReadTimesRow,
       Seq(
         Seq(
@@ -169,6 +169,7 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
           UIUtils.formatDuration(readTimes.getCrc),
           UIUtils.formatDuration(readTimes.getDecompress),
           UIUtils.formatDuration(readTimes.getDeserialize),
+          UIUtils.formatDuration(readTimes.getBackgroundDecompress),
         ),
         Seq(
           1,
@@ -177,6 +178,7 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
           readTimes.getCrc.toDouble / readTotal,
           readTimes.getDecompress.toDouble / readTotal,
           readTimes.getDeserialize.toDouble / readTotal,
+          readTimes.getBackgroundDecompress.toDouble / readTotal,
         ).map(x => roundToTwoDecimals(x).toString)
       ),
       fixedWidth = true

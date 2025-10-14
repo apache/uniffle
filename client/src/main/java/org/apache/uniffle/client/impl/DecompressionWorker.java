@@ -127,4 +127,8 @@ public class DecompressionWorker {
         wait == 0 ? 0 : (bufferAllocation + decompression) / wait);
     executorService.shutdown();
   }
+
+  public long decompressionMillis() {
+    return decompressionMillis.get() + decompressionBufferAllocationMillis.get();
+  }
 }

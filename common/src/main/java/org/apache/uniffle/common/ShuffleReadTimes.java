@@ -26,13 +26,15 @@ public class ShuffleReadTimes {
   private long copy;
   private long deserialize;
   private long decompress;
+  private long backgroundDecompress;
 
   public ShuffleReadTimes() {}
 
-  public ShuffleReadTimes(long fetch, long crc, long copy) {
+  public ShuffleReadTimes(long fetch, long crc, long copy, long backgroundDecompress) {
     this.fetch = fetch;
     this.crc = crc;
     this.copy = copy;
+    this.backgroundDecompress = backgroundDecompress;
   }
 
   public long getFetch() {
@@ -63,6 +65,10 @@ public class ShuffleReadTimes {
     return decompress;
   }
 
+  public long getBackgroundDecompress() {
+    return backgroundDecompress;
+  }
+
   public void merge(ShuffleReadTimes other) {
     if (other == null) {
       return;
@@ -85,6 +91,7 @@ public class ShuffleReadTimes {
         .setCopy(copy)
         .setDecompress(decompress)
         .setDeserialize(deserialize)
+        .setBackgroundDecompress(backgroundDecompress)
         .build();
   }
 
@@ -95,6 +102,7 @@ public class ShuffleReadTimes {
     time.copy = proto.getCopy();
     time.decompress = proto.getDecompress();
     time.deserialize = proto.getDeserialize();
+    time.backgroundDecompress = proto.getBackgroundDecompress();
     return time;
   }
 }

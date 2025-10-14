@@ -396,6 +396,11 @@ public class ShuffleReadClientImpl implements ShuffleReadClient {
 
   @Override
   public ShuffleReadTimes getShuffleReadTimes() {
-    return new ShuffleReadTimes(readDataTime.get(), copyTime.get(), crcCheckTime.get());
+    long backgroundDecompressionTime = 0;
+    if (decompressionWorker != null) {
+      backgroundDecompressionTime = decompressionWorker.decompressionMillis();
+    }
+    return new ShuffleReadTimes(
+        readDataTime.get(), copyTime.get(), crcCheckTime.get(), backgroundDecompressionTime);
   }
 }

@@ -656,6 +656,7 @@ message ShuffleReadTimes {
   int64 copy = 3;
   int64 deserialize = 4;
   int64 decompress = 5;
+  int64 backgroundDecompress = 6;
 }
 
 message ReportShuffleReadMetricResponse {

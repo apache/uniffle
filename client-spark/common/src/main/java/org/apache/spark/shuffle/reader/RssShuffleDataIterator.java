@@ -126,11 +126,15 @@ public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C
     if (recordsIterator == null || !recordsIterator.hasNext()) {
       // read next segment
       long startFetch = System.currentTimeMillis();
-      // depends on spark.shuffle.compress, shuffled block may not be compressed
       ShuffleBlock shuffleBlock = shuffleReadClient.readShuffleBlockData();
-      ByteBuffer rawData = shuffleBlock != null ? shuffleBlock.getByteBuffer() : null;
+      long fetchDuration = System.currentTimeMillis() - startFetch;
 
-      long readDuration = System.currentTimeMillis() - startFetch;
+      // get the buffer, if the block is the DecompressedShuffleBlock,
+      // the duration is the block wait decompression time.
+      long getBuffer = System.currentTimeMillis();
+      ByteBuffer rawData = shuffleBlock != null ? shuffleBlock.getByteBuffer() : null;
+      long getBufferDuration = System.currentTimeMillis() - getBuffer;
+
       if (rawData != null) {
         // collect metrics from raw data
         long rawDataLength = rawData.limit() - rawData.position();
@@ -148,14 +152,15 @@ public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C
           unCompressedBytesLength += shuffleBlock.getUncompressLength();
         }
         long uncompressionDuration = System.currentTimeMillis() - startUncompression;
+        uncompressionDuration += getBufferDuration;
 
         // create new iterator for shuffle data
         long startSerialization = System.currentTimeMillis();
         recordsIterator = createKVIterator(decompressed);
         long serializationDuration = System.currentTimeMillis() - startSerialization;
         shuffleReadMetrics.incFetchWaitTime(
-            serializationDuration + uncompressionDuration + readDuration);
-        readTime += readDuration;
+            serializationDuration + uncompressionDuration + fetchDuration);
+        readTime += fetchDuration;
         serializeTime += serializationDuration;
       } else {
         // finish reading records, check data consistent
