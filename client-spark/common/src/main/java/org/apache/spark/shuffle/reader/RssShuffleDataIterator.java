@@ -166,6 +166,7 @@ public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C
         // finish reading records, check data consistent
         shuffleReadClient.checkProcessedBlockIds();
         shuffleReadClient.logStatics();
+        shuffleReadClient.getShuffleReadTimes();
         String decInfo =
             !codec.isPresent()
                 ? "."

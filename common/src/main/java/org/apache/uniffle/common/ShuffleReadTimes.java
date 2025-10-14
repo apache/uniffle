@@ -22,19 +22,24 @@ import org.apache.uniffle.proto.RssProtos;
 /** The unit is millis */
 public class ShuffleReadTimes {
   private long fetch;
+  private long backgroundFetch;
+
   private long crc;
   private long copy;
   private long deserialize;
+
   private long decompress;
   private long backgroundDecompress;
 
   public ShuffleReadTimes() {}
 
-  public ShuffleReadTimes(long fetch, long crc, long copy, long backgroundDecompress) {
+  public ShuffleReadTimes(
+      long fetch, long crc, long copy, long backgroundDecompress, long backgroundFetch) {
     this.fetch = fetch;
     this.crc = crc;
     this.copy = copy;
     this.backgroundDecompress = backgroundDecompress;
+    this.backgroundFetch = backgroundFetch;
   }
 
   public long getFetch() {
@@ -69,6 +74,10 @@ public class ShuffleReadTimes {
     return backgroundDecompress;
   }
 
+  public long getBackgroundFetch() {
+    return backgroundFetch;
+  }
+
   public void merge(ShuffleReadTimes other) {
     if (other == null) {
       return;
@@ -79,6 +88,7 @@ public class ShuffleReadTimes {
     this.deserialize += other.deserialize;
     this.decompress += other.decompress;
     this.backgroundDecompress += other.backgroundDecompress;
+    this.backgroundFetch += other.backgroundFetch;
   }
 
   public long getTotal() {
@@ -93,6 +103,7 @@ public class ShuffleReadTimes {
         .setDecompress(decompress)
         .setDeserialize(deserialize)
         .setBackgroundDecompress(backgroundDecompress)
+        .setBackgroundFetch(backgroundFetch)
         .build();
   }
 
@@ -104,6 +115,7 @@ public class ShuffleReadTimes {
     time.decompress = proto.getDecompress();
     time.deserialize = proto.getDeserialize();
     time.backgroundDecompress = proto.getBackgroundDecompress();
+    time.backgroundFetch = proto.getBackgroundFetch();
     return time;
   }
 }

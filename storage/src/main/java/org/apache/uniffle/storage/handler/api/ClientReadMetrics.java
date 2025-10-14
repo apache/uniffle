@@ -17,25 +17,4 @@
 
 package org.apache.uniffle.storage.handler.api;
 
-import org.apache.uniffle.common.BufferSegment;
-import org.apache.uniffle.common.ShuffleDataResult;
-
-public interface ClientReadHandler {
-
-  ShuffleDataResult readShuffleData();
-
-  void close();
-
-  // The handler only returns the segment,
-  // but does not know the actually consumed blocks,
-  // so the consumer should let the handler update statistics.
-  // Each type of handler can design their rules.
-  void updateConsumedBlockInfo(BufferSegment bs, boolean isSkippedMetrics);
-
-  // Display the statistics of consumed blocks
-  void logConsumedBlockInfo();
-
-  default ClientReadMetrics getMetrics() {
-    return null;
-  }
-}
+public interface ClientReadMetrics {}

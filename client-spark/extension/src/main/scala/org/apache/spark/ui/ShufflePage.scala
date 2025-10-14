@@ -58,6 +58,7 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
     <td>{kv(4)}</td>
     <td>{kv(5)}</td>
     <td>{kv(6)}</td>
+    <td>{kv(7)}</td>
   </tr>
 
   private def allServerRow(kv: (String, String, String, Double, Long, Long, String, String, String, Double)) = <tr>
@@ -160,7 +161,7 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
     val readTimes = runtimeStatusStore.shuffleReadTimes().times
     val readTotal = if (readTimes.getTotal <= 0) -1 else readTimes.getTotal
     val readTimesUI = UIUtils.listingTable(
-      Seq("Total", "Fetch", "Copy", "CRC", "Deserialize", "Decompress", "Background Decompress"),
+      Seq("Total", "Fetch", "Copy", "CRC", "Deserialize", "Decompress", "Background Decompress", "Background Fetch"),
       shuffleReadTimesRow,
       Seq(
         Seq(
@@ -171,6 +172,7 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
           UIUtils.formatDuration(readTimes.getDeserialize),
           UIUtils.formatDuration(readTimes.getDecompress),
           UIUtils.formatDuration(readTimes.getBackgroundDecompress),
+          UIUtils.formatDuration(readTimes.getBackgroundFetch),
         ),
         Seq(
           1,
@@ -180,6 +182,7 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
           readTimes.getDeserialize.toDouble / readTotal,
           readTimes.getDecompress.toDouble / readTotal,
           readTimes.getBackgroundDecompress.toDouble / readTotal,
+          readTimes.getBackgroundFetch.toDouble / readTotal,
         ).map(x => roundToTwoDecimals(x).toString)
       ),
       fixedWidth = true
