@@ -28,6 +28,16 @@ public class ClientReadHandlerMetric {
   private long skippedReadLength = 0L;
   private long skippedReadUncompressLength = 0L;
 
+  private long prefetchTime = 0L;
+
+  public void setPrefetchTime(long prefetchTime) {
+    this.prefetchTime = prefetchTime;
+  }
+
+  public long getPrefetchTime() {
+    return prefetchTime;
+  }
+
   public long getReadBlockNum() {
     return readBlockNum;
   }
@@ -102,5 +112,15 @@ public class ClientReadHandlerMetric {
         skippedReadBlockNum,
         skippedReadLength,
         skippedReadUncompressLength);
+  }
+
+  public void merge(ClientReadHandlerMetric other) {
+    this.readBlockNum += other.readBlockNum;
+    this.readLength += other.readLength;
+    this.readUncompressLength += other.readUncompressLength;
+    this.skippedReadBlockNum += other.skippedReadBlockNum;
+    this.skippedReadLength += other.skippedReadLength;
+    this.skippedReadUncompressLength += other.skippedReadUncompressLength;
+    this.prefetchTime += other.prefetchTime;
   }
 }

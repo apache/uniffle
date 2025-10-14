@@ -63,15 +63,8 @@ public class ComposedClientReadHandler extends AbstractClientReadHandler {
   private final ShuffleServerInfo serverInfo;
   private final Map<Tier, Supplier<ClientReadHandler>> supplierMap = new EnumMap<>(Tier.class);
   private final Map<Tier, ClientReadHandler> handlerMap = new EnumMap<>(Tier.class);
-  private final Map<Tier, ClientReadHandlerMetric> metricsMap = new EnumMap<>(Tier.class);
   private Tier currentTier = Tier.VALUES[0]; // == Tier.HOT
   private final int numTiers;
-
-  {
-    for (Tier tier : Tier.VALUES) {
-      metricsMap.put(tier, new ClientReadHandlerMetric());
-    }
-  }
 
   public ComposedClientReadHandler(ShuffleServerInfo serverInfo, ClientReadHandler... handlers) {
     Preconditions.checkArgument(
@@ -100,14 +93,30 @@ public class ComposedClientReadHandler extends AbstractClientReadHandler {
     }
   }
 
-  @Override
-  public ShuffleDataResult readShuffleData() {
+  private ClientReadHandlerMetric getMetric(Tier tier) {
+    ClientReadHandler handler = getHandler(tier);
+    if (handler != null && handler instanceof AbstractClientReadHandler) {
+      return ((AbstractClientReadHandler) handler).getReadHandlerMetric();
+    }
+    return new ClientReadHandlerMetric();
+  }
+
+  private ClientReadHandler getOrCreateHandler(Tier tier) {
     ClientReadHandler handler =
-        handlerMap.computeIfAbsent(
-            currentTier, key -> supplierMap.getOrDefault(key, () -> null).get());
+        handlerMap.computeIfAbsent(tier, key -> supplierMap.getOrDefault(key, () -> null).get());
     if (handler == null) {
       throw new RssException("Unexpected null when getting " + currentTier.name() + " handler");
     }
+    return handler;
+  }
+
+  private ClientReadHandler getHandler(Tier tier) {
+    return handlerMap.get(tier);
+  }
+
+  @Override
+  public ShuffleDataResult readShuffleData() {
+    ClientReadHandler handler = getOrCreateHandler(currentTier);
     ShuffleDataResult shuffleDataResult;
     try {
       shuffleDataResult = handler.readShuffleData();
@@ -147,8 +156,11 @@ public class ComposedClientReadHandler extends AbstractClientReadHandler {
     if (bs == null) {
       return;
     }
-    super.updateConsumedBlockInfo(bs, isSkippedMetrics);
-    updateBlockMetric(metricsMap.get(currentTier), bs, isSkippedMetrics);
+    ClientReadHandler handler = getHandler(currentTier);
+    if (handler == null) {
+      throw new RssException("Unexpected null when getting " + currentTier.name() + " handler");
+    }
+    handler.updateConsumedBlockInfo(bs, isSkippedMetrics);
   }
 
   @Override
@@ -198,16 +210,28 @@ public class ComposedClientReadHandler extends AbstractClientReadHandler {
       sb.append(" ")
           .append(tier.name().toLowerCase())
           .append(":")
-          .append(consumed.apply(metricsMap.get(tier)));
+          .append(consumed.apply(getMetric(tier)));
     }
     sb.append(" ], Skipped[");
     for (Tier tier : Tier.VALUES) {
       sb.append(" ")
           .append(tier.name().toLowerCase())
           .append(":")
-          .append(skipped.apply(metricsMap.get(tier)));
+          .append(skipped.apply(getMetric(tier)));
     }
     sb.append(" ]");
     return sb.toString();
+  }
+
+  @Override
+  public ClientReadHandlerMetric getReadHandlerMetric() {
+    ClientReadHandlerMetric metric = new ClientReadHandlerMetric();
+    for (Tier tier : Tier.VALUES) {
+      ClientReadHandlerMetric tierMetric = getMetric(tier);
+      if (tierMetric != null) {
+        metric.merge(tierMetric);
+      }
+    }
+    return metric;
   }
 }

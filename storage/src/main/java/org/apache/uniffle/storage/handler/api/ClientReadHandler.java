@@ -34,8 +34,4 @@ public interface ClientReadHandler {
 
   // Display the statistics of consumed blocks
   void logConsumedBlockInfo();
-
-  default ClientReadMetrics getMetrics() {
-    return null;
-  }
 }
