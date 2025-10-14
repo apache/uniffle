@@ -200,7 +200,7 @@ public class ComposedClientReadHandler extends AbstractClientReadHandler {
       Function<ClientReadHandlerMetric, Long> skipped) {
     StringBuilder sb =
         new StringBuilder("Client read ")
-            .append(consumed.apply(readHandlerMetric))
+            .append(consumed.apply(getReadHandlerMetric()))
             .append(" ")
             .append(name)
             .append(" from [")
