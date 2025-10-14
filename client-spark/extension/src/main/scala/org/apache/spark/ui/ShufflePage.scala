@@ -48,6 +48,7 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
     <td>{kv(4)}</td>
     <td>{kv(5)}</td>
     <td>{kv(6)}</td>
+    <td>{kv(7)}</td>
   </tr>
 
   private def shuffleWriteTimesRow(kv: Seq[String]) = <tr>
@@ -58,7 +59,6 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
     <td>{kv(4)}</td>
     <td>{kv(5)}</td>
     <td>{kv(6)}</td>
-    <td>{kv(7)}</td>
   </tr>
 
   private def allServerRow(kv: (String, String, String, Double, Long, Long, String, String, String, Double)) = <tr>
