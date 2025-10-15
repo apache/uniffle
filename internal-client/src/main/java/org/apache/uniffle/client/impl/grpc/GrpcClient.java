@@ -25,6 +25,7 @@ import io.grpc.netty.shaded.io.netty.channel.ChannelOption;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.common.util.GrpcNettyUtils;
 
 public abstract class GrpcClient {
@@ -34,10 +35,25 @@ public abstract class GrpcClient {
   protected int port;
   protected boolean usePlaintext;
   protected int maxRetryAttempts;
+  protected long rpcRetryBackoffMs;
   protected ManagedChannel channel;
 
   protected GrpcClient(String host, int port, int maxRetryAttempts, boolean usePlaintext) {
-    this(host, port, maxRetryAttempts, usePlaintext, 0, 0, 0, -1);
+    this(
+        host,
+        port,
+        maxRetryAttempts,
+        usePlaintext,
+        RssClientConf.RPC_RETRY_BACKOFF_MS.defaultValue(),
+        0,
+        0,
+        0,
+        -1);
+  }
+
+  protected GrpcClient(
+      String host, int port, int maxRetryAttempts, boolean usePlaintext, long rpcRetryBackoffMs) {
+    this(host, port, maxRetryAttempts, usePlaintext, rpcRetryBackoffMs, 0, 0, 0, -1);
   }
 
   protected GrpcClient(
@@ -45,6 +61,7 @@ public abstract class GrpcClient {
       int port,
       int maxRetryAttempts,
       boolean usePlaintext,
+      long rpcRetryBackoffMs,
       int pageSize,
       int maxOrder,
       int smallCacheSize,
@@ -53,6 +70,7 @@ public abstract class GrpcClient {
     this.port = port;
     this.maxRetryAttempts = maxRetryAttempts;
     this.usePlaintext = usePlaintext;
+    this.rpcRetryBackoffMs = rpcRetryBackoffMs;
 
     if (nettyEventLoopThreads > 0) {
       System.setProperty(
@@ -69,9 +87,6 @@ public abstract class GrpcClient {
       channelBuilder.usePlaintext();
     }
 
-    if (maxRetryAttempts > 0) {
-      channelBuilder.enableRetry().maxRetryAttempts(maxRetryAttempts);
-    }
     channelBuilder.maxInboundMessageSize(Integer.MAX_VALUE);
 
     channel = channelBuilder.build();

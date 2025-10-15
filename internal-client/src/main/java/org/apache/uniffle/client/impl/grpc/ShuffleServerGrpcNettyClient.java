@@ -95,6 +95,9 @@ public class ShuffleServerGrpcNettyClient extends ShuffleServerGrpcClient {
             ? RssClientConf.RPC_TIMEOUT_MS.defaultValue()
             : rssConf.getLong(RssClientConf.RPC_TIMEOUT_MS),
         rssConf == null
+            ? RssClientConf.RPC_RETRY_BACKOFF_MS.defaultValue()
+            : rssConf.getLong(RssClientConf.RPC_RETRY_BACKOFF_MS),
+        rssConf == null
             ? RssClientConf.RPC_NETTY_PAGE_SIZE.defaultValue()
             : rssConf.getInteger(RssClientConf.RPC_NETTY_PAGE_SIZE),
         rssConf == null
@@ -112,6 +115,7 @@ public class ShuffleServerGrpcNettyClient extends ShuffleServerGrpcClient {
       int nettyPort,
       int maxRetryAttempts,
       long rpcTimeoutMs,
+      long rpcRetryBackoffMs,
       int pageSize,
       int maxOrder,
       int smallCacheSize) {
@@ -121,6 +125,7 @@ public class ShuffleServerGrpcNettyClient extends ShuffleServerGrpcClient {
         maxRetryAttempts,
         rpcTimeoutMs,
         true,
+        rpcRetryBackoffMs,
         pageSize,
         maxOrder,
         smallCacheSize,
@@ -389,7 +394,7 @@ public class ShuffleServerGrpcNettyClient extends ShuffleServerGrpcClient {
   public RssGetShuffleDataResponse getShuffleData(RssGetShuffleDataRequest request) {
     TransportClient transportClient = getTransportClient();
     // Construct old version or v2 get shuffle data request to compatible with old server
-    GetLocalShuffleDataRequest getLocalShuffleDataRequest = null;
+    GetLocalShuffleDataRequest getLocalShuffleDataRequest;
     if (request.storageIdSpecified()) {
       if (request.isNextReadSegmentsReportEnabled()) {
         getLocalShuffleDataRequest =
