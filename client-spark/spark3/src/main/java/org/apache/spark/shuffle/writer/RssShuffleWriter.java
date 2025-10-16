@@ -980,7 +980,8 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
                         writeTimes,
                         isShuffleWriteFailed,
                         shuffleWriteFailureReason,
-                        bufferManager.getUncompressedDataLen()));
+                        bufferManager.getUncompressedDataLen(),
+                        taskContext.attemptNumber()));
             if (response.getStatusCode() != StatusCode.SUCCESS) {
               LOG.error(
                   "Errors on reporting shuffle write metrics to driver. status_code: {}",

@@ -32,6 +32,7 @@ public class RssReportShuffleReadMetricRequest {
   private boolean isShuffleReadFailed;
   private Optional<String> shuffleReadReason;
   private ShuffleReadTimes shuffleReadTimes;
+  private long taskAttemptNumber;
 
   public RssReportShuffleReadMetricRequest(
       int stageId,
@@ -40,7 +41,8 @@ public class RssReportShuffleReadMetricRequest {
       Map<String, TaskShuffleReadMetric> metrics,
       boolean isShuffleReadFailed,
       Optional<String> shuffleReadReason,
-      ShuffleReadTimes shuffleReadTimes) {
+      ShuffleReadTimes shuffleReadTimes,
+      long taskAttemptNumber) {
     this.stageId = stageId;
     this.shuffleId = shuffleId;
     this.taskId = taskId;
@@ -48,6 +50,7 @@ public class RssReportShuffleReadMetricRequest {
     this.isShuffleReadFailed = isShuffleReadFailed;
     this.shuffleReadReason = shuffleReadReason;
     this.shuffleReadTimes = shuffleReadTimes;
+    this.taskAttemptNumber = taskAttemptNumber;
   }
 
   public RssProtos.ReportShuffleReadMetricRequest toProto() {
@@ -61,6 +64,7 @@ public class RssReportShuffleReadMetricRequest {
         .setIsTaskReadFailed(request.isShuffleReadFailed)
         .setShuffleReadFailureReason(request.shuffleReadReason.orElse(""))
         .setShuffleReadTimes(shuffleReadTimes.toProto())
+        .setTaskAttemptNumber(taskAttemptNumber)
         .putAllMetrics(
             request.metrics.entrySet().stream()
                 .collect(

@@ -414,7 +414,8 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
                                           x.getValue().getHadoopReadLocalFileBytes()))),
                       isShuffleReadFailed,
                       shuffleReadReason,
-                      shuffleReadTimes));
+                      shuffleReadTimes,
+                      context.attemptNumber()));
           if (response != null && response.getStatusCode() != StatusCode.SUCCESS) {
             LOG.error("Errors on reporting shuffle read metrics to driver");
           }

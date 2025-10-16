@@ -29,6 +29,7 @@ public class TaskShuffleReadInfoEvent extends UniffleEvent {
   private boolean isShuffleReadFailed;
   private String failureReason;
   private ShuffleReadTimes shuffleReadTimes;
+  private long taskAttemptNumber;
 
   public TaskShuffleReadInfoEvent(
       int stageId,
@@ -37,7 +38,8 @@ public class TaskShuffleReadInfoEvent extends UniffleEvent {
       Map<String, ShuffleReadMetric> metrics,
       boolean isShuffleReadFailed,
       String failureReason,
-      ShuffleReadTimes shuffleReadTimes) {
+      ShuffleReadTimes shuffleReadTimes,
+      long taskAttemptNumber) {
     this.stageId = stageId;
     this.shuffleId = shuffleId;
     this.taskId = taskId;
@@ -45,6 +47,7 @@ public class TaskShuffleReadInfoEvent extends UniffleEvent {
     this.isShuffleReadFailed = isShuffleReadFailed;
     this.failureReason = failureReason;
     this.shuffleReadTimes = shuffleReadTimes;
+    this.taskAttemptNumber = taskAttemptNumber;
   }
 
   public int getStageId() {
@@ -73,5 +76,9 @@ public class TaskShuffleReadInfoEvent extends UniffleEvent {
 
   public ShuffleReadTimes getShuffleReadTimes() {
     return shuffleReadTimes;
+  }
+
+  public long getTaskAttemptNumber() {
+    return taskAttemptNumber;
   }
 }

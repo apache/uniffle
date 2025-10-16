@@ -18,6 +18,7 @@
 package org.apache.spark
 
 import com.fasterxml.jackson.annotation.JsonIgnore
+import org.apache.spark.ShuffleType.ShuffleType
 import org.apache.spark.shuffle.events.{ShuffleWriteTimes, TaskReassignInfoEvent}
 import org.apache.spark.status.KVUtils.KVIndexParam
 import org.apache.spark.util.Utils
@@ -26,10 +27,20 @@ import org.apache.uniffle.common.ShuffleReadTimes
 
 import java.util.concurrent.ConcurrentHashMap
 import scala.collection.JavaConverters.asScalaIteratorConverter
+import scala.collection.mutable
 
 class UniffleStatusStore(store: KVStore) {
   private def viewToSeq[T](view: KVStoreView[T]): Seq[T] = {
     Utils.tryWithResource(view.closeableIterator())(iter => iter.asScala.toList)
+  }
+
+  def shuffleTaskSummary(shuffleType: ShuffleType): ShuffleTaskSummary = {
+    val kClass = classOf[ShuffleTaskSummary]
+    try {
+      store.read(kClass, s"${kClass.getName}_$shuffleType")
+    } catch {
+      case _: NoSuchElementException => new ShuffleTaskSummary(shuffleType = shuffleType)
+    }
   }
 
   def uniffleProperties(): UniffleProperties = {
@@ -184,4 +195,18 @@ case class ReassignInfoUIData(event: TaskReassignInfoEvent) {
   @JsonIgnore
   @KVIndex
   def id: String = classOf[ReassignInfoUIData].getName()
+}
+
+object ShuffleType extends Enumeration {
+  type ShuffleType = Value
+  val READ, WRITE = Value
+}
+
+case class ShuffleTaskSummary(shuffleType: ShuffleType,
+                              var failureReasons: mutable.HashSet[String] = new mutable.HashSet[String](),
+                              var failedTaskNumber: Long = -1,
+                              var failedTaskMaxAttemptNumber: Long = -1) {
+  @JsonIgnore
+  @KVIndex
+  def id: String = s"${classOf[ShuffleTaskSummary].getName}_${shuffleType.toString}"
 }
