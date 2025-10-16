@@ -197,9 +197,10 @@ case class ReassignInfoUIData(event: TaskReassignInfoEvent) {
   def id: String = classOf[ReassignInfoUIData].getName()
 }
 
-object ShuffleType extends Enumeration {
-  type ShuffleType = Value
-  val READ, WRITE = Value
+sealed trait ShuffleType
+object ShuffleType {
+  case object READ extends ShuffleType
+  case object WRITE extends ShuffleType
 }
 
 case class ShuffleTaskSummary(shuffleType: ShuffleType,
