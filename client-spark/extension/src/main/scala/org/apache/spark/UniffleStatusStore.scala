@@ -18,7 +18,6 @@
 package org.apache.spark
 
 import com.fasterxml.jackson.annotation.JsonIgnore
-import org.apache.spark.ShuffleType.ShuffleType
 import org.apache.spark.shuffle.events.{ShuffleWriteTimes, TaskReassignInfoEvent}
 import org.apache.spark.status.KVUtils.KVIndexParam
 import org.apache.spark.util.Utils
