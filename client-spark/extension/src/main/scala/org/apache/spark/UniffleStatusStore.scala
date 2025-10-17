@@ -196,10 +196,10 @@ case class ReassignInfoUIData(event: TaskReassignInfoEvent) {
   def id: String = classOf[ReassignInfoUIData].getName()
 }
 
-sealed trait ShuffleType
+sealed abstract class ShuffleType private ()
 object ShuffleType {
-  case object READ extends ShuffleType
-  case object WRITE extends ShuffleType
+  val READ: ShuffleType = new ShuffleType {}
+  val WRITE: ShuffleType = new ShuffleType {}
 }
 
 case class ShuffleTaskSummary(shuffleType: ShuffleType,
