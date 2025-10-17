@@ -20,7 +20,7 @@ package org.apache.spark.ui
 import org.apache.spark.internal.Logging
 import org.apache.spark.shuffle.events.ShuffleWriteTimes
 import org.apache.spark.util.Utils
-import org.apache.spark.{AggregatedShuffleMetric, AggregatedShuffleReadMetric, AggregatedShuffleWriteMetric, AggregatedTaskInfoUIData}
+import org.apache.spark.{AggregatedShuffleMetric, AggregatedShuffleReadMetric, AggregatedShuffleWriteMetric, AggregatedTaskInfoUIData, ShuffleType}
 
 import java.util.concurrent.ConcurrentHashMap
 import javax.servlet.http.HttpServletRequest
@@ -138,6 +138,10 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
 
     // reassign info
     val reassignInfo = runtimeStatusStore.reassignInfo().event
+
+    // task failure summary
+    val writeSummary = runtimeStatusStore.shuffleTaskSummary(shuffleType = ShuffleType.WRITE)
+    val readSummary = runtimeStatusStore.shuffleTaskSummary(shuffleType = ShuffleType.READ)
 
     // render build info
     val buildInfo = runtimeStatusStore.buildInfo()
@@ -344,6 +348,14 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
               </a>
               partitionSplit={reassignInfo.isReassignTriggeredOnPartitionSplit}, blockSentFailure={reassignInfo.isReassignTriggeredOnBlockSendFailure}, stageRetry={reassignInfo.isReassignTriggeredOnStageRetry}
             </li>
+
+            <li>
+              <a>
+                <strong>Shuffle Task Failure Summary (failure write/read):</strong>
+              </a>
+              {writeSummary.failedTaskNumber > 0} / {readSummary.failedTaskNumber > 0}
+            </li>
+
           </ul>
         </div>
 

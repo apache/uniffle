@@ -28,6 +28,7 @@ public class TaskShuffleWriteInfoEvent extends UniffleEvent {
   private boolean isShuffleWriteFailed;
   private String failureReason;
   private long uncompressedByteSize;
+  private long taskAttemptNumber;
 
   public TaskShuffleWriteInfoEvent(
       int stageId,
@@ -37,7 +38,8 @@ public class TaskShuffleWriteInfoEvent extends UniffleEvent {
       ShuffleWriteTimes writeTimes,
       boolean isShuffleWriteFailed,
       String failureReason,
-      long uncompressedByteSize) {
+      long uncompressedByteSize,
+      long taskAttemptNumber) {
     this.stageId = stageId;
     this.shuffleId = shuffleId;
     this.taskId = taskId;
@@ -46,6 +48,7 @@ public class TaskShuffleWriteInfoEvent extends UniffleEvent {
     this.isShuffleWriteFailed = isShuffleWriteFailed;
     this.failureReason = failureReason;
     this.uncompressedByteSize = uncompressedByteSize;
+    this.taskAttemptNumber = taskAttemptNumber;
   }
 
   public int getStageId() {
@@ -78,5 +81,9 @@ public class TaskShuffleWriteInfoEvent extends UniffleEvent {
 
   public long getUncompressedByteSize() {
     return uncompressedByteSize;
+  }
+
+  public long getTaskAttemptNumber() {
+    return taskAttemptNumber;
   }
 }

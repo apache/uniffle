@@ -31,6 +31,9 @@ import scala.collection.JavaConverters.mapAsScalaMapConverter
 class UniffleListener(conf: SparkConf, kvstore: ElementTrackingStore)
   extends SparkListener with Logging {
 
+  private val writeTaskInfo = ShuffleTaskSummary(shuffleType = ShuffleType.WRITE)
+  private val readTaskInfo = ShuffleTaskSummary(shuffleType = ShuffleType.READ)
+
   private val aggregatedShuffleReadTimes = new ShuffleReadTimes()
   private val aggregatedShuffleWriteTimes = new ShuffleWriteTimes()
   private val aggregatedShuffleWriteMetric = new ConcurrentHashMap[String, AggregatedShuffleWriteMetric]
@@ -70,6 +73,8 @@ class UniffleListener(conf: SparkConf, kvstore: ElementTrackingStore)
       kvstore.write(
         AggregatedShuffleReadTimesUIData(aggregatedShuffleReadTimes)
       )
+      kvstore.write(writeTaskInfo)
+      kvstore.write(readTaskInfo)
     }
   }
 
@@ -122,6 +127,14 @@ class UniffleListener(conf: SparkConf, kvstore: ElementTrackingStore)
     }
     aggregatedShuffleWriteTimes.inc(event.getWriteTimes)
     totalUncompressedShuffleBytes.addAndGet(event.getUncompressedByteSize)
+
+    if (event.isShuffleWriteFailed) {
+      writeTaskInfo.failedTaskNumber += 1
+      if (event.getTaskAttemptNumber > writeTaskInfo.failedTaskMaxAttemptNumber) {
+        writeTaskInfo.failedTaskMaxAttemptNumber = event.getTaskAttemptNumber
+      }
+      writeTaskInfo.failureReasons.add(event.getFailureReason)
+    }
   }
 
   private def onTaskShuffleReadInfo(event: TaskShuffleReadInfoEvent): Unit = {
@@ -143,6 +156,13 @@ class UniffleListener(conf: SparkConf, kvstore: ElementTrackingStore)
       agg_metric.hadoopDurationMillis += rmetric.getHadoopDurationMillis
     }
     aggregatedShuffleReadTimes.merge(event.getShuffleReadTimes)
+
+    if (event.isShuffleReadFailed) {
+      readTaskInfo.failedTaskNumber += 1
+      if (event.getTaskAttemptNumber > readTaskInfo.failedTaskMaxAttemptNumber) {}
+      readTaskInfo.failedTaskMaxAttemptNumber = event.getTaskAttemptNumber
+    }
+    readTaskInfo.failureReasons.add(event.getFailureReason)
   }
 
   override def onOtherEvent(event: SparkListenerEvent): Unit = event match {

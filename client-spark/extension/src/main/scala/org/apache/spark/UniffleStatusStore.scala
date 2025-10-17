@@ -26,10 +26,20 @@ import org.apache.uniffle.common.ShuffleReadTimes
 
 import java.util.concurrent.ConcurrentHashMap
 import scala.collection.JavaConverters.asScalaIteratorConverter
+import scala.collection.mutable
 
 class UniffleStatusStore(store: KVStore) {
   private def viewToSeq[T](view: KVStoreView[T]): Seq[T] = {
     Utils.tryWithResource(view.closeableIterator())(iter => iter.asScala.toList)
+  }
+
+  def shuffleTaskSummary(shuffleType: ShuffleType): ShuffleTaskSummary = {
+    val kClass = classOf[ShuffleTaskSummary]
+    try {
+      store.read(kClass, s"${kClass.getName}_$shuffleType")
+    } catch {
+      case _: NoSuchElementException => new ShuffleTaskSummary(shuffleType = shuffleType)
+    }
   }
 
   def uniffleProperties(): UniffleProperties = {
@@ -184,4 +194,19 @@ case class ReassignInfoUIData(event: TaskReassignInfoEvent) {
   @JsonIgnore
   @KVIndex
   def id: String = classOf[ReassignInfoUIData].getName()
+}
+
+sealed abstract class ShuffleType private ()
+object ShuffleType {
+  val READ: ShuffleType = new ShuffleType {}
+  val WRITE: ShuffleType = new ShuffleType {}
+}
+
+case class ShuffleTaskSummary(shuffleType: ShuffleType,
+                              var failureReasons: mutable.HashSet[String] = new mutable.HashSet[String](),
+                              var failedTaskNumber: Long = -1,
+                              var failedTaskMaxAttemptNumber: Long = -1) {
+  @JsonIgnore
+  @KVIndex
+  def id: String = s"${classOf[ShuffleTaskSummary].getName}_${shuffleType.toString}"
 }
