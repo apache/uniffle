@@ -23,7 +23,7 @@ public interface ShuffleBlock {
 
   int getCompressedLength();
 
-  int getUncompressedLength();
+  int getUncompressLength();
 
   ByteBuffer getByteBuffer();
 }

@@ -37,7 +37,7 @@ public class CompressedShuffleBlock implements ShuffleBlock {
   }
 
   @Override
-  public int getUncompressedLength() {
+  public int getUncompressLength() {
     return uncompressedLength;
   }
 

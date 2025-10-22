@@ -41,7 +41,7 @@ public class DecompressedShuffleBlock implements ShuffleBlock {
   }
 
   @Override
-  public int getUncompressedLength() {
+  public int getUncompressLength() {
     ByteBuffer buffer = getByteBuffer();
     return buffer.limit() - buffer.position();
   }
