@@ -49,7 +49,9 @@ public class DecompressionWorker {
   // the millis for the block get operation to measure profit from overlapping decompression
   private final AtomicLong waitMillis = new AtomicLong(0);
 
-  public DecompressionWorker(Codec codec, int threads) {
+  private final int fetchSecondsThreshold;
+
+  public DecompressionWorker(Codec codec, int threads, int fetchSecondsThreshold) {
     if (codec == null) {
       throw new IllegalArgumentException("Codec cannot be null");
     }
@@ -60,6 +62,7 @@ public class DecompressionWorker {
     this.executorService =
         Executors.newFixedThreadPool(threads, ThreadUtils.getThreadFactory("decompressionWorker"));
     this.codec = codec;
+    this.fetchSecondsThreshold = fetchSecondsThreshold;
   }
 
   public void add(int batchIndex, ShuffleDataResult shuffleDataResult) {
@@ -104,7 +107,8 @@ public class DecompressionWorker {
           new DecompressedShuffleBlock(
               f,
               waitMillis -> this.waitMillis.addAndGet(waitMillis),
-              bufferSegment.getTaskAttemptId()));
+              bufferSegment.getTaskAttemptId(),
+              fetchSecondsThreshold));
     }
   }
 
