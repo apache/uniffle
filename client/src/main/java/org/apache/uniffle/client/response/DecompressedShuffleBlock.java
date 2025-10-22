@@ -28,16 +28,24 @@ public class DecompressedShuffleBlock extends ShuffleBlock {
   private CompletableFuture<ByteBuffer> f;
   private Consumer<Long> waitMillisCallback;
   private final int fetchSecondsThreshold;
+  private final int compressedLength;
 
   public DecompressedShuffleBlock(
       CompletableFuture<ByteBuffer> f,
       Consumer<Long> consumer,
       long taskAttemptId,
-      int fetchSecondsThreshold) {
+      int fetchSecondsThreshold,
+      int compressedLength) {
     super(taskAttemptId);
     this.f = f;
     this.waitMillisCallback = consumer;
     this.fetchSecondsThreshold = fetchSecondsThreshold;
+    this.compressedLength = compressedLength;
+  }
+
+  @Override
+  public int getCompressedLength() {
+    return compressedLength;
   }
 
   @Override

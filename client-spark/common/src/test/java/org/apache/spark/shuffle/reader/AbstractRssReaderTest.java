@@ -134,7 +134,7 @@ public abstract class AbstractRssReaderTest extends HadoopTestBase {
         compress);
   }
 
-  protected void writeTestData(
+  protected List<ShufflePartitionedBlock> writeTestData(
       ShuffleWriteHandler handler,
       int blockNum,
       int recordNum,
@@ -163,6 +163,7 @@ public abstract class AbstractRssReaderTest extends HadoopTestBase {
       serializeStream.close();
     }
     handler.write(blocks);
+    return blocks;
   }
 
   protected ShufflePartitionedBlock createShuffleBlock(byte[] data, long blockId) {

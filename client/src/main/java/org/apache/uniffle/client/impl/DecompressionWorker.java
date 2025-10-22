@@ -108,7 +108,8 @@ public class DecompressionWorker {
               f,
               waitMillis -> this.waitMillis.addAndGet(waitMillis),
               bufferSegment.getTaskAttemptId(),
-              fetchSecondsThreshold));
+              fetchSecondsThreshold,
+                  bufferSegment.getLength()));
     }
   }
 

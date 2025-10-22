@@ -21,21 +21,25 @@ import java.nio.ByteBuffer;
 
 public class CompressedShuffleBlock extends ShuffleBlock {
   private ByteBuffer byteBuffer;
-  private int uncompressLength;
+  private int uncompressedLength;
+  private int compressedLength;
 
-  public CompressedShuffleBlock(ByteBuffer byteBuffer, int uncompressLength) {
-    this(byteBuffer, uncompressLength, -1);
+  public CompressedShuffleBlock(
+      ByteBuffer byteBuffer, int uncompressedLength, long taskAttemptId, int compressedlength) {
+  super(taskAttemptId);
+    this.byteBuffer = byteBuffer;
+    this.uncompressedLength = uncompressedLength;
+    this.compressedLength = compressedlength;
   }
 
-  public CompressedShuffleBlock(ByteBuffer byteBuffer, int uncompressLength, long taskAttemptId) {
-    super(taskAttemptId);
-    this.byteBuffer = byteBuffer;
-    this.uncompressLength = uncompressLength;
+  @Override
+  public int getCompressedLength() {
+    return compressedLength;
   }
 
   @Override
   public int getUncompressLength() {
-    return uncompressLength;
+    return uncompressedLength;
   }
 
   @Override

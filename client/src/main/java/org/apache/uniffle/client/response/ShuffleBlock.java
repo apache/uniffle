@@ -26,6 +26,8 @@ public abstract class ShuffleBlock {
     this.taskAttemptId = taskAttemptId;
   }
 
+  public abstract int getCompressedLength();
+
   public abstract int getUncompressLength();
 
   public abstract ByteBuffer getByteBuffer();

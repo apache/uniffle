@@ -601,7 +601,9 @@ public class FetcherTest {
       data.forEach(
           bytes -> {
             byte[] compressed = codec.compress(bytes);
-            blocks.add(new CompressedShuffleBlock(ByteBuffer.wrap(compressed), bytes.length));
+            blocks.add(
+                new CompressedShuffleBlock(
+                    ByteBuffer.wrap(compressed), bytes.length, compressed.length));
           });
     }
 

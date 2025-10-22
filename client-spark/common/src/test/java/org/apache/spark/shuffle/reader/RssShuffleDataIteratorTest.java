@@ -46,6 +46,7 @@ import org.apache.uniffle.client.api.ShuffleReadClient;
 import org.apache.uniffle.client.factory.ShuffleClientFactory;
 import org.apache.uniffle.client.impl.ShuffleReadClientImpl;
 import org.apache.uniffle.common.ClientType;
+import org.apache.uniffle.common.ShufflePartitionedBlock;
 import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.compression.Codec;
 import org.apache.uniffle.common.config.RssConf;
@@ -74,6 +75,46 @@ public class RssShuffleDataIteratorTest extends AbstractRssReaderTest {
   public static Stream<Arguments> testBlockIdLayouts() {
     return Stream.of(
         Arguments.of(BlockIdLayout.DEFAULT), Arguments.of(BlockIdLayout.from(20, 21, 22)));
+  }
+
+  @Test
+  public void readBytesMetricTestWithOverlappingDecompression() throws Exception {
+    String basePath = HDFS_URI + "readBytesMetricTestWithOverlappingDecompression";
+    HadoopShuffleWriteHandler writeHandler =
+        new HadoopShuffleWriteHandler("appId", 0, 0, 1, basePath, ssi1.getId(), conf);
+    Map<String, String> expectedData = Maps.newHashMap();
+    Roaring64NavigableMap blockIdBitmap = Roaring64NavigableMap.bitmapOf();
+    Roaring64NavigableMap taskIdBitmap = Roaring64NavigableMap.bitmapOf(0);
+    List<ShufflePartitionedBlock> blocksWritten =
+        writeTestData(
+            writeHandler,
+            2,
+            5,
+            BlockIdLayout.DEFAULT,
+            expectedData,
+            blockIdBitmap,
+            "key",
+            KRYO_SERIALIZER,
+            0,
+            true);
+    long writtenBytes =
+        blocksWritten.stream().map(x -> x.getDataLength()).reduce((a, b) -> a + b).get();
+
+    ShuffleReadMetrics readMetrics = new ShuffleReadMetrics();
+    RssShuffleDataIterator rssShuffleDataIterator =
+        getDataIterator(
+            basePath,
+            blockIdBitmap,
+            taskIdBitmap,
+            Lists.newArrayList(ssi1),
+            true,
+            readMetrics,
+            true);
+    validateResult(rssShuffleDataIterator, expectedData, 10);
+
+    // case1: validate the reader side bytes whether to be consistent with the written bytes
+    assertEquals(writtenBytes, readMetrics.remoteBytesRead());
+    assertEquals(10, readMetrics.recordsRead());
   }
 
   @ParameterizedTest
@@ -116,7 +157,8 @@ public class RssShuffleDataIteratorTest extends AbstractRssReaderTest {
       Roaring64NavigableMap blockIdBitmap,
       Roaring64NavigableMap taskIdBitmap,
       List<ShuffleServerInfo> serverInfos) {
-    return getDataIterator(basePath, blockIdBitmap, taskIdBitmap, serverInfos, true);
+    return getDataIterator(
+        basePath, blockIdBitmap, taskIdBitmap, serverInfos, true, new ShuffleReadMetrics(), false);
   }
 
   private RssShuffleDataIterator getDataIterator(
@@ -124,7 +166,9 @@ public class RssShuffleDataIteratorTest extends AbstractRssReaderTest {
       Roaring64NavigableMap blockIdBitmap,
       Roaring64NavigableMap taskIdBitmap,
       List<ShuffleServerInfo> serverInfos,
-      boolean compress) {
+      boolean compress,
+      ShuffleReadMetrics metrics,
+      boolean isOverlappingDecompression) {
     ShuffleReadClientImpl readClient =
         ShuffleClientFactory.newReadBuilder()
             .clientType(ClientType.GRPC)
@@ -140,6 +184,9 @@ public class RssShuffleDataIteratorTest extends AbstractRssReaderTest {
             .blockIdBitmap(blockIdBitmap)
             .taskIdBitmap(taskIdBitmap)
             .shuffleServerInfoList(Lists.newArrayList(serverInfos))
+            .overlappingDecompressionEnabled(isOverlappingDecompression)
+            .codec(Codec.newInstance(new RssConf()).get())
+            .overlappingDecompressionThreadNum(1)
             .build();
     RssConf rc;
     if (!compress) {
@@ -149,7 +196,7 @@ public class RssShuffleDataIteratorTest extends AbstractRssReaderTest {
     } else {
       rc = new RssConf();
     }
-    return new RssShuffleDataIterator(KRYO_SERIALIZER, readClient, new ShuffleReadMetrics(), rc);
+    return new RssShuffleDataIterator(KRYO_SERIALIZER, readClient, metrics, rc);
   }
 
   @Test
@@ -323,7 +370,13 @@ public class RssShuffleDataIteratorTest extends AbstractRssReaderTest {
 
     RssShuffleDataIterator rssShuffleDataIterator =
         getDataIterator(
-            basePath, blockIdBitmap, taskIdBitmap, Lists.newArrayList(ssi1, ssi2), compress);
+            basePath,
+            blockIdBitmap,
+            taskIdBitmap,
+            Lists.newArrayList(ssi1, ssi2),
+            compress,
+            new ShuffleReadMetrics(),
+            false);
     Optional<Codec> codec =
         (Optional<Codec>) FieldUtils.readField(rssShuffleDataIterator, "codec", true);
     if (compress) {
