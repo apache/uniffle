@@ -21,6 +21,8 @@ import java.nio.ByteBuffer;
 
 public interface ShuffleBlock {
 
+  int getCompressedLength();
+
   int getUncompressLength();
 
   ByteBuffer getByteBuffer();

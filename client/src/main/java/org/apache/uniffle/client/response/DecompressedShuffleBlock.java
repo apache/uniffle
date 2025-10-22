@@ -26,10 +26,18 @@ import org.apache.uniffle.common.exception.RssException;
 public class DecompressedShuffleBlock implements ShuffleBlock {
   private CompletableFuture<ByteBuffer> f;
   private Consumer<Long> waitMillisCallback;
+  private int compressedLength;
 
-  public DecompressedShuffleBlock(CompletableFuture<ByteBuffer> f, Consumer<Long> consumer) {
+  public DecompressedShuffleBlock(
+      CompletableFuture<ByteBuffer> f, Consumer<Long> consumer, int compressedLength) {
     this.f = f;
     this.waitMillisCallback = consumer;
+    this.compressedLength = compressedLength;
+  }
+
+  @Override
+  public int getCompressedLength() {
+    return compressedLength;
   }
 
   @Override

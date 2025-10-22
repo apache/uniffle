@@ -137,9 +137,8 @@ public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C
 
       if (rawData != null) {
         // collect metrics from raw data
-        long rawDataLength = rawData.limit() - rawData.position();
-        totalRawBytesLength += rawDataLength;
-        shuffleReadMetrics.incRemoteBytesRead(rawDataLength);
+        totalRawBytesLength += shuffleBlock.getCompressedLength();
+        shuffleReadMetrics.incRemoteBytesRead(shuffleBlock.getCompressedLength());
 
         long startUncompression = System.currentTimeMillis();
         // get initial data
