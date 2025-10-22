@@ -137,9 +137,8 @@ public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C
 
       if (rawData != null) {
         // collect metrics from raw data
-        long rawDataLength = rawData.limit() - rawData.position();
-        totalRawBytesLength += rawDataLength;
-        shuffleReadMetrics.incRemoteBytesRead(rawDataLength);
+        totalRawBytesLength += shuffleBlock.getCompressedLength();
+        shuffleReadMetrics.incRemoteBytesRead(shuffleBlock.getCompressedLength());
 
         long startUncompression = System.currentTimeMillis();
         // get initial data
@@ -149,7 +148,7 @@ public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C
           decompressed = uncompressedData;
         } else {
           decompressed = shuffleBlock.getByteBuffer();
-          unCompressedBytesLength += shuffleBlock.getUncompressLength();
+          unCompressedBytesLength += shuffleBlock.getUncompressedLength();
           decompressTime += getBufferDuration;
         }
         long uncompressionDuration = System.currentTimeMillis() - startUncompression;
@@ -193,7 +192,7 @@ public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C
   }
 
   private int uncompress(ShuffleBlock rawBlock, ByteBuffer rawData) {
-    int uncompressedLen = rawBlock.getUncompressLength();
+    int uncompressedLen = rawBlock.getUncompressedLength();
     if (uncompressedLen < 0) {
       LOG.error("Uncompressed length is negative: {}", uncompressedLen);
       throw new IllegalArgumentException("Uncompressed length is negative: " + uncompressedLen);
