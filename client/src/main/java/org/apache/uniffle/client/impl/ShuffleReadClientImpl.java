@@ -61,6 +61,7 @@ import org.apache.uniffle.storage.request.CreateShuffleReadHandlerRequest;
 
 import static org.apache.uniffle.common.config.RssClientConf.READ_CLIENT_NEXT_SEGMENTS_REPORT_COUNT;
 import static org.apache.uniffle.common.config.RssClientConf.READ_CLIENT_NEXT_SEGMENTS_REPORT_ENABLED;
+import static org.apache.uniffle.common.config.RssClientConf.RSS_READ_OVERLAPPING_DECOMPRESSION_FETCH_SECONDS_THRESHOLD;
 
 public class ShuffleReadClientImpl implements ShuffleReadClient {
 
@@ -162,9 +163,11 @@ public class ShuffleReadClientImpl implements ShuffleReadClient {
 
   private void init(ShuffleClientFactory.ReadClientBuilder builder) {
     if (builder.isOverlappingDecompressionEnabled()) {
+      int fetchThreshold =
+          builder.getRssConf().get(RSS_READ_OVERLAPPING_DECOMPRESSION_FETCH_SECONDS_THRESHOLD);
       this.decompressionWorker =
           new DecompressionWorker(
-              builder.getCodec(), builder.getOverlappingDecompressionThreadNum());
+              builder.getCodec(), builder.getOverlappingDecompressionThreadNum(), fetchThreshold);
     }
     this.shuffleId = builder.getShuffleId();
     this.partitionId = builder.getPartitionId();

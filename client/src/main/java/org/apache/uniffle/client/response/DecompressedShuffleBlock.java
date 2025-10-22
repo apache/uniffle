@@ -19,6 +19,7 @@ package org.apache.uniffle.client.response;
 
 import java.nio.ByteBuffer;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import org.apache.uniffle.common.exception.RssException;
@@ -26,10 +27,13 @@ import org.apache.uniffle.common.exception.RssException;
 public class DecompressedShuffleBlock implements ShuffleBlock {
   private CompletableFuture<ByteBuffer> f;
   private Consumer<Long> waitMillisCallback;
+  private final int fetchSecondsThreshold;
 
-  public DecompressedShuffleBlock(CompletableFuture<ByteBuffer> f, Consumer<Long> consumer) {
+  public DecompressedShuffleBlock(
+      CompletableFuture<ByteBuffer> f, Consumer<Long> consumer, int fetchSecondsThreshold) {
     this.f = f;
     this.waitMillisCallback = consumer;
+    this.fetchSecondsThreshold = fetchSecondsThreshold;
   }
 
   @Override
@@ -42,7 +46,7 @@ public class DecompressedShuffleBlock implements ShuffleBlock {
   public ByteBuffer getByteBuffer() {
     try {
       long startTime = System.currentTimeMillis();
-      ByteBuffer buffer = f.get();
+      ByteBuffer buffer = f.get(fetchSecondsThreshold, TimeUnit.SECONDS);
       if (waitMillisCallback != null) {
         waitMillisCallback.accept(System.currentTimeMillis() - startTime);
       }

@@ -38,7 +38,8 @@ public class DecompressionWorkerTest {
 
   @Test
   public void testEmptyGet() throws Exception {
-    DecompressionWorker worker = new DecompressionWorker(Codec.newInstance(new RssConf()).get(), 1);
+    DecompressionWorker worker =
+        new DecompressionWorker(Codec.newInstance(new RssConf()).get(), 1, 10);
     assertNull(worker.get(1, 1));
   }
 
@@ -77,7 +78,7 @@ public class DecompressionWorkerTest {
     RssConf rssConf = new RssConf();
     rssConf.set(COMPRESSION_TYPE, Codec.Type.NOOP);
     Codec codec = Codec.newInstance(rssConf).get();
-    DecompressionWorker worker = new DecompressionWorker(codec, 1);
+    DecompressionWorker worker = new DecompressionWorker(codec, 1, 10);
 
     // create some data
     ShuffleDataResult shuffleDataResult = createShuffleDataResult(10, codec, 100);
