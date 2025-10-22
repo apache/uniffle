@@ -150,6 +150,7 @@ public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C
         } else {
           decompressed = shuffleBlock.getByteBuffer();
           unCompressedBytesLength += shuffleBlock.getUncompressLength();
+          decompressTime += getBufferDuration;
         }
         long uncompressionDuration = System.currentTimeMillis() - startUncompression;
         uncompressionDuration += getBufferDuration;
