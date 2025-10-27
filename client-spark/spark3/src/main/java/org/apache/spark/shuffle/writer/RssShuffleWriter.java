@@ -1032,7 +1032,7 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
   private String createShuffleInfo() {
     ShuffleInfo shuffleInfo =
         new ShuffleInfo(Optional.ofNullable(shuffleValidationInfo), taskAttemptId);
-    return new String(shuffleInfo.encode(), StandardCharsets.UTF_8);
+    return new String(shuffleInfo.encode(), StandardCharsets.ISO_8859_1);
   }
 
   @VisibleForTesting

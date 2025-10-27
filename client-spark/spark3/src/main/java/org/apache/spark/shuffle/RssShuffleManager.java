@@ -548,7 +548,7 @@ public class RssShuffleManager extends RssShuffleManagerBase {
       }
 
       String raw = tuple2._1().topologyInfo().get();
-      ShuffleInfo shuffleInfo = ShuffleInfo.decode(raw.getBytes(StandardCharsets.UTF_8));
+      ShuffleInfo shuffleInfo = ShuffleInfo.decode(raw.getBytes(StandardCharsets.ISO_8859_1));
       taskIdBitmap.add(shuffleInfo.getTaskAttemptId());
 
       // Retrieve the validation info propagated from the shuffle writer
