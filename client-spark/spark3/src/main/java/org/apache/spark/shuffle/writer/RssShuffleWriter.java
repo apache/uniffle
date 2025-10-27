@@ -17,6 +17,7 @@
 
 package org.apache.spark.shuffle.writer;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -1031,7 +1032,7 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
   private String createShuffleInfo() {
     ShuffleInfo shuffleInfo =
         new ShuffleInfo(Optional.ofNullable(shuffleValidationInfo), taskAttemptId);
-    return new String(shuffleInfo.encode());
+    return new String(shuffleInfo.encode(), StandardCharsets.UTF_8);
   }
 
   @VisibleForTesting

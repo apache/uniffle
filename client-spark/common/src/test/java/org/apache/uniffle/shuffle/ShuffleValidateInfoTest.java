@@ -32,6 +32,7 @@ public class ShuffleValidateInfoTest {
     info.incPartitionRecord(1);
 
     ByteBuffer encoded = info.encode();
+    encoded.flip();
     ShuffleValidationInfo decoded = ShuffleValidationInfo.decode(encoded);
 
     assertEquals(1L, decoded.getRecordsWritten(0));
