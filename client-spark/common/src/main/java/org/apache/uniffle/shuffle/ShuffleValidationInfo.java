@@ -18,8 +18,8 @@
 package org.apache.uniffle.shuffle;
 
 import java.nio.ByteBuffer;
-import java.util.Base64;
 
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.lang3.StringUtils;
 
 /**
@@ -42,19 +42,21 @@ public class ShuffleValidationInfo {
     partitionRecordsWritten[partitionId]++;
   }
 
+  @VisibleForTesting
   public String encode() {
-    ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES * partitionRecordsWritten.length);
+    byte[] bytes = new byte[Long.BYTES * partitionRecordsWritten.length];
+    ByteBuffer buffer = ByteBuffer.wrap(bytes);
     for (long v : partitionRecordsWritten) {
       buffer.putLong(v);
     }
-    return Base64.getEncoder().encodeToString(buffer.array());
+    return new String(bytes, java.nio.charset.StandardCharsets.ISO_8859_1);
   }
 
   public static ShuffleValidationInfo decode(String raw) {
     if (StringUtils.isEmpty(raw)) {
       return null;
     }
-    byte[] bytes = Base64.getDecoder().decode(raw);
+    byte[] bytes = raw.getBytes(java.nio.charset.StandardCharsets.ISO_8859_1);
     ByteBuffer buffer = ByteBuffer.wrap(bytes);
     int partitions = bytes.length / Long.BYTES;
     ShuffleValidationInfo info = new ShuffleValidationInfo(partitions);
