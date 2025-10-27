@@ -68,6 +68,7 @@ public class AQESkewedJoinTest extends SparkIntegrationTestBase {
   public void updateSparkConfCustomer(SparkConf sparkConf) {
     sparkConf.set(RssSparkConfig.RSS_STORAGE_TYPE.key(), StorageType.MEMORY_LOCALFILE_HDFS.name());
     sparkConf.set(RssSparkConfig.RSS_REMOTE_STORAGE_PATH.key(), HDFS_URI + "rss/test");
+    sparkConf.set("spark." + RssSparkConfig.RSS_ROW_BASED_VALIDATION_ENABLED.key(), "true");
   }
 
   @Test
