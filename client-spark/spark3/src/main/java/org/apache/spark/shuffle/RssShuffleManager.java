@@ -34,6 +34,8 @@ import scala.collection.Seq;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Sets;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.spark.MapOutputTracker;
 import org.apache.spark.ShuffleDependency;
@@ -72,6 +74,7 @@ import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.exception.RssFetchFailedException;
 import org.apache.uniffle.common.util.RssUtils;
 import org.apache.uniffle.shuffle.RssShuffleClientFactory;
+import org.apache.uniffle.shuffle.ShuffleValidationInfo;
 import org.apache.uniffle.shuffle.manager.RssShuffleManagerBase;
 
 public class RssShuffleManager extends RssShuffleManagerBase {
@@ -288,9 +291,11 @@ public class RssShuffleManager extends RssShuffleManagerBase {
       TaskContext context,
       ShuffleReadMetricsReporter metrics) {
     long start = System.currentTimeMillis();
-    Roaring64NavigableMap taskIdBitmap =
+    Pair<Roaring64NavigableMap, Long> info =
         getExpectedTasksByExecutorId(
             handle.shuffleId(), startPartition, endPartition, startMapIndex, endMapIndex);
+    Roaring64NavigableMap taskIdBitmap = info.getLeft();
+    long expectedRecordsRead = info.getRight();
     LOG.info(
         "Get taskId cost "
             + (System.currentTimeMillis() - start)
@@ -311,7 +316,8 @@ public class RssShuffleManager extends RssShuffleManagerBase {
         endPartition,
         context,
         metrics,
-        taskIdBitmap);
+        taskIdBitmap,
+        expectedRecordsRead);
   }
 
   // The interface is used for compatibility with spark 3.0.1
@@ -347,7 +353,8 @@ public class RssShuffleManager extends RssShuffleManagerBase {
         endPartition,
         context,
         metrics,
-        taskIdBitmap);
+        taskIdBitmap,
+        -1);
   }
 
   public <K, C> ShuffleReader<K, C> getReaderImpl(
@@ -358,7 +365,8 @@ public class RssShuffleManager extends RssShuffleManagerBase {
       int endPartition,
       TaskContext context,
       ShuffleReadMetricsReporter metrics,
-      Roaring64NavigableMap taskIdBitmap) {
+      Roaring64NavigableMap taskIdBitmap,
+      long expectedRecordsRead) {
     if (!(handle instanceof RssShuffleHandle)) {
       throw new RssException("Unexpected ShuffleHandle:" + handle.getClass().getName());
     }
@@ -443,7 +451,8 @@ public class RssShuffleManager extends RssShuffleManagerBase {
         managerClientSupplier,
         RssSparkConfig.toRssConf(sparkConf),
         dataDistributionType,
-        shuffleHandleInfo.getAllPartitionServersForReader());
+        shuffleHandleInfo.getAllPartitionServersForReader(),
+        expectedRecordsRead);
   }
 
   private Map<ShuffleServerInfo, Set<Integer>> getPartitionDataServers(
@@ -460,7 +469,7 @@ public class RssShuffleManager extends RssShuffleManagerBase {
   }
 
   @SuppressFBWarnings("REC_CATCH_EXCEPTION")
-  private Roaring64NavigableMap getExpectedTasksByExecutorId(
+  private Pair<Roaring64NavigableMap, Long> getExpectedTasksByExecutorId(
       int shuffleId, int startPartition, int endPartition, int startMapIndex, int endMapIndex) {
     Roaring64NavigableMap taskIdBitmap = Roaring64NavigableMap.bitmapOf();
     Iterator<Tuple2<BlockManagerId, Seq<Tuple3<BlockId, Object, Object>>>> mapStatusIter = null;
@@ -529,14 +538,25 @@ public class RssShuffleManager extends RssShuffleManagerBase {
     } catch (Exception e) {
       throw new RssException(e);
     }
+    long expectedRecords = 0;
     while (mapStatusIter.hasNext()) {
       Tuple2<BlockManagerId, Seq<Tuple3<BlockId, Object, Object>>> tuple2 = mapStatusIter.next();
       if (!tuple2._1().topologyInfo().isDefined()) {
         throw new RssException("Can't get expected taskAttemptId");
       }
+      // Retrieve the validation info propagated from the shuffle writer
+      String encodedValidationInfo = tuple2._1.host();
+      if (StringUtils.isNotEmpty(encodedValidationInfo)) {
+        ShuffleValidationInfo info = ShuffleValidationInfo.decode(encodedValidationInfo);
+        if (info != null) {
+          for (int i = startPartition; i < endPartition; i++) {
+            expectedRecords += info.getRecordsWritten(i);
+          }
+        }
+      }
       taskIdBitmap.add(Long.parseLong(tuple2._1().topologyInfo().get()));
     }
-    return taskIdBitmap;
+    return Pair.of(taskIdBitmap, expectedRecords);
   }
 
   // This API is only used by Spark3.0 and removed since 3.1,

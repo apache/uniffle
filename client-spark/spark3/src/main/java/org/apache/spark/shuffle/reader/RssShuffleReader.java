@@ -66,9 +66,11 @@ import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.compression.Codec;
 import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.common.config.RssConf;
+import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.rpc.StatusCode;
 import org.apache.uniffle.storage.handler.impl.ShuffleServerReadCostTracker;
 
+import static org.apache.spark.shuffle.RssSparkConfig.RSS_PARTITION_VALIDATION_ENABLED;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_READ_OVERLAPPING_DECOMPRESSION_ENABLED;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_READ_OVERLAPPING_DECOMPRESSION_THREADS;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_READ_REORDER_MULTI_SERVERS_ENABLED;
@@ -106,6 +108,50 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
   private Optional<String> shuffleReadReason = Optional.empty();
 
   private ShuffleReadTimes shuffleReadTimes = new ShuffleReadTimes();
+
+  private boolean shuffleValidationEnabled = false;
+  private long expectedRecordsRead = 0L;
+  private long actualRecordsRead = 0L;
+
+  public RssShuffleReader(
+      int startPartition,
+      int endPartition,
+      int mapStartIndex,
+      int mapEndIndex,
+      TaskContext context,
+      RssShuffleHandle<K, ?, C> rssShuffleHandle,
+      String basePath,
+      Configuration hadoopConf,
+      int partitionNum,
+      Map<Integer, Roaring64NavigableMap> partitionToExpectBlocks,
+      Roaring64NavigableMap taskIdBitmap,
+      ShuffleReadMetrics readMetrics,
+      Supplier<ShuffleManagerClient> managerClientSupplier,
+      RssConf rssConf,
+      ShuffleDataDistributionType dataDistributionType,
+      Map<Integer, List<ShuffleServerInfo>> allPartitionToServers,
+      long expectedRecordsRead) {
+    this(
+        startPartition,
+        endPartition,
+        mapStartIndex,
+        mapEndIndex,
+        context,
+        rssShuffleHandle,
+        basePath,
+        hadoopConf,
+        partitionNum,
+        partitionToExpectBlocks,
+        taskIdBitmap,
+        readMetrics,
+        managerClientSupplier,
+        rssConf,
+        dataDistributionType,
+        allPartitionToServers);
+    this.expectedRecordsRead = expectedRecordsRead;
+    this.actualRecordsRead = 0L;
+    this.shuffleValidationEnabled = rssConf.get(RSS_PARTITION_VALIDATION_ENABLED);
+  }
 
   public RssShuffleReader(
       int startPartition,
@@ -247,7 +293,9 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
         + mapStartIndex
         + ", "
         + mapEndIndex
-        + ")";
+        + "]"
+        + ", expected records: "
+        + expectedRecordsRead;
   }
 
   @VisibleForTesting
@@ -366,6 +414,7 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
         while (!dataIterator.hasNext()) {
           if (!iterator.hasNext()) {
             postShuffleReadMetricsToDriver();
+            validate();
             return false;
           }
           dataIterator = iterator.next();
@@ -383,7 +432,20 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
     @Override
     public Product2<K, C> next() {
       Product2<K, C> result = dataIterator.next();
+      actualRecordsRead += 1;
       return result;
+    }
+  }
+
+  private void validate() {
+    if (shuffleValidationEnabled
+        && expectedRecordsRead > 0
+        && (expectedRecordsRead != actualRecordsRead)) {
+      throw new RssException(
+          "Unexpected read records. expected: "
+              + expectedRecordsRead
+              + ", actual: "
+              + actualRecordsRead);
     }
   }
 
