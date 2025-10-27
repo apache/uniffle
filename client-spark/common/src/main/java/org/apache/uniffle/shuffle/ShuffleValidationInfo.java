@@ -18,10 +18,8 @@
 package org.apache.uniffle.shuffle;
 
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 
 import com.google.common.annotations.VisibleForTesting;
-import org.apache.commons.lang3.StringUtils;
 
 /**
  * This class records partition writing statistics and leverages them to verify the integrity of
@@ -44,26 +42,28 @@ public class ShuffleValidationInfo {
   }
 
   @VisibleForTesting
-  public String encode() {
+  public ByteBuffer encode() {
     byte[] bytes = new byte[Long.BYTES * partitionRecordsWritten.length];
     ByteBuffer buffer = ByteBuffer.wrap(bytes);
     for (long v : partitionRecordsWritten) {
       buffer.putLong(v);
     }
-    return new String(bytes, StandardCharsets.UTF_8);
+    return buffer;
   }
 
-  public static ShuffleValidationInfo decode(String raw) {
-    if (StringUtils.isEmpty(raw)) {
+  public static ShuffleValidationInfo decode(ByteBuffer raw) {
+    if (raw == null || raw.remaining() < Long.BYTES) {
       return null;
     }
-    byte[] bytes = raw.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-    ByteBuffer buffer = ByteBuffer.wrap(bytes);
-    int partitions = bytes.length / Long.BYTES;
+
+    ByteBuffer buffer = raw.duplicate();
+    int partitions = buffer.remaining() / Long.BYTES;
     ShuffleValidationInfo info = new ShuffleValidationInfo(partitions);
+
     for (int i = 0; i < partitions; i++) {
       info.partitionRecordsWritten[i] = buffer.getLong();
     }
+
     return info;
   }
 }

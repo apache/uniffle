@@ -87,6 +87,7 @@ import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.exception.RssSendFailedException;
 import org.apache.uniffle.common.exception.RssWaitFailedException;
 import org.apache.uniffle.common.rpc.StatusCode;
+import org.apache.uniffle.shuffle.ShuffleInfo;
 import org.apache.uniffle.shuffle.ShuffleValidationInfo;
 import org.apache.uniffle.storage.util.StorageType;
 
@@ -948,19 +949,11 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
             reportDuration);
         shuffleWriteMetrics.incWriteTime(TimeUnit.MILLISECONDS.toNanos(reportDuration));
 
-        // Inject the shuffle validation info into the blockManagerId
-        String encodedValidationInfo = "";
-        if (shuffleValidationInfo != null) {
-          encodedValidationInfo = shuffleValidationInfo.encode();
-        }
         // todo: we can replace the dummy host and port with the real shuffle server which we prefer
         // to read
         final BlockManagerId blockManagerId =
             BlockManagerId.apply(
-                appId + "_" + taskId,
-                encodedValidationInfo,
-                DUMMY_PORT,
-                Option.apply(Long.toString(taskAttemptId)));
+                appId + "_" + taskId, DUMMY_HOST, DUMMY_PORT, Option.apply(createShuffleInfo()));
         MapStatus mapStatus =
             MapStatus.apply(blockManagerId, partitionLengthStatistic.toArray(), taskAttemptId);
         return Option.apply(mapStatus);
@@ -1033,6 +1026,12 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
         shuffleManager.clearTaskMeta(taskId);
       }
     }
+  }
+
+  private String createShuffleInfo() {
+    ShuffleInfo shuffleInfo =
+        new ShuffleInfo(Optional.ofNullable(shuffleValidationInfo), taskAttemptId);
+    return new String(shuffleInfo.encode());
   }
 
   @VisibleForTesting

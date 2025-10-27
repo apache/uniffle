@@ -17,6 +17,8 @@
 
 package org.apache.uniffle.shuffle;
 
+import java.nio.ByteBuffer;
+
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -29,7 +31,7 @@ public class ShuffleValidateInfoTest {
     info.incPartitionRecord(0);
     info.incPartitionRecord(1);
 
-    String encoded = info.encode();
+    ByteBuffer encoded = info.encode();
     ShuffleValidationInfo decoded = ShuffleValidationInfo.decode(encoded);
 
     assertEquals(1L, decoded.getRecordsWritten(0));

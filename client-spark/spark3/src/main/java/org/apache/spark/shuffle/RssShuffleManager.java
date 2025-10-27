@@ -17,10 +17,12 @@
 
 package org.apache.spark.shuffle;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
@@ -34,7 +36,6 @@ import scala.collection.Seq;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Sets;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.spark.MapOutputTracker;
@@ -74,6 +75,7 @@ import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.exception.RssFetchFailedException;
 import org.apache.uniffle.common.util.RssUtils;
 import org.apache.uniffle.shuffle.RssShuffleClientFactory;
+import org.apache.uniffle.shuffle.ShuffleInfo;
 import org.apache.uniffle.shuffle.ShuffleValidationInfo;
 import org.apache.uniffle.shuffle.manager.RssShuffleManagerBase;
 
@@ -544,17 +546,19 @@ public class RssShuffleManager extends RssShuffleManagerBase {
       if (!tuple2._1().topologyInfo().isDefined()) {
         throw new RssException("Can't get expected taskAttemptId");
       }
+
+      String raw = tuple2._1().topologyInfo().get();
+      ShuffleInfo shuffleInfo = ShuffleInfo.decode(raw.getBytes(StandardCharsets.UTF_8));
+      taskIdBitmap.add(shuffleInfo.getTaskAttemptId());
+
       // Retrieve the validation info propagated from the shuffle writer
-      String encodedValidationInfo = tuple2._1.host();
-      if (StringUtils.isNotEmpty(encodedValidationInfo)) {
-        ShuffleValidationInfo info = ShuffleValidationInfo.decode(encodedValidationInfo);
-        if (info != null) {
-          for (int i = startPartition; i < endPartition; i++) {
-            expectedRecords += info.getRecordsWritten(i);
-          }
+      Optional<ShuffleValidationInfo> validationInfo = shuffleInfo.getValidationInfo();
+      if (validationInfo.isPresent()) {
+        ShuffleValidationInfo info = validationInfo.get();
+        for (int i = startPartition; i < endPartition; i++) {
+          expectedRecords += info.getRecordsWritten(i);
         }
       }
-      taskIdBitmap.add(Long.parseLong(tuple2._1().topologyInfo().get()));
     }
     return Pair.of(taskIdBitmap, expectedRecords);
   }
