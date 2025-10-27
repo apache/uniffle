@@ -39,8 +39,8 @@ import org.apache.uniffle.common.config.RssConf;
 
 public class RssSparkConfig {
 
-  public static final ConfigOption<Boolean> RSS_PARTITION_VALIDATION_ENABLED =
-      ConfigOptions.key("rss.client.partitionValidationEnabled")
+  public static final ConfigOption<Boolean> RSS_ROW_BASED_VALIDATION_ENABLED =
+      ConfigOptions.key("rss.client.rowBasedValidationEnabled")
           .booleanType()
           .defaultValue(false)
           .withDescription("Whether or not to enable partition validation mechanism");
