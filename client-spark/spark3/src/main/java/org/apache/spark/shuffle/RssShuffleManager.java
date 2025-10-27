@@ -79,6 +79,8 @@ import org.apache.uniffle.shuffle.ShuffleInfo;
 import org.apache.uniffle.shuffle.ShuffleValidationInfo;
 import org.apache.uniffle.shuffle.manager.RssShuffleManagerBase;
 
+import static org.apache.spark.shuffle.RssSparkConfig.RSS_ROW_BASED_VALIDATION_ENABLED;
+
 public class RssShuffleManager extends RssShuffleManagerBase {
   private static final Logger LOG = LoggerFactory.getLogger(RssShuffleManager.class);
 
@@ -548,16 +550,20 @@ public class RssShuffleManager extends RssShuffleManagerBase {
       }
 
       String raw = tuple2._1().topologyInfo().get();
-      ShuffleInfo shuffleInfo = ShuffleInfo.decode(raw.getBytes(StandardCharsets.ISO_8859_1));
-      taskIdBitmap.add(shuffleInfo.getTaskAttemptId());
+      if (rssConf.get(RSS_ROW_BASED_VALIDATION_ENABLED)) {
+        ShuffleInfo shuffleInfo = ShuffleInfo.decode(raw.getBytes(StandardCharsets.ISO_8859_1));
+        taskIdBitmap.add(shuffleInfo.getTaskAttemptId());
 
-      // Retrieve the validation info propagated from the shuffle writer
-      Optional<ShuffleValidationInfo> validationInfo = shuffleInfo.getValidationInfo();
-      if (validationInfo.isPresent()) {
-        ShuffleValidationInfo info = validationInfo.get();
-        for (int i = startPartition; i < endPartition; i++) {
-          expectedRecords += info.getRecordsWritten(i);
+        // Retrieve the validation info propagated from the shuffle writer
+        Optional<ShuffleValidationInfo> validationInfo = shuffleInfo.getValidationInfo();
+        if (validationInfo.isPresent()) {
+          ShuffleValidationInfo info = validationInfo.get();
+          for (int i = startPartition; i < endPartition; i++) {
+            expectedRecords += info.getRecordsWritten(i);
+          }
         }
+      } else {
+        taskIdBitmap.add(Long.parseLong(raw));
       }
     }
     return Pair.of(taskIdBitmap, expectedRecords);

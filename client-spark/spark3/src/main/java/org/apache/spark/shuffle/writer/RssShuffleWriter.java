@@ -954,7 +954,11 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
         // to read
         final BlockManagerId blockManagerId =
             BlockManagerId.apply(
-                appId + "_" + taskId, DUMMY_HOST, DUMMY_PORT, Option.apply(createShuffleInfo()));
+                appId + "_" + taskId,
+                DUMMY_HOST,
+                DUMMY_PORT,
+                Option.apply(
+                    shuffleValidationEnabled ? createShuffleInfo() : Long.toString(taskAttemptId)));
         MapStatus mapStatus =
             MapStatus.apply(blockManagerId, partitionLengthStatistic.toArray(), taskAttemptId);
         return Option.apply(mapStatus);
