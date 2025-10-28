@@ -76,7 +76,7 @@ import org.apache.uniffle.shuffle.RssShuffleClientFactory;
 import org.apache.uniffle.shuffle.ShuffleTaskStats;
 import org.apache.uniffle.shuffle.manager.RssShuffleManagerBase;
 
-import static org.apache.spark.shuffle.RssSparkConfig.RSS_ROW_BASED_VALIDATION_ENABLED;
+import static org.apache.spark.shuffle.RssSparkConfig.RSS_DATA_INTEGRATION_VALIDATION_ENABLED;
 
 public class RssShuffleManager extends RssShuffleManagerBase {
   private static final Logger LOG = LoggerFactory.getLogger(RssShuffleManager.class);
@@ -477,7 +477,7 @@ public class RssShuffleManager extends RssShuffleManagerBase {
     if (!Spark3VersionUtils.isSparkVersionAtLeast("3.5.0")) {
       return false;
     }
-    return rssConf.get(RSS_ROW_BASED_VALIDATION_ENABLED);
+    return rssConf.get(RSS_DATA_INTEGRATION_VALIDATION_ENABLED);
   }
 
   @SuppressFBWarnings("REC_CATCH_EXCEPTION")

@@ -70,11 +70,11 @@ import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.rpc.StatusCode;
 import org.apache.uniffle.storage.handler.impl.ShuffleServerReadCostTracker;
 
+import static org.apache.spark.shuffle.RssSparkConfig.RSS_DATA_INTEGRATION_VALIDATION_ENABLED;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_READ_OVERLAPPING_DECOMPRESSION_ENABLED;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_READ_OVERLAPPING_DECOMPRESSION_THREADS;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_READ_REORDER_MULTI_SERVERS_ENABLED;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_RESUBMIT_STAGE_WITH_FETCH_FAILURE_ENABLED;
-import static org.apache.spark.shuffle.RssSparkConfig.RSS_ROW_BASED_VALIDATION_ENABLED;
 
 public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
   private static final Logger LOG = LoggerFactory.getLogger(RssShuffleReader.class);
@@ -109,7 +109,6 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
 
   private ShuffleReadTimes shuffleReadTimes = new ShuffleReadTimes();
 
-  private boolean shuffleValidationEnabled = false;
   private long expectedRecordsRead = 0L;
   private long actualRecordsRead = 0L;
 
@@ -150,7 +149,6 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
         allPartitionToServers);
     this.expectedRecordsRead = expectedRecordsRead;
     this.actualRecordsRead = 0L;
-    this.shuffleValidationEnabled = rssConf.get(RSS_ROW_BASED_VALIDATION_ENABLED);
   }
 
   public RssShuffleReader(
@@ -438,7 +436,7 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
   }
 
   private void validate() {
-    if (shuffleValidationEnabled
+    if (rssConf.get(RSS_DATA_INTEGRATION_VALIDATION_ENABLED)
         && expectedRecordsRead > 0
         && (expectedRecordsRead != actualRecordsRead)) {
       throw new RssException(
