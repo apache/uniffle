@@ -22,8 +22,8 @@ import java.nio.ByteBuffer;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 /**
- * ShuffleWriteTaskStats stores statistics for a shuffle write task attempt, including the task attempt ID and
- * the number of records written for each partition.
+ * ShuffleWriteTaskStats stores statistics for a shuffle write task attempt, including the task
+ * attempt ID and the number of records written for each partition.
  */
 public class ShuffleWriteTaskStats {
   private long taskAttemptId;
