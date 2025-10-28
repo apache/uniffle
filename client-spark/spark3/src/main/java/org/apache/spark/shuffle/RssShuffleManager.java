@@ -474,7 +474,7 @@ public class RssShuffleManager extends RssShuffleManagerBase {
 
   public static boolean isRowBasedValidationEnabled(RssConf rssConf) {
     assert rssConf != null;
-    if (!Spark3VersionUtils.isSparkVersionAtLeast("3.2.0")) {
+    if (!Spark3VersionUtils.isSparkVersionAtLeast("3.5.0")) {
       return false;
     }
     return rssConf.get(RSS_ROW_BASED_VALIDATION_ENABLED);
