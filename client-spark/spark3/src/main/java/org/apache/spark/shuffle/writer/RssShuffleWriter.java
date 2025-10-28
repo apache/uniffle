@@ -95,7 +95,6 @@ import org.apache.uniffle.storage.util.StorageType;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_CLIENT_MAP_SIDE_COMBINE_ENABLED;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_PARTITION_REASSIGN_BLOCK_RETRY_MAX_TIMES;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_RESUBMIT_STAGE_WITH_WRITE_FAILURE_ENABLED;
-import static org.apache.spark.shuffle.RssSparkConfig.RSS_ROW_BASED_VALIDATION_ENABLED;
 
 public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
 
@@ -246,7 +245,7 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
     this.recordReportFailedShuffleservers = Sets.newConcurrentHashSet();
 
     this.shuffleValidationEnabled =
-        RssSparkConfig.toRssConf(sparkConf).get(RSS_ROW_BASED_VALIDATION_ENABLED);
+        RssShuffleManager.isRowBasedValidationEnabled(RssSparkConfig.toRssConf(sparkConf));
     if (shuffleValidationEnabled) {
       this.shuffleValidationInfo = new ShuffleValidationInfo(partitioner.numPartitions());
     }

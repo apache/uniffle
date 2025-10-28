@@ -472,6 +472,14 @@ public class RssShuffleManager extends RssShuffleManagerBase {
     return serverToPartitions;
   }
 
+  public static boolean isRowBasedValidationEnabled(RssConf rssConf) {
+    assert rssConf != null;
+    if (!Spark3VersionUtils.isSparkVersionAtLeast("3.2.0")) {
+      return false;
+    }
+    return rssConf.get(RSS_ROW_BASED_VALIDATION_ENABLED);
+  }
+
   @SuppressFBWarnings("REC_CATCH_EXCEPTION")
   private Pair<Roaring64NavigableMap, Long> getExpectedTasksByExecutorId(
       int shuffleId, int startPartition, int endPartition, int startMapIndex, int endMapIndex) {
@@ -550,7 +558,7 @@ public class RssShuffleManager extends RssShuffleManagerBase {
       }
 
       String raw = tuple2._1().topologyInfo().get();
-      if (rssConf.get(RSS_ROW_BASED_VALIDATION_ENABLED)) {
+      if (isRowBasedValidationEnabled(rssConf)) {
         ShuffleInfo shuffleInfo = ShuffleInfo.decode(raw.getBytes(StandardCharsets.ISO_8859_1));
         taskIdBitmap.add(shuffleInfo.getTaskAttemptId());
 
