@@ -87,6 +87,9 @@ public class RssShuffleManager extends RssShuffleManagerBase {
   public RssShuffleManager(SparkConf conf, boolean isDriver) {
     super(conf, isDriver);
     this.dataDistributionType = getDataDistributionType(sparkConf);
+    if (isRowBasedValidationEnabled(rssConf)) {
+      LOG.info("shuffle row-based validation has been enabled.");
+    }
   }
 
   // For testing only
