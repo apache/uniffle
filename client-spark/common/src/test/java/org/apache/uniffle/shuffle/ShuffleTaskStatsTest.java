@@ -17,25 +17,24 @@
 
 package org.apache.uniffle.shuffle;
 
-import java.nio.ByteBuffer;
-
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class ShuffleValidateInfoTest {
+public class ShuffleTaskStatsTest {
 
   @Test
-  public void testEncodeDecode() {
-    ShuffleValidationInfo info = new ShuffleValidationInfo(2);
-    info.incPartitionRecord(0);
-    info.incPartitionRecord(1);
+  public void testValidValidationInfo() {
+    long taskAttemptId = 12345L;
+    ShuffleTaskStats stats = new ShuffleTaskStats(2, taskAttemptId);
+    stats.incPartitionRecord(0);
+    stats.incPartitionRecord(1);
 
-    ByteBuffer encoded = info.encode();
-    encoded.flip();
-    ShuffleValidationInfo decoded = ShuffleValidationInfo.decode(encoded);
+    String encoded = stats.encode();
+    ShuffleTaskStats decoded = ShuffleTaskStats.decode(encoded);
 
-    assertEquals(1L, decoded.getRecordsWritten(0));
-    assertEquals(1L, decoded.getRecordsWritten(1));
+    assertEquals(taskAttemptId, decoded.getTaskAttemptId());
+    assertEquals(1, decoded.getRecordsWritten(0));
+    assertEquals(1, decoded.getRecordsWritten(1));
   }
 }

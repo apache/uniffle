@@ -17,12 +17,10 @@
 
 package org.apache.spark.shuffle;
 
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
@@ -75,8 +73,7 @@ import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.exception.RssFetchFailedException;
 import org.apache.uniffle.common.util.RssUtils;
 import org.apache.uniffle.shuffle.RssShuffleClientFactory;
-import org.apache.uniffle.shuffle.ShuffleInfo;
-import org.apache.uniffle.shuffle.ShuffleValidationInfo;
+import org.apache.uniffle.shuffle.ShuffleTaskStats;
 import org.apache.uniffle.shuffle.manager.RssShuffleManagerBase;
 
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_ROW_BASED_VALIDATION_ENABLED;
@@ -562,16 +559,10 @@ public class RssShuffleManager extends RssShuffleManagerBase {
 
       String raw = tuple2._1().topologyInfo().get();
       if (isRowBasedValidationEnabled(rssConf)) {
-        ShuffleInfo shuffleInfo = ShuffleInfo.decode(raw.getBytes(StandardCharsets.ISO_8859_1));
-        taskIdBitmap.add(shuffleInfo.getTaskAttemptId());
-
-        // Retrieve the validation info propagated from the shuffle writer
-        Optional<ShuffleValidationInfo> validationInfo = shuffleInfo.getValidationInfo();
-        if (validationInfo.isPresent()) {
-          ShuffleValidationInfo info = validationInfo.get();
-          for (int i = startPartition; i < endPartition; i++) {
-            expectedRecords += info.getRecordsWritten(i);
-          }
+        ShuffleTaskStats shuffleTaskStats = ShuffleTaskStats.decode(raw);
+        taskIdBitmap.add(shuffleTaskStats.getTaskAttemptId());
+        for (int i = startPartition; i < endPartition; i++) {
+          expectedRecords += shuffleTaskStats.getRecordsWritten(i);
         }
       } else {
         taskIdBitmap.add(Long.parseLong(raw));

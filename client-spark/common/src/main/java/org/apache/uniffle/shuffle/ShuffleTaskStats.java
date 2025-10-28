@@ -19,18 +19,15 @@ package org.apache.uniffle.shuffle;
 
 import java.nio.ByteBuffer;
 
-import com.google.common.annotations.VisibleForTesting;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
-/**
- * This class records partition writing statistics and leverages them to verify the integrity of
- * read data. This will use the number of records and row-based checksum for per-partition to
- * validate.
- */
-public class ShuffleValidationInfo {
+public class ShuffleTaskStats {
+  private long taskAttemptId;
   private long[] partitionRecordsWritten;
 
-  public ShuffleValidationInfo(int partitions) {
-    partitionRecordsWritten = new long[partitions];
+  public ShuffleTaskStats(int partitions, long taskAttemptId) {
+    this.partitionRecordsWritten = new long[partitions];
+    this.taskAttemptId = taskAttemptId;
   }
 
   public long getRecordsWritten(int partitionId) {
@@ -41,29 +38,30 @@ public class ShuffleValidationInfo {
     partitionRecordsWritten[partitionId]++;
   }
 
-  @VisibleForTesting
-  public ByteBuffer encode() {
-    byte[] bytes = new byte[Long.BYTES * partitionRecordsWritten.length];
-    ByteBuffer buffer = ByteBuffer.wrap(bytes);
-    for (long v : partitionRecordsWritten) {
-      buffer.putLong(v);
-    }
-    return buffer;
+  public long getTaskAttemptId() {
+    return taskAttemptId;
   }
 
-  public static ShuffleValidationInfo decode(ByteBuffer raw) {
-    if (raw == null || raw.remaining() < Long.BYTES) {
-      return null;
+  public String encode() {
+    int partitions = partitionRecordsWritten.length;
+    ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES + Integer.BYTES + partitions * Long.BYTES);
+    buffer.putLong(taskAttemptId);
+    buffer.putInt(partitions);
+    for (long records : partitionRecordsWritten) {
+      buffer.putLong(records);
     }
+    return new String(buffer.array(), ISO_8859_1);
+  }
 
-    ByteBuffer buffer = raw.duplicate();
-    int partitions = buffer.remaining() / Long.BYTES;
-    ShuffleValidationInfo info = new ShuffleValidationInfo(partitions);
-
+  public static ShuffleTaskStats decode(String raw) {
+    byte[] bytes = raw.getBytes(ISO_8859_1);
+    ByteBuffer buffer = ByteBuffer.wrap(bytes);
+    long taskAttemptId = buffer.getLong();
+    int partitions = buffer.getInt();
+    ShuffleTaskStats stats = new ShuffleTaskStats(partitions, taskAttemptId);
     for (int i = 0; i < partitions; i++) {
-      info.partitionRecordsWritten[i] = buffer.getLong();
+      stats.partitionRecordsWritten[i] = buffer.getLong();
     }
-
-    return info;
+    return stats;
   }
 }
