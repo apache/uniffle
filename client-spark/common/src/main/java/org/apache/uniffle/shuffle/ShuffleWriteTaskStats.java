@@ -22,14 +22,14 @@ import java.nio.ByteBuffer;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 /**
- * ShuffleTaskStats stores statistics for a shuffle task attempt, including the task attempt ID and
+ * ShuffleWriteTaskStats stores statistics for a shuffle write task attempt, including the task attempt ID and
  * the number of records written for each partition.
  */
-public class ShuffleTaskStats {
+public class ShuffleWriteTaskStats {
   private long taskAttemptId;
   private long[] partitionRecordsWritten;
 
-  public ShuffleTaskStats(int partitions, long taskAttemptId) {
+  public ShuffleWriteTaskStats(int partitions, long taskAttemptId) {
     this.partitionRecordsWritten = new long[partitions];
     this.taskAttemptId = taskAttemptId;
   }
@@ -57,12 +57,12 @@ public class ShuffleTaskStats {
     return new String(buffer.array(), ISO_8859_1);
   }
 
-  public static ShuffleTaskStats decode(String raw) {
+  public static ShuffleWriteTaskStats decode(String raw) {
     byte[] bytes = raw.getBytes(ISO_8859_1);
     ByteBuffer buffer = ByteBuffer.wrap(bytes);
     long taskAttemptId = buffer.getLong();
     int partitions = buffer.getInt();
-    ShuffleTaskStats stats = new ShuffleTaskStats(partitions, taskAttemptId);
+    ShuffleWriteTaskStats stats = new ShuffleWriteTaskStats(partitions, taskAttemptId);
     for (int i = 0; i < partitions; i++) {
       stats.partitionRecordsWritten[i] = buffer.getLong();
     }

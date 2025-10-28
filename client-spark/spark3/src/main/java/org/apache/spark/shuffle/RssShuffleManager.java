@@ -73,7 +73,7 @@ import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.exception.RssFetchFailedException;
 import org.apache.uniffle.common.util.RssUtils;
 import org.apache.uniffle.shuffle.RssShuffleClientFactory;
-import org.apache.uniffle.shuffle.ShuffleTaskStats;
+import org.apache.uniffle.shuffle.ShuffleWriteTaskStats;
 import org.apache.uniffle.shuffle.manager.RssShuffleManagerBase;
 
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_DATA_INTEGRATION_VALIDATION_ENABLED;
@@ -559,10 +559,10 @@ public class RssShuffleManager extends RssShuffleManagerBase {
 
       String raw = tuple2._1().topologyInfo().get();
       if (isRowBasedValidationEnabled(rssConf)) {
-        ShuffleTaskStats shuffleTaskStats = ShuffleTaskStats.decode(raw);
-        taskIdBitmap.add(shuffleTaskStats.getTaskAttemptId());
+        ShuffleWriteTaskStats shuffleWriteTaskStats = ShuffleWriteTaskStats.decode(raw);
+        taskIdBitmap.add(shuffleWriteTaskStats.getTaskAttemptId());
         for (int i = startPartition; i < endPartition; i++) {
-          expectedRecords += shuffleTaskStats.getRecordsWritten(i);
+          expectedRecords += shuffleWriteTaskStats.getRecordsWritten(i);
         }
       } else {
         taskIdBitmap.add(Long.parseLong(raw));

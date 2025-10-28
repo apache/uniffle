@@ -87,7 +87,7 @@ import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.exception.RssSendFailedException;
 import org.apache.uniffle.common.exception.RssWaitFailedException;
 import org.apache.uniffle.common.rpc.StatusCode;
-import org.apache.uniffle.shuffle.ShuffleTaskStats;
+import org.apache.uniffle.shuffle.ShuffleWriteTaskStats;
 import org.apache.uniffle.storage.util.StorageType;
 
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_CLIENT_MAP_SIDE_COMBINE_ENABLED;
@@ -151,7 +151,7 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
   private boolean isShuffleWriteFailed = false;
   private Optional<String> shuffleWriteFailureReason = Optional.empty();
 
-  private Optional<ShuffleTaskStats> shuffleTaskStats = Optional.empty();
+  private Optional<ShuffleWriteTaskStats> shuffleTaskStats = Optional.empty();
 
   // Only for tests
   @VisibleForTesting
@@ -243,7 +243,7 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
 
     if (RssShuffleManager.isRowBasedValidationEnabled(RssSparkConfig.toRssConf(sparkConf))) {
       this.shuffleTaskStats =
-          Optional.of(new ShuffleTaskStats(partitioner.numPartitions(), taskAttemptId));
+          Optional.of(new ShuffleWriteTaskStats(partitioner.numPartitions(), taskAttemptId));
     }
   }
 

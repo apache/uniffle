@@ -21,17 +21,17 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class ShuffleTaskStatsTest {
+public class ShuffleWriteTaskStatsTest {
 
   @Test
   public void testValidValidationInfo() {
     long taskAttemptId = 12345L;
-    ShuffleTaskStats stats = new ShuffleTaskStats(2, taskAttemptId);
+    ShuffleWriteTaskStats stats = new ShuffleWriteTaskStats(2, taskAttemptId);
     stats.incPartitionRecord(0);
     stats.incPartitionRecord(1);
 
     String encoded = stats.encode();
-    ShuffleTaskStats decoded = ShuffleTaskStats.decode(encoded);
+    ShuffleWriteTaskStats decoded = ShuffleWriteTaskStats.decode(encoded);
 
     assertEquals(taskAttemptId, decoded.getTaskAttemptId());
     assertEquals(1, decoded.getRecordsWritten(0));
