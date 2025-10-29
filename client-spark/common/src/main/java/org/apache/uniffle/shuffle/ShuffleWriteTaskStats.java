@@ -112,13 +112,12 @@ public class ShuffleWriteTaskStats {
       long records = partitionRecordsWritten[i];
       long blocks = partitionBlocksWritten[i];
       infoBuilder
-          .append("[")
           .append(i)
           .append("/")
           .append(records)
           .append("/")
           .append(blocks)
-          .append("],");
+          .append(",");
     }
     LOGGER.info(
         "Partition records/blocks written for taskId[{}]: {}", taskId, infoBuilder.toString());

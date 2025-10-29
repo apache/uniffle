@@ -87,7 +87,7 @@ public class ShuffleReadTaskStats {
           infoBuilder.append(blocksRead);
           infoBuilder.append("-");
           infoBuilder.append(blocksUpstream);
-          infoBuilder.append(", ");
+          infoBuilder.append(",");
         }
       }
     }
