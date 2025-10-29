@@ -121,6 +121,6 @@ public class ShuffleWriteTaskStats {
           .append("],");
     }
     LOGGER.info(
-        "Partition records/blocks written for taskId[{}]: ", taskId, infoBuilder.toString());
+        "Partition records/blocks written for taskId[{}]: {}", taskId, infoBuilder.toString());
   }
 }
