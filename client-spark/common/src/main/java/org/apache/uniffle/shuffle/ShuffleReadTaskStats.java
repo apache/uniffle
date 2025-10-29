@@ -17,16 +17,20 @@
 
 package org.apache.uniffle.shuffle;
 
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
+import java.util.Optional;
 
-import org.apache.commons.lang3.tuple.Pair;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ShuffleReadTaskStats {
+  private static final Logger LOGGER = LoggerFactory.getLogger(ShuffleReadTaskStats.class);
+
   // partition_id -> upstream_map_id -> records_read
   private Map<Integer, Map<Long, Long>> partitionRecordsReadPerMap = new HashMap<>();
+  // partition_id -> upstream_map_id -> blocks_read
+  private Map<Integer, Map<Long, Long>> partitionBlocksReadPerMap = new HashMap<>();
 
   public void incPartitionRecord(int partitionId, long taskAttemptId) {
     Map<Long, Long> records =
@@ -34,11 +38,62 @@ public class ShuffleReadTaskStats {
     records.compute(taskAttemptId, (k, v) -> v == null ? 1 : v + 1);
   }
 
-  public Iterator<Pair<Long, Long>> get(int partitionId) {
-    Map<Long, Long> records = partitionRecordsReadPerMap.get(partitionId);
-    if (records == null) {
-      return Collections.emptyIterator();
+  public void incPartitionBlock(int partitionId, long taskAttemptId) {
+    Map<Long, Long> records =
+        partitionBlocksReadPerMap.computeIfAbsent(partitionId, k -> new HashMap<>());
+    records.compute(taskAttemptId, (k, v) -> v == null ? 1 : v + 1);
+  }
+
+  public Map<Long, Long> getPartitionRecords(int partitionId) {
+    return partitionRecordsReadPerMap.get(partitionId);
+  }
+
+  public Map<Long, Long> getPartitionBlocks(int partitionId) {
+    return partitionBlocksReadPerMap.get(partitionId);
+  }
+
+  public boolean diff(
+      Map<Long, ShuffleWriteTaskStats> writeStats, int startPartition, int endPartition) {
+    boolean isSame = true;
+    StringBuilder infoBuilder = new StringBuilder();
+    infoBuilder.append(
+        "Errors on integrity validating. Details(partitionId/upstreamTaskId/recordsRead-recordsUpstream/blocksRead-blocksUpstream): ");
+    for (int idx = startPartition; idx < endPartition; idx++) {
+      for (Map.Entry<Long, Long> recordEntry : partitionRecordsReadPerMap.get(idx).entrySet()) {
+        long taskAttemptId = recordEntry.getKey();
+        long recordsRead = recordEntry.getValue();
+        long blocksRead =
+            Optional.ofNullable(partitionBlocksReadPerMap.get(idx))
+                .map(m -> m.getOrDefault(taskAttemptId, 0L))
+                .orElse(0L);
+
+        ShuffleWriteTaskStats stats = writeStats.get(taskAttemptId);
+        if (stats == null) {
+          // ignore but this should not happen
+          continue;
+        }
+        long recordsUpstream = stats.getRecordsWritten(idx);
+        long blocksUpstream = stats.getBlocksWritten(idx);
+        if (recordsRead != recordsUpstream || blocksRead != blocksUpstream) {
+          isSame = false;
+          infoBuilder.append(idx);
+          infoBuilder.append("/");
+          infoBuilder.append(taskAttemptId);
+          infoBuilder.append("/");
+          infoBuilder.append(recordsRead);
+          infoBuilder.append("-");
+          infoBuilder.append(recordsUpstream);
+          infoBuilder.append("/");
+          infoBuilder.append(blocksRead);
+          infoBuilder.append("-");
+          infoBuilder.append(blocksUpstream);
+          infoBuilder.append(", ");
+        }
+      }
     }
-    return records.entrySet().stream().map(x -> Pair.of(x.getKey(), x.getValue())).iterator();
+    if (!isSame) {
+      LOGGER.warn(infoBuilder.toString());
+    }
+    return isSame;
   }
 }

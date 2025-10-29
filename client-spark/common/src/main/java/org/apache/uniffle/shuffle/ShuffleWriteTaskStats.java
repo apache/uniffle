@@ -18,6 +18,7 @@
 package org.apache.uniffle.shuffle;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
@@ -28,10 +29,15 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 public class ShuffleWriteTaskStats {
   private long taskAttemptId;
   private long[] partitionRecordsWritten;
+  private long[] partitionBlocksWritten;
 
   public ShuffleWriteTaskStats(int partitions, long taskAttemptId) {
     this.partitionRecordsWritten = new long[partitions];
+    this.partitionBlocksWritten = new long[partitions];
     this.taskAttemptId = taskAttemptId;
+
+    Arrays.fill(this.partitionRecordsWritten, 0L);
+    Arrays.fill(this.partitionBlocksWritten, 0L);
   }
 
   public long getRecordsWritten(int partitionId) {
@@ -42,17 +48,29 @@ public class ShuffleWriteTaskStats {
     partitionRecordsWritten[partitionId]++;
   }
 
+  public void incPartitionBlock(int partitionId) {
+    partitionBlocksWritten[partitionId]++;
+  }
+
+  public long getBlocksWritten(int partitionId) {
+    return partitionBlocksWritten[partitionId];
+  }
+
   public long getTaskAttemptId() {
     return taskAttemptId;
   }
 
   public String encode() {
     int partitions = partitionRecordsWritten.length;
-    ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES + Integer.BYTES + partitions * Long.BYTES);
+    ByteBuffer buffer =
+        ByteBuffer.allocate(Long.BYTES + Integer.BYTES + partitions * Long.BYTES * 2);
     buffer.putLong(taskAttemptId);
     buffer.putInt(partitions);
     for (long records : partitionRecordsWritten) {
       buffer.putLong(records);
+    }
+    for (long blocks : partitionBlocksWritten) {
+      buffer.putLong(blocks);
     }
     return new String(buffer.array(), ISO_8859_1);
   }
@@ -65,6 +83,9 @@ public class ShuffleWriteTaskStats {
     ShuffleWriteTaskStats stats = new ShuffleWriteTaskStats(partitions, taskAttemptId);
     for (int i = 0; i < partitions; i++) {
       stats.partitionRecordsWritten[i] = buffer.getLong();
+    }
+    for (int i = 0; i < partitions; i++) {
+      stats.partitionBlocksWritten[i] = buffer.getLong();
     }
     return stats;
   }

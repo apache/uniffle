@@ -153,6 +153,8 @@ public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C
 
       if (rawData != null) {
         this.currentBlockTaskAttemptId = shuffleBlock.getTaskAttemptId();
+        shuffleReadTaskStats.ifPresent(
+            stats -> stats.incPartitionBlock(partitionId, shuffleBlock.getTaskAttemptId()));
         // collect metrics from raw data
         long rawDataLength = rawData.limit() - rawData.position();
         totalRawBytesLength += rawDataLength;
@@ -258,9 +260,8 @@ public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C
   @Override
   public Product2<K, C> next() {
     shuffleReadMetrics.incRecordsRead(1L);
-    if (shuffleReadTaskStats.isPresent()) {
-      shuffleReadTaskStats.get().incPartitionRecord(partitionId, currentBlockTaskAttemptId);
-    }
+    shuffleReadTaskStats.ifPresent(
+        x -> x.incPartitionRecord(partitionId, currentBlockTaskAttemptId));
     return (Product2<K, C>) recordsIterator.next();
   }
 

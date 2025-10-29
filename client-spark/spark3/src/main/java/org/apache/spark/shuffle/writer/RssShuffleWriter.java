@@ -477,8 +477,12 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
             long blockId = sbi.getBlockId();
             // add blockId to set, check if it is sent later
             blockIds.add(blockId);
-            // update [partition, blockIds], it will be sent to shuffle server
             int partitionId = sbi.getPartitionId();
+            // record blocks number for per-partition
+            if (shuffleTaskStats.isPresent()) {
+              shuffleTaskStats.get().incPartitionRecord(partitionId);
+            }
+            // update [partition, blockIds], it will be sent to shuffle server
             sbi.getShuffleServerInfos()
                 .forEach(
                     shuffleServerInfo -> {

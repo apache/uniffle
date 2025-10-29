@@ -20,8 +20,9 @@ package org.apache.uniffle.shuffle;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -35,19 +36,46 @@ public class ShuffleReadTaskStatsTest {
     readTaskStats.incPartitionRecord(0, 3);
     readTaskStats.incPartitionRecord(0, 3);
 
-    java.util.Iterator<Pair<Long, Long>> iter = readTaskStats.get(0);
-    Map<Long, Long> records = getRecords(iter);
+    Map<Long, Long> records = readTaskStats.getPartitionRecords(0);
     assertEquals(1, records.get(1L));
     assertEquals(1, records.get(2L));
     assertEquals(2, records.get(3L));
+
+    readTaskStats.incPartitionBlock(0, 1);
+    readTaskStats.incPartitionBlock(0, 2);
+    Map<Long, Long> blocks = readTaskStats.getPartitionBlocks(0);
+    assertEquals(2, blocks.size());
   }
 
-  private Map<Long, Long> getRecords(java.util.Iterator<Pair<Long, Long>> iter) {
-    Map<Long, Long> records = new HashMap<>();
-    while (iter.hasNext()) {
-      Pair<Long, Long> pair = iter.next();
-      records.compute(pair.getLeft(), (k, v) -> v == null ? pair.getRight() : v + 1);
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void testDiffWithInconsistentStats(boolean inconsistent) {
+    ShuffleReadTaskStats readTaskStats = new ShuffleReadTaskStats();
+    int partitionId = 0;
+    long taskAttemptId = 1001L;
+    int expectedRecords = 10;
+    int expectedBlocks = 2;
+
+    int readRecords = inconsistent ? expectedRecords + 1 : expectedRecords;
+    // 10 records from 1 upstream tasks
+    for (int i = 0; i < readRecords; i++) {
+      readTaskStats.incPartitionRecord(partitionId, taskAttemptId);
     }
-    return records;
+    // 2 blocks from 1 upstream tasks
+    for (int i = 0; i < expectedBlocks; i++) {
+      readTaskStats.incPartitionBlock(partitionId, taskAttemptId);
+    }
+
+    ShuffleWriteTaskStats writeStat = new ShuffleWriteTaskStats(1, taskAttemptId);
+    for (int i = 0; i < expectedRecords; i++) {
+      writeStat.incPartitionRecord(partitionId);
+    }
+    for (int i = 0; i < expectedBlocks; i++) {
+      writeStat.incPartitionBlock(partitionId);
+    }
+    Map<Long, ShuffleWriteTaskStats> writeStats = new HashMap<>();
+    writeStats.put(taskAttemptId, writeStat);
+    boolean result = readTaskStats.diff(writeStats, 0, 1);
+    assertEquals(!inconsistent, result);
   }
 }

@@ -30,11 +30,17 @@ public class ShuffleWriteTaskStatsTest {
     stats.incPartitionRecord(0);
     stats.incPartitionRecord(1);
 
+    stats.incPartitionBlock(0);
+    stats.incPartitionBlock(1);
+
     String encoded = stats.encode();
     ShuffleWriteTaskStats decoded = ShuffleWriteTaskStats.decode(encoded);
 
     assertEquals(taskAttemptId, decoded.getTaskAttemptId());
     assertEquals(1, decoded.getRecordsWritten(0));
     assertEquals(1, decoded.getRecordsWritten(1));
+
+    assertEquals(1, decoded.getBlocksWritten(0));
+    assertEquals(1, decoded.getBlocksWritten(1));
   }
 }

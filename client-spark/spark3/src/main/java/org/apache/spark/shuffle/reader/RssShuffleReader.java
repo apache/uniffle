@@ -36,7 +36,6 @@ import scala.runtime.BoxedUnit;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.spark.Aggregator;
 import org.apache.spark.InterruptibleIterator;
@@ -458,31 +457,7 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
         Map<Long, ShuffleWriteTaskStats> upstreamWriteTaskStats =
             RssShuffleManager.getUpstreamWriteTaskStats(
                 rssConf, shuffleId, startPartition, endPartition, mapStartIndex, mapEndIndex);
-        StringBuilder infoBuilder = new StringBuilder();
-        infoBuilder.append(
-            "Detected record count mismatch between shuffle read and upstream write. Details: partition_id / upstream_task_attempt_id / expected_records / actual_records:");
-        for (int i = startPartition; i < endPartition; i++) {
-          java.util.Iterator<Pair<Long, Long>> actualReadIter = readTaskStats.get(i);
-          while (actualReadIter.hasNext()) {
-            Pair<Long, Long> recordsFromUpstreamMap = actualReadIter.next();
-            long taskAttemptId = recordsFromUpstreamMap.getLeft();
-            long recordsRead = recordsFromUpstreamMap.getRight();
-            ShuffleWriteTaskStats writeTaskStats = upstreamWriteTaskStats.get(taskAttemptId);
-            long recordsWritten = writeTaskStats.getRecordsWritten(i);
-            if (recordsRead != recordsWritten) {
-              infoBuilder.append(" [");
-              infoBuilder.append(i);
-              infoBuilder.append("/");
-              infoBuilder.append(taskAttemptId);
-              infoBuilder.append("/");
-              infoBuilder.append(recordsWritten);
-              infoBuilder.append("/");
-              infoBuilder.append(recordsRead);
-              infoBuilder.append("].");
-            }
-          }
-        }
-        LOG.info(infoBuilder.toString());
+        readTaskStats.diff(upstreamWriteTaskStats, startPartition, endPartition);
       }
       throw new RssException(
           "Unexpected read records. expected: "
