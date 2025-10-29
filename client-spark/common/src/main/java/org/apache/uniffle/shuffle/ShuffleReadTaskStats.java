@@ -54,10 +54,7 @@ public class ShuffleReadTaskStats {
 
   public boolean diff(
       Map<Long, ShuffleWriteTaskStats> writeStats, int startPartition, int endPartition) {
-    boolean isSame = true;
     StringBuilder infoBuilder = new StringBuilder();
-    infoBuilder.append(
-        "Errors on integrity validating. Details(partitionId/upstreamTaskId/recordsRead-recordsUpstream/blocksRead-blocksUpstream): ");
     for (int idx = startPartition; idx < endPartition; idx++) {
       for (Map.Entry<Long, Long> recordEntry : partitionRecordsReadPerMap.get(idx).entrySet()) {
         long taskAttemptId = recordEntry.getKey();
@@ -75,7 +72,6 @@ public class ShuffleReadTaskStats {
         long recordsUpstream = stats.getRecordsWritten(idx);
         long blocksUpstream = stats.getBlocksWritten(idx);
         if (recordsRead != recordsUpstream || blocksRead != blocksUpstream) {
-          isSame = false;
           infoBuilder.append(idx);
           infoBuilder.append("/");
           infoBuilder.append(stats.getTaskId());
@@ -91,9 +87,13 @@ public class ShuffleReadTaskStats {
         }
       }
     }
-    if (!isSame) {
+    if (infoBuilder.length() > 0) {
+      infoBuilder.insert(
+          0,
+          "Errors on integrity validating. Details(partitionId/upstreamTaskId/recordsRead-recordsUpstream/blocksRead-blocksUpstream): ");
       LOGGER.warn(infoBuilder.toString());
+      return false;
     }
-    return isSame;
+    return true;
   }
 }
