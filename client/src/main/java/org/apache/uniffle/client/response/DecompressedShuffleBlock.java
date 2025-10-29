@@ -23,11 +23,13 @@ import java.util.function.Consumer;
 
 import org.apache.uniffle.common.exception.RssException;
 
-public class DecompressedShuffleBlock implements ShuffleBlock {
+public class DecompressedShuffleBlock extends ShuffleBlock {
   private CompletableFuture<ByteBuffer> f;
   private Consumer<Long> waitMillisCallback;
 
-  public DecompressedShuffleBlock(CompletableFuture<ByteBuffer> f, Consumer<Long> consumer) {
+  public DecompressedShuffleBlock(
+      CompletableFuture<ByteBuffer> f, Consumer<Long> consumer, long taskAttemptId) {
+    super(taskAttemptId);
     this.f = f;
     this.waitMillisCallback = consumer;
   }

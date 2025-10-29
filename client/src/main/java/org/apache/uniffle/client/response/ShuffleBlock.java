@@ -19,9 +19,18 @@ package org.apache.uniffle.client.response;
 
 import java.nio.ByteBuffer;
 
-public interface ShuffleBlock {
+public abstract class ShuffleBlock {
+  private long taskAttemptId;
 
-  int getUncompressLength();
+  public ShuffleBlock(long taskAttemptId) {
+    this.taskAttemptId = taskAttemptId;
+  }
 
-  ByteBuffer getByteBuffer();
+  public abstract int getUncompressLength();
+
+  public abstract ByteBuffer getByteBuffer();
+
+  public long getTaskAttemptId() {
+    return taskAttemptId;
+  }
 }

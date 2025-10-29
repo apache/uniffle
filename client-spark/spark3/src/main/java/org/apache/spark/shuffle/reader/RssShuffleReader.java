@@ -36,6 +36,7 @@ import scala.runtime.BoxedUnit;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.spark.Aggregator;
 import org.apache.spark.InterruptibleIterator;
@@ -69,6 +70,8 @@ import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.rpc.StatusCode;
+import org.apache.uniffle.shuffle.ShuffleReadTaskStats;
+import org.apache.uniffle.shuffle.ShuffleWriteTaskStats;
 import org.apache.uniffle.storage.handler.impl.ShuffleServerReadCostTracker;
 
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_READ_OVERLAPPING_DECOMPRESSION_ENABLED;
@@ -112,6 +115,8 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
   private long expectedRecordsRead = 0L;
   private long actualRecordsRead = 0L;
 
+  private Optional<ShuffleReadTaskStats> shuffleReadTaskStats = Optional.empty();
+
   public RssShuffleReader(
       int startPartition,
       int endPartition,
@@ -148,6 +153,9 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
         dataDistributionType,
         allPartitionToServers);
     this.expectedRecordsRead = expectedRecordsRead;
+    if (RssShuffleManager.isIntegrationValidationFailureAnalysisEnabled(rssConf)) {
+      this.shuffleReadTaskStats = Optional.of(new ShuffleReadTaskStats());
+    }
   }
 
   public RssShuffleReader(
@@ -376,7 +384,13 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
             ShuffleClientFactory.getInstance().createShuffleReadClient(builder);
         RssShuffleDataIterator<K, C> iterator =
             new RssShuffleDataIterator<>(
-                shuffleDependency.serializer(), shuffleReadClient, readMetrics, rssConf, codec);
+                shuffleDependency.serializer(),
+                shuffleReadClient,
+                readMetrics,
+                rssConf,
+                codec,
+                shuffleReadTaskStats,
+                partition);
         CompletionIterator<Product2<K, C>, RssShuffleDataIterator<K, C>> completionIterator =
             CompletionIterator$.MODULE$.apply(
                 iterator,
@@ -438,6 +452,38 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
     if (RssShuffleManager.isIntegrityValidationEnabled(rssConf)
         && expectedRecordsRead > 0
         && (expectedRecordsRead != actualRecordsRead)) {
+      // dig to analyze the missing records from the upstream map id
+      if (shuffleReadTaskStats.isPresent()) {
+        ShuffleReadTaskStats readTaskStats = shuffleReadTaskStats.get();
+        Map<Long, ShuffleWriteTaskStats> upstreamWriteTaskStats =
+            RssShuffleManager.getUpstreamWriteTaskStats(
+                rssConf, shuffleId, startPartition, endPartition, mapStartIndex, mapEndIndex);
+        StringBuilder infoBuilder = new StringBuilder();
+        infoBuilder.append(
+            "Detected record count mismatch between shuffle read and upstream write. Details: partition_id / upstream_task_attempt_id / expected_records / actual_records:");
+        for (int i = startPartition; i < endPartition; i++) {
+          java.util.Iterator<Pair<Long, Long>> actualReadIter = readTaskStats.get(i);
+          while (actualReadIter.hasNext()) {
+            Pair<Long, Long> recordsFromUpstreamMap = actualReadIter.next();
+            long taskAttemptId = recordsFromUpstreamMap.getLeft();
+            long recordsRead = recordsFromUpstreamMap.getRight();
+            ShuffleWriteTaskStats writeTaskStats = upstreamWriteTaskStats.get(taskAttemptId);
+            long recordsWritten = writeTaskStats.getRecordsWritten(i);
+            if (recordsRead != recordsWritten) {
+              infoBuilder.append(" [");
+              infoBuilder.append(i);
+              infoBuilder.append("/");
+              infoBuilder.append(taskAttemptId);
+              infoBuilder.append("/");
+              infoBuilder.append(recordsWritten);
+              infoBuilder.append("/");
+              infoBuilder.append(recordsRead);
+              infoBuilder.append("].");
+            }
+          }
+        }
+        LOG.info(infoBuilder.toString());
+      }
       throw new RssException(
           "Unexpected read records. expected: "
               + expectedRecordsRead

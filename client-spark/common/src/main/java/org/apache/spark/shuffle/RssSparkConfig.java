@@ -45,6 +45,12 @@ public class RssSparkConfig {
           .defaultValue(false)
           .withDescription("Whether or not to enable shuffle data integrity validation mechanism");
 
+  public static final ConfigOption<Boolean> RSS_DATA_INTEGRATION_VALIDATION_ANALYSIS_ENABLED =
+      ConfigOptions.key("rss.client.validation.failureAnalysisEnabled")
+          .booleanType()
+          .defaultValue(false)
+          .withDescription("Whether or not to enable validation failure analysis");
+
   public static final ConfigOption<Boolean> RSS_READ_SHUFFLE_HANDLE_CACHE_ENABLED =
       ConfigOptions.key("rss.client.read.shuffleHandleCacheEnabled")
           .booleanType()
