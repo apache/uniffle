@@ -376,9 +376,7 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
       if (shuffleBlockInfos != null && !shuffleBlockInfos.isEmpty()) {
         processShuffleBlockInfos(shuffleBlockInfos);
       }
-      if (shuffleTaskStats.isPresent()) {
-        shuffleTaskStats.get().incPartitionRecord(partition);
-      }
+      shuffleTaskStats.ifPresent(x -> x.incPartitionRecord(partition);
     }
     final long start = System.currentTimeMillis();
     shuffleBlockInfos = bufferManager.clear(1.0);
@@ -479,9 +477,7 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
             blockIds.add(blockId);
             int partitionId = sbi.getPartitionId();
             // record blocks number for per-partition
-            if (shuffleTaskStats.isPresent()) {
-              shuffleTaskStats.get().incPartitionRecord(partitionId);
-            }
+            shuffleTaskStats.ifPresent(x -> x.incPartitionRecord(partitionId);
             // update [partition, blockIds], it will be sent to shuffle server
             sbi.getShuffleServerInfos()
                 .forEach(
