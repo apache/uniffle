@@ -52,7 +52,7 @@ public class RssTezShuffleDataFetcher extends CallableWithNdc<Void> {
   private static final String SHUFFLE_ERR_GRP_NAME = "Shuffle Errors";
 
   private final TezCounter ioErrs;
-  private final MergeManager merger;
+  private final RssMergeManager merger;
   private final long totalBlockCount;
 
   private long copyBlockCount = 0;
@@ -81,7 +81,7 @@ public class RssTezShuffleDataFetcher extends CallableWithNdc<Void> {
   public RssTezShuffleDataFetcher(
       InputAttemptIdentifier inputAttemptIdentifier,
       Integer partitionId,
-      MergeManager merger,
+      RssMergeManager merger,
       TezCounters tezCounters,
       ShuffleReadClient shuffleReadClient,
       long totalBlockCount,
@@ -156,9 +156,8 @@ public class RssTezShuffleDataFetcher extends CallableWithNdc<Void> {
       if (rssCodec.isPresent()) {
         final long startDecompress = System.currentTimeMillis();
         int uncompressedLen = compressedBlock.getUncompressLength();
-        ByteBuffer decompressedBuffer = ByteBuffer.allocate(uncompressedLen);
-        rssCodec.get().decompress(compressedData, uncompressedLen, decompressedBuffer, 0);
-        uncompressedData = decompressedBuffer.array();
+        uncompressedData = new byte[uncompressedLen];
+        rssCodec.get().decompress(compressedData, compressedData.remaining(), ByteBuffer.wrap(uncompressedData), 0);
         unCompressionLength += compressedBlock.getUncompressLength();
         long decompressDuration = System.currentTimeMillis() - startDecompress;
         decompressTime += decompressDuration;
@@ -240,7 +239,7 @@ public class RssTezShuffleDataFetcher extends CallableWithNdc<Void> {
           uncompressedData.length,
           issuedCnt.get(),
           totalBlockCount);
-      mapOutput = merger.reserve(uniqueInputAttemptIdentifier, uncompressedData.length, 0, 1);
+      mapOutput = merger.reserve(uniqueInputAttemptIdentifier, uncompressedData, true);
     } catch (IOException ioe) {
       // kill this reduce attempt
       ioErrs.increment(1);
@@ -257,9 +256,9 @@ public class RssTezShuffleDataFetcher extends CallableWithNdc<Void> {
     }
 
     // write data to mapOutput
+    // With the new reserve method, the data is already in the MapOutput.
+    // We just need to commit it.
     try {
-      RssTezBypassWriter.write(mapOutput, uncompressedData);
-      // let the merger knows this block is ready for merging
       mapOutput.commit();
     } catch (Throwable t) {
       ioErrs.increment(1);

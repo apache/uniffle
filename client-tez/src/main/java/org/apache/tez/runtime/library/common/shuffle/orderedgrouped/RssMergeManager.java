@@ -329,12 +329,40 @@ public class RssMergeManager extends MergeManager {
     return unconditionalReserve(srcAttemptIdentifier, requestedSize, true);
   }
 
+  public synchronized MapOutput reserve(
+      InputAttemptIdentifier srcAttemptIdentifier, byte[] data, boolean primaryMapOutput)
+      throws IOException {
+    if (usedMemory > memoryLimit) {
+      if (LOG.isDebugEnabled()) {
+        LOG.debug(
+            srcAttemptIdentifier
+                + ": Stalling shuffle since usedMemory ("
+                + usedMemory
+                + ") is greater than memoryLimit ("
+                + memoryLimit
+                + ")."
+                + " CommitMemory is ("
+                + commitMemory
+                + ")");
+      }
+      return stallShuffle;
+    }
+    return unconditionalReserve(srcAttemptIdentifier, data, primaryMapOutput);
+  }
+
   private synchronized MapOutput unconditionalReserve(
       InputAttemptIdentifier srcAttemptIdentifier, long requestedSize, boolean primaryMapOutput)
       throws IOException {
     usedMemory += requestedSize;
     return MapOutput.createMemoryMapOutput(
         srcAttemptIdentifier, this, (int) requestedSize, primaryMapOutput);
+  }
+
+  private synchronized MapOutput unconditionalReserve(
+      InputAttemptIdentifier srcAttemptIdentifier, byte[] data, boolean primaryMapOutput)
+      throws IOException {
+    usedMemory += data.length;
+    return MapOutput.createMemoryMapOutput(srcAttemptIdentifier, this, data, primaryMapOutput);
   }
 
   @Override
