@@ -460,10 +460,11 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
         readTaskStats.diff(upstreamWriteTaskStats, startPartition, endPartition);
       }
       throw new RssException(
-          "Unexpected read records. expected: "
+          "Inconsistent number of records: "
               + expectedRecordsRead
-              + ", actual: "
-              + actualRecordsRead);
+              + " written, "
+              + actualRecordsRead
+              + " read");
     }
   }
 
