@@ -41,37 +41,37 @@ Mock.mock(/\/app\/appInfos/, 'get', function (options) {
         updateTime: '2024-07-31 14:03:06'
       },
       {
-        userName: 'pro_conpany',
+        userName: 'pro_company',
         appId: 'application_1709707920318_70144711_192.168.2.15-3900288',
         updateTime: '2024-07-31 14:03:04'
       },
       {
-        userName: 'pro_conpany',
+        userName: 'pro_company',
         appId: 'application_1709707920318_70144710_192.168.2.15-3900312',
         updateTime: '2024-07-31 14:02:22'
       },
       {
-        userName: 'pro_conpany',
+        userName: 'pro_company',
         appId: 'application_1709707920318_70147234_192.168.2.15-3900424',
         updateTime: '2024-07-31 14:03:02'
       },
       {
-        userName: 'pro_conpany',
+        userName: 'pro_company',
         appId: 'application_1709707920318_70145262_192.168.2.15-3900291',
         updateTime: '2024-07-31 14:03:07'
       },
       {
-        userName: 'pro_conpany',
+        userName: 'pro_company',
         appId: 'application_1709707920318_70144709_192.168.2.15-3900287',
         updateTime: '2024-07-31 14:03:05'
       },
       {
-        userName: 'pro_conpany',
+        userName: 'pro_company',
         appId: 'application_1709707920318_70133543_192.168.2.15-3899697',
         updateTime: '2024-07-31 14:03:03'
       },
       {
-        userName: 'pro_conpany',
+        userName: 'pro_company',
         appId: 'application_1709707920318_70147213_192.168.2.15-3900423',
         updateTime: '2024-07-31 14:03:11'
       }
@@ -85,7 +85,7 @@ Mock.mock(/\/app\/userTotal/, 'get', function (options) {
     code: 0,
     data: [
       {
-        userName: 'pro_conpany',
+        userName: 'pro_company',
         appNum: 7
       },
       {
