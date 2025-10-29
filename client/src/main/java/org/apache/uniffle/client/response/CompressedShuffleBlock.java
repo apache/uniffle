@@ -23,6 +23,10 @@ public class CompressedShuffleBlock extends ShuffleBlock {
   private ByteBuffer byteBuffer;
   private int uncompressLength;
 
+  public CompressedShuffleBlock(ByteBuffer byteBuffer, int uncompressLength) {
+    this(byteBuffer, uncompressLength, -1);
+  }
+
   public CompressedShuffleBlock(ByteBuffer byteBuffer, int uncompressLength, long taskAttemptId) {
     super(taskAttemptId);
     this.byteBuffer = byteBuffer;
