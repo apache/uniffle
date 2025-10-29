@@ -386,7 +386,7 @@ public class RssClientConf {
       RSS_READ_OVERLAPPING_DECOMPRESSION_FETCH_SECONDS_THRESHOLD =
           ConfigOptions.key("rss.client.read.overlappingDecompressionFetchSecondsThreshold")
               .intType()
-              .defaultValue(300)
+              .defaultValue(-1)
               .withDescription(
                   "Fetch seconds threshold for overlapping decompress shuffle blocks.");
 }

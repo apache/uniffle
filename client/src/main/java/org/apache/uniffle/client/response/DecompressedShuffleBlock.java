@@ -46,7 +46,8 @@ public class DecompressedShuffleBlock implements ShuffleBlock {
   public ByteBuffer getByteBuffer() {
     try {
       long startTime = System.currentTimeMillis();
-      ByteBuffer buffer = f.get(fetchSecondsThreshold, TimeUnit.SECONDS);
+      ByteBuffer buffer =
+          fetchSecondsThreshold > 0 ? f.get(fetchSecondsThreshold, TimeUnit.SECONDS) : f.get();
       if (waitMillisCallback != null) {
         waitMillisCallback.accept(System.currentTimeMillis() - startTime);
       }
