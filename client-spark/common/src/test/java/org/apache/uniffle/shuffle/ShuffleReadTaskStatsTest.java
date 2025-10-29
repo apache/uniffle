@@ -52,6 +52,7 @@ public class ShuffleReadTaskStatsTest {
   void testDiffWithInconsistentStats(boolean inconsistent) {
     ShuffleReadTaskStats readTaskStats = new ShuffleReadTaskStats();
     int partitionId = 0;
+    long taskId = 10;
     long taskAttemptId = 1001L;
     int expectedRecords = 10;
     int expectedBlocks = 2;
@@ -66,7 +67,7 @@ public class ShuffleReadTaskStatsTest {
       readTaskStats.incPartitionBlock(partitionId, taskAttemptId);
     }
 
-    ShuffleWriteTaskStats writeStat = new ShuffleWriteTaskStats(1, taskAttemptId);
+    ShuffleWriteTaskStats writeStat = new ShuffleWriteTaskStats(1, taskAttemptId, taskId);
     for (int i = 0; i < expectedRecords; i++) {
       writeStat.incPartitionRecord(partitionId);
     }

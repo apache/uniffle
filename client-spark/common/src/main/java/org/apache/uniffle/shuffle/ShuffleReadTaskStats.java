@@ -78,7 +78,7 @@ public class ShuffleReadTaskStats {
           isSame = false;
           infoBuilder.append(idx);
           infoBuilder.append("/");
-          infoBuilder.append(taskAttemptId);
+          infoBuilder.append(stats.getTaskId());
           infoBuilder.append("/");
           infoBuilder.append(recordsRead);
           infoBuilder.append("-");

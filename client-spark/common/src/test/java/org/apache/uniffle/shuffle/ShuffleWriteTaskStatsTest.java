@@ -25,8 +25,9 @@ public class ShuffleWriteTaskStatsTest {
 
   @Test
   public void testValidValidationInfo() {
+    long taskId = 10;
     long taskAttemptId = 12345L;
-    ShuffleWriteTaskStats stats = new ShuffleWriteTaskStats(2, taskAttemptId);
+    ShuffleWriteTaskStats stats = new ShuffleWriteTaskStats(2, taskAttemptId, taskId);
     stats.incPartitionRecord(0);
     stats.incPartitionRecord(1);
 
@@ -35,6 +36,8 @@ public class ShuffleWriteTaskStatsTest {
 
     String encoded = stats.encode();
     ShuffleWriteTaskStats decoded = ShuffleWriteTaskStats.decode(encoded);
+
+    assertEquals(10, stats.getTaskId());
 
     assertEquals(taskAttemptId, decoded.getTaskAttemptId());
     assertEquals(1, decoded.getRecordsWritten(0));

@@ -83,6 +83,7 @@ import org.apache.uniffle.common.ReceivingFailureServer;
 import org.apache.uniffle.common.ShuffleBlockInfo;
 import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.config.RssClientConf;
+import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.exception.RssSendFailedException;
 import org.apache.uniffle.common.exception.RssWaitFailedException;
@@ -93,6 +94,7 @@ import org.apache.uniffle.storage.util.StorageType;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_CLIENT_MAP_SIDE_COMBINE_ENABLED;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_PARTITION_REASSIGN_BLOCK_RETRY_MAX_TIMES;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_RESUBMIT_STAGE_WITH_WRITE_FAILURE_ENABLED;
+import static org.apache.spark.shuffle.RssSparkConfig.toRssConf;
 
 public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
 
@@ -125,6 +127,7 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
   private final Set<Long> blockIds = Sets.newConcurrentHashSet();
   private TaskContext taskContext;
   private SparkConf sparkConf;
+  private RssConf rssConf;
   private boolean blockFailSentRetryEnabled;
   private int blockFailSentRetryMaxTimes = 1;
 
@@ -229,21 +232,22 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
     this.shuffleHandleInfo = shuffleHandleInfo;
     this.taskContext = context;
     this.sparkConf = sparkConf;
+    this.rssConf = toRssConf(sparkConf);
     this.managerClientSupplier = managerClientSupplier;
     this.blockFailSentRetryEnabled =
         sparkConf.getBoolean(
             RssSparkConfig.SPARK_RSS_CONFIG_PREFIX
                 + RssClientConf.RSS_CLIENT_REASSIGN_ENABLED.key(),
             RssClientConf.RSS_CLIENT_REASSIGN_ENABLED.defaultValue());
-    this.blockFailSentRetryMaxTimes =
-        RssSparkConfig.toRssConf(sparkConf).get(RSS_PARTITION_REASSIGN_BLOCK_RETRY_MAX_TIMES);
-    this.enableWriteFailureRetry =
-        RssSparkConfig.toRssConf(sparkConf).get(RSS_RESUBMIT_STAGE_WITH_WRITE_FAILURE_ENABLED);
+    this.blockFailSentRetryMaxTimes = rssConf.get(RSS_PARTITION_REASSIGN_BLOCK_RETRY_MAX_TIMES);
+    this.enableWriteFailureRetry = rssConf.get(RSS_RESUBMIT_STAGE_WITH_WRITE_FAILURE_ENABLED);
     this.recordReportFailedShuffleservers = Sets.newConcurrentHashSet();
 
-    if (RssShuffleManager.isIntegrityValidationEnabled(RssSparkConfig.toRssConf(sparkConf))) {
+    if (RssShuffleManager.isIntegrityValidationEnabled(rssConf)) {
       this.shuffleTaskStats =
-          Optional.of(new ShuffleWriteTaskStats(partitioner.numPartitions(), taskAttemptId));
+          Optional.of(
+              new ShuffleWriteTaskStats(
+                  partitioner.numPartitions(), taskAttemptId, taskContext.taskAttemptId()));
     }
   }
 
@@ -376,7 +380,7 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
       if (shuffleBlockInfos != null && !shuffleBlockInfos.isEmpty()) {
         processShuffleBlockInfos(shuffleBlockInfos);
       }
-      shuffleTaskStats.ifPresent(x -> x.incPartitionRecord(partition);
+      shuffleTaskStats.ifPresent(x -> x.incPartitionRecord(partition));
     }
     final long start = System.currentTimeMillis();
     shuffleBlockInfos = bufferManager.clear(1.0);
@@ -477,7 +481,7 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
             blockIds.add(blockId);
             int partitionId = sbi.getPartitionId();
             // record blocks number for per-partition
-            shuffleTaskStats.ifPresent(x -> x.incPartitionRecord(partitionId);
+            shuffleTaskStats.ifPresent(x -> x.incPartitionBlock(partitionId));
             // update [partition, blockIds], it will be sent to shuffle server
             sbi.getShuffleServerInfos()
                 .forEach(
@@ -944,6 +948,10 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
             bitmapSplitNum,
             reportDuration);
         shuffleWriteMetrics.incWriteTime(TimeUnit.MILLISECONDS.toNanos(reportDuration));
+
+        if (RssShuffleManager.isIntegrationValidationFailureAnalysisEnabled(rssConf)) {
+          shuffleTaskStats.ifPresent(x -> x.log());
+        }
 
         // todo: we can replace the dummy host and port with the real shuffle server which we prefer
         // to read

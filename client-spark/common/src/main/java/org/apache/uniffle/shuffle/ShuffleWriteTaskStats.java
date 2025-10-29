@@ -20,6 +20,9 @@ package org.apache.uniffle.shuffle;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 /**
@@ -27,14 +30,20 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
  * attempt ID and the number of records written for each partition.
  */
 public class ShuffleWriteTaskStats {
+  private static final Logger LOGGER = LoggerFactory.getLogger(ShuffleWriteTaskStats.class);
+
+  // the unique task id across all stages
+  private long taskId;
+  // this is only unique for one stage and defined in uniffle side instead of spark
   private long taskAttemptId;
   private long[] partitionRecordsWritten;
   private long[] partitionBlocksWritten;
 
-  public ShuffleWriteTaskStats(int partitions, long taskAttemptId) {
+  public ShuffleWriteTaskStats(int partitions, long taskAttemptId, long taskId) {
     this.partitionRecordsWritten = new long[partitions];
     this.partitionBlocksWritten = new long[partitions];
     this.taskAttemptId = taskAttemptId;
+    this.taskId = taskId;
 
     Arrays.fill(this.partitionRecordsWritten, 0L);
     Arrays.fill(this.partitionBlocksWritten, 0L);
@@ -63,7 +72,8 @@ public class ShuffleWriteTaskStats {
   public String encode() {
     int partitions = partitionRecordsWritten.length;
     ByteBuffer buffer =
-        ByteBuffer.allocate(Long.BYTES + Integer.BYTES + partitions * Long.BYTES * 2);
+        ByteBuffer.allocate(2 * Long.BYTES + Integer.BYTES + partitions * Long.BYTES * 2);
+    buffer.putLong(taskId);
     buffer.putLong(taskAttemptId);
     buffer.putInt(partitions);
     for (long records : partitionRecordsWritten) {
@@ -78,9 +88,10 @@ public class ShuffleWriteTaskStats {
   public static ShuffleWriteTaskStats decode(String raw) {
     byte[] bytes = raw.getBytes(ISO_8859_1);
     ByteBuffer buffer = ByteBuffer.wrap(bytes);
+    long taskId = buffer.getLong();
     long taskAttemptId = buffer.getLong();
     int partitions = buffer.getInt();
-    ShuffleWriteTaskStats stats = new ShuffleWriteTaskStats(partitions, taskAttemptId);
+    ShuffleWriteTaskStats stats = new ShuffleWriteTaskStats(partitions, taskAttemptId, taskId);
     for (int i = 0; i < partitions; i++) {
       stats.partitionRecordsWritten[i] = buffer.getLong();
     }
@@ -88,5 +99,28 @@ public class ShuffleWriteTaskStats {
       stats.partitionBlocksWritten[i] = buffer.getLong();
     }
     return stats;
+  }
+
+  public long getTaskId() {
+    return taskId;
+  }
+
+  public void log() {
+    StringBuilder infoBuilder = new StringBuilder();
+    int partitions = partitionRecordsWritten.length;
+    for (int i = 0; i < partitions; i++) {
+      long records = partitionRecordsWritten[i];
+      long blocks = partitionBlocksWritten[i];
+      infoBuilder
+          .append("[")
+          .append(i)
+          .append("/")
+          .append(records)
+          .append("/")
+          .append(blocks)
+          .append("],");
+    }
+    LOGGER.info(
+        "Partition records/blocks written for taskId[{}]: ", taskId, infoBuilder.toString());
   }
 }
