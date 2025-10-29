@@ -45,6 +45,7 @@ import org.apache.spark.executor.ShuffleReadMetrics;
 import org.apache.spark.serializer.Serializer;
 import org.apache.spark.shuffle.FunctionUtils;
 import org.apache.spark.shuffle.RssShuffleHandle;
+import org.apache.spark.shuffle.RssShuffleManager;
 import org.apache.spark.shuffle.RssSparkConfig;
 import org.apache.spark.shuffle.ShuffleReader;
 import org.apache.spark.util.CompletionIterator;
@@ -70,7 +71,6 @@ import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.rpc.StatusCode;
 import org.apache.uniffle.storage.handler.impl.ShuffleServerReadCostTracker;
 
-import static org.apache.spark.shuffle.RssSparkConfig.RSS_DATA_INTEGRATION_VALIDATION_ENABLED;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_READ_OVERLAPPING_DECOMPRESSION_ENABLED;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_READ_OVERLAPPING_DECOMPRESSION_THREADS;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_READ_REORDER_MULTI_SERVERS_ENABLED;
@@ -148,7 +148,6 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
         dataDistributionType,
         allPartitionToServers);
     this.expectedRecordsRead = expectedRecordsRead;
-    this.actualRecordsRead = 0L;
   }
 
   public RssShuffleReader(
@@ -411,8 +410,8 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
         }
         while (!dataIterator.hasNext()) {
           if (!iterator.hasNext()) {
-            postShuffleReadMetricsToDriver();
             validate();
+            postShuffleReadMetricsToDriver();
             return false;
           }
           dataIterator = iterator.next();
@@ -436,7 +435,7 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
   }
 
   private void validate() {
-    if (rssConf.get(RSS_DATA_INTEGRATION_VALIDATION_ENABLED)
+    if (RssShuffleManager.isIntegrityValidationEnabled(rssConf)
         && expectedRecordsRead > 0
         && (expectedRecordsRead != actualRecordsRead)) {
       throw new RssException(

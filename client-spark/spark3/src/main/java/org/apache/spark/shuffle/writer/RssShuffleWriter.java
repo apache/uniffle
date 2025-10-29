@@ -241,7 +241,7 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
         RssSparkConfig.toRssConf(sparkConf).get(RSS_RESUBMIT_STAGE_WITH_WRITE_FAILURE_ENABLED);
     this.recordReportFailedShuffleservers = Sets.newConcurrentHashSet();
 
-    if (RssShuffleManager.isRowBasedValidationEnabled(RssSparkConfig.toRssConf(sparkConf))) {
+    if (RssShuffleManager.isIntegrityValidationEnabled(RssSparkConfig.toRssConf(sparkConf))) {
       this.shuffleTaskStats =
           Optional.of(new ShuffleWriteTaskStats(partitioner.numPartitions(), taskAttemptId));
     }

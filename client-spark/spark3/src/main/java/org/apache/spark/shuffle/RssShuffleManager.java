@@ -76,7 +76,7 @@ import org.apache.uniffle.shuffle.RssShuffleClientFactory;
 import org.apache.uniffle.shuffle.ShuffleWriteTaskStats;
 import org.apache.uniffle.shuffle.manager.RssShuffleManagerBase;
 
-import static org.apache.spark.shuffle.RssSparkConfig.RSS_DATA_INTEGRATION_VALIDATION_ENABLED;
+import static org.apache.spark.shuffle.RssSparkConfig.RSS_CLIENT_INTEGRITY_VALIDATION_ENABLED;
 
 public class RssShuffleManager extends RssShuffleManagerBase {
   private static final Logger LOG = LoggerFactory.getLogger(RssShuffleManager.class);
@@ -84,7 +84,7 @@ public class RssShuffleManager extends RssShuffleManagerBase {
   public RssShuffleManager(SparkConf conf, boolean isDriver) {
     super(conf, isDriver);
     this.dataDistributionType = getDataDistributionType(sparkConf);
-    if (isRowBasedValidationEnabled(rssConf)) {
+    if (isIntegrityValidationEnabled(rssConf)) {
       LOG.info("shuffle row-based validation has been enabled.");
     }
   }
@@ -472,12 +472,12 @@ public class RssShuffleManager extends RssShuffleManagerBase {
     return serverToPartitions;
   }
 
-  public static boolean isRowBasedValidationEnabled(RssConf rssConf) {
+  public static boolean isIntegrityValidationEnabled(RssConf rssConf) {
     assert rssConf != null;
     if (!Spark3VersionUtils.isSparkVersionAtLeast("3.5.0")) {
       return false;
     }
-    return rssConf.get(RSS_DATA_INTEGRATION_VALIDATION_ENABLED);
+    return rssConf.get(RSS_CLIENT_INTEGRITY_VALIDATION_ENABLED);
   }
 
   @SuppressFBWarnings("REC_CATCH_EXCEPTION")
@@ -558,7 +558,7 @@ public class RssShuffleManager extends RssShuffleManagerBase {
       }
 
       String raw = tuple2._1().topologyInfo().get();
-      if (isRowBasedValidationEnabled(rssConf)) {
+      if (isIntegrityValidationEnabled(rssConf)) {
         ShuffleWriteTaskStats shuffleWriteTaskStats = ShuffleWriteTaskStats.decode(raw);
         taskIdBitmap.add(shuffleWriteTaskStats.getTaskAttemptId());
         for (int i = startPartition; i < endPartition; i++) {

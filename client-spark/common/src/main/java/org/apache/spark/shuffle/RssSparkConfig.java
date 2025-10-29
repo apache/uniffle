@@ -39,12 +39,11 @@ import org.apache.uniffle.common.config.RssConf;
 
 public class RssSparkConfig {
 
-  public static final ConfigOption<Boolean> RSS_DATA_INTEGRATION_VALIDATION_ENABLED =
-      ConfigOptions.key("rss.client.validation.enabled")
+  public static final ConfigOption<Boolean> RSS_CLIENT_INTEGRITY_VALIDATION_ENABLED =
+      ConfigOptions.key("rss.client.integrityValidation.enabled")
           .booleanType()
           .defaultValue(false)
-          .withDescription(
-              "Whether or not to enable end-to-end shuffle data integration validation mechanism");
+          .withDescription("Whether or not to enable shuffle data integrity validation mechanism");
 
   public static final ConfigOption<Boolean> RSS_READ_SHUFFLE_HANDLE_CACHE_ENABLED =
       ConfigOptions.key("rss.client.read.shuffleHandleCacheEnabled")
