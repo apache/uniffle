@@ -81,20 +81,20 @@ public class ShuffleServerPushCostTracker {
       }
 
       Collections.sort(
-              shuffleServerPushCosts, Comparator.comparingLong(ShuffleServerPushCost::speed));
+          shuffleServerPushCosts, Comparator.comparingLong(ShuffleServerPushCost::speed));
 
       LOGGER.debug(
-              "Statistics of shuffle server push speed: \n"
-                      + "-------------------------------------------"
-                      + "\nMinimum: {} \nP25: {} \nMedian: {} \nP75: {} \nMaximum: {}\n"
-                      + "-------------------------------------------",
-              shuffleServerPushCosts.isEmpty() ? 0 : shuffleServerPushCosts.get(0),
-              getPercentile(shuffleServerPushCosts, 25),
-              getPercentile(shuffleServerPushCosts, 50),
-              getPercentile(shuffleServerPushCosts, 75),
-              shuffleServerPushCosts.isEmpty()
-                      ? 0
-                      : shuffleServerPushCosts.get(shuffleServerPushCosts.size() - 1));
+          "Statistics of shuffle server push speed: \n"
+              + "-------------------------------------------"
+              + "\nMinimum: {} \nP25: {} \nMedian: {} \nP75: {} \nMaximum: {}\n"
+              + "-------------------------------------------",
+          shuffleServerPushCosts.isEmpty() ? 0 : shuffleServerPushCosts.get(0),
+          getPercentile(shuffleServerPushCosts, 25),
+          getPercentile(shuffleServerPushCosts, 50),
+          getPercentile(shuffleServerPushCosts, 75),
+          shuffleServerPushCosts.isEmpty()
+              ? 0
+              : shuffleServerPushCosts.get(shuffleServerPushCosts.size() - 1));
     }
   }
 
