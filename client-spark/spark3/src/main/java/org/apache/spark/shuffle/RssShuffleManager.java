@@ -433,7 +433,7 @@ public class RssShuffleManager extends RssShuffleManagerBase {
     }
 
     final RemoteStorageInfo shuffleRemoteStorageInfo = rssShuffleHandle.getRemoteStorage();
-    LOG.info("Shuffle reader using remote storage {}", shuffleRemoteStorageInfo);
+    LOG.debug("Shuffle reader using remote storage {}", shuffleRemoteStorageInfo);
     final String shuffleRemoteStoragePath = shuffleRemoteStorageInfo.getPath();
     Configuration readerHadoopConf =
         RssSparkShuffleUtils.getRemoteStorageHadoopConf(sparkConf, shuffleRemoteStorageInfo);

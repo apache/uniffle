@@ -74,26 +74,28 @@ public class ShuffleServerPushCostTracker {
   }
 
   public void statistics() {
-    List<ShuffleServerPushCost> shuffleServerPushCosts = new ArrayList<>(this.tracking.values());
-    if (CollectionUtils.isEmpty(shuffleServerPushCosts)) {
-      return;
+    if (LOGGER.isDebugEnabled()) {
+      List<ShuffleServerPushCost> shuffleServerPushCosts = new ArrayList<>(this.tracking.values());
+      if (CollectionUtils.isEmpty(shuffleServerPushCosts)) {
+        return;
+      }
+
+      Collections.sort(
+          shuffleServerPushCosts, Comparator.comparingLong(ShuffleServerPushCost::speed));
+
+      LOGGER.debug(
+          "Statistics of shuffle server push speed: \n"
+              + "-------------------------------------------"
+              + "\nMinimum: {} \nP25: {} \nMedian: {} \nP75: {} \nMaximum: {}\n"
+              + "-------------------------------------------",
+          shuffleServerPushCosts.isEmpty() ? 0 : shuffleServerPushCosts.get(0),
+          getPercentile(shuffleServerPushCosts, 25),
+          getPercentile(shuffleServerPushCosts, 50),
+          getPercentile(shuffleServerPushCosts, 75),
+          shuffleServerPushCosts.isEmpty()
+              ? 0
+              : shuffleServerPushCosts.get(shuffleServerPushCosts.size() - 1));
     }
-
-    Collections.sort(
-        shuffleServerPushCosts, Comparator.comparingLong(ShuffleServerPushCost::speed));
-
-    LOGGER.info(
-        "Statistics of shuffle server push speed: \n"
-            + "-------------------------------------------"
-            + "\nMinimum: {} \nP25: {} \nMedian: {} \nP75: {} \nMaximum: {}\n"
-            + "-------------------------------------------",
-        shuffleServerPushCosts.isEmpty() ? 0 : shuffleServerPushCosts.get(0),
-        getPercentile(shuffleServerPushCosts, 25),
-        getPercentile(shuffleServerPushCosts, 50),
-        getPercentile(shuffleServerPushCosts, 75),
-        shuffleServerPushCosts.isEmpty()
-            ? 0
-            : shuffleServerPushCosts.get(shuffleServerPushCosts.size() - 1));
   }
 
   private ShuffleServerPushCost getPercentile(
