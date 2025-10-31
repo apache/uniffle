@@ -953,6 +953,12 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
           shuffleTaskStats.ifPresent(x -> x.log());
         }
 
+        long[] partitionLens = partitionLengthStatistic.toArray();
+
+        if (shuffleTaskStats.isPresent()) {
+          shuffleTaskStats.get().check(partitionLens);
+        }
+
         // todo: we can replace the dummy host and port with the real shuffle server which we prefer
         // to read
         final BlockManagerId blockManagerId =
@@ -964,8 +970,7 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
                     shuffleTaskStats.isPresent()
                         ? shuffleTaskStats.get().encode()
                         : Long.toString(taskAttemptId)));
-        MapStatus mapStatus =
-            MapStatus.apply(blockManagerId, partitionLengthStatistic.toArray(), taskAttemptId);
+        MapStatus mapStatus = MapStatus.apply(blockManagerId, partitionLens, taskAttemptId);
         return Option.apply(mapStatus);
       } else {
         return Option.empty();

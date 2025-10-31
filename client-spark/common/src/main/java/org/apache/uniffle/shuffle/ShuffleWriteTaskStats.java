@@ -23,6 +23,8 @@ import java.util.Arrays;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.uniffle.common.exception.RssException;
+
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 /**
@@ -115,5 +117,27 @@ public class ShuffleWriteTaskStats {
     }
     LOGGER.info(
         "Partition records/blocks written for taskId[{}]: {}", taskId, infoBuilder.toString());
+  }
+
+  public void check(long[] partitionLens) {
+    int partitions = partitionRecordsWritten.length;
+    for (int idx = 0; idx < partitions; idx++) {
+      long records = partitionRecordsWritten[idx];
+      long blocks = partitionBlocksWritten[idx];
+      long length = partitionLens[idx];
+      if (records > 0) {
+        if (blocks <= 0 || length <= 0) {
+          throw new RssException(
+              "Illegal partition:"
+                  + idx
+                  + " stats. records/blocks/length: "
+                  + records
+                  + "/"
+                  + blocks
+                  + "/"
+                  + length);
+        }
+      }
+    }
   }
 }
