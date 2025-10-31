@@ -381,4 +381,12 @@ public class RssClientConf {
           .intType()
           .defaultValue(4)
           .withDescription("Next read segment count for shuffle-server read ahead");
+
+  public static final ConfigOption<Integer>
+      RSS_READ_OVERLAPPING_DECOMPRESSION_FETCH_SECONDS_THRESHOLD =
+          ConfigOptions.key("rss.client.read.overlappingDecompressionFetchSecondsThreshold")
+              .intType()
+              .defaultValue(-1)
+              .withDescription(
+                  "Fetch seconds threshold for overlapping decompress shuffle blocks.");
 }
