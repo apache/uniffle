@@ -778,7 +778,7 @@ public class ShuffleWriteClientImpl implements ShuffleWriteClient {
         RssReportShuffleResultResponse response =
             getShuffleServerClient(ssi).reportShuffleResult(request);
         if (response.getStatusCode() == StatusCode.SUCCESS) {
-          LOG.info(
+          LOG.debug(
               "Reported shuffle result to {} for appId[{}], shuffleId[{}] successfully that cost {} ms",
               ssi,
               appId,
