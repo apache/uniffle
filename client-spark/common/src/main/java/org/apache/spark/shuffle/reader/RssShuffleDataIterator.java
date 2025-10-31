@@ -45,6 +45,7 @@ import org.apache.uniffle.common.ShuffleReadTimes;
 import org.apache.uniffle.common.compression.Codec;
 import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.util.RssUtils;
+import org.apache.uniffle.shuffle.ShuffleReadTaskStats;
 
 public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C>> {
 
@@ -64,6 +65,10 @@ public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C
   private ByteBuffer uncompressedData;
   private Optional<Codec> codec;
 
+  private final int partitionId;
+  private Optional<ShuffleReadTaskStats> shuffleReadTaskStats;
+  private long currentBlockTaskAttemptId = -1L;
+
   // only for tests
   @VisibleForTesting
   public RssShuffleDataIterator(
@@ -71,7 +76,14 @@ public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C
       ShuffleReadClient shuffleReadClient,
       ShuffleReadMetrics shuffleReadMetrics,
       RssConf rssConf) {
-    this(serializer, shuffleReadClient, shuffleReadMetrics, rssConf, Optional.empty());
+    this(
+        serializer,
+        shuffleReadClient,
+        shuffleReadMetrics,
+        rssConf,
+        Optional.empty(),
+        Optional.empty(),
+        0);
     boolean compress =
         rssConf.getBoolean(
             RssSparkConfig.SPARK_SHUFFLE_COMPRESS_KEY.substring(
@@ -85,11 +97,15 @@ public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C
       ShuffleReadClient shuffleReadClient,
       ShuffleReadMetrics shuffleReadMetrics,
       RssConf rssConf,
-      Optional<Codec> codec) {
+      Optional<Codec> codec,
+      Optional<ShuffleReadTaskStats> shuffleReadTaskStats,
+      int partitionId) {
     this.serializerInstance = serializer.newInstance();
     this.shuffleReadClient = shuffleReadClient;
     this.shuffleReadMetrics = shuffleReadMetrics;
     this.codec = codec;
+    this.shuffleReadTaskStats = shuffleReadTaskStats;
+    this.partitionId = partitionId;
   }
 
   public Iterator<Tuple2<Object, Object>> createKVIterator(ByteBuffer data) {
@@ -136,6 +152,9 @@ public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C
       long getBufferDuration = System.currentTimeMillis() - getBuffer;
 
       if (rawData != null) {
+        this.currentBlockTaskAttemptId = shuffleBlock.getTaskAttemptId();
+        shuffleReadTaskStats.ifPresent(
+            stats -> stats.incPartitionBlock(partitionId, shuffleBlock.getTaskAttemptId()));
         // collect metrics from raw data
         long rawDataLength = rawData.limit() - rawData.position();
         totalRawBytesLength += rawDataLength;
@@ -241,6 +260,8 @@ public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C
   @Override
   public Product2<K, C> next() {
     shuffleReadMetrics.incRecordsRead(1L);
+    shuffleReadTaskStats.ifPresent(
+        x -> x.incPartitionRecord(partitionId, currentBlockTaskAttemptId));
     return (Product2<K, C>) recordsIterator.next();
   }
 

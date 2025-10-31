@@ -42,8 +42,15 @@ public class RssSparkConfig {
   public static final ConfigOption<Boolean> RSS_CLIENT_INTEGRITY_VALIDATION_ENABLED =
       ConfigOptions.key("rss.client.integrityValidation.enabled")
           .booleanType()
+          .defaultValue(true)
+          .withDescription(
+              "Whether or not to enable shuffle data integrity validation mechanism (spark version >= 3.5.0)");
+
+  public static final ConfigOption<Boolean> RSS_DATA_INTEGRATION_VALIDATION_ANALYSIS_ENABLED =
+      ConfigOptions.key("rss.client.integrityValidation.failureAnalysisEnabled")
+          .booleanType()
           .defaultValue(false)
-          .withDescription("Whether or not to enable shuffle data integrity validation mechanism");
+          .withDescription("Whether or not to enable validation failure analysis");
 
   public static final ConfigOption<Boolean> RSS_READ_SHUFFLE_HANDLE_CACHE_ENABLED =
       ConfigOptions.key("rss.client.read.shuffleHandleCacheEnabled")

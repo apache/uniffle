@@ -312,7 +312,8 @@ public class ShuffleReadClientImpl implements ShuffleReadClient {
           ByteBuffer compressedBuffer = readBuffer.duplicate();
           compressedBuffer.position(bs.getOffset());
           compressedBuffer.limit(bs.getOffset() + bs.getLength());
-          return new CompressedShuffleBlock(compressedBuffer, bs.getUncompressLength());
+          return new CompressedShuffleBlock(
+              compressedBuffer, bs.getUncompressLength(), bs.getTaskAttemptId());
         } else {
           DecompressedShuffleBlock block = decompressionWorker.get(batchIndex - 1, segmentIndex++);
           if (block == null) {

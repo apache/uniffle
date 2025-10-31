@@ -101,7 +101,10 @@ public class DecompressionWorker {
           tasks.computeIfAbsent(batchIndex, k -> new ConcurrentHashMap<>());
       blocks.put(
           index++,
-          new DecompressedShuffleBlock(f, waitMillis -> this.waitMillis.addAndGet(waitMillis)));
+          new DecompressedShuffleBlock(
+              f,
+              waitMillis -> this.waitMillis.addAndGet(waitMillis),
+              bufferSegment.getTaskAttemptId()));
     }
   }
 

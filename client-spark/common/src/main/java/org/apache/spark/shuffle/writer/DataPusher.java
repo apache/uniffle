@@ -108,6 +108,12 @@ public class DataPusher implements Closeable {
                         event.getStageAttemptNumber(),
                         validBlocks,
                         () -> !isValidTask(taskId));
+                // completionCallback should be executed before updating taskToSuccessBlockIds
+                // structure to avoid side effect
+                Set<Long> succeedBlockIds = getSucceedBlockIds(result);
+                for (ShuffleBlockInfo block : validBlocks) {
+                  block.executeCompletionCallback(succeedBlockIds.contains(block.getBlockId()));
+                }
                 putBlockId(taskToSuccessBlockIds, taskId, result.getSuccessBlockIds());
                 putFailedBlockSendTracker(
                     taskToFailedBlockSendTracker, taskId, result.getFailedBlockSendTracker());
@@ -117,11 +123,6 @@ public class DataPusher implements Closeable {
                   ShuffleServerPushCostTracker shuffleServerPushCostTracker =
                       result.getShuffleServerPushCostTracker();
                   bufferManager.merge(shuffleServerPushCostTracker);
-                }
-
-                Set<Long> succeedBlockIds = getSucceedBlockIds(result);
-                for (ShuffleBlockInfo block : validBlocks) {
-                  block.executeCompletionCallback(succeedBlockIds.contains(block.getBlockId()));
                 }
 
                 List<Runnable> callbackChain =
