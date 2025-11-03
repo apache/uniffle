@@ -376,7 +376,7 @@ public class WriteBufferManager extends MemoryConsumer {
 
   // transform all [partition, records] to [partition, ShuffleBlockInfo] and clear cache
   public synchronized List<ShuffleBlockInfo> clear(double bufferSpillRatio) {
-    long clearStartTime = System.currentTimeMillis();
+    final long startTime = System.currentTimeMillis();
     List<ShuffleBlockInfo> flushBlocks = Lists.newArrayList();
     long dataSize = 0;
     long memoryUsed = 0;
@@ -412,7 +412,7 @@ public class WriteBufferManager extends MemoryConsumer {
     }
     LOG.debug(
         "Pushed buffers into flushing queue in {} ms for taskAttemptId[{}], shuffleId[{}] with allocated[{}], dataSize[{}], memoryUsed[{}], blocks[{}], flushRatio[{}]",
-        System.currentTimeMillis() - clearStartTime,
+        System.currentTimeMillis() - startTime,
         taskAttemptId,
         shuffleId,
         allocatedBytes,
