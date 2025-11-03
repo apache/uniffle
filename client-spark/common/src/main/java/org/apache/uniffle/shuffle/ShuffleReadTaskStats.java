@@ -66,7 +66,7 @@ public class ShuffleReadTaskStats {
 
         ShuffleWriteTaskStats stats = writeStats.get(taskAttemptId);
         if (stats == null) {
-          // ignore but this should not happen
+          LOGGER.warn("Should not happen that task attempt {} has no write stats", taskAttemptId);
           continue;
         }
         long recordsUpstream = stats.getRecordsWritten(idx);
