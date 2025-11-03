@@ -302,18 +302,6 @@ public class RssShuffleManager extends RssShuffleManagerBase {
             handle.shuffleId(), startPartition, endPartition, startMapIndex, endMapIndex);
     Roaring64NavigableMap taskIdBitmap = info.getLeft();
     long expectedRecordsRead = info.getRight();
-    LOG.info(
-        "Get taskId cost "
-            + (System.currentTimeMillis() - start)
-            + " ms, and request expected blockIds from "
-            + taskIdBitmap.getLongCardinality()
-            + " tasks for shuffleId["
-            + handle.shuffleId()
-            + "], partitionId["
-            + startPartition
-            + ", "
-            + endPartition
-            + "]");
     return getReaderImpl(
         handle,
         startMapIndex,
@@ -323,7 +311,8 @@ public class RssShuffleManager extends RssShuffleManagerBase {
         context,
         metrics,
         taskIdBitmap,
-        expectedRecordsRead);
+        expectedRecordsRead,
+        System.currentTimeMillis() - start);
   }
 
   // The interface is used for compatibility with spark 3.0.1
@@ -360,7 +349,8 @@ public class RssShuffleManager extends RssShuffleManagerBase {
         context,
         metrics,
         taskIdBitmap,
-        -1);
+        -1,
+        System.currentTimeMillis() - start);
   }
 
   public <K, C> ShuffleReader<K, C> getReaderImpl(
@@ -372,7 +362,8 @@ public class RssShuffleManager extends RssShuffleManagerBase {
       TaskContext context,
       ShuffleReadMetricsReporter metrics,
       Roaring64NavigableMap taskIdBitmap,
-      long expectedRecordsRead) {
+      long expectedRecordsRead,
+      long taskIdRetrievedMillis) {
     if (!(handle instanceof RssShuffleHandle)) {
       throw new RssException("Unexpected ShuffleHandle:" + handle.getClass().getName());
     }
@@ -414,18 +405,17 @@ public class RssShuffleManager extends RssShuffleManagerBase {
             shuffleId,
             context.stageAttemptNumber(),
             shuffleHandleInfo.createPartitionReplicaTracking());
+
     LOG.info(
-        "Get shuffle blockId cost "
-            + (System.currentTimeMillis() - start)
-            + " ms, and get "
-            + blockIdBitmap.getLongCardinality()
-            + " blockIds for shuffleId["
-            + shuffleId
-            + "], startPartition["
-            + startPartition
-            + "], endPartition["
-            + endPartition
-            + "]");
+        "Retrieved {} upstream task ids in {} ms and {} block IDs from {} shuffle-servers in {} ms for shuffleId[{}], partitionId[{},{}]",
+        taskIdBitmap.getLongCardinality(),
+        taskIdRetrievedMillis,
+        blockIdBitmap.getLongCardinality(),
+        serverToPartitions.size(),
+        System.currentTimeMillis() - start,
+        handle.shuffleId(),
+        startPartition,
+        endPartition);
 
     ShuffleReadMetrics readMetrics;
     if (metrics != null) {

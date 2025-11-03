@@ -52,7 +52,7 @@ public abstract class PrefetchableClientReadHandler extends AbstractClientReadHa
       if (option.capacity <= 0) {
         throw new RssException("Illegal prefetch capacity: " + option.capacity);
       }
-      LOG.info("Prefetch is enabled, capacity: {}", option.capacity);
+      LOG.debug("Prefetch is enabled, capacity: {}", option.capacity);
       this.prefetchEnabled = true;
       this.prefetchQueueCapacity = option.capacity;
       this.prefetchTimeoutSec = option.timeoutSec;

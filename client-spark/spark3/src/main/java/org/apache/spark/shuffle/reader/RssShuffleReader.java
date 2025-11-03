@@ -200,7 +200,7 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
 
   @Override
   public Iterator<Product2<K, C>> read() {
-    LOG.info("Shuffle read started:" + getReadInfo());
+    LOG.info("Starting shuffle read: " + getReadInfo());
 
     Iterator<Product2<K, C>> resultIter;
     MultiPartitionIterator rssShuffleDataIterator = new MultiPartitionIterator<K, C>();
@@ -225,12 +225,11 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
       ExternalSorter<K, Object, C> sorter =
           new ExternalSorter<>(
               context, aggregator, Option.empty(), shuffleDependency.keyOrdering(), serializer);
-      LOG.info("Inserting aggregated records to sorter");
       long startTime = System.currentTimeMillis();
       sorter.insertAll(rssShuffleDataIterator);
       LOG.info(
-          "Inserted aggregated records to sorter: millis:"
-              + (System.currentTimeMillis() - startTime));
+          "Inserted aggregated records to sorter, took {} millis",
+          System.currentTimeMillis() - startTime);
       context.taskMetrics().incMemoryBytesSpilled(sorter.memoryBytesSpilled());
       context.taskMetrics().incPeakExecutionMemory(sorter.peakMemoryUsedBytes());
       context.taskMetrics().incDiskBytesSpilled(sorter.diskBytesSpilled());
@@ -286,7 +285,7 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
         + appId
         + ", shuffleId="
         + shuffleId
-        + ",taskId="
+        + ", taskId="
         + taskId
         + ", partitions: ["
         + startPartition

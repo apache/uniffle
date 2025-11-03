@@ -196,7 +196,7 @@ public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C
                     + unCompressedBytesLength
                     + "]");
         LOG.info(
-            "Fetch {} bytes cost {} ms and {} ms to serialize{}",
+            "Fetched {} bytes cost {} ms and {} ms to serialize{}",
             totalRawBytesLength,
             readTime,
             serializeTime,

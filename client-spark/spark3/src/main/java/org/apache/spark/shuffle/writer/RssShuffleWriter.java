@@ -205,10 +205,11 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
       ShuffleHandleInfo shuffleHandleInfo,
       TaskContext context) {
     LOG.info(
-        "RssShuffle start write taskAttemptId[{}] data with RssHandle[appId {}, shuffleId {}].",
-        taskAttemptId,
+        "Starting shuffle write: appId={}, taskId={}, taskAttemptId={}, shuffleId={}",
         rssHandle.getAppId(),
-        rssHandle.getShuffleId());
+        taskId,
+        taskAttemptId,
+        shuffleId);
     this.shuffleManager = shuffleManager;
     this.appId = appId;
     this.shuffleId = shuffleId;
@@ -404,20 +405,14 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
     this.checkSendResultMills = checkDuration;
     shuffleWriteMetrics.incWriteTime(TimeUnit.MILLISECONDS.toNanos(writeDurationMs));
     LOG.info(
-        "Finish write shuffle for appId["
-            + appId
-            + "], shuffleId["
-            + shuffleId
-            + "], taskId["
-            + taskId
-            + "] with write "
-            + writeDurationMs
-            + " ms, include checkSendResult["
-            + checkDuration
-            + "], commit["
-            + (System.currentTimeMillis() - commitStartTs)
-            + "], "
-            + bufferManager.getManagerCostInfo());
+        "Finished shuffle writing for shuffleId[{}], taskId[{}], taskAttemptId[{}] in {} ms, including blockWait[{}], commit[{}], {}",
+        shuffleId,
+        taskId,
+        taskAttemptId,
+        writeDurationMs,
+        checkDuration,
+        System.currentTimeMillis() - commitStartTs,
+        bufferManager.getManagerCostInfo());
   }
 
   private void checkAllBufferSpilled() {

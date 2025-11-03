@@ -165,9 +165,13 @@ public class ComposedClientReadHandler extends AbstractClientReadHandler {
 
   @Override
   public void logConsumedBlockInfo() {
-    LOG.info(getReadBlockNumInfo());
-    LOG.info(getReadLengthInfo());
-    LOG.info(getReadUncompressLengthInfo());
+    if (LOG.isDebugEnabled()) {
+      LOG.info(getReadBlockNumInfo());
+      LOG.info(getReadLengthInfo());
+      LOG.info(getReadUncompressLengthInfo());
+    } else {
+      LOG.info(conciseSummary());
+    }
   }
 
   @VisibleForTesting
@@ -192,6 +196,21 @@ public class ComposedClientReadHandler extends AbstractClientReadHandler {
         "uncompressed bytes",
         ClientReadHandlerMetric::getReadUncompressLength,
         ClientReadHandlerMetric::getSkippedReadUncompressLength);
+  }
+
+  private String conciseSummary() {
+    StringBuilder infoBuilder = new StringBuilder();
+    ClientReadHandlerMetric metric = getReadHandlerMetric();
+    infoBuilder
+        .append("Read ")
+        .append(metric.getReadBlockNum())
+        .append(" blocks, ")
+        .append(metric.getReadLength())
+        .append(" bytes, ")
+        .append(metric.getReadUncompressLength())
+        .append(" uncompressed bytes from ")
+        .append(serverInfo);
+    return infoBuilder.toString();
   }
 
   private String getMetricsInfo(

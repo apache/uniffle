@@ -251,8 +251,8 @@ public class WriteBufferManager extends MemoryConsumer {
 
     // check buffer size > spill threshold
     if (usedBytes.get() - inSendListBytes.get() > spillSize) {
-      LOG.info(
-          "ShuffleBufferManager spill for buffer size exceeding spill threshold, "
+      LOG.debug(
+          "Spill for buffer size exceeding spill threshold, "
               + "usedBytes[{}], inSendListBytes[{}], spill size threshold[{}]",
           usedBytes.get(),
           inSendListBytes.get(),
@@ -376,7 +376,8 @@ public class WriteBufferManager extends MemoryConsumer {
 
   // transform all [partition, records] to [partition, ShuffleBlockInfo] and clear cache
   public synchronized List<ShuffleBlockInfo> clear(double bufferSpillRatio) {
-    List<ShuffleBlockInfo> result = Lists.newArrayList();
+    long clearStartTime = System.currentTimeMillis();
+    List<ShuffleBlockInfo> flushBlocks = Lists.newArrayList();
     long dataSize = 0;
     long memoryUsed = 0;
 
@@ -400,7 +401,7 @@ public class WriteBufferManager extends MemoryConsumer {
       }
       dataSize += wb.getDataLength();
       memoryUsed += wb.getMemoryUsed();
-      result.add(createShuffleBlock(partitionId, wb));
+      flushBlocks.add(createShuffleBlock(partitionId, wb));
       recordCounter.addAndGet(wb.getRecordCount());
       copyTime += wb.getCopyTime();
       buffers.remove(partitionId);
@@ -409,21 +410,17 @@ public class WriteBufferManager extends MemoryConsumer {
         break;
       }
     }
-    LOG.info(
-        "Flush total buffer for shuffleId["
-            + shuffleId
-            + "] with allocated["
-            + allocatedBytes
-            + "], dataSize["
-            + dataSize
-            + "], memoryUsed["
-            + memoryUsed
-            + "], number of blocks["
-            + result.size()
-            + "], flush ratio["
-            + bufferSpillRatio
-            + "]");
-    return result;
+    LOG.debug(
+        "Pushed buffers into flushing queue in {} ms for taskAttemptId[{}], shuffleId[{}] with allocated[{}], dataSize[{}], memoryUsed[{}], blocks[{}], flushRatio[{}]",
+        System.currentTimeMillis() - clearStartTime,
+        taskAttemptId,
+        shuffleId,
+        allocatedBytes,
+        dataSize,
+        memoryUsed,
+        flushBlocks.size(),
+        bufferSpillRatio);
+    return flushBlocks;
   }
 
   protected ShuffleBlockInfo createDeferredCompressedBlock(
