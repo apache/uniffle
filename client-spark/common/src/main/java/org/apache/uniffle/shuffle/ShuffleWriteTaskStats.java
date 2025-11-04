@@ -23,6 +23,7 @@ import java.util.Arrays;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.uniffle.common.compression.ZstdCodec;
 import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.exception.RssException;
 
@@ -44,6 +45,7 @@ public class ShuffleWriteTaskStats {
   private long[] partitionBlocksWritten;
 
   private final boolean blockCheckEnabled;
+  private final RssConf rssConf;
 
   public ShuffleWriteTaskStats(RssConf rssConf, int partitions, long taskAttemptId, long taskId) {
     this.partitionRecordsWritten = new long[partitions];
@@ -54,6 +56,7 @@ public class ShuffleWriteTaskStats {
     Arrays.fill(this.partitionRecordsWritten, 0L);
     Arrays.fill(this.partitionBlocksWritten, 0L);
 
+    this.rssConf = rssConf;
     this.blockCheckEnabled = rssConf.get(RSS_DATA_INTEGRATION_VALIDATION_BLOCK_CHECK_ENABLED);
   }
 
@@ -176,12 +179,18 @@ public class ShuffleWriteTaskStats {
     if (blockCheckEnabled) {
       pack(buffer, partitionBlocksWritten);
     }
-
     buffer.flip();
-    byte[] finalBytes = new byte[buffer.remaining()];
-    buffer.get(finalBytes);
-
-    String encoded = new String(finalBytes, ISO_8859_1);
+    byte[] uncompressed = new byte[buffer.remaining()];
+    buffer.get(uncompressed);
+    // 1. Compress the uncompressed data
+    byte[] compressed = ZstdCodec.getInstance(rssConf).compress(uncompressed);
+    // 2. New ByteBuffer with 4 bytes for length + compressed.length
+    ByteBuffer outBuffer = ByteBuffer.allocate(Integer.BYTES + compressed.length);
+    // 3. Write compressed length
+    outBuffer.putInt(uncompressed.length);
+    // 4. Write compressed data
+    outBuffer.put(compressed);
+    String encoded = new String(outBuffer.array(), ISO_8859_1);
     LOGGER.info(
         "Encoded task stats with {} bytes in {} ms",
         encoded.length(),
@@ -191,7 +200,10 @@ public class ShuffleWriteTaskStats {
 
   public static ShuffleWriteTaskStats decode(RssConf rssConf, String raw) {
     byte[] bytes = raw.getBytes(ISO_8859_1);
-    ByteBuffer buffer = ByteBuffer.wrap(bytes);
+    ByteBuffer source = ByteBuffer.wrap(bytes);
+    int uncompressedLength = source.getInt();
+    ByteBuffer buffer = ByteBuffer.allocate(uncompressedLength);
+    ZstdCodec.getInstance(rssConf).decompress(source, uncompressedLength, buffer, 0);
 
     long taskId = buffer.getLong();
     long taskAttemptId = buffer.getLong();
