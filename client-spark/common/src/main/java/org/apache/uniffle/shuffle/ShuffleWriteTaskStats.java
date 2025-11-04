@@ -156,7 +156,7 @@ public class ShuffleWriteTaskStats {
   }
 
   public String encode() {
-    long start = System.currentTimeMillis();
+    final long start = System.currentTimeMillis();
     int partitions = partitionRecordsWritten.length;
     int flagBytes = (partitions + 7) / 8;
 
