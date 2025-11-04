@@ -95,68 +95,59 @@ public class ShuffleWriteTaskStats {
 
   private static void pack(ByteBuffer buffer, long[] array) {
     int partitionLength = array.length;
-    int flagLength = (array.length + 7) / 8;
+    int typeFlagLength = (partitionLength + 3) / 4;
+    byte[] typeFlags = new byte[typeFlagLength];
 
-    // step1: zero skip flags
-    byte[] zeroSkipFlags = new byte[flagLength];
     for (int i = 0; i < partitionLength; i++) {
-      if (array[i] == 0) {
-        int byteIdx = i / 8;
-        int bitIdx = i % 8;
-        zeroSkipFlags[byteIdx] |= (1 << bitIdx);
-      }
-    }
-    buffer.put(zeroSkipFlags);
-
-    // step2: variable int flags
-    byte[] variableIntFlags = new byte[flagLength];
-    for (int i = 0; i < partitionLength; i++) {
-      if (array[i] > Integer.MAX_VALUE) {
-        int byteIdx = i / 8;
-        int bitIdx = i % 8;
-        variableIntFlags[byteIdx] |= (1 << bitIdx);
-      }
-    }
-    buffer.put(variableIntFlags);
-
-    // step3: add
-    for (long record : array) {
-      if (record == 0L) {
-        continue;
-      }
-      if (record <= Integer.MAX_VALUE) {
-        buffer.putInt((int) record);
+      long value = array[i];
+      int typeCode;
+      if (value <= Short.MAX_VALUE) {
+        typeCode = 0; // short
+      } else if (value <= Integer.MAX_VALUE) {
+        typeCode = 1; // int
       } else {
-        buffer.putLong(record);
+        typeCode = 2; // long
+      }
+      int byteIdx = i / 4;
+      int bitShift = (i % 4) * 2;
+      typeFlags[byteIdx] |= (typeCode << bitShift);
+    }
+    buffer.put(typeFlags);
+
+    for (long value : array) {
+      if (value <= Short.MAX_VALUE) {
+        buffer.putShort((short) value);
+      } else if (value <= Integer.MAX_VALUE) {
+        buffer.putInt((int) value);
+      } else {
+        buffer.putLong(value);
       }
     }
   }
 
   private static void unpack(ByteBuffer buffer, long[] array) {
     int partitionLength = array.length;
-    int flagLength = (partitionLength + 7) / 8;
-
-    byte[] zeroSkipFlags = new byte[flagLength];
-    buffer.get(zeroSkipFlags);
-
-    byte[] varIntFlags = new byte[flagLength];
-    buffer.get(varIntFlags);
+    int typeFlagLength = (partitionLength + 3) / 4;
+    byte[] typeFlags = new byte[typeFlagLength];
+    buffer.get(typeFlags);
 
     for (int i = 0; i < partitionLength; i++) {
-      int byteIdx = i / 8;
-      int bitIdx = i % 8;
+      int byteIdx = i / 4;
+      int bitShift = (i % 4) * 2;
+      int typeCode = (typeFlags[byteIdx] >> bitShift) & 0b11;
 
-      boolean isZero = (zeroSkipFlags[byteIdx] & (1 << bitIdx)) != 0;
-      if (isZero) {
-        array[i] = 0L;
-        continue;
-      }
-
-      boolean isLong = (varIntFlags[byteIdx] & (1 << bitIdx)) != 0;
-      if (isLong) {
-        array[i] = buffer.getLong();
-      } else {
-        array[i] = buffer.getInt();
+      switch (typeCode) {
+        case 0:
+          array[i] = buffer.getShort() & 0xFFFFL;
+          break;
+        case 1:
+          array[i] = buffer.getInt() & 0xFFFFFFFFL;
+          break;
+        case 2:
+          array[i] = buffer.getLong();
+          break;
+        default:
+          throw new RssException("Unsupported type code: " + typeCode);
       }
     }
   }
