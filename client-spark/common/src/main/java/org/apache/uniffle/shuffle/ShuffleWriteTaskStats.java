@@ -166,7 +166,8 @@ public class ShuffleWriteTaskStats {
     // records flagBytes (zero skip + variable int) + real bytes
     int records = flagBytes * 2 + partitions * Long.BYTES;
     int blocks = blockCheckEnabled ? flagBytes + partitions * Long.BYTES : 0;
-    ByteBuffer buffer = ByteBuffer.allocate(header + records + blocks);
+    int capacity = header + records + blocks;
+    ByteBuffer buffer = ByteBuffer.allocate(capacity);
 
     buffer.putLong(taskId);
     buffer.putLong(taskAttemptId);
@@ -192,8 +193,10 @@ public class ShuffleWriteTaskStats {
     outBuffer.put(compressed);
     String encoded = new String(outBuffer.array(), ISO_8859_1);
     LOGGER.info(
-        "Encoded task stats with {} bytes in {} ms",
+        "Encoded task stats for {} partitions with {} bytes (original: {} bytes) in {} ms",
+        partitions,
         encoded.length(),
+        capacity,
         System.currentTimeMillis() - start);
     return encoded;
   }
