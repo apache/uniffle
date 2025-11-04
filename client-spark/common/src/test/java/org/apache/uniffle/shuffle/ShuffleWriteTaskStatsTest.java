@@ -17,14 +17,147 @@
 
 package org.apache.uniffle.shuffle;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+
 import org.junit.jupiter.api.Test;
 
+import org.apache.uniffle.common.config.RssConf;
+
+import static org.apache.spark.shuffle.RssSparkConfig.RSS_DATA_INTEGRATION_VALIDATION_BLOCK_CHECK_ENABLED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class ShuffleWriteTaskStatsTest {
 
+  private static final int PARTITIONS = 6000;
+  private static final long TASK_ID = 12345L;
+  private static final long TASK_ATTEMPT_ID = 67890L;
+
+  private static final Random RAND = new Random(42);
+
   @Test
-  public void testValidValidationInfo() {
+  public void testExtremeSparsePartitions() {
+    RssConf rssConf = new RssConf();
+    rssConf.set(RSS_DATA_INTEGRATION_VALIDATION_BLOCK_CHECK_ENABLED, true);
+
+    ShuffleWriteTaskStats stats =
+        new ShuffleWriteTaskStats(rssConf, PARTITIONS, TASK_ATTEMPT_ID, TASK_ID);
+
+    long[] expectedRecords = new long[PARTITIONS];
+    long[] expectedBlocks = new long[PARTITIONS];
+
+    List<Integer> dataPartitions = new ArrayList<>();
+    dataPartitions.add(10);
+    dataPartitions.add(20);
+    dataPartitions.add(30);
+
+    Random random = new Random(42);
+    for (int i : dataPartitions) {
+      long records =
+          random.nextBoolean()
+              ? random.nextInt(1_000_000)
+              : Integer.MAX_VALUE + 1L + random.nextInt();
+      expectedRecords[i] = records;
+      stats.setPartitionRecordsWritten(i, records);
+
+      long blocks = random.nextInt(10) + 1;
+      expectedBlocks[i] = blocks;
+      stats.setPartitionBlocksWritten(i, blocks);
+    }
+
+    String encoded = stats.encode();
+    ShuffleWriteTaskStats decoded = ShuffleWriteTaskStats.decode(rssConf, encoded);
+
+    assertEquals(TASK_ID, decoded.getTaskId());
+    assertEquals(TASK_ATTEMPT_ID, decoded.getTaskAttemptId());
+
+    for (int i : dataPartitions) {
+      assertEquals(
+          expectedRecords[i], decoded.getRecordsWritten(i), "Partition " + i + " records mismatch");
+      assertEquals(
+          expectedBlocks[i], decoded.getBlocksWritten(i), "Partition " + i + " blocks mismatch");
+    }
+    for (int i = 0; i < PARTITIONS; i++) {
+      if (dataPartitions.contains(i)) {
+        continue;
+      }
+      assertEquals(0, decoded.getRecordsWritten(i), "Partition " + i + " records mismatch");
+      assertEquals(0, decoded.getBlocksWritten(i), "Partition " + i + " blocks mismatch");
+    }
+
+    System.out.println("Encoded length: " + encoded.length());
+  }
+
+  @Test
+  void testWithSmallValues() {
+    RssConf rssConf = new RssConf();
+    rssConf.set(RSS_DATA_INTEGRATION_VALIDATION_BLOCK_CHECK_ENABLED, true);
+    ShuffleWriteTaskStats stats =
+        new ShuffleWriteTaskStats(rssConf, PARTITIONS, TASK_ATTEMPT_ID, TASK_ID);
+
+    for (int i = 0; i < PARTITIONS; i++) {
+      stats.incPartitionRecord(i);
+      if (i % 100 == 0) {
+        stats.incPartitionBlock(i);
+      }
+    }
+
+    String encoded = stats.encode();
+    ShuffleWriteTaskStats decoded = ShuffleWriteTaskStats.decode(rssConf, encoded);
+
+    assertEquals(TASK_ID, decoded.getTaskId());
+    assertEquals(TASK_ATTEMPT_ID, decoded.getTaskAttemptId());
+
+    for (int i = 0; i < PARTITIONS; i++) {
+      assertEquals(1L, decoded.getRecordsWritten(i));
+      assertEquals(i % 100 == 0 ? 1L : 0L, decoded.getBlocksWritten(i));
+    }
+  }
+
+  @Test
+  void testWithLargeValues() {
+    RssConf rssConf = new RssConf();
+    rssConf.set(RSS_DATA_INTEGRATION_VALIDATION_BLOCK_CHECK_ENABLED, true);
+
+    ShuffleWriteTaskStats stats =
+        new ShuffleWriteTaskStats(rssConf, PARTITIONS, TASK_ATTEMPT_ID, TASK_ID);
+
+    long[] expectedRecords = new long[PARTITIONS];
+    long[] expectedBlocks = new long[PARTITIONS];
+
+    Random random = new Random(42);
+    for (int i = 0; i < PARTITIONS; i++) {
+      long records =
+          random.nextBoolean()
+              ? random.nextInt(1_000_000)
+              : Integer.MAX_VALUE + 1L + random.nextInt();
+      expectedRecords[i] = records;
+      stats.setPartitionRecordsWritten(i, records);
+
+      long blocks = random.nextInt(10) + 1;
+      expectedBlocks[i] = blocks;
+      stats.setPartitionBlocksWritten(i, blocks);
+    }
+
+    String encoded = stats.encode();
+    ShuffleWriteTaskStats decoded = ShuffleWriteTaskStats.decode(rssConf, encoded);
+
+    assertEquals(TASK_ID, decoded.getTaskId());
+    assertEquals(TASK_ATTEMPT_ID, decoded.getTaskAttemptId());
+
+    for (int i = 0; i < PARTITIONS; i++) {
+      assertEquals(
+          expectedRecords[i], decoded.getRecordsWritten(i), "Partition " + i + " records mismatch");
+      assertEquals(
+          expectedBlocks[i], decoded.getBlocksWritten(i), "Partition " + i + " blocks mismatch");
+    }
+
+    System.out.println("Encoded length: " + encoded.length());
+  }
+
+  @Test
+  public void test() {
     long taskId = 10;
     long taskAttemptId = 12345L;
     ShuffleWriteTaskStats stats = new ShuffleWriteTaskStats(2, taskAttemptId, taskId);
@@ -35,15 +168,12 @@ public class ShuffleWriteTaskStatsTest {
     stats.incPartitionBlock(1);
 
     String encoded = stats.encode();
-    ShuffleWriteTaskStats decoded = ShuffleWriteTaskStats.decode(encoded);
+    ShuffleWriteTaskStats decoded = ShuffleWriteTaskStats.decode(new RssConf(), encoded);
 
     assertEquals(10, stats.getTaskId());
 
     assertEquals(taskAttemptId, decoded.getTaskAttemptId());
     assertEquals(1, decoded.getRecordsWritten(0));
     assertEquals(1, decoded.getRecordsWritten(1));
-
-    assertEquals(1, decoded.getBlocksWritten(0));
-    assertEquals(1, decoded.getBlocksWritten(1));
   }
 }

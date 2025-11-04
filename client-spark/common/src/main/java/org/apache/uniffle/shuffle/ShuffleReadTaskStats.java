@@ -69,20 +69,21 @@ public class ShuffleReadTaskStats {
           LOGGER.warn("Should not happen that task attempt {} has no write stats", taskAttemptId);
           continue;
         }
-        long recordsUpstream = stats.getRecordsWritten(idx);
-        long blocksUpstream = stats.getBlocksWritten(idx);
-        if (recordsRead != recordsUpstream || blocksRead != blocksUpstream) {
+        boolean isRecordMatch = stats.getRecordsWritten(idx) == recordsRead;
+        boolean isBlockMatch =
+            stats.isBlockCheckEnabled() ? stats.getBlocksWritten(idx) == blocksRead : true;
+        if (!isRecordMatch || !isBlockMatch) {
           infoBuilder.append(idx);
           infoBuilder.append("/");
           infoBuilder.append(stats.getTaskId());
           infoBuilder.append("/");
           infoBuilder.append(recordsRead);
           infoBuilder.append("-");
-          infoBuilder.append(recordsUpstream);
+          infoBuilder.append(stats.getRecordsWritten(idx));
           infoBuilder.append("/");
           infoBuilder.append(blocksRead);
           infoBuilder.append("-");
-          infoBuilder.append(blocksUpstream);
+          infoBuilder.append(stats.getBlocksWritten(idx));
           infoBuilder.append(",");
         }
       }
