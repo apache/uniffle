@@ -158,13 +158,13 @@ public class ShuffleWriteTaskStats {
   public String encode() {
     final long start = System.currentTimeMillis();
     int partitions = partitionRecordsWritten.length;
-    int flagBytes = (partitions + 7) / 8;
+    int flagBytes = (partitions + 3) / 4;
 
     // estimated max size to set the buffer capacity
     // taskId + taskAttemptId + partitionNumber
     int header = 2 * Long.BYTES + Integer.BYTES;
-    // records flagBytes (zero skip + variable int) + real bytes
-    int records = flagBytes * 2 + partitions * Long.BYTES;
+    // records flagBytes + real bytes
+    int records = flagBytes + partitions * Long.BYTES;
     int blocks = blockCheckEnabled ? flagBytes + partitions * Long.BYTES : 0;
     int capacity = header + records + blocks;
     ByteBuffer buffer = ByteBuffer.allocate(capacity);
