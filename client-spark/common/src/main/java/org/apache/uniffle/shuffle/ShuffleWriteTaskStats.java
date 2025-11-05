@@ -141,10 +141,10 @@ public class ShuffleWriteTaskStats {
 
       switch (typeCode) {
         case 0:
-          array[i] = buffer.getShort() & 0xFFFFL;
+          array[i] = buffer.getShort();
           break;
         case 1:
-          array[i] = buffer.getInt() & 0xFFFFFFFFL;
+          array[i] = buffer.getInt();
           break;
         case 2:
           array[i] = buffer.getLong();
