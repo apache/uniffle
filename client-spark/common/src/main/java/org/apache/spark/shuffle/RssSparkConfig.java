@@ -52,6 +52,13 @@ public class RssSparkConfig {
           .defaultValue(false)
           .withDescription("Whether or not to enable validation failure analysis");
 
+  public static final ConfigOption<Boolean>
+      RSS_DATA_INTEGRITY_VALIDATION_BLOCK_NUMBER_CHECK_ENABLED =
+          ConfigOptions.key("rss.client.integrityValidation.blockNumberCheckEnabled")
+              .booleanType()
+              .defaultValue(false)
+              .withDescription("Whether or not to enable validation block number check");
+
   public static final ConfigOption<Boolean> RSS_READ_SHUFFLE_HANDLE_CACHE_ENABLED =
       ConfigOptions.key("rss.client.read.shuffleHandleCacheEnabled")
           .booleanType()

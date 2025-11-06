@@ -70,8 +70,10 @@ public class ShuffleReadTaskStats {
           continue;
         }
         long recordsUpstream = stats.getRecordsWritten(idx);
+        // If blocksUpstream is less than 0, it indicates that the block number check is disabled.
         long blocksUpstream = stats.getBlocksWritten(idx);
-        if (recordsRead != recordsUpstream || blocksRead != blocksUpstream) {
+        if (recordsRead != recordsUpstream
+            || (blocksUpstream >= 0 && blocksRead != blocksUpstream)) {
           infoBuilder.append(idx);
           infoBuilder.append("/");
           infoBuilder.append(stats.getTaskId());
