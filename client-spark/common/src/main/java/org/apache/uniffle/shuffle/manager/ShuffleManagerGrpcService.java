@@ -298,7 +298,10 @@ public class ShuffleManagerGrpcService extends ShuffleManagerImplBase {
       reply =
           RssProtos.ReassignOnBlockSendFailureResponse.newBuilder()
               .setStatus(code)
-              .setHandle(MutableShuffleHandleInfo.toProto(shuffleHandle))
+              .setHandle(
+                  shuffleHandle.isUpdated()
+                      ? MutableShuffleHandleInfo.toProto(shuffleHandle)
+                      : null)
               .build();
     } else {
       code = RssProtos.StatusCode.INVALID_REQUEST;

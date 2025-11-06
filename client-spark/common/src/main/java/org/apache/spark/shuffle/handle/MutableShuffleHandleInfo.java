@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -68,6 +69,8 @@ public class MutableShuffleHandleInfo extends ShuffleHandleInfoBase {
       excludedServerForPartitionToReplacements;
 
   private PartitionSplitMode partitionSplitMode = PartitionSplitMode.PIPELINE;
+
+  private AtomicBoolean isUpdated = new AtomicBoolean(false);
 
   public MutableShuffleHandleInfo(
       int shuffleId,
@@ -121,6 +124,10 @@ public class MutableShuffleHandleInfo extends ShuffleHandleInfoBase {
     return partitionReplicaAssignedServers;
   }
 
+  public boolean isUpdated() {
+    return isUpdated.get();
+  }
+
   public Set<ShuffleServerInfo> getReplacements(String faultyServerId) {
     return excludedServerToReplacements.get(faultyServerId);
   }
@@ -170,6 +177,9 @@ public class MutableShuffleHandleInfo extends ShuffleHandleInfoBase {
           servers.addAll(tempSet);
         }
       }
+    }
+    if (!updatedServers.isEmpty()) {
+      isUpdated.set(true);
     }
     return updatedServers;
   }

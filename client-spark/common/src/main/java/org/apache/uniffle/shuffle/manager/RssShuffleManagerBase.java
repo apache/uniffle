@@ -914,8 +914,21 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
     } else if (shuffleManagerRpcServiceEnabled && partitionReassignEnabled) {
       // In partition block Retry mode, Get the ShuffleServer list from the Driver based on the
       // shuffleId.
-      return getRemoteShuffleHandleInfoWithBlockRetry(
-          stageAttemptId, stageAttemptNumber, shuffleId, isWritePhase);
+      ShuffleHandleInfo handle =
+          getRemoteShuffleHandleInfoWithBlockRetry(
+              stageAttemptId, stageAttemptNumber, shuffleId, isWritePhase);
+      if (handle == null) {
+        // if the handle is null, it means the shuffleHandle haven't been updated.
+        // we could re-construct from the spark's handle, that is to reduce the rpc data bytes
+        // transmit.
+        handle =
+            new MutableShuffleHandleInfo(
+                shuffleId,
+                rssHandle.getPartitionToServers(),
+                rssHandle.getRemoteStorage(),
+                partitionSplitMode);
+      }
+      return handle;
     } else {
       return new SimpleShuffleHandleInfo(
           shuffleId, rssHandle.getPartitionToServers(), rssHandle.getRemoteStorage());
