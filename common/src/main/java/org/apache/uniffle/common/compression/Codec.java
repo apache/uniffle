@@ -37,6 +37,10 @@ public abstract class Codec {
 
   public static Optional<Codec> newInstance(RssConf rssConf) {
     Type type = rssConf.get(COMPRESSION_TYPE);
+    return newInstance(type, rssConf);
+  }
+
+  public static Optional<Codec> newInstance(Codec.Type type, RssConf rssConf) {
     switch (type) {
       case NONE:
         return Optional.empty();

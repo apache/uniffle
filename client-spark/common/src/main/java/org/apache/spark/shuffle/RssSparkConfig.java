@@ -31,6 +31,7 @@ import org.apache.spark.internal.config.ConfigEntry;
 import org.apache.spark.internal.config.TypedConfigBuilder;
 
 import org.apache.uniffle.client.util.RssClientConfig;
+import org.apache.uniffle.common.compression.Codec;
 import org.apache.uniffle.common.config.ConfigOption;
 import org.apache.uniffle.common.config.ConfigOptions;
 import org.apache.uniffle.common.config.ConfigUtils;
@@ -58,6 +59,13 @@ public class RssSparkConfig {
               .booleanType()
               .defaultValue(false)
               .withDescription("Whether or not to enable validation block number check");
+
+  public static final ConfigOption<Codec.Type>
+      RSS_CLIENT_INTEGRITY_VALIDATION_STATS_COMPRESSION_TYPE =
+          ConfigOptions.key("rss.client.integrityValidation.statsCompressionType")
+              .enumType(Codec.Type.class)
+              .defaultValue(Codec.Type.ZSTD)
+              .withDescription("stats compression type");
 
   public static final ConfigOption<Boolean> RSS_READ_SHUFFLE_HANDLE_CACHE_ENABLED =
       ConfigOptions.key("rss.client.read.shuffleHandleCacheEnabled")

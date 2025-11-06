@@ -19,15 +19,17 @@ package org.apache.uniffle.shuffle;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.apache.uniffle.common.compression.ZstdCodec;
+import org.apache.uniffle.common.compression.Codec;
 import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.exception.RssException;
 
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static org.apache.spark.shuffle.RssSparkConfig.RSS_CLIENT_INTEGRITY_VALIDATION_STATS_COMPRESSION_TYPE;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_DATA_INTEGRITY_VALIDATION_BLOCK_NUMBER_CHECK_ENABLED;
 
 /**
@@ -112,24 +114,41 @@ public class ShuffleWriteTaskStats {
         buffer.putLong(blocks);
       }
     }
-    byte[] compressed = ZstdCodec.getInstance(rssConf).compress(buffer.array());
-    ByteBuffer compositedBuffer = ByteBuffer.allocate(Integer.BYTES + compressed.length);
-    compositedBuffer.putInt(capacity);
-    compositedBuffer.put(compressed);
-    LOGGER.info(
-        "Encoded task stats for {} partitions with {} bytes (original: {} bytes) in {} ms",
-        partitions,
-        compositedBuffer.capacity(),
-        capacity,
-        System.currentTimeMillis() - start);
-    return new String(compositedBuffer.array(), ISO_8859_1);
+    Optional<Codec> optionalCodec = getCodec(rssConf);
+    if (optionalCodec.isPresent()) {
+      Codec codec = optionalCodec.get();
+      byte[] compressed = codec.compress(buffer.array());
+      ByteBuffer compositedBuffer = ByteBuffer.allocate(Integer.BYTES + compressed.length);
+      compositedBuffer.putInt(capacity);
+      compositedBuffer.put(compressed);
+      LOGGER.info(
+          "Encoded task stats for {} partitions with {} bytes (original: {} bytes) in {} ms",
+          partitions,
+          compositedBuffer.capacity(),
+          capacity,
+          System.currentTimeMillis() - start);
+      return new String(compositedBuffer.array(), ISO_8859_1);
+    } else {
+      return new String(buffer.array(), ISO_8859_1);
+    }
+  }
+
+  private static Optional<Codec> getCodec(RssConf rssConf) {
+    return Codec.newInstance(
+        rssConf.get(RSS_CLIENT_INTEGRITY_VALIDATION_STATS_COMPRESSION_TYPE), rssConf);
   }
 
   public static ShuffleWriteTaskStats decode(RssConf rssConf, String raw) {
-    ByteBuffer inBuffer = ByteBuffer.wrap(raw.getBytes(ISO_8859_1));
-    int capacity = inBuffer.getInt();
-    ByteBuffer outBuffer = ByteBuffer.allocate(capacity);
-    ZstdCodec.getInstance(rssConf).decompress(inBuffer, capacity, outBuffer, 0);
+    byte[] rawBytes = raw.getBytes(ISO_8859_1);
+    ByteBuffer outBuffer = ByteBuffer.wrap(rawBytes);
+
+    Optional<Codec> optionalCodec = getCodec(rssConf);
+    if (optionalCodec.isPresent()) {
+      ByteBuffer inBuffer = ByteBuffer.wrap(rawBytes);
+      int capacity = inBuffer.getInt();
+      outBuffer = ByteBuffer.allocate(capacity);
+      optionalCodec.get().decompress(inBuffer, capacity, outBuffer, 0);
+    }
 
     long taskId = outBuffer.getLong();
     long taskAttemptId = outBuffer.getLong();
@@ -164,7 +183,6 @@ public class ShuffleWriteTaskStats {
   }
 
   public void check(long[] partitionLens) {
-    int partitions = partitionRecordsWritten.length;
     for (int idx = 0; idx < partitions; idx++) {
       long records = getRecordsWritten(idx);
       long blocks = getBlocksWritten(idx);
