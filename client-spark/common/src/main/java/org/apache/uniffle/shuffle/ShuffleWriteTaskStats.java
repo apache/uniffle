@@ -94,7 +94,7 @@ public class ShuffleWriteTaskStats {
   }
 
   public String encode() {
-    long start = System.currentTimeMillis();
+    final long start = System.currentTimeMillis();
     int partitions = partitionRecordsWritten.length;
     int capacity = 2 * Long.BYTES + Integer.BYTES + partitions * Long.BYTES;
     if (blockNumberCheckEnabled) {
