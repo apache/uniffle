@@ -70,7 +70,7 @@ public class MutableShuffleHandleInfo extends ShuffleHandleInfoBase {
 
   private PartitionSplitMode partitionSplitMode = PartitionSplitMode.PIPELINE;
 
-  private AtomicBoolean isUpdated = new AtomicBoolean(false);
+  private AtomicBoolean isUpdated = new AtomicBoolean(true);
 
   public MutableShuffleHandleInfo(
       int shuffleId,
@@ -178,9 +178,7 @@ public class MutableShuffleHandleInfo extends ShuffleHandleInfoBase {
         }
       }
     }
-    if (!updatedServers.isEmpty()) {
-      isUpdated.set(true);
-    }
+    isUpdated.set(true);
     return updatedServers;
   }
 

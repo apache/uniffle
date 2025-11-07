@@ -79,7 +79,7 @@ import org.apache.uniffle.client.impl.grpc.CoordinatorGrpcRetryableClient;
 import org.apache.uniffle.client.request.RssFetchClientConfRequest;
 import org.apache.uniffle.client.request.RssPartitionToShuffleServerRequest;
 import org.apache.uniffle.client.response.RssFetchClientConfResponse;
-import org.apache.uniffle.client.response.RssReassignOnBlockSendFailureResponse;
+import org.apache.uniffle.client.response.RssGetAssignmentForBlockRetryResponse;
 import org.apache.uniffle.client.response.RssReassignOnStageRetryResponse;
 import org.apache.uniffle.client.util.ClientUtils;
 import org.apache.uniffle.common.ClientType;
@@ -967,7 +967,7 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
     RssPartitionToShuffleServerRequest rssPartitionToShuffleServerRequest =
         new RssPartitionToShuffleServerRequest(
             stageAttemptId, stageAttemptNumber, shuffleId, isWritePhase);
-    RssReassignOnBlockSendFailureResponse rpcPartitionToShufflerServer =
+    RssGetAssignmentForBlockRetryResponse rpcPartitionToShufflerServer =
         getOrCreateShuffleManagerClientSupplier()
             .get()
             .getPartitionToShufflerServerWithBlockRetry(rssPartitionToShuffleServerRequest);

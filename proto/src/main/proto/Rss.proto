@@ -578,7 +578,7 @@ service ShuffleManager {
   // Gets the mapping between partitions and ShuffleServer from the ShuffleManager server on Stage Retry.
   rpc getPartitionToShufflerServerWithStageRetry(PartitionToShuffleServerRequest) returns (ReassignOnStageRetryResponse);
   // Gets the mapping between partitions and ShuffleServer from the ShuffleManager server on Block Retry.
-  rpc getPartitionToShufflerServerWithBlockRetry(PartitionToShuffleServerRequest) returns (ReassignOnBlockSendFailureResponse);
+  rpc getPartitionToShufflerServerWithBlockRetry(PartitionToShuffleServerRequest) returns (GetAssignmentForBlockRetryResponse);
   // Report write failures to ShuffleManager
   rpc reportShuffleWriteFailure (ReportShuffleWriteFailureRequest) returns (ReportShuffleWriteFailureResponse);
   // Reassign on block send failure that occurs in writer
@@ -785,6 +785,12 @@ message ReassignOnBlockSendFailureResponse {
   StatusCode status = 1;
   string msg = 2;
   MutableShuffleHandleInfo handle = 3;
+}
+
+message GetAssignmentForBlockRetryResponse {
+  StatusCode status = 1;
+  string msg = 2;
+  optional MutableShuffleHandleInfo handle = 3;
 }
 
 message StartSortMergeRequest {

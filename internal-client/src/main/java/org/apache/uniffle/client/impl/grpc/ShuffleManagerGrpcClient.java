@@ -32,6 +32,7 @@ import org.apache.uniffle.client.request.RssReportShuffleReadMetricRequest;
 import org.apache.uniffle.client.request.RssReportShuffleResultRequest;
 import org.apache.uniffle.client.request.RssReportShuffleWriteFailureRequest;
 import org.apache.uniffle.client.request.RssReportShuffleWriteMetricRequest;
+import org.apache.uniffle.client.response.RssGetAssignmentForBlockRetryResponse;
 import org.apache.uniffle.client.response.RssGetShuffleResultResponse;
 import org.apache.uniffle.client.response.RssReassignOnBlockSendFailureResponse;
 import org.apache.uniffle.client.response.RssReassignOnStageRetryResponse;
@@ -102,14 +103,14 @@ public class ShuffleManagerGrpcClient extends GrpcClient implements ShuffleManag
   }
 
   @Override
-  public RssReassignOnBlockSendFailureResponse getPartitionToShufflerServerWithBlockRetry(
+  public RssGetAssignmentForBlockRetryResponse getPartitionToShufflerServerWithBlockRetry(
       RssPartitionToShuffleServerRequest req) {
     RssProtos.PartitionToShuffleServerRequest protoRequest = req.toProto();
-    RssProtos.ReassignOnBlockSendFailureResponse partitionToShufflerServer =
+    RssProtos.GetAssignmentForBlockRetryResponse partitionToShufflerServer =
         getBlockingStub().getPartitionToShufflerServerWithBlockRetry(protoRequest);
-    RssReassignOnBlockSendFailureResponse rssReassignOnBlockSendFailureResponse =
-        RssReassignOnBlockSendFailureResponse.fromProto(partitionToShufflerServer);
-    return rssReassignOnBlockSendFailureResponse;
+    RssGetAssignmentForBlockRetryResponse response =
+        RssGetAssignmentForBlockRetryResponse.fromProto(partitionToShufflerServer);
+    return response;
   }
 
   @Override

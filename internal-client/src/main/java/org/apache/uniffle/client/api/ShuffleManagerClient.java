@@ -26,6 +26,7 @@ import org.apache.uniffle.client.request.RssReportShuffleReadMetricRequest;
 import org.apache.uniffle.client.request.RssReportShuffleResultRequest;
 import org.apache.uniffle.client.request.RssReportShuffleWriteFailureRequest;
 import org.apache.uniffle.client.request.RssReportShuffleWriteMetricRequest;
+import org.apache.uniffle.client.response.RssGetAssignmentForBlockRetryResponse;
 import org.apache.uniffle.client.response.RssGetShuffleResultResponse;
 import org.apache.uniffle.client.response.RssReassignOnBlockSendFailureResponse;
 import org.apache.uniffle.client.response.RssReassignOnStageRetryResponse;
@@ -57,7 +58,7 @@ public interface ShuffleManagerClient extends StatefulCloseable {
    * @param req request
    * @return RssPartitionToShuffleServerResponse
    */
-  RssReassignOnBlockSendFailureResponse getPartitionToShufflerServerWithBlockRetry(
+  RssGetAssignmentForBlockRetryResponse getPartitionToShufflerServerWithBlockRetry(
       RssPartitionToShuffleServerRequest req);
 
   RssReportShuffleWriteFailureResponse reportShuffleWriteFailure(

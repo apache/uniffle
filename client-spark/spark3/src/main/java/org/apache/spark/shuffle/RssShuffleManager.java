@@ -370,30 +370,15 @@ public class RssShuffleManager extends RssShuffleManagerBase {
     RssShuffleHandle<K, ?, C> rssShuffleHandle = (RssShuffleHandle<K, ?, C>) handle;
     final int partitionNum = rssShuffleHandle.getDependency().partitioner().numPartitions();
     int shuffleId = rssShuffleHandle.getShuffleId();
-    ShuffleHandleInfo shuffleHandleInfo;
 
-    if (shuffleManagerRpcServiceEnabled
-        && (rssStageRetryForWriteFailureEnabled || partitionReassignEnabled)) {
-      Supplier<ShuffleHandleInfo> func =
-          rssStageRetryForWriteFailureEnabled
-              ? () ->
-                  getRemoteShuffleHandleInfoWithStageRetry(
-                      context.stageId(), context.stageAttemptNumber(), shuffleId, false)
-              : () ->
-                  getRemoteShuffleHandleInfoWithBlockRetry(
-                      context.stageId(), context.stageAttemptNumber(), shuffleId, false);
-      if (readShuffleHandleCacheEnabled) {
-        shuffleHandleInfo = super.getOrFetchShuffleHandle(shuffleId, func);
-      } else {
-        shuffleHandleInfo = func.get();
-      }
+    ShuffleHandleInfo shuffleHandleInfo;
+    Supplier<ShuffleHandleInfo> func = () -> getShuffleHandleInfo(context.stageId(), context.stageAttemptNumber(), rssShuffleHandle, false);
+    if (readShuffleHandleCacheEnabled) {
+      shuffleHandleInfo = super.getOrFetchShuffleHandle(shuffleId, func);
     } else {
-      shuffleHandleInfo =
-          new SimpleShuffleHandleInfo(
-              shuffleId,
-              rssShuffleHandle.getPartitionToServers(),
-              rssShuffleHandle.getRemoteStorage());
+      shuffleHandleInfo = func.get();
     }
+
     Map<ShuffleServerInfo, Set<Integer>> serverToPartitions =
         getPartitionDataServers(shuffleHandleInfo, startPartition, endPartition);
     long start = System.currentTimeMillis();
