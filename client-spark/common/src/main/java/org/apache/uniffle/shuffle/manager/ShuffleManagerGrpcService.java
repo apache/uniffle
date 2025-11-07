@@ -296,8 +296,7 @@ public class ShuffleManagerGrpcService extends ShuffleManagerImplBase {
     if (shuffleHandle != null) {
       code = RssProtos.StatusCode.SUCCESS;
       RssProtos.GetAssignmentForBlockRetryResponse.Builder builder =
-          RssProtos.GetAssignmentForBlockRetryResponse.newBuilder()
-              .setStatus(code);
+          RssProtos.GetAssignmentForBlockRetryResponse.newBuilder().setStatus(code);
       if (shuffleHandle.isUpdated()) {
         builder.setHandle(MutableShuffleHandleInfo.toProto(shuffleHandle));
       }

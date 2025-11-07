@@ -372,7 +372,10 @@ public class RssShuffleManager extends RssShuffleManagerBase {
     int shuffleId = rssShuffleHandle.getShuffleId();
 
     ShuffleHandleInfo shuffleHandleInfo;
-    Supplier<ShuffleHandleInfo> func = () -> getShuffleHandleInfo(context.stageId(), context.stageAttemptNumber(), rssShuffleHandle, false);
+    Supplier<ShuffleHandleInfo> func =
+        () ->
+            getShuffleHandleInfo(
+                context.stageId(), context.stageAttemptNumber(), rssShuffleHandle, false);
     if (readShuffleHandleCacheEnabled) {
       shuffleHandleInfo = super.getOrFetchShuffleHandle(shuffleId, func);
     } else {
