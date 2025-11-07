@@ -37,6 +37,6 @@ public class RssGetAssignmentForBlockRetryResponse extends ClientResponse {
       RssProtos.GetAssignmentForBlockRetryResponse response) {
     RssProtos.MutableShuffleHandleInfo handle = response.hasHandle() ? response.getHandle() : null;
     return new RssGetAssignmentForBlockRetryResponse(
-        StatusCode.valueOf(response.getStatus().name()), response.getMsg(), null);
+        StatusCode.valueOf(response.getStatus().name()), response.getMsg(), handle);
   }
 }
