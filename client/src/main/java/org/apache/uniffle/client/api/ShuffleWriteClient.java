@@ -157,6 +157,20 @@ public interface ShuffleWriteClient {
       long taskAttemptId,
       int bitmapNum,
       Set<ShuffleServerInfo> reportFailureServers,
+      boolean enableWriteFailureRetry,
+      Map<ShuffleServerInfo, Map<Integer, Long>> serverToPartitionToRecordNumbers) {
+    throw new UnsupportedOperationException(
+        this.getClass().getName()
+            + " doesn't implement reportShuffleResult with integrity validation mechanism");
+  }
+
+  default void reportShuffleResult(
+      Map<ShuffleServerInfo, Map<Integer, Set<Long>>> serverToPartitionToBlockIds,
+      String appId,
+      int shuffleId,
+      long taskAttemptId,
+      int bitmapNum,
+      Set<ShuffleServerInfo> reportFailureServers,
       boolean enableWriteFailureRetry) {}
 
   ShuffleAssignmentsInfo getShuffleAssignments(

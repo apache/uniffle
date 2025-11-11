@@ -118,6 +118,8 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
   private final int bitmapSplitNum;
   // server -> partitionId -> blockIds
   private Map<ShuffleServerInfo, Map<Integer, Set<Long>>> serverToPartitionToBlockIds;
+  // server -> partitionId -> recordNumbers
+  private Map<ShuffleServerInfo, Map<Integer, Long>> serverToPartitionToRecordNumbers;
   private final ShuffleWriteClient shuffleWriteClient;
   private final Set<ShuffleServerInfo> shuffleServersForData;
   private final PartitionLengthStatistic partitionLengthStatistic;
@@ -224,6 +226,7 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
     this.sendCheckInterval = sparkConf.get(RssSparkConfig.RSS_CLIENT_SEND_CHECK_INTERVAL_MS);
     this.bitmapSplitNum = sparkConf.get(RssSparkConfig.RSS_CLIENT_BITMAP_SPLIT_NUM);
     this.serverToPartitionToBlockIds = Maps.newHashMap();
+    this.serverToPartitionToRecordNumbers = Maps.newHashMap();
     this.shuffleWriteClient = shuffleWriteClient;
     this.shuffleServersForData = shuffleHandleInfo.getServers();
     this.partitionLengthStatistic = new PartitionLengthStatistic(partitioner.numPartitions());
@@ -488,6 +491,11 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
                           serverToPartitionToBlockIds.computeIfAbsent(
                               shuffleServerInfo, k -> Maps.newHashMap());
                       pToBlockIds.computeIfAbsent(partitionId, v -> Sets.newHashSet()).add(blockId);
+
+                      // update the [partition, recordNumber]
+                      serverToPartitionToRecordNumbers
+                          .computeIfAbsent(shuffleServerInfo, k -> Maps.newHashMap())
+                          .compute(partitionId, (k, v) -> v == null ? 1 : v + 1);
                     });
           });
       return postBlockEvent(shuffleBlockInfoList);
@@ -937,7 +945,8 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
             taskAttemptId,
             bitmapSplitNum,
             recordReportFailedShuffleservers,
-            enableWriteFailureRetry);
+            enableWriteFailureRetry,
+            serverToPartitionToRecordNumbers);
         long reportDuration = System.currentTimeMillis() - start;
         LOG.info(
             "Reported all shuffle result for shuffleId[{}] task[{}] with bitmapNum[{}] cost {} ms",

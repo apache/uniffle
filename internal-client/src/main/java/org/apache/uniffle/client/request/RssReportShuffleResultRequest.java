@@ -17,6 +17,7 @@
 
 package org.apache.uniffle.client.request;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -31,6 +32,22 @@ public class RssReportShuffleResultRequest {
   private long taskAttemptId;
   private int bitmapNum;
   private Map<Integer, List<Long>> partitionToBlockIds;
+  private Map<Integer, Long> partitionToRecordNumbers;
+
+  public RssReportShuffleResultRequest(
+      String appId,
+      int shuffleId,
+      long taskAttemptId,
+      Map<Integer, List<Long>> partitionToBlockIds,
+      int bitmapNum,
+      Map<Integer, Long> partitionToRecordNumbers) {
+    this.appId = appId;
+    this.shuffleId = shuffleId;
+    this.taskAttemptId = taskAttemptId;
+    this.bitmapNum = bitmapNum;
+    this.partitionToBlockIds = partitionToBlockIds;
+    this.partitionToRecordNumbers = partitionToRecordNumbers;
+  }
 
   public RssReportShuffleResultRequest(
       String appId,
@@ -38,11 +55,7 @@ public class RssReportShuffleResultRequest {
       long taskAttemptId,
       Map<Integer, List<Long>> partitionToBlockIds,
       int bitmapNum) {
-    this.appId = appId;
-    this.shuffleId = shuffleId;
-    this.taskAttemptId = taskAttemptId;
-    this.bitmapNum = bitmapNum;
-    this.partitionToBlockIds = partitionToBlockIds;
+    this(appId, shuffleId, taskAttemptId, partitionToBlockIds, bitmapNum, null);
   }
 
   public String getAppId() {
@@ -79,6 +92,24 @@ public class RssReportShuffleResultRequest {
       }
     }
 
+    List<RssProtos.PartitionStats> partitionStats = Lists.newArrayList();
+    if (partitionToRecordNumbers != null) {
+      for (Map.Entry<Integer, Long> entry : partitionToRecordNumbers.entrySet()) {
+        int partitionId = entry.getKey();
+        long recordNumber = entry.getValue();
+        RssProtos.TaskAttemptIdToRecords taskAttemptIdToRecords =
+            RssProtos.TaskAttemptIdToRecords.newBuilder()
+                .setTaskAttemptId(taskAttemptId)
+                .setRecordNumber(recordNumber)
+                .build();
+        partitionStats.add(
+            RssProtos.PartitionStats.newBuilder()
+                .setPartitionId(partitionId)
+                .addAllTaskAttemptIdToRecords(Arrays.asList(taskAttemptIdToRecords))
+                .build());
+      }
+    }
+
     RssProtos.ReportShuffleResultRequest rpcRequest =
         RssProtos.ReportShuffleResultRequest.newBuilder()
             .setAppId(request.getAppId())
@@ -86,6 +117,7 @@ public class RssReportShuffleResultRequest {
             .setTaskAttemptId(request.getTaskAttemptId())
             .setBitmapNum(request.getBitmapNum())
             .addAllPartitionToBlockIds(partitionToBlockIds)
+            .addAllPartitionStats(partitionStats)
             .build();
     return rpcRequest;
   }

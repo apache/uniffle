@@ -755,14 +755,24 @@ public class ShuffleWriteClientImpl implements ShuffleWriteClient {
       long taskAttemptId,
       int bitmapNum,
       Set<ShuffleServerInfo> reportFailureServers,
-      boolean enableWriteFailureRetry) {
+      boolean enableWriteFailureRetry,
+      Map<ShuffleServerInfo, Map<Integer, Long>> serverToPartitionToRecordNumbers) {
     // record blockId count for quora check,but this is not a good realization.
     Map<Long, Integer> blockReportTracker = createBlockReportTracker(serverToPartitionToBlockIds);
     for (Map.Entry<ShuffleServerInfo, Map<Integer, Set<Long>>> entry :
         serverToPartitionToBlockIds.entrySet()) {
+      ShuffleServerInfo serverInfo = entry.getKey();
       Map<Integer, Set<Long>> requestBlockIds = entry.getValue();
       if (requestBlockIds.isEmpty()) {
         continue;
+      }
+      Map<Integer, Long> partitionToRecordNumbers = null;
+      if (serverToPartitionToRecordNumbers != null) {
+        partitionToRecordNumbers = serverToPartitionToRecordNumbers.get(serverInfo);
+        if (partitionToRecordNumbers == null) {
+          throw new RssException(
+              "Should not happen that partitionToRecordNumbers is null but blockIds is not empty!");
+        }
       }
       RssReportShuffleResultRequest request =
           new RssReportShuffleResultRequest(
@@ -771,7 +781,8 @@ public class ShuffleWriteClientImpl implements ShuffleWriteClient {
               taskAttemptId,
               requestBlockIds.entrySet().stream()
                   .collect(Collectors.toMap(Map.Entry::getKey, e -> new ArrayList<>(e.getValue()))),
-              bitmapNum);
+              bitmapNum,
+              partitionToRecordNumbers);
       ShuffleServerInfo ssi = entry.getKey();
       try {
         long start = System.currentTimeMillis();
@@ -828,6 +839,26 @@ public class ShuffleWriteClientImpl implements ShuffleWriteClient {
               + shuffleId
               + "]");
     }
+  }
+
+  @Override
+  public void reportShuffleResult(
+      Map<ShuffleServerInfo, Map<Integer, Set<Long>>> serverToPartitionToBlockIds,
+      String appId,
+      int shuffleId,
+      long taskAttemptId,
+      int bitmapNum,
+      Set<ShuffleServerInfo> reportFailureServers,
+      boolean enableWriteFailureRetry) {
+    reportShuffleResult(
+        serverToPartitionToBlockIds,
+        appId,
+        shuffleId,
+        taskAttemptId,
+        bitmapNum,
+        reportFailureServers,
+        enableWriteFailureRetry,
+        null);
   }
 
   private void recordFailedBlockIds(

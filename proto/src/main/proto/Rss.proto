@@ -140,6 +140,7 @@ message ReportShuffleResultRequest {
   int64 taskAttemptId = 3;
   int32 bitmapNum = 4;
   repeated PartitionToBlockIds partitionToBlockIds = 5;
+  repeated PartitionStats partitionStats = 6;
 }
 
 message PartitionToBlockIds {
@@ -182,6 +183,17 @@ message GetShuffleResultForMultiPartResponse {
   StatusCode status = 1;
   string retMsg = 2;
   bytes serializedBitmap = 3;
+  repeated PartitionStats partitionStats = 4;
+}
+
+message PartitionStats {
+  int32 partitionId = 1;
+  repeated TaskAttemptIdToRecords taskAttemptIdToRecords = 2;
+}
+
+message TaskAttemptIdToRecords {
+  int64 taskAttemptId = 1;
+  int64 recordNumber = 2;
 }
 
 message ShufflePartitionRange {
