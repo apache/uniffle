@@ -18,7 +18,6 @@
 package org.apache.spark.ui
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.shuffle.events.ShuffleWriteTimes
 import org.apache.spark.util.Utils
 import org.apache.spark.{AggregatedShuffleMetric, AggregatedShuffleReadMetric, AggregatedShuffleWriteMetric, AggregatedTaskInfoUIData, ShuffleType}
 
@@ -460,6 +459,26 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
           </span>
           <div class="read-times-table collapsible-table collapsed">
             {readTimesUI}
+          </div>
+        </div>
+
+        <div>
+          <span class="collapse-failures-properties collapse-table"
+                onClick="collapseTable('collapse-failures-properties', 'failures-table')">
+            <h4>
+              <span class="collapse-table-arrow arrow-closed"></span>
+              <a>Shuffle Failures</a>
+            </h4>
+          </span>
+          <div class="failures-table collapsible-table collapsed">
+            <h4>Write {writeSummary.failedTaskNumber} Failures (maxAttemptNumber:{writeSummary.failedTaskMaxAttemptNumber})</h4>
+            <pre>
+              {writeSummary.failureReasons.mkString("\n\n")}
+            </pre>
+            <h4>Read {readSummary.failedTaskNumber} Failures (maxAttemptNumber:{readSummary.failedTaskMaxAttemptNumber})</h4>
+            <pre>
+              {readSummary.failureReasons.mkString("\n\n")}
+            </pre>
           </div>
         </div>
       </div>
