@@ -46,6 +46,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.uniffle.client.PartitionDataReplicaRequirementTracking;
+import org.apache.uniffle.client.api.ShuffleResult;
 import org.apache.uniffle.client.api.ShuffleServerClient;
 import org.apache.uniffle.client.api.ShuffleWriteClient;
 import org.apache.uniffle.client.common.ShuffleServerPushCostTracker;
@@ -926,7 +927,7 @@ public class ShuffleWriteClientImpl implements ShuffleWriteClient {
   }
 
   @Override
-  public Roaring64NavigableMap getShuffleResultForMultiPart(
+  public ShuffleResult getShuffleResultForMultiPartV2(
       String clientType,
       Map<ShuffleServerInfo, Set<Integer>> serverToPartitions,
       String appId,
@@ -934,6 +935,7 @@ public class ShuffleWriteClientImpl implements ShuffleWriteClient {
       Set<Integer> failedPartitions,
       PartitionDataReplicaRequirementTracking replicaRequirementTracking) {
     Roaring64NavigableMap blockIdBitmap = Roaring64NavigableMap.bitmapOf();
+    Map<Integer, Map<Long, Long>> partitionToTaskAttemptIdToRecordNumbers = new HashMap<>();
     Set<Integer> allRequestedPartitionIds = new HashSet<>();
     for (Map.Entry<ShuffleServerInfo, Set<Integer>> entry : serverToPartitions.entrySet()) {
       ShuffleServerInfo shuffleServerInfo = entry.getKey();
@@ -958,6 +960,10 @@ public class ShuffleWriteClientImpl implements ShuffleWriteClient {
             replicaRequirementTracking.markPartitionOfServerSuccessful(
                 partitionId, shuffleServerInfo);
           }
+          // todo: should be more careful to handle this under the multi replicas.
+          //  Now, this integrity validation is not supported for multi replicas
+          partitionToTaskAttemptIdToRecordNumbers.putAll(
+              response.getPartitionToTaskAttemptIdToRecordNumbers());
         }
       } catch (Exception e) {
         failedPartitions.addAll(requestPartitions);
@@ -981,7 +987,25 @@ public class ShuffleWriteClientImpl implements ShuffleWriteClient {
       throw new RssFetchFailedException(
           "Get shuffle result is failed for appId[" + appId + "], shuffleId[" + shuffleId + "]");
     }
-    return blockIdBitmap;
+    return new ShuffleResult(blockIdBitmap, partitionToTaskAttemptIdToRecordNumbers);
+  }
+
+  @Override
+  public Roaring64NavigableMap getShuffleResultForMultiPart(
+      String clientType,
+      Map<ShuffleServerInfo, Set<Integer>> serverToPartitions,
+      String appId,
+      int shuffleId,
+      Set<Integer> failedPartitions,
+      PartitionDataReplicaRequirementTracking replicaRequirementTracking) {
+    return getShuffleResultForMultiPartV2(
+            clientType,
+            serverToPartitions,
+            appId,
+            shuffleId,
+            failedPartitions,
+            replicaRequirementTracking)
+        .getBlockIds();
   }
 
   @Override

@@ -241,6 +241,16 @@ public interface ShuffleWriteClient {
       Set<Integer> failedPartitions,
       PartitionDataReplicaRequirementTracking replicaRequirementTracking);
 
+  default ShuffleResult getShuffleResultForMultiPartV2(
+      String clientType,
+      Map<ShuffleServerInfo, Set<Integer>> serverToPartitions,
+      String appId,
+      int shuffleId,
+      Set<Integer> failedPartitions,
+      PartitionDataReplicaRequirementTracking replicaRequirementTracking) {
+    throw new UnsupportedOperationException();
+  }
+
   void close();
 
   void unregisterShuffle(String appId, int shuffleId);

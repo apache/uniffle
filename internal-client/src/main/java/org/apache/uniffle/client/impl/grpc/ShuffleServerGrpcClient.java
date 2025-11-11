@@ -927,7 +927,9 @@ public class ShuffleServerGrpcClient extends GrpcClient implements ShuffleServer
         try {
           response =
               new RssGetShuffleResultResponse(
-                  StatusCode.SUCCESS, rpcResponse.getSerializedBitmap().toByteArray());
+                  StatusCode.SUCCESS,
+                  rpcResponse.getSerializedBitmap().toByteArray(),
+                  rpcResponse.getPartitionStatsList());
         } catch (Exception e) {
           throw new RssException(e);
         }

@@ -17,12 +17,7 @@
 
 package org.apache.spark.shuffle;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -62,6 +57,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.uniffle.client.PartitionDataReplicaRequirementTracking;
+import org.apache.uniffle.client.api.ShuffleResult;
 import org.apache.uniffle.client.api.ShuffleWriteClient;
 import org.apache.uniffle.client.impl.FailedBlockSendTracker;
 import org.apache.uniffle.client.util.ClientUtils;
@@ -77,8 +73,7 @@ import org.apache.uniffle.shuffle.RssShuffleClientFactory;
 import org.apache.uniffle.shuffle.ShuffleWriteTaskStats;
 import org.apache.uniffle.shuffle.manager.RssShuffleManagerBase;
 
-import static org.apache.spark.shuffle.RssSparkConfig.RSS_CLIENT_INTEGRITY_VALIDATION_ENABLED;
-import static org.apache.spark.shuffle.RssSparkConfig.RSS_DATA_INTEGRATION_VALIDATION_ANALYSIS_ENABLED;
+import static org.apache.spark.shuffle.RssSparkConfig.*;
 
 public class RssShuffleManager extends RssShuffleManagerBase {
   private static final Logger LOG = LoggerFactory.getLogger(RssShuffleManager.class);
@@ -397,7 +392,7 @@ public class RssShuffleManager extends RssShuffleManagerBase {
     Map<ShuffleServerInfo, Set<Integer>> serverToPartitions =
         getPartitionDataServers(shuffleHandleInfo, startPartition, endPartition);
     long start = System.currentTimeMillis();
-    Roaring64NavigableMap blockIdBitmap =
+    ShuffleResult shuffleResult =
         getShuffleResultForMultiPart(
             clientType,
             serverToPartitions,
@@ -405,7 +400,23 @@ public class RssShuffleManager extends RssShuffleManagerBase {
             shuffleId,
             context.stageAttemptNumber(),
             shuffleHandleInfo.createPartitionReplicaTracking());
-
+    Roaring64NavigableMap blockIdBitmap = shuffleResult.getBlockIds();
+    if (isIntegrityValidationServerManagementEnabled(rssConf)) {
+      Map<Integer, Map<Long, Long>> partitionToTaskAttemptIdToRecordNumbers =
+          shuffleResult.getPartitionToTaskAttemptIdToRecordNumbers();
+      if (partitionToTaskAttemptIdToRecordNumbers != null
+          && !partitionToTaskAttemptIdToRecordNumbers.isEmpty()) {
+        Optional<Long> optionalRecordNumber =
+            partitionToTaskAttemptIdToRecordNumbers.values().stream()
+                .flatMap(x -> x.entrySet().stream())
+                .filter(x -> taskIdBitmap.contains(x.getKey()))
+                .map(Map.Entry::getValue)
+                .reduce(Long::sum);
+        if (optionalRecordNumber.isPresent()) {
+          expectedRecordsRead = optionalRecordNumber.get();
+        }
+      }
+    }
     LOG.info(
         "Retrieved {} upstream task ids in {} ms and {} block IDs from {} shuffle-servers in {} ms for shuffleId[{}], partitionId[{},{}]",
         taskIdBitmap.getLongCardinality(),
@@ -472,8 +483,16 @@ public class RssShuffleManager extends RssShuffleManagerBase {
     return rssConf.get(RSS_CLIENT_INTEGRITY_VALIDATION_ENABLED);
   }
 
-  public static boolean isIntegrationValidationFailureAnalysisEnabled(RssConf rssConf) {
+  public static boolean isIntegrityValidationServerManagementEnabled(RssConf rssConf) {
     if (!isIntegrityValidationEnabled(rssConf)) {
+      return false;
+    }
+    return rssConf.get(RSS_DATA_INTEGRITY_VALIDATION_SERVER_MANAGEMENT_ENABLED);
+  }
+
+  public static boolean isIntegrationValidationFailureAnalysisEnabled(RssConf rssConf) {
+    // todo: enable the validation failure analysis when the server management is enabled
+    if (isIntegrityValidationServerManagementEnabled(rssConf)) {
       return false;
     }
     return rssConf.get(RSS_DATA_INTEGRATION_VALIDATION_ANALYSIS_ENABLED);
@@ -572,7 +591,7 @@ public class RssShuffleManager extends RssShuffleManagerBase {
       int endPartition,
       int startMapIndex,
       int endMapIndex) {
-    if (!isIntegrityValidationEnabled(rssConf)) {
+    if (isIntegrityValidationServerManagementEnabled(rssConf)) {
       return Collections.emptyMap();
     }
     Iterator<BlockManagerId> iter =
@@ -602,7 +621,7 @@ public class RssShuffleManager extends RssShuffleManagerBase {
       }
 
       String raw = blockManagerId.topologyInfo().get();
-      if (isIntegrityValidationEnabled(rssConf)) {
+      if (!isIntegrityValidationServerManagementEnabled(rssConf)) {
         ShuffleWriteTaskStats shuffleWriteTaskStats = ShuffleWriteTaskStats.decode(rssConf, raw);
         taskIdBitmap.add(shuffleWriteTaskStats.getTaskAttemptId());
         for (int i = startPartition; i < endPartition; i++) {
@@ -748,7 +767,7 @@ public class RssShuffleManager extends RssShuffleManagerBase {
     this.id = new AtomicReference<>(appId);
   }
 
-  private Roaring64NavigableMap getShuffleResultForMultiPart(
+  private ShuffleResult getShuffleResultForMultiPart(
       String clientType,
       Map<ShuffleServerInfo, Set<Integer>> serverToPartitions,
       String appId,
@@ -757,7 +776,7 @@ public class RssShuffleManager extends RssShuffleManagerBase {
       PartitionDataReplicaRequirementTracking replicaRequirementTracking) {
     Set<Integer> failedPartitions = Sets.newHashSet();
     try {
-      return shuffleWriteClient.getShuffleResultForMultiPart(
+      return shuffleWriteClient.getShuffleResultForMultiPartV2(
           clientType,
           serverToPartitions,
           appId,
