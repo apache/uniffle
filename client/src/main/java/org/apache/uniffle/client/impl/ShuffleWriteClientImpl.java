@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -956,14 +957,16 @@ public class ShuffleWriteClientImpl implements ShuffleWriteClient {
           // merge into blockIds from multiple servers.
           Roaring64NavigableMap blockIdBitmapOfServer = response.getBlockIdBitmap();
           blockIdBitmap.or(blockIdBitmapOfServer);
+
+          // todo: should be more careful to handle this under the multi replicas.
+          //  Now, this integrity validation is not supported for multi replicas
+          Optional.ofNullable(response.getPartitionToTaskAttemptIdToRecordNumbers())
+              .ifPresent(x -> partitionToTaskAttemptIdToRecordNumbers.putAll(x));
+
           for (Integer partitionId : requestPartitions) {
             replicaRequirementTracking.markPartitionOfServerSuccessful(
                 partitionId, shuffleServerInfo);
           }
-          // todo: should be more careful to handle this under the multi replicas.
-          //  Now, this integrity validation is not supported for multi replicas
-          partitionToTaskAttemptIdToRecordNumbers.putAll(
-              response.getPartitionToTaskAttemptIdToRecordNumbers());
         }
       } catch (Exception e) {
         failedPartitions.addAll(requestPartitions);

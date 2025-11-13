@@ -404,16 +404,15 @@ public class RssShuffleManager extends RssShuffleManagerBase {
     if (isIntegrityValidationServerManagementEnabled(rssConf)) {
       Map<Integer, Map<Long, Long>> partitionToTaskAttemptIdToRecordNumbers =
           shuffleResult.getPartitionToTaskAttemptIdToRecordNumbers();
-      if (partitionToTaskAttemptIdToRecordNumbers != null
-          && !partitionToTaskAttemptIdToRecordNumbers.isEmpty()) {
-        Optional<Long> optionalRecordNumber =
+      if (partitionToTaskAttemptIdToRecordNumbers != null) {
+        long total =
             partitionToTaskAttemptIdToRecordNumbers.values().stream()
                 .flatMap(x -> x.entrySet().stream())
                 .filter(x -> taskIdBitmap.contains(x.getKey()))
-                .map(Map.Entry::getValue)
-                .reduce(Long::sum);
-        if (optionalRecordNumber.isPresent()) {
-          expectedRecordsRead = optionalRecordNumber.get();
+                .mapToLong(Map.Entry::getValue)
+                .sum();
+        if (total > 0) {
+          expectedRecordsRead = total;
         }
       }
     }

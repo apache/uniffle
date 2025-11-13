@@ -478,6 +478,7 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
       shuffleBlockInfoList.forEach(
           sbi -> {
             long blockId = sbi.getBlockId();
+            long recordNumber = sbi.getRecordNumber();
             // add blockId to set, check if it is sent later
             blockIds.add(blockId);
             int partitionId = sbi.getPartitionId();
@@ -495,7 +496,8 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
                       // update the [partition, recordNumber]
                       serverToPartitionToRecordNumbers
                           .computeIfAbsent(shuffleServerInfo, k -> Maps.newHashMap())
-                          .compute(partitionId, (k, v) -> v == null ? 1 : v + 1);
+                          .compute(
+                              partitionId, (k, v) -> v == null ? recordNumber : v + recordNumber);
                     });
           });
       return postBlockEvent(shuffleBlockInfoList);

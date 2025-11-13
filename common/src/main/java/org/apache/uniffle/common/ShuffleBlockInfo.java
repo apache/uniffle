@@ -41,6 +41,36 @@ public class ShuffleBlockInfo {
   protected long crc;
   protected ByteBuf data;
 
+  protected long recordNumber;
+
+  public ShuffleBlockInfo(
+      int shuffleId,
+      int partitionId,
+      long blockId,
+      int length,
+      long crc,
+      byte[] data,
+      List<ShuffleServerInfo> shuffleServerInfos,
+      int uncompressLength,
+      long freeMemory,
+      long taskAttemptId,
+      Function<Integer, List<ShuffleServerInfo>> partitionAssignmentRetrieveFunc,
+      long records) {
+    this(
+        shuffleId,
+        partitionId,
+        blockId,
+        length,
+        crc,
+        data,
+        shuffleServerInfos,
+        uncompressLength,
+        freeMemory,
+        taskAttemptId);
+    this.partitionAssignmentRetrieveFunc = partitionAssignmentRetrieveFunc;
+    this.recordNumber = records;
+  }
+
   public ShuffleBlockInfo(
       int shuffleId,
       int partitionId,
@@ -75,7 +105,8 @@ public class ShuffleBlockInfo {
       int uncompressLength,
       long freeMemory,
       long taskAttemptId,
-      Function<Integer, List<ShuffleServerInfo>> partitionAssignmentRetrieveFunc) {
+      Function<Integer, List<ShuffleServerInfo>> partitionAssignmentRetrieveFunc,
+      long recordNumber) {
     this.shuffleId = shuffleId;
     this.partitionId = partitionId;
     this.blockId = blockId;
@@ -84,6 +115,7 @@ public class ShuffleBlockInfo {
     this.freeMemory = freeMemory;
     this.taskAttemptId = taskAttemptId;
     this.partitionAssignmentRetrieveFunc = partitionAssignmentRetrieveFunc;
+    this.recordNumber = recordNumber;
   }
 
   public ShuffleBlockInfo(
@@ -246,5 +278,9 @@ public class ShuffleBlockInfo {
       }
     }
     return false;
+  }
+
+  public long getRecordNumber() {
+    return recordNumber;
   }
 }

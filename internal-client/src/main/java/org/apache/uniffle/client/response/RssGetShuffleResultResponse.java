@@ -33,7 +33,7 @@ public class RssGetShuffleResultResponse extends ClientResponse {
 
   private Roaring64NavigableMap blockIdBitmap;
   // partitionId -> taskAttemptId -> recordNumber
-  private Map<Integer, Map<Long, Long>> partitionToTaskAttemptIdToRecordNumbers;
+  private Map<Integer, Map<Long, Long>> partitionToTaskAttemptIdToRecordNumbers = new HashMap<>();
 
   public RssGetShuffleResultResponse(
       StatusCode statusCode,
@@ -83,7 +83,8 @@ public class RssGetShuffleResultResponse extends ClientResponse {
     try {
       return new RssGetShuffleResultResponse(
           StatusCode.fromProto(rpcResponse.getStatus()),
-          rpcResponse.getSerializedBitmap().toByteArray());
+          rpcResponse.getSerializedBitmap().toByteArray(),
+          rpcResponse.getPartitionStatsList());
     } catch (Exception e) {
       throw new RssException(e);
     }

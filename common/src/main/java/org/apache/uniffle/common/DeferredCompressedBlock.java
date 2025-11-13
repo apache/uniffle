@@ -43,7 +43,8 @@ public class DeferredCompressedBlock extends ShuffleBlockInfo {
       long taskAttemptId,
       Function<Integer, List<ShuffleServerInfo>> partitionAssignmentRetrieveFunc,
       Function<DeferredCompressedBlock, DeferredCompressedBlock> rebuildFunction,
-      int estimatedCompressedSize) {
+      int estimatedCompressedSize,
+      long records) {
     super(
         shuffleId,
         partitionId,
@@ -52,7 +53,8 @@ public class DeferredCompressedBlock extends ShuffleBlockInfo {
         uncompressLength,
         freeMemory,
         taskAttemptId,
-        partitionAssignmentRetrieveFunc);
+        partitionAssignmentRetrieveFunc,
+        records);
     this.rebuildFunction = rebuildFunction;
     this.estimatedCompressedSize = estimatedCompressedSize;
   }
