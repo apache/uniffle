@@ -490,6 +490,13 @@ public class RssShuffleManager extends RssShuffleManagerBase {
     return rssConf.get(RSS_DATA_INTEGRITY_VALIDATION_SERVER_MANAGEMENT_ENABLED);
   }
 
+  public static boolean isIntegrityValidationClientManagementEnabled(RssConf rssConf) {
+    if (!isIntegrityValidationEnabled(rssConf)) {
+      return false;
+    }
+    return !isIntegrityValidationServerManagementEnabled(rssConf);
+  }
+
   public static boolean isIntegrationValidationFailureAnalysisEnabled(RssConf rssConf) {
     // todo: enable the validation failure analysis when the server management is enabled
     if (isIntegrityValidationServerManagementEnabled(rssConf)) {
@@ -621,7 +628,7 @@ public class RssShuffleManager extends RssShuffleManagerBase {
       }
 
       String raw = blockManagerId.topologyInfo().get();
-      if (!isIntegrityValidationServerManagementEnabled(rssConf)) {
+      if (isIntegrityValidationClientManagementEnabled(rssConf)) {
         ShuffleWriteTaskStats shuffleWriteTaskStats = ShuffleWriteTaskStats.decode(rssConf, raw);
         taskIdBitmap.add(shuffleWriteTaskStats.getTaskAttemptId());
         for (int i = startPartition; i < endPartition; i++) {

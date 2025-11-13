@@ -247,7 +247,7 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
     this.enableWriteFailureRetry = rssConf.get(RSS_RESUBMIT_STAGE_WITH_WRITE_FAILURE_ENABLED);
     this.recordReportFailedShuffleservers = Sets.newConcurrentHashSet();
 
-    if (RssShuffleManager.isIntegrityValidationEnabled(rssConf)) {
+    if (RssShuffleManager.isIntegrityValidationClientManagementEnabled(rssConf)) {
       this.shuffleTaskStats =
           Optional.of(
               new ShuffleWriteTaskStats(
