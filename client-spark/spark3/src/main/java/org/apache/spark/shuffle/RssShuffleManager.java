@@ -73,8 +73,6 @@ import org.apache.uniffle.shuffle.RssShuffleClientFactory;
 import org.apache.uniffle.shuffle.ShuffleWriteTaskStats;
 import org.apache.uniffle.shuffle.manager.RssShuffleManagerBase;
 
-import static org.apache.spark.shuffle.RssSparkConfig.*;
-
 public class RssShuffleManager extends RssShuffleManagerBase {
   private static final Logger LOG = LoggerFactory.getLogger(RssShuffleManager.class);
 
@@ -479,14 +477,14 @@ public class RssShuffleManager extends RssShuffleManagerBase {
     if (!Spark3VersionUtils.isSparkVersionAtLeast("3.5.0")) {
       return false;
     }
-    return rssConf.get(RSS_CLIENT_INTEGRITY_VALIDATION_ENABLED);
+    return rssConf.get(RssSparkConfig.RSS_CLIENT_INTEGRITY_VALIDATION_ENABLED);
   }
 
   public static boolean isIntegrityValidationServerManagementEnabled(RssConf rssConf) {
     if (!isIntegrityValidationEnabled(rssConf)) {
       return false;
     }
-    return rssConf.get(RSS_DATA_INTEGRITY_VALIDATION_SERVER_MANAGEMENT_ENABLED);
+    return rssConf.get(RssSparkConfig.RSS_DATA_INTEGRITY_VALIDATION_SERVER_MANAGEMENT_ENABLED);
   }
 
   public static boolean isIntegrityValidationClientManagementEnabled(RssConf rssConf) {
@@ -501,7 +499,7 @@ public class RssShuffleManager extends RssShuffleManagerBase {
     if (isIntegrityValidationServerManagementEnabled(rssConf)) {
       return false;
     }
-    return rssConf.get(RSS_DATA_INTEGRATION_VALIDATION_ANALYSIS_ENABLED);
+    return rssConf.get(RssSparkConfig.RSS_DATA_INTEGRATION_VALIDATION_ANALYSIS_ENABLED);
   }
 
   @SuppressFBWarnings("REC_CATCH_EXCEPTION")
