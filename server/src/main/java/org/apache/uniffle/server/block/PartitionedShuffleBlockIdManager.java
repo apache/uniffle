@@ -111,9 +111,8 @@ public class PartitionedShuffleBlockIdManager implements ShuffleBlockIdManager {
     Map<Integer, Roaring64NavigableMap> partitionToBlockId = shuffleIdToPartitions.get(shuffleId);
 
     if (partitionToBlockId == null) {
-    LOG.warn("Empty blockIds for app: {}, shuffleId: {}. This should not happen", appId, shuffleId);
-    return null;
-  }
+      return RssUtils.serializeBitMap(Roaring64NavigableMap.bitmapOf());
+    }
 
     long expectedBlockNumber = 0;
     Roaring64NavigableMap res = Roaring64NavigableMap.bitmapOf();
