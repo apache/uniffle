@@ -1170,7 +1170,7 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
             getAppId(), shuffleId, newServerToPartitions, getRemoteStorageInfo());
       }
 
-      LOG.info(
+      LOG.debug(
           "Finished reassignOnBlockSendFailure request and cost {}(ms). is partition split:{}. Reassign result: {}",
           System.currentTimeMillis() - startTime,
           partitionSplit,
