@@ -886,11 +886,17 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
     shuffleManager.getBlockIdsFailedSendTracker(taskId).remove(block.getBlockId());
     block.getShuffleServerInfos().stream()
         .forEach(
-            s ->
-                serverToPartitionToBlockIds
-                    .get(s)
-                    .get(block.getPartitionId())
-                    .remove(block.getBlockId()));
+            s -> {
+              serverToPartitionToBlockIds
+                  .get(s)
+                  .get(block.getPartitionId())
+                  .remove(block.getBlockId());
+              serverToPartitionToRecordNumbers
+                  .get(s)
+                  .compute(
+                      block.getPartitionId(),
+                      (pid, recordNumber) -> recordNumber - block.getRecordNumber());
+            });
     blockIds.remove(block.getBlockId());
   }
 

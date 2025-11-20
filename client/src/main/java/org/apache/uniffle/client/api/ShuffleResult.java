@@ -17,27 +17,24 @@
 
 package org.apache.uniffle.client.api;
 
-import java.util.Map;
-
 import org.roaringbitmap.longlong.Roaring64NavigableMap;
+
+import org.apache.uniffle.client.impl.MergedPartitionStats;
 
 public class ShuffleResult {
   private Roaring64NavigableMap blockIds;
-  // partitionId -> taskAttemptId -> recordNumber
-  private Map<Integer, Map<Long, Long>> partitionToTaskAttemptIdToRecordNumbers;
+  private MergedPartitionStats mergedPartitionStats;
 
-  public ShuffleResult(
-      Roaring64NavigableMap blockIds,
-      Map<Integer, Map<Long, Long>> partitionToTaskAttemptIdToRecordNumbers) {
+  public ShuffleResult(Roaring64NavigableMap blockIds, MergedPartitionStats mergedPartitionStats) {
     this.blockIds = blockIds;
-    this.partitionToTaskAttemptIdToRecordNumbers = partitionToTaskAttemptIdToRecordNumbers;
+    this.mergedPartitionStats = mergedPartitionStats;
+  }
+
+  public MergedPartitionStats getMergedPartitionStats() {
+    return mergedPartitionStats;
   }
 
   public Roaring64NavigableMap getBlockIds() {
     return blockIds;
-  }
-
-  public Map<Integer, Map<Long, Long>> getPartitionToTaskAttemptIdToRecordNumbers() {
-    return partitionToTaskAttemptIdToRecordNumbers;
   }
 }

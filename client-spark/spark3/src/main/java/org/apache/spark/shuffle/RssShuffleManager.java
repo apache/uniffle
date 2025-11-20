@@ -65,7 +65,9 @@ import org.apache.uniffle.client.PartitionDataReplicaRequirementTracking;
 import org.apache.uniffle.client.api.ShuffleResult;
 import org.apache.uniffle.client.api.ShuffleWriteClient;
 import org.apache.uniffle.client.impl.FailedBlockSendTracker;
+import org.apache.uniffle.client.impl.MergedPartitionStats;
 import org.apache.uniffle.client.util.ClientUtils;
+import org.apache.uniffle.client.util.RssClientConfig;
 import org.apache.uniffle.common.RemoteStorageInfo;
 import org.apache.uniffle.common.ShuffleDataDistributionType;
 import org.apache.uniffle.common.ShuffleServerInfo;
@@ -392,21 +394,17 @@ public class RssShuffleManager extends RssShuffleManagerBase {
             context.stageAttemptNumber(),
             shuffleHandleInfo.createPartitionReplicaTracking());
     Roaring64NavigableMap blockIdBitmap = shuffleResult.getBlockIds();
+
     if (isIntegrityValidationServerManagementEnabled(rssConf)) {
-      Map<Integer, Map<Long, Long>> partitionToTaskAttemptIdToRecordNumbers =
-          shuffleResult.getPartitionToTaskAttemptIdToRecordNumbers();
-      if (partitionToTaskAttemptIdToRecordNumbers != null) {
-        long total =
-            partitionToTaskAttemptIdToRecordNumbers.values().stream()
-                .flatMap(x -> x.entrySet().stream())
-                .filter(x -> taskIdBitmap.contains(x.getKey()))
-                .mapToLong(Map.Entry::getValue)
-                .sum();
-        if (total > 0) {
-          expectedRecordsRead = total;
+      MergedPartitionStats mergedPartitionStats = shuffleResult.getMergedPartitionStats();
+      if (mergedPartitionStats != null) {
+        long records = mergedPartitionStats.getExpectedRecordNumberByTaskIds(taskIdBitmap);
+        if (records > 0) {
+          expectedRecordsRead = records;
         }
       }
     }
+
     LOG.info(
         "Retrieved {} upstream task ids in {} ms and {} block IDs from {} shuffle-servers in {} ms for shuffleId[{}], partitionId[{},{}]",
         taskIdBitmap.getLongCardinality(),
@@ -467,6 +465,13 @@ public class RssShuffleManager extends RssShuffleManagerBase {
 
   public static boolean isIntegrityValidationEnabled(RssConf rssConf) {
     assert rssConf != null;
+    // disable integrity validation when the multi replicas is enabled.
+    if (rssConf.getInteger(
+            RssClientConfig.RSS_DATA_REPLICA, RssClientConfig.RSS_DATA_REPLICA_DEFAULT_VALUE)
+        > 1) {
+      return false;
+    }
+    // only enable integrity validation when the spark version >= 3.5.0
     if (!Spark3VersionUtils.isSparkVersionAtLeast("3.5.0")) {
       return false;
     }
