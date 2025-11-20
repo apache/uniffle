@@ -957,11 +957,8 @@ public class ShuffleWriteClientImpl implements ShuffleWriteClient {
           Roaring64NavigableMap blockIdBitmapOfServer = response.getBlockIdBitmap();
           blockIdBitmap.or(blockIdBitmapOfServer);
 
-          // todo: should be more careful to handle this under the multi replicas.
-          //  Now, this integrity validation is not supported for multi replicas
-          if (replica <= 1) {
-            mergedPartitionStats.merge(response.getPartitionToTaskAttemptIdToRecordNumbers());
-          }
+          // merge into multi same (partition,taskAttemptId) into one record
+          mergedPartitionStats.merge(response.getPartitionToTaskAttemptIdToRecordNumbers());
 
           for (Integer partitionId : requestPartitions) {
             replicaRequirementTracking.markPartitionOfServerSuccessful(
