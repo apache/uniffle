@@ -156,7 +156,8 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
   private boolean isShuffleWriteFailed = false;
   private Optional<String> shuffleWriteFailureReason = Optional.empty();
 
-  private Optional<ShuffleWriteTaskStats> shuffleTaskStats = Optional.empty();
+  // Visible for the Gluten
+  protected Optional<ShuffleWriteTaskStats> shuffleTaskStats = Optional.empty();
 
   // Only for tests
   @VisibleForTesting
