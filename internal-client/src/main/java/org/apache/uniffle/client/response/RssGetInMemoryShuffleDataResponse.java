@@ -31,17 +31,26 @@ public class RssGetInMemoryShuffleDataResponse extends ClientResponse {
 
   private final ManagedBuffer data;
   private final List<BufferSegment> bufferSegments;
+  private final boolean isEnd;
 
   public RssGetInMemoryShuffleDataResponse(
-      StatusCode statusCode, ByteBuffer data, List<BufferSegment> bufferSegments) {
-    this(statusCode, new NettyManagedBuffer(Unpooled.wrappedBuffer(data)), bufferSegments);
+      StatusCode statusCode, ByteBuffer data, List<BufferSegment> bufferSegments, boolean isEnd) {
+    this(statusCode, new NettyManagedBuffer(Unpooled.wrappedBuffer(data)), bufferSegments, isEnd);
   }
 
   public RssGetInMemoryShuffleDataResponse(
-      StatusCode statusCode, ManagedBuffer data, List<BufferSegment> bufferSegments) {
+      StatusCode statusCode,
+      ManagedBuffer data,
+      List<BufferSegment> bufferSegments,
+      boolean isEnd) {
     super(statusCode);
     this.bufferSegments = bufferSegments;
     this.data = data;
+    this.isEnd = isEnd;
+  }
+
+  public boolean isEnd() {
+    return isEnd;
   }
 
   public ManagedBuffer getData() {

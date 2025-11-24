@@ -1130,7 +1130,8 @@ public class ShuffleServerGrpcClient extends GrpcClient implements ShuffleServer
             new RssGetInMemoryShuffleDataResponse(
                 StatusCode.SUCCESS,
                 ByteBuffer.wrap(data),
-                toBufferSegments(rpcResponse.getShuffleDataBlockSegmentsList()));
+                toBufferSegments(rpcResponse.getShuffleDataBlockSegmentsList()),
+                rpcResponse.getIsEnd());
         break;
       default:
         String msg =
