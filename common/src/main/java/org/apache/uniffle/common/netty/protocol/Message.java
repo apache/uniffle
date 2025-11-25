@@ -147,6 +147,8 @@ public abstract class Message implements Encodable {
           return GET_LOCAL_SHUFFLE_INDEX_V2_RESPONSE;
         case 24:
           return GET_LOCAL_SHUFFLE_DATA_V2_REQUEST;
+        case 26:
+          return GET_MEMORY_SHUFFLE_DATA_V2_RESPONSE;
         case -1:
           throw new IllegalArgumentException("User type messages cannot be decoded.");
         default:
