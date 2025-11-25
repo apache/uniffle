@@ -93,7 +93,6 @@ public class MemoryClientReadHandler extends PrefetchableClientReadHandler {
   @Override
   public ShuffleDataResult doReadShuffleData() {
     if (isEnd) {
-      LOG.info("is_end accepted!");
       return null;
     }
     ShuffleDataResult result = null;
