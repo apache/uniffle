@@ -15,49 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.uniffle.client.response;
+package org.apache.uniffle.server.buffer;
 
-import java.nio.ByteBuffer;
 import java.util.List;
 
-import io.netty.buffer.Unpooled;
+import io.netty.buffer.ByteBuf;
 
 import org.apache.uniffle.common.BufferSegment;
-import org.apache.uniffle.common.netty.buffer.ManagedBuffer;
+import org.apache.uniffle.common.ShuffleDataResult;
 import org.apache.uniffle.common.netty.buffer.NettyManagedBuffer;
-import org.apache.uniffle.common.rpc.StatusCode;
 
-public class RssGetInMemoryShuffleDataResponse extends ClientResponse {
-
-  private final ManagedBuffer data;
-  private final List<BufferSegment> bufferSegments;
+public class MemoryShuffleDataResult extends ShuffleDataResult {
   private final boolean isEnd;
 
-  public RssGetInMemoryShuffleDataResponse(
-      StatusCode statusCode, ByteBuffer data, List<BufferSegment> bufferSegments, boolean isEnd) {
-    this(statusCode, new NettyManagedBuffer(Unpooled.wrappedBuffer(data)), bufferSegments, isEnd);
+  public MemoryShuffleDataResult() {
+    super();
+    // empty
+    this.isEnd = true;
   }
 
-  public RssGetInMemoryShuffleDataResponse(
-      StatusCode statusCode,
-      ManagedBuffer data,
-      List<BufferSegment> bufferSegments,
-      boolean isEnd) {
-    super(statusCode);
-    this.bufferSegments = bufferSegments;
-    this.data = data;
+  public MemoryShuffleDataResult(ByteBuf data, List<BufferSegment> bufferSegments, boolean isEnd) {
+    super(new NettyManagedBuffer(data), bufferSegments);
     this.isEnd = isEnd;
   }
 
   public boolean isEnd() {
     return isEnd;
-  }
-
-  public ManagedBuffer getData() {
-    return data;
-  }
-
-  public List<BufferSegment> getBufferSegments() {
-    return bufferSegments;
   }
 }

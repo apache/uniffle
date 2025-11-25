@@ -63,6 +63,7 @@ import org.apache.uniffle.common.netty.protocol.GetLocalShuffleIndexRequest;
 import org.apache.uniffle.common.netty.protocol.GetLocalShuffleIndexResponse;
 import org.apache.uniffle.common.netty.protocol.GetMemoryShuffleDataRequest;
 import org.apache.uniffle.common.netty.protocol.GetMemoryShuffleDataResponse;
+import org.apache.uniffle.common.netty.protocol.GetMemoryShuffleDataV2Response;
 import org.apache.uniffle.common.netty.protocol.GetSortedShuffleDataRequest;
 import org.apache.uniffle.common.netty.protocol.GetSortedShuffleDataResponse;
 import org.apache.uniffle.common.netty.protocol.RpcResponse;
@@ -305,10 +306,15 @@ public class ShuffleServerGrpcNettyClient extends ShuffleServerGrpcClient {
             nettyPort,
             requestInfo,
             System.currentTimeMillis() - start);
+        boolean isEnd = false;
+        if (getMemoryShuffleDataResponse instanceof GetMemoryShuffleDataV2Response) {
+          isEnd = ((GetMemoryShuffleDataV2Response) getMemoryShuffleDataResponse).isEnd();
+        }
         return new RssGetInMemoryShuffleDataResponse(
             StatusCode.SUCCESS,
             getMemoryShuffleDataResponse.body(),
-            getMemoryShuffleDataResponse.getBufferSegments());
+            getMemoryShuffleDataResponse.getBufferSegments(),
+            isEnd);
       default:
         String msg =
             "Can't get shuffle in memory data from "

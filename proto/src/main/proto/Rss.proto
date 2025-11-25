@@ -116,6 +116,7 @@ message GetMemoryShuffleDataResponse {
   bytes data = 2;
   StatusCode status = 3;
   string retMsg = 4;
+  google.protobuf.BoolValue is_end = 5;
 }
 
 message GetLocalShuffleIndexRequest {

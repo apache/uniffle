@@ -44,6 +44,7 @@ public class MemoryClientReadHandler extends PrefetchableClientReadHandler {
   private int retryMax;
   private long retryIntervalMax;
   private ShuffleServerReadCostTracker readCostTracker;
+  private boolean isEnd = false;
 
   public MemoryClientReadHandler(
       String appId,
@@ -91,6 +92,9 @@ public class MemoryClientReadHandler extends PrefetchableClientReadHandler {
 
   @Override
   public ShuffleDataResult doReadShuffleData() {
+    if (isEnd) {
+      return null;
+    }
     ShuffleDataResult result = null;
 
     RssGetInMemoryShuffleDataRequest request =
@@ -108,6 +112,9 @@ public class MemoryClientReadHandler extends PrefetchableClientReadHandler {
       long start = System.currentTimeMillis();
       RssGetInMemoryShuffleDataResponse response =
           shuffleServerClient.getInMemoryShuffleData(request);
+      if (response.isEnd()) {
+        isEnd = true;
+      }
       result = new ShuffleDataResult(response.getData(), response.getBufferSegments());
       ClientInfo clientInfo = shuffleServerClient.getClientInfo();
       if (readCostTracker != null && clientInfo != null) {

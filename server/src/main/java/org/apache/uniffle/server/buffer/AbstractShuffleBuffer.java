@@ -104,14 +104,18 @@ public abstract class AbstractShuffleBuffer implements ShuffleBuffer {
                 NettyUtils.getSharedUnpooledByteBufAllocator(true),
                 true,
                 Constants.COMPOSITE_BYTE_BUF_MAX_COMPONENTS);
+        // Use isEnd to indicate whether the end has been reached.
+        // Although this flag is not perfectly accurate, it is sufficient for most cases.
+        int readLength = readBlocks.stream().map(x -> x.getDataLength()).reduce(0, Integer::sum);
+        boolean isEnd = readLength < readBufferSize;
         // copy result data
         updateShuffleData(readBlocks, byteBuf);
-        return new ShuffleDataResult(byteBuf, bufferSegments);
+        return new MemoryShuffleDataResult(byteBuf, bufferSegments, isEnd);
       }
     } catch (Exception e) {
       LOG.error("Exception happened when getShuffleData in buffer", e);
     }
-    return new ShuffleDataResult();
+    return new MemoryShuffleDataResult();
   }
 
   // here is the rule to read data in memory:

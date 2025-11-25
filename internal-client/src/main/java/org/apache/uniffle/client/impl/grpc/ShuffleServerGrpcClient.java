@@ -1126,11 +1126,13 @@ public class ShuffleServerGrpcClient extends GrpcClient implements ShuffleServer
             requestInfo,
             System.currentTimeMillis() - start,
             data.length);
+        boolean isEnd = rpcResponse.hasIsEnd() ? rpcResponse.getIsEnd().getValue() : false;
         response =
             new RssGetInMemoryShuffleDataResponse(
                 StatusCode.SUCCESS,
                 ByteBuffer.wrap(data),
-                toBufferSegments(rpcResponse.getShuffleDataBlockSegmentsList()));
+                toBufferSegments(rpcResponse.getShuffleDataBlockSegmentsList()),
+                isEnd);
         break;
       default:
         String msg =
