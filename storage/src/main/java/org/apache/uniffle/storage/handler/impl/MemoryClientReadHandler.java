@@ -113,7 +113,6 @@ public class MemoryClientReadHandler extends PrefetchableClientReadHandler {
       RssGetInMemoryShuffleDataResponse response =
           shuffleServerClient.getInMemoryShuffleData(request);
       if (response.isEnd()) {
-        LOG.info("Accepted is_end flag when getMemoryShuffleData");
         isEnd = true;
       }
       result = new ShuffleDataResult(response.getData(), response.getBufferSegments());
