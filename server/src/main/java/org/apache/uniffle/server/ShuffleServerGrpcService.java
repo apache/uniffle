@@ -1376,6 +1376,7 @@ public class ShuffleServerGrpcService extends ShuffleServerImplBase {
                           appId, shuffleId, partitionId, blockId, readBufferSize, expectedTaskIds);
           byte[] data = new byte[] {};
           List<BufferSegment> bufferSegments = Lists.newArrayList();
+          boolean isEnd = false;
           if (shuffleDataResult != null) {
             data = shuffleDataResult.getData();
             bufferSegments = shuffleDataResult.getBufferSegments();
@@ -1383,6 +1384,7 @@ public class ShuffleServerGrpcService extends ShuffleServerImplBase {
             ShuffleServerMetrics.counterTotalReadMemoryDataSize.inc(data.length);
             ShuffleServerMetrics.gaugeReadMemoryDataThreadNum.inc();
             ShuffleServerMetrics.gaugeReadMemoryDataBufferSize.inc(readBufferSize);
+            isEnd = shuffleDataResult.isEnd();
           }
           long costTime = System.currentTimeMillis() - start;
           shuffleServer
@@ -1400,7 +1402,7 @@ public class ShuffleServerGrpcService extends ShuffleServerImplBase {
                   .setStatus(status.toProto())
                   .setRetMsg(msg)
                   .setData(UnsafeByteOperations.unsafeWrap(data))
-                  .setIsEnd(BoolValue.newBuilder().setValue(shuffleDataResult.isEnd()).build())
+                  .setIsEnd(BoolValue.of(isEnd))
                   .addAllShuffleDataBlockSegments(toShuffleDataBlockSegments(bufferSegments))
                   .build();
         } catch (Exception e) {
