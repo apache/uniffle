@@ -41,8 +41,10 @@ public class GetMemoryShuffleDataV2Response extends GetMemoryShuffleDataResponse
       StatusCode statusCode,
       String retMessage,
       List<BufferSegment> bufferSegments,
-      byte[] data) {
+      byte[] data,
+      boolean isEnd) {
     super(requestId, statusCode, retMessage, bufferSegments, Unpooled.wrappedBuffer(data));
+    this.isEnd = isEnd;
   }
 
   public GetMemoryShuffleDataV2Response(
@@ -50,8 +52,10 @@ public class GetMemoryShuffleDataV2Response extends GetMemoryShuffleDataResponse
       StatusCode statusCode,
       String retMessage,
       List<BufferSegment> bufferSegments,
-      ByteBuf data) {
+      ByteBuf data,
+      boolean isEnd) {
     super(requestId, statusCode, retMessage, bufferSegments, new NettyManagedBuffer(data));
+    this.isEnd = isEnd;
   }
 
   public GetMemoryShuffleDataV2Response(

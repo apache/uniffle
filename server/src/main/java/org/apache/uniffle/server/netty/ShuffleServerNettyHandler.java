@@ -56,6 +56,7 @@ import org.apache.uniffle.common.netty.protocol.GetLocalShuffleIndexResponse;
 import org.apache.uniffle.common.netty.protocol.GetLocalShuffleIndexV2Response;
 import org.apache.uniffle.common.netty.protocol.GetMemoryShuffleDataRequest;
 import org.apache.uniffle.common.netty.protocol.GetMemoryShuffleDataResponse;
+import org.apache.uniffle.common.netty.protocol.GetMemoryShuffleDataV2Response;
 import org.apache.uniffle.common.netty.protocol.GetSortedShuffleDataRequest;
 import org.apache.uniffle.common.netty.protocol.GetSortedShuffleDataResponse;
 import org.apache.uniffle.common.netty.protocol.RequestMessage;
@@ -70,6 +71,7 @@ import org.apache.uniffle.server.ShuffleServerMetrics;
 import org.apache.uniffle.server.ShuffleTaskInfo;
 import org.apache.uniffle.server.ShuffleTaskManager;
 import org.apache.uniffle.server.audit.ServerRpcAuditContext;
+import org.apache.uniffle.server.buffer.MemoryShuffleDataResult;
 import org.apache.uniffle.server.buffer.PreAllocatedBufferInfo;
 import org.apache.uniffle.server.buffer.ShuffleBufferManager;
 import org.apache.uniffle.server.merge.MergeStatus;
@@ -458,19 +460,20 @@ public class ShuffleServerNettyHandler implements BaseMessageHandler {
 
       // todo: if can get the exact memory size?
       if (shuffleServer.getShuffleBufferManager().requireReadMemory(readBufferSize)) {
-        ShuffleDataResult shuffleDataResult = null;
+        MemoryShuffleDataResult shuffleDataResult = null;
         try {
           final long start = System.currentTimeMillis();
           shuffleDataResult =
-              shuffleServer
-                  .getShuffleTaskManager()
-                  .getInMemoryShuffleData(
-                      appId,
-                      shuffleId,
-                      partitionId,
-                      blockId,
-                      readBufferSize,
-                      req.getExpectedTaskIdsBitmap());
+              (MemoryShuffleDataResult)
+                  shuffleServer
+                      .getShuffleTaskManager()
+                      .getInMemoryShuffleData(
+                          appId,
+                          shuffleId,
+                          partitionId,
+                          blockId,
+                          readBufferSize,
+                          req.getExpectedTaskIdsBitmap());
           ManagedBuffer data = NettyManagedBuffer.EMPTY_BUFFER;
           List<BufferSegment> bufferSegments = Lists.newArrayList();
           if (shuffleDataResult != null) {
@@ -505,16 +508,26 @@ public class ShuffleServerNettyHandler implements BaseMessageHandler {
                   + e.getMessage();
           LOG.error(msg, e);
           response =
-              new GetMemoryShuffleDataResponse(
-                  req.getRequestId(), status, msg, Lists.newArrayList(), Unpooled.EMPTY_BUFFER);
+              new GetMemoryShuffleDataV2Response(
+                  req.getRequestId(),
+                  status,
+                  msg,
+                  Lists.newArrayList(),
+                  Unpooled.EMPTY_BUFFER,
+                  shuffleDataResult.isEnd());
         }
       } else {
         status = StatusCode.NO_BUFFER;
         msg = "Can't require memory to get in memory shuffle data";
         LOG.warn("{} for {}", msg, requestInfo);
         response =
-            new GetMemoryShuffleDataResponse(
-                req.getRequestId(), status, msg, Lists.newArrayList(), Unpooled.EMPTY_BUFFER);
+            new GetMemoryShuffleDataV2Response(
+                req.getRequestId(),
+                status,
+                msg,
+                Lists.newArrayList(),
+                Unpooled.EMPTY_BUFFER,
+                false);
       }
       auditContext.withStatusCode(response.getStatusCode());
       client.getChannel().writeAndFlush(response);
