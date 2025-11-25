@@ -1400,6 +1400,7 @@ public class ShuffleServerGrpcService extends ShuffleServerImplBase {
                   .setStatus(status.toProto())
                   .setRetMsg(msg)
                   .setData(UnsafeByteOperations.unsafeWrap(data))
+                  .setIsEnd(BoolValue.newBuilder().setValue(shuffleDataResult.isEnd()).build())
                   .addAllShuffleDataBlockSegments(toShuffleDataBlockSegments(bufferSegments))
                   .build();
         } catch (Exception e) {
@@ -1414,7 +1415,6 @@ public class ShuffleServerGrpcService extends ShuffleServerImplBase {
               GetMemoryShuffleDataResponse.newBuilder()
                   .setData(UnsafeByteOperations.unsafeWrap(new byte[] {}))
                   .addAllShuffleDataBlockSegments(Lists.newArrayList())
-                  .setIsEnd(BoolValue.newBuilder().setValue(shuffleDataResult.isEnd()).build())
                   .setStatus(status.toProto())
                   .setRetMsg(msg)
                   .build();

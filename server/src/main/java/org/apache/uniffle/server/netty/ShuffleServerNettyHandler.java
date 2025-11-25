@@ -476,6 +476,7 @@ public class ShuffleServerNettyHandler implements BaseMessageHandler {
                           req.getExpectedTaskIdsBitmap());
           ManagedBuffer data = NettyManagedBuffer.EMPTY_BUFFER;
           List<BufferSegment> bufferSegments = Lists.newArrayList();
+          boolean isEnd = false;
           if (shuffleDataResult != null) {
             data = shuffleDataResult.getManagedBuffer();
             bufferSegments = shuffleDataResult.getBufferSegments();
@@ -483,13 +484,14 @@ public class ShuffleServerNettyHandler implements BaseMessageHandler {
             ShuffleServerMetrics.counterTotalReadMemoryDataSize.inc(data.size());
             ShuffleServerMetrics.gaugeReadMemoryDataThreadNum.inc();
             ShuffleServerMetrics.gaugeReadMemoryDataBufferSize.inc(readBufferSize);
+            isEnd = shuffleDataResult.isEnd();
           }
           auditContext.withStatusCode(status);
           auditContext.withReturnValue(
               "len=" + data.size() + ", bufferSegments=" + bufferSegments.size());
           response =
-              new GetMemoryShuffleDataResponse(
-                  req.getRequestId(), status, msg, bufferSegments, data);
+              new GetMemoryShuffleDataV2Response(
+                  req.getRequestId(), status, msg, bufferSegments, data, isEnd);
           ReleaseMemoryAndRecordReadTimeListener listener =
               new ReleaseMemoryAndRecordReadTimeListener(
                   start, readBufferSize, data.size(), requestInfo, req, response, client);
@@ -514,7 +516,7 @@ public class ShuffleServerNettyHandler implements BaseMessageHandler {
                   msg,
                   Lists.newArrayList(),
                   Unpooled.EMPTY_BUFFER,
-                  shuffleDataResult.isEnd());
+                  false);
         }
       } else {
         status = StatusCode.NO_BUFFER;
