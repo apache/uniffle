@@ -110,7 +110,9 @@ public class RssShuffleManager extends RssShuffleManagerBase {
     // will be called many times depend on how many shuffle stage
     if ("".equals(appId)) {
       appId = SparkEnv.get().conf().getAppId() + "_" + uuid;
-      dataPusher.setRssAppId(appId);
+      if (dataPusher != null) {
+        dataPusher.setRssAppId(appId);
+      }
       LOG.info("Generate application id used in rss: " + appId);
     }
 
@@ -203,7 +205,9 @@ public class RssShuffleManager extends RssShuffleManagerBase {
     if (handle instanceof RssShuffleHandle) {
       RssShuffleHandle<K, V, ?> rssHandle = (RssShuffleHandle<K, V, ?>) handle;
       appId = rssHandle.getAppId();
-      dataPusher.setRssAppId(appId);
+      if (dataPusher != null) {
+        dataPusher.setRssAppId(appId);
+      }
 
       int shuffleId = rssHandle.getShuffleId();
       String taskId = "" + context.taskAttemptId() + "_" + context.attemptNumber();

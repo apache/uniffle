@@ -343,35 +343,42 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
     this.shuffleWriteClient = createShuffleWriteClient();
     registerCoordinator();
 
-    LOG.info("Rss data pusher is starting...");
-    int poolSize = sparkConf.get(RssSparkConfig.RSS_CLIENT_SEND_THREAD_POOL_SIZE);
-    int keepAliveTime = sparkConf.get(RssSparkConfig.RSS_CLIENT_SEND_THREAD_POOL_KEEPALIVE);
+    // Only initialize dataPusher for executor or for driver in local mode.
+    // In local mode, driver also acts as executor and needs dataPusher.
+    // In cluster mode, pure driver doesn't push shuffle data.
+    String sparkMaster = sparkConf.get("spark.master", "");
+    boolean isLocalMode = sparkMaster.startsWith("local");
+    if (!isDriver || isLocalMode) {
+      LOG.info("Rss data pusher is starting...");
+      int poolSize = sparkConf.get(RssSparkConfig.RSS_CLIENT_SEND_THREAD_POOL_SIZE);
+      int keepAliveTime = sparkConf.get(RssSparkConfig.RSS_CLIENT_SEND_THREAD_POOL_KEEPALIVE);
 
-    boolean overlappingCompressionEnabled =
-        rssConf.get(RssSparkConfig.RSS_WRITE_OVERLAPPING_COMPRESSION_ENABLED);
-    int overlappingCompressionThreadsPerVcore =
-        rssConf.get(RssSparkConfig.RSS_WRITE_OVERLAPPING_COMPRESSION_THREADS_PER_VCORE);
-    if (overlappingCompressionEnabled && overlappingCompressionThreadsPerVcore > 0) {
-      int compressionThreads =
-          overlappingCompressionThreadsPerVcore * sparkConf.getInt(EXECUTOR_CORES, 1);
-      this.dataPusher =
-          new OverlappingCompressionDataPusher(
-              shuffleWriteClient,
-              taskToSuccessBlockIds,
-              taskToFailedBlockSendTracker,
-              failedTaskIds,
-              poolSize,
-              keepAliveTime,
-              compressionThreads);
-    } else {
-      this.dataPusher =
-          new DataPusher(
-              shuffleWriteClient,
-              taskToSuccessBlockIds,
-              taskToFailedBlockSendTracker,
-              failedTaskIds,
-              poolSize,
-              keepAliveTime);
+      boolean overlappingCompressionEnabled =
+          rssConf.get(RssSparkConfig.RSS_WRITE_OVERLAPPING_COMPRESSION_ENABLED);
+      int overlappingCompressionThreadsPerVcore =
+          rssConf.get(RssSparkConfig.RSS_WRITE_OVERLAPPING_COMPRESSION_THREADS_PER_VCORE);
+      if (overlappingCompressionEnabled && overlappingCompressionThreadsPerVcore > 0) {
+        int compressionThreads =
+            overlappingCompressionThreadsPerVcore * sparkConf.getInt(EXECUTOR_CORES, 1);
+        this.dataPusher =
+            new OverlappingCompressionDataPusher(
+                shuffleWriteClient,
+                taskToSuccessBlockIds,
+                taskToFailedBlockSendTracker,
+                failedTaskIds,
+                poolSize,
+                keepAliveTime,
+                compressionThreads);
+      } else {
+        this.dataPusher =
+            new DataPusher(
+                shuffleWriteClient,
+                taskToSuccessBlockIds,
+                taskToFailedBlockSendTracker,
+                failedTaskIds,
+                poolSize,
+                keepAliveTime);
+      }
     }
 
     this.partitionReassignMaxServerNum =
