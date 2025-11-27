@@ -59,6 +59,7 @@ import org.apache.spark.shuffle.ShuffleWriter;
 import org.apache.spark.shuffle.handle.ShuffleHandleInfo;
 import org.apache.spark.shuffle.handle.SimpleShuffleHandleInfo;
 import org.apache.spark.storage.BlockManagerId;
+import org.roaringbitmap.longlong.Roaring64NavigableMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -335,11 +336,11 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
     }
 
     // to filter the multiple replica's duplicate blockIds
-    Set<Long> blockIds = new HashSet<>();
+    Roaring64NavigableMap blockIdBitmap = Roaring64NavigableMap.bitmapOf();
     for (Map<Integer, Set<Long>> partitionBlockIds : serverToPartitionToBlockIds.values()) {
-      partitionBlockIds.values().forEach(x -> blockIds.addAll(x));
+      partitionBlockIds.values().forEach(x -> x.forEach(blockIdBitmap::addLong));
     }
-    long serverTracked = blockIds.size();
+    long serverTracked = blockIdBitmap.getLongCardinality();
     if (expected != serverTracked || expected != bufferManagerTracked) {
       throw new RssSendFailedException(
           "Potential block loss may occur for task["
