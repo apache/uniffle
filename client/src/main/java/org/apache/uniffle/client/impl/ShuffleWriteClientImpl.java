@@ -46,6 +46,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.uniffle.client.PartitionDataReplicaRequirementTracking;
+import org.apache.uniffle.client.api.ShuffleResult;
 import org.apache.uniffle.client.api.ShuffleServerClient;
 import org.apache.uniffle.client.api.ShuffleWriteClient;
 import org.apache.uniffle.client.common.ShuffleServerPushCostTracker;
@@ -755,14 +756,24 @@ public class ShuffleWriteClientImpl implements ShuffleWriteClient {
       long taskAttemptId,
       int bitmapNum,
       Set<ShuffleServerInfo> reportFailureServers,
-      boolean enableWriteFailureRetry) {
+      boolean enableWriteFailureRetry,
+      Map<ShuffleServerInfo, Map<Integer, Long>> serverToPartitionToRecordNumbers) {
     // record blockId count for quora check,but this is not a good realization.
     Map<Long, Integer> blockReportTracker = createBlockReportTracker(serverToPartitionToBlockIds);
     for (Map.Entry<ShuffleServerInfo, Map<Integer, Set<Long>>> entry :
         serverToPartitionToBlockIds.entrySet()) {
+      ShuffleServerInfo serverInfo = entry.getKey();
       Map<Integer, Set<Long>> requestBlockIds = entry.getValue();
       if (requestBlockIds.isEmpty()) {
         continue;
+      }
+      Map<Integer, Long> partitionToRecordNumbers = null;
+      if (serverToPartitionToRecordNumbers != null) {
+        partitionToRecordNumbers = serverToPartitionToRecordNumbers.get(serverInfo);
+        if (partitionToRecordNumbers == null) {
+          throw new RssException(
+              "Should not happen that partitionToRecordNumbers is null but blockIds is not empty!");
+        }
       }
       RssReportShuffleResultRequest request =
           new RssReportShuffleResultRequest(
@@ -771,7 +782,8 @@ public class ShuffleWriteClientImpl implements ShuffleWriteClient {
               taskAttemptId,
               requestBlockIds.entrySet().stream()
                   .collect(Collectors.toMap(Map.Entry::getKey, e -> new ArrayList<>(e.getValue()))),
-              bitmapNum);
+              bitmapNum,
+              partitionToRecordNumbers);
       ShuffleServerInfo ssi = entry.getKey();
       try {
         long start = System.currentTimeMillis();
@@ -828,6 +840,26 @@ public class ShuffleWriteClientImpl implements ShuffleWriteClient {
               + shuffleId
               + "]");
     }
+  }
+
+  @Override
+  public void reportShuffleResult(
+      Map<ShuffleServerInfo, Map<Integer, Set<Long>>> serverToPartitionToBlockIds,
+      String appId,
+      int shuffleId,
+      long taskAttemptId,
+      int bitmapNum,
+      Set<ShuffleServerInfo> reportFailureServers,
+      boolean enableWriteFailureRetry) {
+    reportShuffleResult(
+        serverToPartitionToBlockIds,
+        appId,
+        shuffleId,
+        taskAttemptId,
+        bitmapNum,
+        reportFailureServers,
+        enableWriteFailureRetry,
+        null);
   }
 
   private void recordFailedBlockIds(
@@ -895,7 +927,7 @@ public class ShuffleWriteClientImpl implements ShuffleWriteClient {
   }
 
   @Override
-  public Roaring64NavigableMap getShuffleResultForMultiPart(
+  public ShuffleResult getShuffleResultForMultiPartV2(
       String clientType,
       Map<ShuffleServerInfo, Set<Integer>> serverToPartitions,
       String appId,
@@ -903,6 +935,7 @@ public class ShuffleWriteClientImpl implements ShuffleWriteClient {
       Set<Integer> failedPartitions,
       PartitionDataReplicaRequirementTracking replicaRequirementTracking) {
     Roaring64NavigableMap blockIdBitmap = Roaring64NavigableMap.bitmapOf();
+    MergedPartitionStats mergedPartitionStats = new MergedPartitionStats();
     Set<Integer> allRequestedPartitionIds = new HashSet<>();
     for (Map.Entry<ShuffleServerInfo, Set<Integer>> entry : serverToPartitions.entrySet()) {
       ShuffleServerInfo shuffleServerInfo = entry.getKey();
@@ -923,6 +956,10 @@ public class ShuffleWriteClientImpl implements ShuffleWriteClient {
           // merge into blockIds from multiple servers.
           Roaring64NavigableMap blockIdBitmapOfServer = response.getBlockIdBitmap();
           blockIdBitmap.or(blockIdBitmapOfServer);
+
+          // merge into multi same (partition,taskAttemptId) into one record
+          mergedPartitionStats.merge(response.getPartitionToTaskAttemptIdToRecordNumbers());
+
           for (Integer partitionId : requestPartitions) {
             replicaRequirementTracking.markPartitionOfServerSuccessful(
                 partitionId, shuffleServerInfo);
@@ -950,7 +987,25 @@ public class ShuffleWriteClientImpl implements ShuffleWriteClient {
       throw new RssFetchFailedException(
           "Get shuffle result is failed for appId[" + appId + "], shuffleId[" + shuffleId + "]");
     }
-    return blockIdBitmap;
+    return new ShuffleResult(blockIdBitmap, mergedPartitionStats);
+  }
+
+  @Override
+  public Roaring64NavigableMap getShuffleResultForMultiPart(
+      String clientType,
+      Map<ShuffleServerInfo, Set<Integer>> serverToPartitions,
+      String appId,
+      int shuffleId,
+      Set<Integer> failedPartitions,
+      PartitionDataReplicaRequirementTracking replicaRequirementTracking) {
+    return getShuffleResultForMultiPartV2(
+            clientType,
+            serverToPartitions,
+            appId,
+            shuffleId,
+            failedPartitions,
+            replicaRequirementTracking)
+        .getBlockIds();
   }
 
   @Override

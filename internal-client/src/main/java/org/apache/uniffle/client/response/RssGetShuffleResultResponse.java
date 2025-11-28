@@ -18,6 +18,9 @@
 package org.apache.uniffle.client.response;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import org.roaringbitmap.longlong.Roaring64NavigableMap;
 
@@ -29,6 +32,26 @@ import org.apache.uniffle.proto.RssProtos;
 public class RssGetShuffleResultResponse extends ClientResponse {
 
   private Roaring64NavigableMap blockIdBitmap;
+  // partitionId -> taskAttemptId -> recordNumber
+  private Map<Integer, Map<Long, Long>> partitionToTaskAttemptIdToRecordNumbers = new HashMap<>();
+
+  public RssGetShuffleResultResponse(
+      StatusCode statusCode,
+      byte[] serializedBitmap,
+      List<RssProtos.PartitionStats> partitionStatsList)
+      throws IOException {
+    super(statusCode);
+    blockIdBitmap = RssUtils.deserializeBitMap(serializedBitmap);
+    for (RssProtos.PartitionStats partitionStats : partitionStatsList) {
+      int partitionId = partitionStats.getPartitionId();
+      for (RssProtos.TaskAttemptIdToRecords record :
+          partitionStats.getTaskAttemptIdToRecordsList()) {
+        partitionToTaskAttemptIdToRecordNumbers
+            .computeIfAbsent(partitionId, k -> new HashMap<>())
+            .put(record.getTaskAttemptId(), record.getRecordNumber());
+      }
+    }
+  }
 
   public RssGetShuffleResultResponse(StatusCode statusCode, byte[] serializedBitmap)
       throws IOException {
@@ -38,6 +61,10 @@ public class RssGetShuffleResultResponse extends ClientResponse {
 
   public Roaring64NavigableMap getBlockIdBitmap() {
     return blockIdBitmap;
+  }
+
+  public Map<Integer, Map<Long, Long>> getPartitionToTaskAttemptIdToRecordNumbers() {
+    return partitionToTaskAttemptIdToRecordNumbers;
   }
 
   public static RssGetShuffleResultResponse fromProto(
@@ -56,7 +83,8 @@ public class RssGetShuffleResultResponse extends ClientResponse {
     try {
       return new RssGetShuffleResultResponse(
           StatusCode.fromProto(rpcResponse.getStatus()),
-          rpcResponse.getSerializedBitmap().toByteArray());
+          rpcResponse.getSerializedBitmap().toByteArray(),
+          rpcResponse.getPartitionStatsList());
     } catch (Exception e) {
       throw new RssException(e);
     }

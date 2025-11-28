@@ -105,7 +105,6 @@ import org.apache.uniffle.proto.RssProtos.GetShuffleResultForMultiPartResponse;
 import org.apache.uniffle.proto.RssProtos.GetShuffleResultRequest;
 import org.apache.uniffle.proto.RssProtos.GetShuffleResultResponse;
 import org.apache.uniffle.proto.RssProtos.MergeContext;
-import org.apache.uniffle.proto.RssProtos.PartitionToBlockIds;
 import org.apache.uniffle.proto.RssProtos.RemoteStorage;
 import org.apache.uniffle.proto.RssProtos.RemoteStorageConfItem;
 import org.apache.uniffle.proto.RssProtos.ReportShuffleResultRequest;
@@ -788,26 +787,7 @@ public class ShuffleServerGrpcClient extends GrpcClient implements ShuffleServer
 
   @Override
   public RssReportShuffleResultResponse reportShuffleResult(RssReportShuffleResultRequest request) {
-    List<PartitionToBlockIds> partitionToBlockIds = Lists.newArrayList();
-    for (Map.Entry<Integer, List<Long>> entry : request.getPartitionToBlockIds().entrySet()) {
-      List<Long> blockIds = entry.getValue();
-      if (blockIds != null && !blockIds.isEmpty()) {
-        partitionToBlockIds.add(
-            PartitionToBlockIds.newBuilder()
-                .setPartitionId(entry.getKey())
-                .addAllBlockIds(entry.getValue())
-                .build());
-      }
-    }
-
-    ReportShuffleResultRequest recRequest =
-        ReportShuffleResultRequest.newBuilder()
-            .setAppId(request.getAppId())
-            .setShuffleId(request.getShuffleId())
-            .setTaskAttemptId(request.getTaskAttemptId())
-            .setBitmapNum(request.getBitmapNum())
-            .addAllPartitionToBlockIds(partitionToBlockIds)
-            .build();
+    ReportShuffleResultRequest recRequest = request.toProto();
     ReportShuffleResultResponse rpcResponse = doReportShuffleResult(recRequest);
 
     RssProtos.StatusCode statusCode = rpcResponse.getStatus();
@@ -927,7 +907,9 @@ public class ShuffleServerGrpcClient extends GrpcClient implements ShuffleServer
         try {
           response =
               new RssGetShuffleResultResponse(
-                  StatusCode.SUCCESS, rpcResponse.getSerializedBitmap().toByteArray());
+                  StatusCode.SUCCESS,
+                  rpcResponse.getSerializedBitmap().toByteArray(),
+                  rpcResponse.getPartitionStatsList());
         } catch (Exception e) {
           throw new RssException(e);
         }

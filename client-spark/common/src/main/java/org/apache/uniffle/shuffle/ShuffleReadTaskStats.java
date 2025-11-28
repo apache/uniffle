@@ -52,6 +52,15 @@ public class ShuffleReadTaskStats {
     return partitionBlocksReadPerMap.get(partitionId);
   }
 
+  /**
+   * Compared with the upstream shuffleWriteTaskStats that is re-built from the client
+   * mapOutputTracker metadata
+   *
+   * @param writeStats
+   * @param startPartition
+   * @param endPartition
+   * @return
+   */
   public boolean diff(
       Map<Long, ShuffleWriteTaskStats> writeStats, int startPartition, int endPartition) {
     StringBuilder infoBuilder = new StringBuilder();

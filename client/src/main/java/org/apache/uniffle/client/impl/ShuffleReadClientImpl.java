@@ -308,6 +308,8 @@ public class ShuffleReadClientImpl implements ShuffleReadClient {
         // mark block as processed
         processedBlockIds.add(bs.getBlockId());
         pendingBlockIds.removeLong(bs.getBlockId());
+        // update the segment index to skip the unnecessary block in overlapping decompression mode
+        segmentIndex += 1;
       }
 
       if (bs != null) {

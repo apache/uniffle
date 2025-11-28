@@ -44,7 +44,8 @@ public class DeferredCompressedBlockTest {
               deferredCompressedBlock.reset(new byte[10], 10, 10);
               return deferredCompressedBlock;
             },
-            10);
+            10,
+            -1L);
 
     // case1: some params accessing won't trigger initialization
     block.getBlockId();
