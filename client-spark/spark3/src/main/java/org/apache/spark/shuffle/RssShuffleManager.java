@@ -142,7 +142,9 @@ public class RssShuffleManager extends RssShuffleManagerBase {
     if (id.get() == null) {
       id.compareAndSet(null, SparkEnv.get().conf().getAppId() + "_" + uuid);
       appId = id.get();
-      dataPusher.setRssAppId(id.get());
+      if (dataPusher != null) {
+        dataPusher.setRssAppId(id.get());
+      }
     }
     LOG.info("Generate application id used in rss: " + id.get());
     // If stage retry is enabled, the Deterministic status of the ShuffleId needs to be recorded.
@@ -273,7 +275,9 @@ public class RssShuffleManager extends RssShuffleManagerBase {
     // todo: this implement is tricky, we should refactor it
     if (id.get() == null) {
       id.compareAndSet(null, rssShuffleHandle.getAppId());
-      dataPusher.setRssAppId(id.get());
+      if (dataPusher != null) {
+        dataPusher.setRssAppId(id.get());
+      }
     }
   }
 
