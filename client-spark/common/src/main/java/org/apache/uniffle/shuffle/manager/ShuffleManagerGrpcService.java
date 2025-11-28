@@ -318,7 +318,7 @@ public class ShuffleManagerGrpcService extends ShuffleManagerImplBase {
     RssProtos.StatusCode code = RssProtos.StatusCode.INTERNAL_ERROR;
     RssProtos.ReassignOnBlockSendFailureResponse reply;
     try {
-      LOG.info(
+      LOG.debug(
           "Accepted reassign request on block sent failure for shuffleId: {}, stageId: {}, stageAttemptNumber: {} from taskAttemptId: {} on executorId: {} while partition split:{}",
           request.getShuffleId(),
           request.getStageId(),

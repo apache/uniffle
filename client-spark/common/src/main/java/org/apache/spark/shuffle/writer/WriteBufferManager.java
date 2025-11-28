@@ -428,6 +428,7 @@ public class WriteBufferManager extends MemoryConsumer {
     byte[] data = writerBuffer.getData();
     final int uncompressLength = data.length;
     final int memoryUsed = writerBuffer.getMemoryUsed();
+    final long records = writerBuffer.getRecordCount();
 
     this.blockCounter.incrementAndGet();
     this.uncompressedDataLen += uncompressLength;
@@ -467,7 +468,8 @@ public class WriteBufferManager extends MemoryConsumer {
         taskAttemptId,
         partitionAssignmentRetrieveFunc,
         rebuildFunction,
-        estimatedCompressedSize);
+        estimatedCompressedSize,
+        records);
   }
 
   // transform records to shuffleBlock
@@ -504,7 +506,8 @@ public class WriteBufferManager extends MemoryConsumer {
         uncompressLength,
         wb.getMemoryUsed(),
         taskAttemptId,
-        partitionAssignmentRetrieveFunc);
+        partitionAssignmentRetrieveFunc,
+        wb.getRecordCount());
   }
 
   // it's run in single thread, and is not thread safe

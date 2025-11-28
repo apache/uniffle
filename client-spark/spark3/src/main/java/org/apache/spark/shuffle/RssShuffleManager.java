@@ -62,9 +62,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.uniffle.client.PartitionDataReplicaRequirementTracking;
+import org.apache.uniffle.client.api.ShuffleResult;
 import org.apache.uniffle.client.api.ShuffleWriteClient;
 import org.apache.uniffle.client.impl.FailedBlockSendTracker;
+import org.apache.uniffle.client.impl.MergedPartitionStats;
 import org.apache.uniffle.client.util.ClientUtils;
+import org.apache.uniffle.client.util.RssClientConfig;
 import org.apache.uniffle.common.RemoteStorageInfo;
 import org.apache.uniffle.common.ShuffleDataDistributionType;
 import org.apache.uniffle.common.ShuffleServerInfo;
@@ -76,9 +79,6 @@ import org.apache.uniffle.common.util.RssUtils;
 import org.apache.uniffle.shuffle.RssShuffleClientFactory;
 import org.apache.uniffle.shuffle.ShuffleWriteTaskStats;
 import org.apache.uniffle.shuffle.manager.RssShuffleManagerBase;
-
-import static org.apache.spark.shuffle.RssSparkConfig.RSS_CLIENT_INTEGRITY_VALIDATION_ENABLED;
-import static org.apache.spark.shuffle.RssSparkConfig.RSS_DATA_INTEGRATION_VALIDATION_ANALYSIS_ENABLED;
 
 public class RssShuffleManager extends RssShuffleManagerBase {
   private static final Logger LOG = LoggerFactory.getLogger(RssShuffleManager.class);
@@ -385,7 +385,7 @@ public class RssShuffleManager extends RssShuffleManagerBase {
     Map<ShuffleServerInfo, Set<Integer>> serverToPartitions =
         getPartitionDataServers(shuffleHandleInfo, startPartition, endPartition);
     long start = System.currentTimeMillis();
-    Roaring64NavigableMap blockIdBitmap =
+    ShuffleResult shuffleResult =
         getShuffleResultForMultiPart(
             clientType,
             serverToPartitions,
@@ -393,6 +393,17 @@ public class RssShuffleManager extends RssShuffleManagerBase {
             shuffleId,
             context.stageAttemptNumber(),
             shuffleHandleInfo.createPartitionReplicaTracking());
+    Roaring64NavigableMap blockIdBitmap = shuffleResult.getBlockIds();
+
+    if (isIntegrityValidationServerManagementEnabled(rssConf)) {
+      MergedPartitionStats mergedPartitionStats = shuffleResult.getMergedPartitionStats();
+      if (mergedPartitionStats != null) {
+        long records = mergedPartitionStats.getExpectedRecordNumberByTaskIds(taskIdBitmap);
+        if (records > 0) {
+          expectedRecordsRead = records;
+        }
+      }
+    }
 
     LOG.info(
         "Retrieved {} upstream task ids in {} ms and {} block IDs from {} shuffle-servers in {} ms for shuffleId[{}], partitionId[{},{}]",
@@ -454,17 +465,39 @@ public class RssShuffleManager extends RssShuffleManagerBase {
 
   public static boolean isIntegrityValidationEnabled(RssConf rssConf) {
     assert rssConf != null;
+    // disable integrity validation when the multi replicas is enabled.
+    if (rssConf.getInteger(
+            RssClientConfig.RSS_DATA_REPLICA, RssClientConfig.RSS_DATA_REPLICA_DEFAULT_VALUE)
+        > 1) {
+      return false;
+    }
+    // only enable integrity validation when the spark version >= 3.5.0
     if (!Spark3VersionUtils.isSparkVersionAtLeast("3.5.0")) {
       return false;
     }
-    return rssConf.get(RSS_CLIENT_INTEGRITY_VALIDATION_ENABLED);
+    return rssConf.get(RssSparkConfig.RSS_CLIENT_INTEGRITY_VALIDATION_ENABLED);
   }
 
-  public static boolean isIntegrationValidationFailureAnalysisEnabled(RssConf rssConf) {
+  public static boolean isIntegrityValidationServerManagementEnabled(RssConf rssConf) {
     if (!isIntegrityValidationEnabled(rssConf)) {
       return false;
     }
-    return rssConf.get(RSS_DATA_INTEGRATION_VALIDATION_ANALYSIS_ENABLED);
+    return rssConf.get(RssSparkConfig.RSS_DATA_INTEGRITY_VALIDATION_SERVER_MANAGEMENT_ENABLED);
+  }
+
+  public static boolean isIntegrityValidationClientManagementEnabled(RssConf rssConf) {
+    if (!isIntegrityValidationEnabled(rssConf)) {
+      return false;
+    }
+    return !isIntegrityValidationServerManagementEnabled(rssConf);
+  }
+
+  public static boolean isIntegrationValidationFailureAnalysisEnabled(RssConf rssConf) {
+    // todo: enable the validation failure analysis when the server management is enabled
+    if (isIntegrityValidationServerManagementEnabled(rssConf)) {
+      return false;
+    }
+    return rssConf.get(RssSparkConfig.RSS_DATA_INTEGRATION_VALIDATION_ANALYSIS_ENABLED);
   }
 
   @SuppressFBWarnings("REC_CATCH_EXCEPTION")
@@ -560,7 +593,7 @@ public class RssShuffleManager extends RssShuffleManagerBase {
       int endPartition,
       int startMapIndex,
       int endMapIndex) {
-    if (!isIntegrityValidationEnabled(rssConf)) {
+    if (isIntegrityValidationServerManagementEnabled(rssConf)) {
       return Collections.emptyMap();
     }
     Iterator<BlockManagerId> iter =
@@ -590,7 +623,7 @@ public class RssShuffleManager extends RssShuffleManagerBase {
       }
 
       String raw = blockManagerId.topologyInfo().get();
-      if (isIntegrityValidationEnabled(rssConf)) {
+      if (isIntegrityValidationClientManagementEnabled(rssConf)) {
         ShuffleWriteTaskStats shuffleWriteTaskStats = ShuffleWriteTaskStats.decode(rssConf, raw);
         taskIdBitmap.add(shuffleWriteTaskStats.getTaskAttemptId());
         for (int i = startPartition; i < endPartition; i++) {
@@ -736,7 +769,7 @@ public class RssShuffleManager extends RssShuffleManagerBase {
     this.id = new AtomicReference<>(appId);
   }
 
-  private Roaring64NavigableMap getShuffleResultForMultiPart(
+  private ShuffleResult getShuffleResultForMultiPart(
       String clientType,
       Map<ShuffleServerInfo, Set<Integer>> serverToPartitions,
       String appId,
@@ -745,7 +778,7 @@ public class RssShuffleManager extends RssShuffleManagerBase {
       PartitionDataReplicaRequirementTracking replicaRequirementTracking) {
     Set<Integer> failedPartitions = Sets.newHashSet();
     try {
-      return shuffleWriteClient.getShuffleResultForMultiPart(
+      return shuffleWriteClient.getShuffleResultForMultiPartV2(
           clientType,
           serverToPartitions,
           appId,

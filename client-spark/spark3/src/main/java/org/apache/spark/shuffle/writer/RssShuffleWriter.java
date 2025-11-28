@@ -118,6 +118,8 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
   private final int bitmapSplitNum;
   // server -> partitionId -> blockIds
   private Map<ShuffleServerInfo, Map<Integer, Set<Long>>> serverToPartitionToBlockIds;
+  // server -> partitionId -> recordNumbers
+  private Map<ShuffleServerInfo, Map<Integer, Long>> serverToPartitionToRecordNumbers;
   private final ShuffleWriteClient shuffleWriteClient;
   private final Set<ShuffleServerInfo> shuffleServersForData;
   private final PartitionLengthStatistic partitionLengthStatistic;
@@ -154,7 +156,8 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
   private boolean isShuffleWriteFailed = false;
   private Optional<String> shuffleWriteFailureReason = Optional.empty();
 
-  private Optional<ShuffleWriteTaskStats> shuffleTaskStats = Optional.empty();
+  // Visible for the Gluten
+  protected Optional<ShuffleWriteTaskStats> shuffleTaskStats = Optional.empty();
 
   // Only for tests
   @VisibleForTesting
@@ -224,6 +227,7 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
     this.sendCheckInterval = sparkConf.get(RssSparkConfig.RSS_CLIENT_SEND_CHECK_INTERVAL_MS);
     this.bitmapSplitNum = sparkConf.get(RssSparkConfig.RSS_CLIENT_BITMAP_SPLIT_NUM);
     this.serverToPartitionToBlockIds = Maps.newHashMap();
+    this.serverToPartitionToRecordNumbers = Maps.newHashMap();
     this.shuffleWriteClient = shuffleWriteClient;
     this.shuffleServersForData = shuffleHandleInfo.getServers();
     this.partitionLengthStatistic = new PartitionLengthStatistic(partitioner.numPartitions());
@@ -244,7 +248,7 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
     this.enableWriteFailureRetry = rssConf.get(RSS_RESUBMIT_STAGE_WITH_WRITE_FAILURE_ENABLED);
     this.recordReportFailedShuffleservers = Sets.newConcurrentHashSet();
 
-    if (RssShuffleManager.isIntegrityValidationEnabled(rssConf)) {
+    if (RssShuffleManager.isIntegrityValidationClientManagementEnabled(rssConf)) {
       this.shuffleTaskStats =
           Optional.of(
               new ShuffleWriteTaskStats(
@@ -475,6 +479,7 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
       shuffleBlockInfoList.forEach(
           sbi -> {
             long blockId = sbi.getBlockId();
+            long recordNumber = sbi.getRecordNumber();
             // add blockId to set, check if it is sent later
             blockIds.add(blockId);
             int partitionId = sbi.getPartitionId();
@@ -488,6 +493,12 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
                           serverToPartitionToBlockIds.computeIfAbsent(
                               shuffleServerInfo, k -> Maps.newHashMap());
                       pToBlockIds.computeIfAbsent(partitionId, v -> Sets.newHashSet()).add(blockId);
+
+                      // update the [partition, recordNumber]
+                      serverToPartitionToRecordNumbers
+                          .computeIfAbsent(shuffleServerInfo, k -> Maps.newHashMap())
+                          .compute(
+                              partitionId, (k, v) -> v == null ? recordNumber : v + recordNumber);
                     });
           });
       return postBlockEvent(shuffleBlockInfoList);
@@ -876,11 +887,17 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
     shuffleManager.getBlockIdsFailedSendTracker(taskId).remove(block.getBlockId());
     block.getShuffleServerInfos().stream()
         .forEach(
-            s ->
-                serverToPartitionToBlockIds
-                    .get(s)
-                    .get(block.getPartitionId())
-                    .remove(block.getBlockId()));
+            s -> {
+              serverToPartitionToBlockIds
+                  .get(s)
+                  .get(block.getPartitionId())
+                  .remove(block.getBlockId());
+              serverToPartitionToRecordNumbers
+                  .get(s)
+                  .compute(
+                      block.getPartitionId(),
+                      (pid, recordNumber) -> recordNumber - block.getRecordNumber());
+            });
     blockIds.remove(block.getBlockId());
   }
 
@@ -937,7 +954,8 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
             taskAttemptId,
             bitmapSplitNum,
             recordReportFailedShuffleservers,
-            enableWriteFailureRetry);
+            enableWriteFailureRetry,
+            serverToPartitionToRecordNumbers);
         long reportDuration = System.currentTimeMillis() - start;
         LOG.info(
             "Reported all shuffle result for shuffleId[{}] task[{}] with bitmapNum[{}] cost {} ms",
