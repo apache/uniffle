@@ -125,8 +125,8 @@ public class PartitionedShuffleBlockIdManager implements ShuffleBlockIdManager {
         if (bitmap != null) {
           res.or(bitmap);
         } else {
-          LOG.warn(
-              "Bitmap is null for app: {}, shuffleId: {}, partitionId: {}. This should not happen",
+          LOG.debug(
+              "Bitmap is null for app: {}, shuffleId: {}, partitionId: {}",
               appId,
               shuffleId,
               partitionId);
