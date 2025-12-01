@@ -126,10 +126,10 @@ public class PartitionedShuffleBlockIdManager implements ShuffleBlockIdManager {
           res.or(bitmap);
         } else {
           LOG.warn(
-            "Bitmap is null for app: {}, shuffleId: {}, partitionId: {}. This should not happen",
-            appId,
-            shuffleId,
-            partitionId);
+              "Bitmap is null for app: {}, shuffleId: {}, partitionId: {}. This should not happen",
+              appId,
+              shuffleId,
+              partitionId);
         }
       } finally {
         lockForBitmap.readLock().unlock();
