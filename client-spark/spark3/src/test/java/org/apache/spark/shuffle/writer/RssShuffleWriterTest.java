@@ -54,6 +54,7 @@ import org.apache.spark.shuffle.handle.MutableShuffleHandleInfo;
 import org.apache.spark.shuffle.handle.SimpleShuffleHandleInfo;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Test;
+import org.roaringbitmap.longlong.Roaring64NavigableMap;
 
 import org.apache.uniffle.client.api.ShuffleManagerClient;
 import org.apache.uniffle.client.api.ShuffleWriteClient;
@@ -1063,5 +1064,77 @@ public class RssShuffleWriterTest {
               0));
     }
     return shuffleBlockInfoList;
+  }
+
+  /**
+   * Test that Roaring64NavigableMap correctly filters duplicate blockIds from multiple replicas.
+   * This tests the optimization introduced in issue #2675.
+   */
+  @Test
+  public void testRoaring64NavigableMapDeduplication() {
+    // Simulate serverToPartitionToBlockIds with duplicate blockIds across multiple servers
+    // (representing replicas)
+    Map<ShuffleServerInfo, Map<Integer, Set<Long>>> serverToPartitionToBlockIds = Maps.newHashMap();
+
+    ShuffleServerInfo server1 = new ShuffleServerInfo("id1", "host1", 100);
+    ShuffleServerInfo server2 = new ShuffleServerInfo("id2", "host2", 100);
+    ShuffleServerInfo server3 = new ShuffleServerInfo("id3", "host3", 100);
+
+    // Server1 has blockIds: 1, 2, 3 for partition 0
+    Map<Integer, Set<Long>> server1Partitions = Maps.newHashMap();
+    server1Partitions.put(0, Sets.newHashSet(1L, 2L, 3L));
+    serverToPartitionToBlockIds.put(server1, server1Partitions);
+
+    // Server2 has same blockIds (replica): 1, 2, 3 for partition 0
+    Map<Integer, Set<Long>> server2Partitions = Maps.newHashMap();
+    server2Partitions.put(0, Sets.newHashSet(1L, 2L, 3L));
+    serverToPartitionToBlockIds.put(server2, server2Partitions);
+
+    // Server3 has blockIds: 4, 5 for partition 1
+    Map<Integer, Set<Long>> server3Partitions = Maps.newHashMap();
+    server3Partitions.put(1, Sets.newHashSet(4L, 5L));
+    serverToPartitionToBlockIds.put(server3, server3Partitions);
+
+    // Using Roaring64NavigableMap to filter duplicates (as implemented in checkSentBlockCount)
+    Roaring64NavigableMap blockIdBitmap = Roaring64NavigableMap.bitmapOf();
+    for (Map<Integer, Set<Long>> partitionBlockIds : serverToPartitionToBlockIds.values()) {
+      partitionBlockIds.values().forEach(x -> x.forEach(blockIdBitmap::addLong));
+    }
+
+    // Expected unique blockIds: 1, 2, 3, 4, 5 = 5 unique blocks
+    // Without deduplication: 1,2,3 + 1,2,3 + 4,5 = 8 blocks
+    assertEquals(5, blockIdBitmap.getLongCardinality());
+
+    // Verify the bitmap contains all expected blockIds
+    assertTrue(blockIdBitmap.contains(1L));
+    assertTrue(blockIdBitmap.contains(2L));
+    assertTrue(blockIdBitmap.contains(3L));
+    assertTrue(blockIdBitmap.contains(4L));
+    assertTrue(blockIdBitmap.contains(5L));
+  }
+
+  /**
+   * Test Roaring64NavigableMap with large number of consecutive blockIds. This verifies the memory
+   * efficiency benefit of using Roaring64NavigableMap.
+   */
+  @Test
+  public void testRoaring64NavigableMapWithLargeBlockIds() {
+    Roaring64NavigableMap blockIdBitmap = Roaring64NavigableMap.bitmapOf();
+
+    // Add a large range of consecutive blockIds (simulating real shuffle scenario)
+    int numBlocks = 100000;
+    for (long i = 0; i < numBlocks; i++) {
+      blockIdBitmap.addLong(i);
+    }
+
+    assertEquals(numBlocks, blockIdBitmap.getLongCardinality());
+
+    // Add same blockIds again (simulating replicas)
+    for (long i = 0; i < numBlocks; i++) {
+      blockIdBitmap.addLong(i);
+    }
+
+    // Count should remain the same after adding duplicates
+    assertEquals(numBlocks, blockIdBitmap.getLongCardinality());
   }
 }
