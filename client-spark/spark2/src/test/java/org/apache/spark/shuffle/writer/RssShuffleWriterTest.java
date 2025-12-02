@@ -521,9 +521,9 @@ public class RssShuffleWriterTest {
     // (representing replicas)
     Map<ShuffleServerInfo, Map<Integer, Set<Long>>> serverToPartitionToBlockIds = Maps.newHashMap();
 
-    ShuffleServerInfo server1 = new ShuffleServerInfo("id1", "host1", 100);
-    ShuffleServerInfo server2 = new ShuffleServerInfo("id2", "host2", 100);
-    ShuffleServerInfo server3 = new ShuffleServerInfo("id3", "host3", 100);
+    final ShuffleServerInfo server1 = new ShuffleServerInfo("id1", "host1", 100);
+    final ShuffleServerInfo server2 = new ShuffleServerInfo("id2", "host2", 100);
+    final ShuffleServerInfo server3 = new ShuffleServerInfo("id3", "host3", 100);
 
     // Server1 has blockIds: 1, 2, 3 for partition 0
     Map<Integer, Set<Long>> server1Partitions = Maps.newHashMap();
