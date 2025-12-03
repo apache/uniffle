@@ -36,7 +36,7 @@ public class Lz4Codec extends Codec {
   }
 
   public Lz4Codec() {
-    this.lz4Factory = LZ4Factory.fastestInstance();
+    this.lz4Factory = LZ4Factory.safeInstance();
   }
 
   @Override

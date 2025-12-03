@@ -38,8 +38,8 @@
       <!-- use the lz4 from spark env -->
       <exclusions>
         <exclusion>
-          <artifactId>lz4</artifactId>
-          <groupId>net.jpountz.lz4</groupId>
+            <groupId>org.lz4</groupId>
+          <artifactId>lz4-java</artifactId>
         </exclusion>
         <exclusion>
           <artifactId>log4j-slf4j-impl</artifactId>

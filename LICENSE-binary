@@ -272,7 +272,7 @@ io.prometheus:simpleclient_pushgateway
 io.prometheus:simpleclient_servlet
 jakarta.validation:jakarta.validation-api
 javax.inject:javax.inject
-net.jpountz.lz4:lz4
+org.lz4:lz4-java
 org.apache.commons:commons-lang3
 org.apache.httpcomponents:httpclient
 org.apache.httpcomponents:httpcore
