@@ -153,7 +153,7 @@ public class RssShuffleManagerTest extends SparkIntegrationTestBase {
     conf.set(RssSparkConfig.RSS_DYNAMIC_CLIENT_CONF_ENABLED, enableDynamicClientConf);
     // configure storage type
     conf.set("spark." + RssClientConfig.RSS_STORAGE_TYPE, StorageType.MEMORY_LOCALFILE.name());
-    // restarting the coordinator may cause RssException: There isn't enough shuffle servers
+    // restarting the coordinator may cause RssException: There aren't enough shuffle servers
     // retry quickly (default is 65s interval)
     conf.set("spark." + RssClientConfig.RSS_CLIENT_ASSIGNMENT_RETRY_INTERVAL, "1000");
     conf.set("spark." + RssClientConfig.RSS_CLIENT_ASSIGNMENT_RETRY_TIMES, "10");
