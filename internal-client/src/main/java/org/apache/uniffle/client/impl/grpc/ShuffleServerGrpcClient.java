@@ -150,7 +150,8 @@ public class ShuffleServerGrpcClient extends GrpcClient implements ShuffleServer
           StatusCode.NO_REGISTER,
           StatusCode.APP_NOT_FOUND,
           StatusCode.INTERNAL_NOT_RETRY_ERROR,
-          StatusCode.EXCEED_HUGE_PARTITION_HARD_LIMIT);
+          StatusCode.EXCEED_HUGE_PARTITION_HARD_LIMIT,
+          StatusCode.HARD_SPLIT_FROM_SERVER);
 
   private ShuffleServerInfo serverInfo;
 
