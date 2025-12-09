@@ -135,7 +135,7 @@ public class PartitionBalanceAssignmentStrategy extends AbstractAssignmentStrate
           });
 
       if (nodes.isEmpty() || nodes.size() < replica) {
-        throw new RssException("There isn't enough shuffle servers");
+        throw new RssException("There aren't enough shuffle servers");
       }
 
       final int assignmentMaxNum = clusterManager.getShuffleNodesMax();
