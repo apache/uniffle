@@ -927,7 +927,9 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
             bitmapSplitNum,
             recordReportFailedShuffleservers,
             enableWriteFailureRetry,
-            getServerToPartitionToRecordNumbers());
+            isIntegrityValidationClientManagementEnabled
+                ? null
+                : getServerToPartitionToRecordNumbers());
         long reportDuration = System.currentTimeMillis() - start;
         LOG.info(
             "Reported all shuffle result for shuffleId[{}] task[{}] with bitmapNum[{}] cost {} ms",
