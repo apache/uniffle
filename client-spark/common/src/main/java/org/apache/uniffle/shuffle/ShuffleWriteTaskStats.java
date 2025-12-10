@@ -19,11 +19,14 @@ package org.apache.uniffle.shuffle;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.Map;
 import java.util.Optional;
 
+import com.google.common.collect.Maps;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.compression.Codec;
 import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.exception.RssException;
@@ -39,19 +42,28 @@ import static org.apache.spark.shuffle.RssSparkConfig.RSS_DATA_INTEGRITY_VALIDAT
 public class ShuffleWriteTaskStats {
   private static final Logger LOGGER = LoggerFactory.getLogger(ShuffleWriteTaskStats.class);
 
+  private RssConf rssConf;
+  private boolean blockNumberCheckEnabled;
+
   // the unique task id across all stages
   private long taskId;
   // this is only unique for one stage and defined in uniffle side instead of spark
   private long taskAttemptId;
+  // partition number
   private int partitions;
-  private long[] partitionRecordsWritten;
-  private long[] partitionBlocksWritten;
-  private boolean blockNumberCheckEnabled;
-  private RssConf rssConf;
+
+  private long[] partitionRecords;
+  private long[] partitionBlocks;
+
+  // server -> partitionId -> block-stats
+  private Map<ShuffleServerInfo, Map<Integer, BlockStats>> serverToPartitionToBlockStats;
+
+  // partitions data length
+  private long[] partitionLengths;
 
   public ShuffleWriteTaskStats(RssConf rssConf, int partitions, long taskAttemptId, long taskId) {
-    this.partitionRecordsWritten = new long[partitions];
-    Arrays.fill(this.partitionRecordsWritten, 0L);
+    this.partitionRecords = new long[partitions];
+    Arrays.fill(this.partitionRecords, 0L);
 
     this.partitions = partitions;
     this.taskAttemptId = taskAttemptId;
@@ -61,9 +73,14 @@ public class ShuffleWriteTaskStats {
         rssConf.get(RSS_DATA_INTEGRITY_VALIDATION_BLOCK_NUMBER_CHECK_ENABLED);
 
     if (blockNumberCheckEnabled) {
-      this.partitionBlocksWritten = new long[partitions];
-      Arrays.fill(this.partitionBlocksWritten, 0L);
+      this.partitionBlocks = new long[partitions];
+      Arrays.fill(this.partitionBlocks, 0L);
     }
+
+    this.serverToPartitionToBlockStats = Maps.newConcurrentMap();
+
+    this.partitionLengths = new long[partitions];
+    Arrays.fill(this.partitionLengths, 0L);
   }
 
   public ShuffleWriteTaskStats(int partitions, long taskAttemptId, long taskId) {
@@ -71,22 +88,22 @@ public class ShuffleWriteTaskStats {
   }
 
   public long getRecordsWritten(int partitionId) {
-    return partitionRecordsWritten[partitionId];
+    return partitionRecords[partitionId];
   }
 
   public void incPartitionRecord(int partitionId) {
-    partitionRecordsWritten[partitionId]++;
+    partitionRecords[partitionId]++;
   }
 
   public void incPartitionBlock(int partitionId) {
     if (blockNumberCheckEnabled) {
-      partitionBlocksWritten[partitionId]++;
+      partitionBlocks[partitionId]++;
     }
   }
 
   public long getBlocksWritten(int partitionId) {
     if (blockNumberCheckEnabled) {
-      return partitionBlocksWritten[partitionId];
+      return partitionBlocks[partitionId];
     }
     return -1L;
   }
@@ -97,7 +114,7 @@ public class ShuffleWriteTaskStats {
 
   public String encode() {
     final long start = System.currentTimeMillis();
-    int partitions = partitionRecordsWritten.length;
+    int partitions = partitionRecords.length;
     int capacity = 2 * Long.BYTES + Integer.BYTES + partitions * Long.BYTES;
     if (blockNumberCheckEnabled) {
       capacity += partitions * Long.BYTES;
@@ -106,11 +123,11 @@ public class ShuffleWriteTaskStats {
     buffer.putLong(taskId);
     buffer.putLong(taskAttemptId);
     buffer.putInt(partitions);
-    for (long records : partitionRecordsWritten) {
+    for (long records : partitionRecords) {
       buffer.putLong(records);
     }
     if (blockNumberCheckEnabled) {
-      for (long blocks : partitionBlocksWritten) {
+      for (long blocks : partitionBlocks) {
         buffer.putLong(blocks);
       }
     }
@@ -156,11 +173,11 @@ public class ShuffleWriteTaskStats {
     ShuffleWriteTaskStats stats =
         new ShuffleWriteTaskStats(rssConf, partitions, taskAttemptId, taskId);
     for (int i = 0; i < partitions; i++) {
-      stats.partitionRecordsWritten[i] = outBuffer.getLong();
+      stats.partitionRecords[i] = outBuffer.getLong();
     }
     if (rssConf.get(RSS_DATA_INTEGRITY_VALIDATION_BLOCK_NUMBER_CHECK_ENABLED)) {
       for (int i = 0; i < partitions; i++) {
-        stats.partitionBlocksWritten[i] = outBuffer.getLong();
+        stats.partitionBlocks[i] = outBuffer.getLong();
       }
     }
     return stats;
@@ -172,7 +189,7 @@ public class ShuffleWriteTaskStats {
 
   public void log() {
     StringBuilder infoBuilder = new StringBuilder();
-    int partitions = partitionRecordsWritten.length;
+    int partitions = partitionRecords.length;
     for (int i = 0; i < partitions; i++) {
       long records = getRecordsWritten(i);
       long blocks = getBlocksWritten(i);
@@ -182,7 +199,9 @@ public class ShuffleWriteTaskStats {
         "Partition records/blocks written for taskId[{}]: {}", taskId, infoBuilder.toString());
   }
 
-  public void check(long[] partitionLens) {
+  /** Internal check */
+  public void check() {
+    final long[] partitionLens = partitionLengths;
     for (int idx = 0; idx < partitions; idx++) {
       long records = getRecordsWritten(idx);
       long blocks = getBlocksWritten(idx);
@@ -199,5 +218,35 @@ public class ShuffleWriteTaskStats {
                 + length);
       }
     }
+  }
+
+  public void incPartitionLength(int partitionId, long length) {
+    partitionLengths[partitionId] += length;
+  }
+
+  public long[] getPartitionLengths() {
+    return partitionLengths;
+  }
+
+  public void mergeBlockStats(
+      ShuffleServerInfo serverInfo, int partitionId, BlockStats blockStats) {
+    BlockStats existing =
+        serverToPartitionToBlockStats
+            .computeIfAbsent(serverInfo, x -> Maps.newConcurrentMap())
+            .computeIfAbsent(partitionId, x -> new BlockStats());
+    existing.merge(blockStats);
+  }
+
+  public void removeBlockStats(
+      ShuffleServerInfo serverInfo, int partitionId, BlockStats blockStats) {
+    BlockStats existing =
+        serverToPartitionToBlockStats
+            .computeIfAbsent(serverInfo, x -> Maps.newConcurrentMap())
+            .computeIfAbsent(partitionId, x -> new BlockStats());
+    existing.remove(blockStats);
+  }
+
+  public Map<ShuffleServerInfo, Map<Integer, BlockStats>> getAllBlockStats() {
+    return serverToPartitionToBlockStats;
   }
 }

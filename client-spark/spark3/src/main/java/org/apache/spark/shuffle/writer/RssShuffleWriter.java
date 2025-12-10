@@ -46,7 +46,6 @@ import scala.collection.Iterator;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Uninterruptibles;
 import org.apache.commons.collections4.CollectionUtils;
@@ -89,6 +88,7 @@ import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.exception.RssSendFailedException;
 import org.apache.uniffle.common.exception.RssWaitFailedException;
 import org.apache.uniffle.common.rpc.StatusCode;
+import org.apache.uniffle.shuffle.BlockStats;
 import org.apache.uniffle.shuffle.ShuffleWriteTaskStats;
 import org.apache.uniffle.storage.util.StorageType;
 
@@ -117,13 +117,8 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
   private final long sendCheckTimeout;
   private final long sendCheckInterval;
   private final int bitmapSplitNum;
-  // server -> partitionId -> blockIds
-  private Map<ShuffleServerInfo, Map<Integer, Set<Long>>> serverToPartitionToBlockIds;
-  // server -> partitionId -> recordNumbers
-  private Map<ShuffleServerInfo, Map<Integer, Long>> serverToPartitionToRecordNumbers;
   private final ShuffleWriteClient shuffleWriteClient;
   private final Set<ShuffleServerInfo> shuffleServersForData;
-  private final PartitionLengthStatistic partitionLengthStatistic;
   // Gluten needs this variable
   protected final boolean isMemoryShuffleEnabled;
   private final Function<String, Boolean> taskFailureCallback;
@@ -158,7 +153,9 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
   private Optional<String> shuffleWriteFailureReason = Optional.empty();
 
   // Visible for the Gluten
-  protected Optional<ShuffleWriteTaskStats> shuffleTaskStats = Optional.empty();
+  protected ShuffleWriteTaskStats shuffleTaskStats;
+
+  private boolean isIntegrityValidationClientManagementEnabled = false;
 
   // Only for tests
   @VisibleForTesting
@@ -227,11 +224,8 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
     this.sendCheckTimeout = sparkConf.get(RssSparkConfig.RSS_CLIENT_SEND_CHECK_TIMEOUT_MS);
     this.sendCheckInterval = sparkConf.get(RssSparkConfig.RSS_CLIENT_SEND_CHECK_INTERVAL_MS);
     this.bitmapSplitNum = sparkConf.get(RssSparkConfig.RSS_CLIENT_BITMAP_SPLIT_NUM);
-    this.serverToPartitionToBlockIds = Maps.newHashMap();
-    this.serverToPartitionToRecordNumbers = Maps.newHashMap();
     this.shuffleWriteClient = shuffleWriteClient;
     this.shuffleServersForData = shuffleHandleInfo.getServers();
-    this.partitionLengthStatistic = new PartitionLengthStatistic(partitioner.numPartitions());
     this.isMemoryShuffleEnabled =
         isMemoryShuffleEnabled(sparkConf.get(RssSparkConfig.RSS_STORAGE_TYPE.key()));
     this.taskFailureCallback = taskFailureCallback;
@@ -248,16 +242,11 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
     this.blockFailSentRetryMaxTimes = rssConf.get(RSS_PARTITION_REASSIGN_BLOCK_RETRY_MAX_TIMES);
     this.enableWriteFailureRetry = rssConf.get(RSS_RESUBMIT_STAGE_WITH_WRITE_FAILURE_ENABLED);
     this.recordReportFailedShuffleservers = Sets.newConcurrentHashSet();
-
-    if (RssShuffleManager.isIntegrityValidationClientManagementEnabled(rssConf)) {
-      this.shuffleTaskStats =
-          Optional.of(
-              new ShuffleWriteTaskStats(
-                  rssConf,
-                  partitioner.numPartitions(),
-                  taskAttemptId,
-                  taskContext.taskAttemptId()));
-    }
+    this.isIntegrityValidationClientManagementEnabled =
+        RssShuffleManager.isIntegrityValidationClientManagementEnabled(rssConf);
+    this.shuffleTaskStats =
+        new ShuffleWriteTaskStats(
+            rssConf, partitioner.numPartitions(), taskAttemptId, taskContext.taskAttemptId());
   }
 
   // Gluten needs this method
@@ -389,7 +378,7 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
       if (shuffleBlockInfos != null && !shuffleBlockInfos.isEmpty()) {
         processShuffleBlockInfos(shuffleBlockInfos);
       }
-      shuffleTaskStats.ifPresent(x -> x.incPartitionRecord(partition));
+      shuffleTaskStats.incPartitionRecord(partition);
     }
     final long start = System.currentTimeMillis();
     shuffleBlockInfos = bufferManager.clear(1.0);
@@ -444,14 +433,11 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
     long expected = blockIds.size();
     long bufferManagerTracked = bufferManager.getBlockCount();
 
-    if (serverToPartitionToBlockIds == null) {
-      throw new RssException("serverToPartitionToBlockIds should not be null");
-    }
-
     // to filter the multiple replica's duplicate blockIds
     Roaring64NavigableMap blockIdBitmap = Roaring64NavigableMap.bitmapOf();
-    for (Map<Integer, Set<Long>> partitionBlockIds : serverToPartitionToBlockIds.values()) {
-      partitionBlockIds.values().forEach(x -> x.forEach(blockIdBitmap::addLong));
+    for (Map<Integer, BlockStats> partitionBlockStats :
+        shuffleTaskStats.getAllBlockStats().values()) {
+      partitionBlockStats.values().forEach(x -> x.getBlockIds().forEach(blockIdBitmap::addLong));
     }
     long serverTracked = blockIdBitmap.getLongCardinality();
     if (expected != serverTracked || expected != bufferManagerTracked) {
@@ -485,22 +471,13 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
             blockIds.add(blockId);
             int partitionId = sbi.getPartitionId();
             // record blocks number for per-partition
-            shuffleTaskStats.ifPresent(x -> x.incPartitionBlock(partitionId));
+            shuffleTaskStats.incPartitionBlock(partitionId);
             // update [partition, blockIds], it will be sent to shuffle server
             sbi.getShuffleServerInfos()
                 .forEach(
-                    shuffleServerInfo -> {
-                      Map<Integer, Set<Long>> pToBlockIds =
-                          serverToPartitionToBlockIds.computeIfAbsent(
-                              shuffleServerInfo, k -> Maps.newHashMap());
-                      pToBlockIds.computeIfAbsent(partitionId, v -> Sets.newHashSet()).add(blockId);
-
-                      // update the [partition, recordNumber]
-                      serverToPartitionToRecordNumbers
-                          .computeIfAbsent(shuffleServerInfo, k -> Maps.newHashMap())
-                          .compute(
-                              partitionId, (k, v) -> v == null ? recordNumber : v + recordNumber);
-                    });
+                    serverInfo ->
+                        shuffleTaskStats.mergeBlockStats(
+                            serverInfo, partitionId, new BlockStats(recordNumber, blockId)));
           });
       return postBlockEvent(shuffleBlockInfoList);
     }
@@ -519,7 +496,7 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
               // Otherwise, the block is released immediately once completed.
               if (!blockFailSentRetryEnabled || isSuccessful) {
                 bufferManager.releaseBlockResource(b);
-                partitionLengthStatistic.inc(b);
+                shuffleTaskStats.incPartitionLength(b.getPartitionId(), b.getLength());
               }
             });
       }
@@ -888,17 +865,11 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
     shuffleManager.getBlockIdsFailedSendTracker(taskId).remove(block.getBlockId());
     block.getShuffleServerInfos().stream()
         .forEach(
-            s -> {
-              serverToPartitionToBlockIds
-                  .get(s)
-                  .get(block.getPartitionId())
-                  .remove(block.getBlockId());
-              serverToPartitionToRecordNumbers
-                  .get(s)
-                  .compute(
-                      block.getPartitionId(),
-                      (pid, recordNumber) -> recordNumber - block.getRecordNumber());
-            });
+            s ->
+                shuffleTaskStats.removeBlockStats(
+                    s,
+                    block.getPartitionId(),
+                    new BlockStats(block.getRecordNumber(), block.getBlockId())));
     blockIds.remove(block.getBlockId());
   }
 
@@ -949,14 +920,14 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
       if (success) {
         long start = System.currentTimeMillis();
         shuffleWriteClient.reportShuffleResult(
-            serverToPartitionToBlockIds,
+            getServerToPartitionToBlockIds(),
             appId,
             shuffleId,
             taskAttemptId,
             bitmapSplitNum,
             recordReportFailedShuffleservers,
             enableWriteFailureRetry,
-            serverToPartitionToRecordNumbers);
+            getServerToPartitionToRecordNumbers());
         long reportDuration = System.currentTimeMillis() - start;
         LOG.info(
             "Reported all shuffle result for shuffleId[{}] task[{}] with bitmapNum[{}] cost {} ms",
@@ -967,14 +938,10 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
         shuffleWriteMetrics.incWriteTime(TimeUnit.MILLISECONDS.toNanos(reportDuration));
 
         if (RssShuffleManager.isIntegrationValidationFailureAnalysisEnabled(rssConf)) {
-          shuffleTaskStats.ifPresent(x -> x.log());
+          shuffleTaskStats.log();
         }
 
-        long[] partitionLens = partitionLengthStatistic.toArray();
-
-        if (shuffleTaskStats.isPresent()) {
-          shuffleTaskStats.get().check(partitionLens);
-        }
+        shuffleTaskStats.check();
 
         // todo: we can replace the dummy host and port with the real shuffle server which we prefer
         // to read
@@ -984,10 +951,11 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
                 DUMMY_HOST,
                 DUMMY_PORT,
                 Option.apply(
-                    shuffleTaskStats.isPresent()
-                        ? shuffleTaskStats.get().encode()
+                    isIntegrityValidationClientManagementEnabled
+                        ? shuffleTaskStats.encode()
                         : Long.toString(taskAttemptId)));
-        MapStatus mapStatus = MapStatus.apply(blockManagerId, partitionLens, taskAttemptId);
+        MapStatus mapStatus =
+            MapStatus.apply(blockManagerId, shuffleTaskStats.getPartitionLengths(), taskAttemptId);
         return Option.apply(mapStatus);
       } else {
         return Option.empty();
@@ -1062,7 +1030,7 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
 
   @VisibleForTesting
   Map<Integer, Set<Long>> getPartitionToBlockIds() {
-    return serverToPartitionToBlockIds.values().stream()
+    return getServerToPartitionToBlockIds().values().stream()
         .flatMap(s -> s.entrySet().stream())
         .collect(
             Collectors.toMap(
@@ -1127,7 +1095,41 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
 
   @VisibleForTesting
   protected Map<ShuffleServerInfo, Map<Integer, Set<Long>>> getServerToPartitionToBlockIds() {
+    Map<ShuffleServerInfo, Map<Integer, Set<Long>>> serverToPartitionToBlockIds = new HashMap<>();
+    Map<ShuffleServerInfo, Map<Integer, BlockStats>> allBlockStats =
+        shuffleTaskStats.getAllBlockStats();
+    for (Map.Entry<ShuffleServerInfo, Map<Integer, BlockStats>> entry : allBlockStats.entrySet()) {
+      ShuffleServerInfo server = entry.getKey();
+      for (Map.Entry<Integer, BlockStats> childEntry : entry.getValue().entrySet()) {
+        int partitionId = childEntry.getKey();
+        BlockStats stats = childEntry.getValue();
+        serverToPartitionToBlockIds
+            .computeIfAbsent(server, k -> new HashMap<>())
+            .computeIfAbsent(partitionId, z -> new HashSet<>())
+            .addAll(stats.getBlockIds());
+      }
+    }
     return serverToPartitionToBlockIds;
+  }
+
+  @VisibleForTesting
+  protected Map<ShuffleServerInfo, Map<Integer, Long>> getServerToPartitionToRecordNumbers() {
+    Map<ShuffleServerInfo, Map<Integer, Long>> serverToPartitionToRecordNumbers = new HashMap<>();
+    Map<ShuffleServerInfo, Map<Integer, BlockStats>> allBlockStats =
+        shuffleTaskStats.getAllBlockStats();
+    for (Map.Entry<ShuffleServerInfo, Map<Integer, BlockStats>> entry : allBlockStats.entrySet()) {
+      ShuffleServerInfo server = entry.getKey();
+      for (Map.Entry<Integer, BlockStats> childEntry : entry.getValue().entrySet()) {
+        int partitionId = childEntry.getKey();
+        BlockStats stats = childEntry.getValue();
+        serverToPartitionToRecordNumbers
+            .computeIfAbsent(server, k -> new HashMap<>())
+            .compute(
+                partitionId,
+                (k, v) -> (v == null) ? stats.getRecordNumber() : stats.getRecordNumber() + v);
+      }
+    }
+    return serverToPartitionToRecordNumbers;
   }
 
   @VisibleForTesting
