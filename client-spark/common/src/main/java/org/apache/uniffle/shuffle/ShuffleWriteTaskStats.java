@@ -101,6 +101,12 @@ public class ShuffleWriteTaskStats {
     }
   }
 
+  public void decPartitionBlock(int partitionId) {
+    if (blockNumberCheckEnabled) {
+      partitionBlocks[partitionId]--;
+    }
+  }
+
   public long getBlocksWritten(int partitionId) {
     if (blockNumberCheckEnabled) {
       return partitionBlocks[partitionId];
@@ -201,6 +207,7 @@ public class ShuffleWriteTaskStats {
 
   /** Internal check */
   public void check() {
+    // 1. partition length check
     final long[] partitionLens = partitionLengths;
     for (int idx = 0; idx < partitions; idx++) {
       long records = getRecordsWritten(idx);
@@ -216,6 +223,24 @@ public class ShuffleWriteTaskStats {
                 + blocks
                 + "/"
                 + length);
+      }
+    }
+
+    // 2. blockIds check
+    if (blockNumberCheckEnabled) {
+      long expected = 0L;
+      for (long partitionBlockNumber : partitionBlocks) {
+        expected += partitionBlockNumber;
+      }
+      long actual =
+          serverToPartitionToBlockStats.entrySet().stream()
+              .flatMap(x -> x.getValue().entrySet().stream())
+              .map(x -> x.getValue().getBlockIds().size())
+              .reduce((x, y) -> x + y)
+              .orElse(0);
+      if (expected != actual) {
+        throw new RssException(
+            "Illegal block number. Expected: " + expected + ", actual: " + actual);
       }
     }
   }

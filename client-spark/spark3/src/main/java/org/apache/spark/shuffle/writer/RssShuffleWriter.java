@@ -475,9 +475,9 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
             // update [partition, blockIds], it will be sent to shuffle server
             sbi.getShuffleServerInfos()
                 .forEach(
-                    serverInfo ->
+                    s ->
                         shuffleTaskStats.mergeBlockStats(
-                            serverInfo, partitionId, new BlockStats(recordNumber, blockId)));
+                            s, partitionId, new BlockStats(recordNumber, blockId)));
           });
       return postBlockEvent(shuffleBlockInfoList);
     }
@@ -863,6 +863,7 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
 
   private void clearFailedBlockState(ShuffleBlockInfo block) {
     shuffleManager.getBlockIdsFailedSendTracker(taskId).remove(block.getBlockId());
+    shuffleTaskStats.decPartitionBlock(block.getPartitionId());
     block.getShuffleServerInfos().stream()
         .forEach(
             s ->
