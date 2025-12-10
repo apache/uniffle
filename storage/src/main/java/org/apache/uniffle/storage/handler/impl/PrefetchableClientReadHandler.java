@@ -78,6 +78,10 @@ public abstract class PrefetchableClientReadHandler extends AbstractClientReadHa
     }
   }
 
+  public boolean isFinished() {
+    return finishedTag.get();
+  }
+
   protected abstract ShuffleDataResult doReadShuffleData();
 
   @Override
@@ -97,7 +101,7 @@ public abstract class PrefetchableClientReadHandler extends AbstractClientReadHa
                 return;
               }
               ShuffleDataResult result = doReadShuffleData();
-              if (result == null) {
+              if (result == null || result.isEmpty()) {
                 this.finishedTag.set(true);
               }
               prefetchResultQueue.offer(Optional.ofNullable(result));
