@@ -50,7 +50,8 @@ public class BlockStats {
   }
 
   public void remove(BlockStats other) {
-    recordNumber -= other.recordNumber;
-    blockIds.remove(other.blockIds);
+    if (blockIds.removeAll(other.blockIds)) {
+      recordNumber -= other.recordNumber;
+    }
   }
 }
