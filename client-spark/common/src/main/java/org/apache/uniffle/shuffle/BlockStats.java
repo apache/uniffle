@@ -27,7 +27,7 @@ public class BlockStats {
 
   public BlockStats() {
     this.recordNumber = 0;
-    this.blockIds = new HashSet<Long>();
+    this.blockIds = new HashSet<>();
   }
 
   public BlockStats(long recordNumber, long blockId) {
