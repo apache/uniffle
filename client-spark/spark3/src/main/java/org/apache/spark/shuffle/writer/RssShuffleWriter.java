@@ -1127,9 +1127,7 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
         BlockStats stats = childEntry.getValue();
         serverToPartitionToRecordNumbers
             .computeIfAbsent(server, k -> new HashMap<>())
-            .compute(
-                partitionId,
-                (k, v) -> (v == null) ? stats.getRecordNumber() : stats.getRecordNumber() + v);
+            .merge(partitionId, stats.getRecordNumber(), Long::sum);
       }
     }
     return serverToPartitionToRecordNumbers;
