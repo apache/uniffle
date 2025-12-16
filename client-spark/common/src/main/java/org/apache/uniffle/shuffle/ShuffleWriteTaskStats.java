@@ -236,7 +236,7 @@ public class ShuffleWriteTaskStats {
           serverToPartitionToBlockStats.entrySet().stream()
               .flatMap(x -> x.getValue().entrySet().stream())
               .map(x -> x.getValue().getBlockIds().size())
-              .reduce((x, y) -> x + y)
+              .reduce(Integer::sum)
               .orElse(0);
       if (expected != actual) {
         throw new RssException(
