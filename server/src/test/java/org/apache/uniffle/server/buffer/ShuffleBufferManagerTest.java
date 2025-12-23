@@ -874,4 +874,25 @@ public class ShuffleBufferManagerTest extends BufferTestBase {
   protected ShuffleBuffer createShuffleBuffer() {
     return null;
   }
+
+  @Test
+  public void cacheDuplicateBlockTest() {
+    String appId = "cacheDuplicateBlockTest";
+    shuffleBufferManager.setShuffleTaskManager(mockShuffleTaskManager);
+    ReentrantReadWriteLock rwLock = new ReentrantReadWriteLock();
+    when(mockShuffleTaskManager.getAppReadLock(appId)).thenReturn(rwLock.readLock());
+    when(mockShuffleServer.getShuffleTaskManager()).thenReturn(mockShuffleTaskManager);
+    int shuffleId = 1;
+
+    shuffleBufferManager.registerBuffer(appId, shuffleId, 0, 1);
+    ShufflePartitionedData data = createData(0, 16);
+    shuffleBufferManager.requireMemory(48, true);
+    StatusCode sc = shuffleBufferManager.cacheShuffleData(appId, shuffleId, true, data);
+    assertEquals(StatusCode.SUCCESS, sc);
+    assertEquals(48, shuffleBufferManager.getUsedMemory());
+    shuffleBufferManager.requireMemory(48, true);
+    sc = shuffleBufferManager.cacheShuffleData(appId, shuffleId, true, data);
+    assertEquals(StatusCode.SUCCESS, sc);
+    assertEquals(48, shuffleBufferManager.getUsedMemory());
+  }
 }

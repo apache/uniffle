@@ -290,6 +290,10 @@ public class ShuffleBufferManager {
     }
     if (!isPreAllocated) {
       updateUsedMemory(size);
+    } else {
+      if (spd.getTotalBlockEncodedLength() > size) {
+        releaseMemory(spd.getTotalBlockEncodedLength() - size, false, false);
+      }
     }
     if (appBlockSizeMetricEnabled) {
       Arrays.stream(spd.getBlockList())
@@ -561,6 +565,9 @@ public class ShuffleBufferManager {
 
   public void releaseMemory(
       long size, boolean isReleaseFlushMemory, boolean isReleasePreAllocation) {
+    if (size == 0) {
+      return;
+    }
     if (usedMemory.get() >= size) {
       usedMemory.addAndGet(-size);
     } else {
