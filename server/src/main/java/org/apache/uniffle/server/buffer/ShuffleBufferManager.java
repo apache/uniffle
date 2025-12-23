@@ -291,6 +291,10 @@ public class ShuffleBufferManager {
     if (!isPreAllocated) {
       updateUsedMemory(size);
     } else {
+      // We need to release the memory that has been occupied by the duplicate block,
+      // because the EncodedLength of duplicate blocks will not be added to
+      // the EncodedLength of the ShuffleBuffer, so this part of memory will not
+      // release when the ShuffleBuffer trigger flush.
       if (spd.getTotalBlockEncodedLength() > size) {
         releaseMemory(spd.getTotalBlockEncodedLength() - size, false, false);
       }
