@@ -462,7 +462,7 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
         }
         if (currentAckValue != 0) {
           String errorMsg = "Ack value is not equal to 0, it should not happen!";
-          throw new RssException(errorMsg);
+          throw new RssSendFailedException(errorMsg);
         }
         break;
       }
