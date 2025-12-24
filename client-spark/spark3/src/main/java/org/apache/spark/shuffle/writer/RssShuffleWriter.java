@@ -389,7 +389,7 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
     long checkStartTs = System.currentTimeMillis();
     checkAllBufferSpilled();
     checkSentRecordCount(recordCount);
-    checkBlockSendResult(new HashSet<>(blockIds));
+    checkBlockSendResult(blockIds);
     checkSentBlockCount();
     bufferManager.getShuffleServerPushCostTracker().statistics();
     long commitStartTs = System.currentTimeMillis();
@@ -524,14 +524,23 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
     try {
       long remainingMs = sendCheckTimeout;
       long end = System.currentTimeMillis() + remainingMs;
-
+      long currentAckValue = 0;
+      for (Long blockId : blockIds) {
+        currentAckValue ^= blockId;
+      }
       while (true) {
         try {
           finishEventQueue.clear();
           checkDataIfAnyFailure();
           Set<Long> successBlockIds = shuffleManager.getSuccessBlockIds(taskId);
-          blockIds.removeAll(successBlockIds);
-          if (blockIds.isEmpty()) {
+          if (blockIds.size() == successBlockIds.size()) {
+            for (Long successBlockId : successBlockIds) {
+              currentAckValue ^= successBlockId;
+            }
+            if (currentAckValue != 0) {
+              String errorMsg = "Ack value is not equal to 0, it should not happen!";
+              throw new RssSendFailedException(errorMsg);
+            }
             break;
           }
           if (finishEventQueue.isEmpty()) {
@@ -545,12 +554,14 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
           interrupted = true;
         }
       }
-      if (!blockIds.isEmpty()) {
+      Set<Long> successBlockIds = shuffleManager.getSuccessBlockIds(taskId);
+      if (currentAckValue != 0 || blockIds.size() != successBlockIds.size()) {
+        int failedBlockCount = blockIds.size() - successBlockIds.size();
         String errorMsg =
             "Timeout: Task["
                 + taskId
                 + "] failed because "
-                + blockIds.size()
+                + failedBlockCount
                 + " blocks can't be sent to shuffle server in "
                 + sendCheckTimeout
                 + " ms.";
