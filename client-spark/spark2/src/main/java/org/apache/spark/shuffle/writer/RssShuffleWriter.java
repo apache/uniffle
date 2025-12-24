@@ -501,6 +501,20 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
     }
   }
 
+  protected void checkDataIfAnyFailure() {
+    Set<Long> failedBlockIds = shuffleManager.getFailedBlockIds(taskId);
+    if (failedBlockIds.size() > 0) {
+      String errorMsg =
+          "Send failed: Task["
+              + taskId
+              + "] failed because "
+              + failedBlockIds.size()
+              + " blocks can't be sent to shuffle server: "
+              + shuffleManager.getBlockIdsFailedSendTracker(taskId).getFaultyShuffleServers();
+      throw new RssSendFailedException(errorMsg);
+    }
+  }
+
   @Override
   public Option<MapStatus> stop(boolean success) {
     try {
