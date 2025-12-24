@@ -554,8 +554,9 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
           interrupted = true;
         }
       }
-      if (currentAckValue != 0) {
-        int failedBlockCount = blockIds.size() - shuffleManager.getSuccessBlockIds(taskId).size();
+      Set<Long> successBlockIds = shuffleManager.getSuccessBlockIds(taskId);
+      if (currentAckValue != 0 || blockIds.size() != successBlockIds.size()) {
+        int failedBlockCount = blockIds.size() - successBlockIds.size();
         String errorMsg =
             "Timeout: Task["
                 + taskId
