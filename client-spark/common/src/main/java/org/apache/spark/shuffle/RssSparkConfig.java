@@ -40,6 +40,13 @@ import org.apache.uniffle.common.config.RssConf;
 
 public class RssSparkConfig {
 
+  public static final ConfigOption<Boolean> RSS_EAGER_SHUFFLE_DELETION_ENABLED =
+      ConfigOptions.key("rss.client.eagerShuffleDeletion.enabled")
+          .booleanType()
+          .defaultValue(false)
+          .withDescription(
+              "Whether to enable eager shuffle data deletion after the Spark stage ends.");
+
   public static final ConfigOption<Boolean> RSS_CLIENT_INTEGRITY_VALIDATION_ENABLED =
       ConfigOptions.key("rss.client.integrityValidation.enabled")
           .booleanType()

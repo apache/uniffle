@@ -266,6 +266,8 @@ public class ShuffleManagerGrpcService extends ShuffleManagerImplBase {
         }
       }
     }
+    // update the stageId -> shuffleId mapping in StageDependencyTracker
+    shuffleManager.linkStageToShuffle(stageAttemptId, shuffleId);
     shuffleHandle =
         (StageAttemptShuffleHandleInfo) shuffleManager.getShuffleHandleInfoByShuffleId(shuffleId);
     if (shuffleHandle != null) {

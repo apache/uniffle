@@ -96,4 +96,8 @@ public interface RssShuffleManagerInterface {
    * @return
    */
   ShuffleWriteClient getShuffleWriteClient();
+
+  default void linkStageToShuffle(int stageAttemptId, int shuffleId) {
+    // no-op
+  }
 }

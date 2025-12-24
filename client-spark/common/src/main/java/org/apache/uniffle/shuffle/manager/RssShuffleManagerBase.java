@@ -108,6 +108,7 @@ import org.apache.uniffle.shuffle.ShuffleIdMappingManager;
 
 import static org.apache.spark.launcher.SparkLauncher.EXECUTOR_CORES;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_BLOCK_ID_SELF_MANAGEMENT_ENABLED;
+import static org.apache.spark.shuffle.RssSparkConfig.RSS_EAGER_SHUFFLE_DELETION_ENABLED;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_PARTITION_REASSIGN_MAX_REASSIGNMENT_SERVER_NUM;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_READ_SHUFFLE_HANDLE_CACHE_ENABLED;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_RESUBMIT_STAGE_WITH_FETCH_FAILURE_ENABLED;
@@ -191,6 +192,8 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
   private Map<Integer, ShuffleHandleInfo> readShuffleHandleCache = Maps.newConcurrentMap();
 
   private boolean isDriver = false;
+
+  private Optional<StageDependencyTracker> stageDependencyTracker = Optional.empty();
 
   public RssShuffleManagerBase(SparkConf conf, boolean isDriver) {
     LOG.info(
@@ -326,6 +329,11 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
         } catch (Exception e) {
           LOG.error("Failed to start shuffle manager server", e);
           throw new RssException(e);
+        }
+
+        if (rssConf.get(RSS_EAGER_SHUFFLE_DELETION_ENABLED)) {
+          this.stageDependencyTracker =
+              Optional.of(new StageDependencyTracker(shuffleId -> unregisterShuffle(shuffleId)));
         }
       }
     }
@@ -1635,5 +1643,17 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
       throw new RssException("Shuffle handle id " + shuffleId + " not found");
     }
     return handle;
+  }
+
+  public void addStageDependency(int stageId, Set<Integer> parentStageIds) {
+    stageDependencyTracker.ifPresent(x -> x.addStageDependency(stageId, parentStageIds));
+  }
+
+  public void removeStageDependency(int stageId) {
+    stageDependencyTracker.ifPresent(x -> x.removeStageDependency(stageId));
+  }
+
+  public void linkStageToShuffle(int stageAttemptId, int shuffleId) {
+    stageDependencyTracker.ifPresent(x -> x.linkStageToShuffle(stageAttemptId, shuffleId));
   }
 }
