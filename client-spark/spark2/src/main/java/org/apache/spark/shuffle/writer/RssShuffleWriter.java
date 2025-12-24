@@ -282,7 +282,7 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
     long s = System.currentTimeMillis();
     checkAllBufferSpilled();
     checkSentRecordCount(recordCount);
-    checkBlockSendResult(new HashSet<>(blockIds));
+    checkBlockSendResult(blockIds);
     checkSentBlockCount();
     final long checkDuration = System.currentTimeMillis() - s;
     long commitDuration = 0;
@@ -436,6 +436,10 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
   @VisibleForTesting
   protected void checkBlockSendResult(Set<Long> blockIds) {
     long start = System.currentTimeMillis();
+    long currentAckValue = 0;
+    for (Long blockId : blockIds) {
+      currentAckValue ^= blockId;
+    }
     while (true) {
       Set<Long> failedBlockIds = shuffleManager.getFailedBlockIds(taskId);
       Set<Long> successBlockIds = shuffleManager.getSuccessBlockIds(taskId);
@@ -452,11 +456,17 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
         throw new RssSendFailedException(errorMsg);
       }
 
-      // remove blockIds which was sent successfully, if there has none left, all data are sent
-      blockIds.removeAll(successBlockIds);
-      if (blockIds.isEmpty()) {
+      if (blockIds.size() == successBlockIds.size()) {
+        for (Long successBlockId : successBlockIds) {
+          currentAckValue ^= successBlockId;
+        }
+        if (currentAckValue != 0) {
+          String errorMsg = "Ack value is not equal to 0, it should not happen!";
+          throw new RssException(errorMsg);
+        }
         break;
       }
+
       LOG.info("Wait " + blockIds.size() + " blocks sent to shuffle server");
       Uninterruptibles.sleepUninterruptibly(sendCheckInterval, TimeUnit.MILLISECONDS);
       if (System.currentTimeMillis() - start > sendCheckTimeout) {
