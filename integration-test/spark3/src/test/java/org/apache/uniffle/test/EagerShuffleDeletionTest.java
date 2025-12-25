@@ -75,8 +75,12 @@ public class EagerShuffleDeletionTest extends SimpleTestBase {
     JavaPairRDD<String, String> rdd2 = rdd1.repartition(4);
     JavaPairRDD<String, String> rdd3 = rdd1.repartition(4);
 
+    final AtomicBoolean isRssEnabled = new AtomicBoolean(false);
+    ShuffleManager shuffleManager = SparkEnv.get().shuffleManager();
+    if (shuffleManager instanceof RssShuffleManagerBase) {
+      isRssEnabled.set(true);
+    }
     final Map<Long, Long> result = new HashMap<>();
-    final AtomicBoolean exitFlag = new AtomicBoolean(false);
     Thread t =
         new Thread(
             () -> {
@@ -86,11 +90,8 @@ public class EagerShuffleDeletionTest extends SimpleTestBase {
                           (FlatMapFunction<
                                   Iterator<Tuple2<String, String>>, Tuple2<String, String>>)
                               tuple2Iterator -> {
-                                while (true) {
-                                  if (exitFlag.get()) {
-                                    break;
-                                  }
-                                  Thread.sleep(1 * 1000);
+                                if (isRssEnabled.get()) {
+                                  Thread.sleep(10 * 1000);
                                 }
                                 return tuple2Iterator;
                               })
@@ -99,8 +100,7 @@ public class EagerShuffleDeletionTest extends SimpleTestBase {
             });
     t.start();
 
-    ShuffleManager shuffleManager = SparkEnv.get().shuffleManager();
-    if (shuffleManager instanceof RssShuffleManagerBase) {
+    if (isRssEnabled.get()) {
       Optional<StageDependencyTracker> tracker =
           ((RssShuffleManagerBase) shuffleManager).getStageDependencyTracker();
       if (!tracker.isPresent()) {
@@ -108,18 +108,14 @@ public class EagerShuffleDeletionTest extends SimpleTestBase {
       }
       try {
         Awaitility.await()
-            .timeout(10, TimeUnit.SECONDS)
+            .timeout(5, TimeUnit.SECONDS)
             .until(
                 () ->
-                    tracker.get().getActiveShuffleCount() == 1
-                        && tracker.get().getCleanedShuffleCount() == 2);
+                    tracker.get().getActiveShuffleCount() == 2
+                        && tracker.get().getCleanedShuffleCount() == 1);
       } catch (Exception e) {
         throw new RuntimeException(e);
-      } finally {
-        exitFlag.set(true);
       }
-    } else {
-      exitFlag.set(true);
     }
     t.join();
 

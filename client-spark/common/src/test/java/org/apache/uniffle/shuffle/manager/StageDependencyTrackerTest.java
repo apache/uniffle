@@ -41,8 +41,8 @@ public class StageDependencyTrackerTest {
     int writerStageId = 100;
     int readerStageId = 200;
 
-    tracker.markShuffleWriter(shuffleId, writerStageId);
-    tracker.markShuffleReader(shuffleId, readerStageId);
+    tracker.linkWriter(shuffleId, writerStageId);
+    tracker.linkReader(shuffleId, readerStageId);
 
     tracker.removeStage(readerStageId);
 
@@ -64,9 +64,9 @@ public class StageDependencyTrackerTest {
     int reader1 = 201;
     int reader2 = 202;
 
-    tracker.markShuffleWriter(shuffleId, writerStageId);
-    tracker.markShuffleReader(shuffleId, reader1);
-    tracker.markShuffleReader(shuffleId, reader2);
+    tracker.linkWriter(shuffleId, writerStageId);
+    tracker.linkReader(shuffleId, reader1);
+    tracker.linkReader(shuffleId, reader2);
 
     tracker.removeStage(reader1);
 
@@ -101,11 +101,11 @@ public class StageDependencyTrackerTest {
     StageDependencyTracker tracker =
         new StageDependencyTracker(shuffleId -> cleaned.add(shuffleId));
 
-    tracker.markShuffleWriter(1, 10);
-    tracker.markShuffleWriter(2, 20);
+    tracker.linkWriter(1, 10);
+    tracker.linkWriter(2, 20);
 
-    tracker.markShuffleReader(1, 101);
-    tracker.markShuffleReader(2, 201);
+    tracker.linkReader(1, 101);
+    tracker.linkReader(2, 201);
 
     tracker.removeStage(101);
     tracker.removeStage(201);

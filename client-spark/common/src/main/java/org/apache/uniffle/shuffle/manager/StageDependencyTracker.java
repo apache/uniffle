@@ -39,8 +39,9 @@ import org.slf4j.LoggerFactory;
 public class StageDependencyTracker {
   private static final Logger LOG = LoggerFactory.getLogger(StageDependencyTracker.class);
 
-  // key: shuffleId, value: stageId of writer
-  private Map<Integer, Integer> shuffleIdToStageIdOfWriters = new HashMap<>();
+  // key: stageId, value: shuffleId of writer
+  private Map<Integer, Integer> stageIdToShuffleIdOfWriters = new HashMap<>();
+
   // key: shuffleId, value: stageIds of readers
   private Map<Integer, Set<Integer>> shuffleIdToStageIdsOfReaders = new HashMap<>();
   // reverse link by the stageId
@@ -75,14 +76,18 @@ public class StageDependencyTracker {
   }
 
   public synchronized int getShuffleIdByStageIdOfWriter(int stageId) {
-    return shuffleIdToStageIdOfWriters.get(stageId);
+    Integer shuffleId = stageIdToShuffleIdOfWriters.get(stageId);
+    if (shuffleId == null) {
+      System.out.println(1);
+    }
+    return shuffleId;
   }
 
-  public synchronized void markShuffleWriter(int shuffleId, int writerStageId) {
-    shuffleIdToStageIdOfWriters.put(shuffleId, writerStageId);
+  public synchronized void linkWriter(int shuffleId, int writerStageId) {
+    stageIdToShuffleIdOfWriters.put(writerStageId, shuffleId);
   }
 
-  public synchronized void markShuffleReader(int shuffleId, int readerStageId) {
+  public synchronized void linkReader(int shuffleId, int readerStageId) {
     shuffleIdToStageIdsOfReaders
         .computeIfAbsent(shuffleId, k -> new HashSet<>())
         .add(readerStageId);
