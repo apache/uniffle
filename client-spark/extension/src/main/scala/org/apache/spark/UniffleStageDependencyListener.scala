@@ -3,25 +3,44 @@ package org.apache.spark
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{SparkListener, SparkListenerStageCompleted, SparkListenerStageSubmitted}
 import org.apache.uniffle.shuffle.manager.RssShuffleManagerBase
-import scala.collection.JavaConverters._
 
 class UniffleStageDependencyListener extends SparkListener with Logging {
 
   override def onStageSubmitted(stageSubmitted: SparkListenerStageSubmitted): Unit = {
     val stageInfo = stageSubmitted.stageInfo
     val stageId = stageInfo.stageId
+    val shuffleIdFromProducer = stageInfo.shuffleDepId
     val parentStageIds = stageInfo.parentIds
 
-    val shuffleMgr = SparkEnv.get.shuffleManager.asInstanceOf[RssShuffleManagerBase]
-    shuffleMgr.addStageDependency(stageId, parentStageIds.map(x => new Integer(x)).toSet.asJava)
+    getShuffleManager().map(manager => {
+      manager.getStageDependencyTracker.ifPresent(tracker => {
+        // 1. if this is the mapStage, mark this stage as the producer stage
+        shuffleIdFromProducer.map(shuffleId => tracker.markShuffleWriter(shuffleId, stageId))
+        // 2. if the parent stages exist, mark them as the consumer
+        parentStageIds.foreach(parentStageId => {
+          val shuffleId = tracker.getShuffleIdByStageIdOfWriter(parentStageId)
+          tracker.markShuffleReader(shuffleId, stageId)
+        })
+      })
+    })
   }
 
   override def onStageCompleted(stageCompleted: SparkListenerStageCompleted): Unit = {
     val stageInfo = stageCompleted.stageInfo
     val stageId = stageInfo.stageId
+    getShuffleManager().map(manager => {
+      manager.getStageDependencyTracker.ifPresent(tracker => {
+        tracker.removeStage(stageId)
+      })
+    })
+  }
 
-    val shuffleMgr = SparkEnv.get.shuffleManager.asInstanceOf[RssShuffleManagerBase]
-    shuffleMgr.removeStageDependency(stageId)
+  def getShuffleManager(): Option[RssShuffleManagerBase] = {
+    val shuffleMgr = SparkEnv.get.shuffleManager
+    shuffleMgr match {
+      case rssShuffleMgr: RssShuffleManagerBase => Some(rssShuffleMgr)
+      case _ => None
+    }
   }
 }
 

@@ -17,7 +17,10 @@
 
 package org.apache.uniffle.shuffle.manager;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -36,36 +39,29 @@ import org.slf4j.LoggerFactory;
 public class StageDependencyTracker {
   private static final Logger LOG = LoggerFactory.getLogger(StageDependencyTracker.class);
 
-  // key: stageId, value: shuffleId
-  private final Map<Integer, Integer> stageIdToShuffleId;
-
-  // key: stageId, value: parent stageIds
-  private final Map<Integer, Set<Integer>> dependencies;
-
-  // key: stageId, value: reference count
-  private final Map<Integer, Integer> stageIdToRefCount;
+  // key: shuffleId, value: stageId of writer
+  private Map<Integer, Integer> shuffleIdToStageIdOfWriters = new HashMap<>();
+  // key: shuffleId, value: stageIds of readers
+  private Map<Integer, Set<Integer>> shuffleIdToStageIdsOfReaders = new HashMap<>();
+  // reverse link by the stageId
+  private Map<Integer, Set<Integer>> stageIdToShuffleIdOfReaders = new HashMap<>();
 
   private final ExecutorService cleanupExecutor;
   private final LinkedBlockingQueue<Integer> cleanupQueue;
 
-  public StageDependencyTracker(Consumer<Integer> cleanupFunction) {
-    this.stageIdToShuffleId = new HashMap<>();
-    this.dependencies = new HashMap<>();
-    this.stageIdToRefCount = new HashMap<>();
+  // for the test cases
+  private List<Integer> cleanedShuffles = new ArrayList<>();
 
+  public StageDependencyTracker(Consumer<Integer> cleanupFunction) {
     this.cleanupQueue = new LinkedBlockingQueue<>();
     this.cleanupExecutor = Executors.newFixedThreadPool(1);
     cleanupExecutor.execute(
         () -> {
           while (true) {
             try {
-              Integer stageId = cleanupQueue.take();
-              Integer shuffleId = stageIdToShuffleId.get(stageId);
-              if (shuffleId != null) {
-                cleanupFunction.accept(shuffleId);
-              } else {
-                LOG.warn("Unable to find shuffleId for stageId {}!", stageId);
-              }
+              int shuffleId = cleanupQueue.take();
+              cleanedShuffles.add(shuffleId);
+              cleanupFunction.accept(shuffleId);
             } catch (InterruptedException e) {
               LOG.error("Cleanup executor interrupted", e);
               Thread.currentThread().interrupt();
@@ -77,60 +73,43 @@ public class StageDependencyTracker {
         });
   }
 
-  public synchronized void linkStageToShuffle(int stageId, int shuffleId) {
-    try {
-      stageIdToShuffleId.computeIfAbsent(
-          stageId,
-          x -> {
-            LOG.info("Linked stageId-{} to shuffleId-{}", stageId, shuffleId);
-            return shuffleId;
-          });
-    } catch (Exception e) {
-      LOG.error("Unable to link stage {} to shuffle {}", stageId, shuffleId, e);
-    }
+  public synchronized int getShuffleIdByStageIdOfWriter(int stageId) {
+    return shuffleIdToStageIdOfWriters.get(stageId);
   }
 
-  public synchronized void addStageDependency(int stageId, Set<Integer> parentStageIds) {
-    try {
-      dependencies.put(stageId, parentStageIds);
-      addRef(stageId);
-      for (int parentStageId : parentStageIds) {
-        addRef(parentStageId);
-      }
-      LOG.info("Add stage dependency for stage {} with parents {}", stageId, parentStageIds);
-    } catch (Exception e) {
-      LOG.error("Unable to add stage dependency for stage {}", stageId, e);
-    }
+  public synchronized void markShuffleWriter(int shuffleId, int writerStageId) {
+    shuffleIdToStageIdOfWriters.put(shuffleId, writerStageId);
   }
 
-  public synchronized void removeStageDependency(int stageId) {
-    try {
-      removeRef(stageId);
-      Set<Integer> parentStageIds = dependencies.remove(stageId);
-      if (parentStageIds != null) {
-        for (int parentStageId : parentStageIds) {
-          removeRef(parentStageId);
+  public synchronized void markShuffleReader(int shuffleId, int readerStageId) {
+    shuffleIdToStageIdsOfReaders
+        .computeIfAbsent(shuffleId, k -> new HashSet<>())
+        .add(readerStageId);
+    stageIdToShuffleIdOfReaders.computeIfAbsent(readerStageId, k -> new HashSet<>()).add(shuffleId);
+  }
+
+  public synchronized void removeStage(int stageId) {
+    Set<Integer> allUpstreamShuffleIdsOfRead = stageIdToShuffleIdOfReaders.get(stageId);
+    if (allUpstreamShuffleIdsOfRead != null) {
+      for (int shuffleId : allUpstreamShuffleIdsOfRead) {
+        Set<Integer> readers = shuffleIdToStageIdsOfReaders.get(shuffleId);
+        if (readers != null) {
+          readers.remove(stageId);
+        }
+        if (readers.isEmpty()) {
+          // for this shuffle, all readers have been removed
+          cleanupQueue.offer(shuffleId);
+          shuffleIdToStageIdsOfReaders.remove(shuffleId);
         }
       }
-      LOG.info("Removed stage dependency for stage {}", stageId);
-    } catch (Exception e) {
-      LOG.error("Unable to remove stage dependency for stage {}", stageId, e);
     }
   }
 
-  private void addRef(int stageId) {
-    stageIdToRefCount.compute(stageId, (k, v) -> v == null ? 1 : v + 1);
+  public synchronized int getActiveShuffleCount() {
+    return shuffleIdToStageIdsOfReaders.size();
   }
 
-  private void removeRef(int stageId) {
-    int refCount = stageIdToRefCount.get(stageId) - 1;
-    if (refCount <= 0) {
-      // cleanup this stageId
-      LOG.info("Removing stage dependency for stage {} due to 0 reference count", stageId);
-      cleanupQueue.offer(stageId);
-      stageIdToRefCount.remove(stageId);
-    } else {
-      stageIdToRefCount.put(stageId, refCount);
-    }
+  public int getCleanedShuffleCount() {
+    return cleanedShuffles.size();
   }
 }

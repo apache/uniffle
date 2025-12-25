@@ -17,40 +17,102 @@
 
 package org.apache.uniffle.shuffle.manager;
 
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
+import java.util.concurrent.atomic.AtomicInteger;
 
+import com.google.common.collect.Sets;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 public class StageDependencyTrackerTest {
 
   @Test
-  public void basicTest() throws InterruptedException {
-    List<Integer> cleaned = new ArrayList<>();
-    Consumer<Integer> cleanupFunction = cleaned::add;
+  public void testSingleReaderCleanupTriggered() throws Exception {
+    AtomicInteger cleanedShuffleId = new AtomicInteger(-1);
 
-    StageDependencyTracker tracker = new StageDependencyTracker(cleanupFunction);
+    StageDependencyTracker tracker =
+        new StageDependencyTracker(shuffleId -> cleanedShuffleId.set(shuffleId));
 
-    // Link parent stage 1 to shuffle 100
-    tracker.linkStageToShuffle(1, 100);
-    tracker.linkStageToShuffle(2, 200);
+    int shuffleId = 1;
+    int writerStageId = 100;
+    int readerStageId = 200;
 
-    // add 1
-    tracker.addStageDependency(1, Collections.emptySet());
+    tracker.markShuffleWriter(shuffleId, writerStageId);
+    tracker.markShuffleReader(shuffleId, readerStageId);
 
-    // Child stage 2 depends on parent 1
-    Set<Integer> parentStageIds = Collections.singleton(1);
-    tracker.addStageDependency(2, parentStageIds);
+    tracker.removeStage(readerStageId);
 
-    // Removing the dependency should schedule cleanup for parent 1's shuffle (100)
-    tracker.removeStageDependency(2);
-    tracker.removeStageDependency(1);
+    Awaitility.await()
+        .timeout(1, TimeUnit.SECONDS)
+        .until(() -> cleanedShuffleId.get() == shuffleId);
+  }
 
-    Awaitility.await().timeout(1, TimeUnit.SECONDS).until(() -> cleaned.size() == 2);
+  @Test
+  public void testMultipleReadersCleanupAfterLastRemoved() throws Exception {
+    AtomicInteger cleanupCount = new AtomicInteger(0);
+
+    StageDependencyTracker tracker =
+        new StageDependencyTracker(shuffleId -> cleanupCount.incrementAndGet());
+
+    int shuffleId = 2;
+    int writerStageId = 101;
+
+    int reader1 = 201;
+    int reader2 = 202;
+
+    tracker.markShuffleWriter(shuffleId, writerStageId);
+    tracker.markShuffleReader(shuffleId, reader1);
+    tracker.markShuffleReader(shuffleId, reader2);
+
+    tracker.removeStage(reader1);
+
+    // Should not cleanup yet
+    Thread.sleep(200);
+    assertEquals(0, cleanupCount.get());
+
+    tracker.removeStage(reader2);
+
+    Awaitility.await().timeout(1, TimeUnit.SECONDS).until(() -> cleanupCount.get() == 1);
+  }
+
+  @Test
+  public void testRemoveUnknownStageDoesNothing() throws Exception {
+    AtomicInteger cleanupCount = new AtomicInteger(0);
+
+    StageDependencyTracker tracker =
+        new StageDependencyTracker(shuffleId -> cleanupCount.incrementAndGet());
+
+    tracker.removeStage(999);
+
+    // Give async thread a bit of time
+    Thread.sleep(200);
+
+    assertEquals(0, cleanupCount.get());
+  }
+
+  @Test
+  public void testMultipleShufflesIndependentCleanup() throws Exception {
+    Set<Integer> cleaned = Collections.synchronizedSet(new HashSet<>());
+
+    StageDependencyTracker tracker =
+        new StageDependencyTracker(shuffleId -> cleaned.add(shuffleId));
+
+    tracker.markShuffleWriter(1, 10);
+    tracker.markShuffleWriter(2, 20);
+
+    tracker.markShuffleReader(1, 101);
+    tracker.markShuffleReader(2, 201);
+
+    tracker.removeStage(101);
+    tracker.removeStage(201);
+
+    Awaitility.await()
+        .timeout(1, TimeUnit.SECONDS)
+        .until(() -> cleaned.equals(Sets.newHashSet(1, 2)));
   }
 }

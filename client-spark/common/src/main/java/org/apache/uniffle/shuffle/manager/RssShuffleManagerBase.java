@@ -332,6 +332,7 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
         }
 
         if (rssConf.get(RSS_EAGER_SHUFFLE_DELETION_ENABLED)) {
+          LOG.info("Eager shuffle deletion is enabled, initializing stage dependency tracker...");
           this.stageDependencyTracker =
               Optional.of(new StageDependencyTracker(shuffleId -> unregisterShuffle(shuffleId)));
         }
@@ -1645,15 +1646,7 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
     return handle;
   }
 
-  public void addStageDependency(int stageId, Set<Integer> parentStageIds) {
-    stageDependencyTracker.ifPresent(x -> x.addStageDependency(stageId, parentStageIds));
-  }
-
-  public void removeStageDependency(int stageId) {
-    stageDependencyTracker.ifPresent(x -> x.removeStageDependency(stageId));
-  }
-
-  public void linkStageToShuffle(int stageAttemptId, int shuffleId) {
-    stageDependencyTracker.ifPresent(x -> x.linkStageToShuffle(stageAttemptId, shuffleId));
+  public Optional<StageDependencyTracker> getStageDependencyTracker() {
+    return stageDependencyTracker;
   }
 }
