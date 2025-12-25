@@ -96,11 +96,11 @@ public class StageDependencyTracker {
         Set<Integer> readers = shuffleIdToStageIdsOfReaders.get(shuffleId);
         if (readers != null) {
           readers.remove(stageId);
-        }
-        if (readers.isEmpty()) {
-          // for this shuffle, all readers have been removed
-          cleanupQueue.offer(shuffleId);
-          shuffleIdToStageIdsOfReaders.remove(shuffleId);
+          if (readers.isEmpty()) {
+            // for this shuffle, all readers have been removed
+            cleanupQueue.offer(shuffleId);
+            shuffleIdToStageIdsOfReaders.remove(shuffleId);
+          }
         }
       }
     }
