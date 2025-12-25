@@ -60,6 +60,7 @@ public class StageDependencyTracker {
           while (true) {
             try {
               int shuffleId = cleanupQueue.take();
+              LOG.info("Cleaning the shuffle data for shuffleId: {}", shuffleId);
               cleanedShuffles.add(shuffleId);
               cleanupFunction.accept(shuffleId);
             } catch (InterruptedException e) {

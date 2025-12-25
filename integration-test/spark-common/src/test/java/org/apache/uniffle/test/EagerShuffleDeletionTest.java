@@ -52,9 +52,9 @@ public class EagerShuffleDeletionTest extends SimpleTestBase {
 
   @Override
   public void updateSparkConfCustomer(SparkConf sparkConf) {
+    super.updateSparkConfCustomer(sparkConf);
     sparkConf.set("spark." + RssSparkConfig.RSS_EAGER_SHUFFLE_DELETION_ENABLED.key(), "true");
     sparkConf.set("spark." + RssClientConf.RSS_CLIENT_REASSIGN_ENABLED.key(), "true");
-    sparkConf.set("spark.rss.client.unregister.timeout.sec", "200");
   }
 
   @Override

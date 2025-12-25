@@ -25,9 +25,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import com.google.common.collect.Sets;
 import org.awaitility.Awaitility;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 public class StageDependencyTrackerTest {
 
@@ -73,7 +72,7 @@ public class StageDependencyTrackerTest {
 
     // Should not cleanup yet
     Thread.sleep(200);
-    assertEquals(0, cleanupCount.get());
+    Assertions.assertEquals(0, cleanupCount.get());
 
     tracker.removeStage(reader2);
 
@@ -92,7 +91,7 @@ public class StageDependencyTrackerTest {
     // Give async thread a bit of time
     Thread.sleep(200);
 
-    assertEquals(0, cleanupCount.get());
+    Assertions.assertEquals(0, cleanupCount.get());
   }
 
   @Test
