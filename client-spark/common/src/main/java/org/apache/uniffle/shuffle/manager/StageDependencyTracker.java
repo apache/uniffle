@@ -78,7 +78,8 @@ public class StageDependencyTracker {
   public synchronized int getShuffleIdByStageIdOfWriter(int stageId) {
     Integer shuffleId = stageIdToShuffleIdOfWriters.get(stageId);
     if (shuffleId == null) {
-      System.out.println(1);
+      // ignore this.
+      return -1;
     }
     return shuffleId;
   }
