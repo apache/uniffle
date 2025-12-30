@@ -39,6 +39,8 @@ private class UniffleDriverPlugin extends DriverPlugin with Logging {
   override def init(sc: SparkContext, pluginContext: PluginContext): java.util.Map[String, String] = {
     logInfo("Initializing UniffleDriverPlugin...")
     _sc = Some(sc)
+    // to init the dependency listener
+    sc.listenerBus.addToStatusQueue(new UniffleStageDependencyListener)
     UniffleListener.register(sc)
     postBuildInfoEvent(sc)
     attachUI(sc)
