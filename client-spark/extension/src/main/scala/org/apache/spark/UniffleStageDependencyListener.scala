@@ -21,6 +21,10 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{SparkListener, SparkListenerStageCompleted, SparkListenerStageSubmitted}
 import org.apache.uniffle.shuffle.manager.RssShuffleManagerBase
 
+/**
+ * This listener does not guarantee that all events are captured (some may be lost during processing on the Spark side),
+ * but it makes a best-effort attempt to track stage dependencies between shuffle writers and readers.
+ */
 class UniffleStageDependencyListener extends SparkListener with Logging {
 
   override def onStageSubmitted(stageSubmitted: SparkListenerStageSubmitted): Unit = {
