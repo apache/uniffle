@@ -476,6 +476,7 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
         shuffleWriteClient.unregisterShuffle(getAppId(), shuffleId);
         shuffleIdToPartitionNum.remove(shuffleId);
         shuffleIdToNumMapTasks.remove(shuffleId);
+        shuffleHandleInfoManager.remove(shuffleId);
         if (service != null) {
           service.unregisterShuffle(shuffleId);
         }
