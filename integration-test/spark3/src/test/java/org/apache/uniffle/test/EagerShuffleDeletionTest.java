@@ -54,6 +54,7 @@ public class EagerShuffleDeletionTest extends SimpleTestBase {
   public void updateSparkConfCustomer(SparkConf sparkConf) {
     super.updateSparkConfCustomer(sparkConf);
     sparkConf.set("spark." + RssSparkConfig.RSS_EAGER_SHUFFLE_DELETION_ENABLED.key(), "true");
+    sparkConf.set("spark." + RssSparkConfig.RSS_EAGER_SHUFFLE_DELETION_DELAYED_MINUTES.key(), "-1");
     sparkConf.set("spark." + RssClientConf.RSS_CLIENT_REASSIGN_ENABLED.key(), "true");
   }
 

@@ -28,7 +28,44 @@ import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import org.apache.uniffle.common.config.RssConf;
+
+import static org.apache.spark.shuffle.RssSparkConfig.RSS_EAGER_SHUFFLE_DELETION_DELAYED_MINUTES;
+
 public class StageDependencyTrackerTest {
+
+  @Test
+  public void testDelayedDeletion() {
+    RssConf rssConf = new RssConf();
+    rssConf.set(RSS_EAGER_SHUFFLE_DELETION_DELAYED_MINUTES, 1);
+
+    AtomicInteger cleanedShuffleId = new AtomicInteger(-1);
+
+    StageDependencyTracker tracker =
+        new StageDependencyTracker(rssConf, shuffleId -> cleanedShuffleId.set(shuffleId));
+
+    int shuffleId = 1;
+    int writerStageId = 100;
+    int readerStageId = 200;
+
+    tracker.linkWriter(shuffleId, writerStageId);
+    tracker.linkReader(shuffleId, readerStageId);
+
+    tracker.removeStage(readerStageId);
+
+    try {
+      Awaitility.await()
+          .timeout(1, TimeUnit.SECONDS)
+          .until(() -> cleanedShuffleId.get() == shuffleId);
+      Assertions.fail("Cleanup should not be triggered yet");
+    } catch (Exception e) {
+      // expected
+    }
+
+    Awaitility.await()
+        .timeout(2, TimeUnit.MINUTES)
+        .until(() -> cleanedShuffleId.get() == shuffleId);
+  }
 
   @Test
   public void testSingleReaderCleanupTriggered() throws Exception {

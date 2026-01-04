@@ -334,7 +334,8 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
         if (rssConf.get(RSS_EAGER_SHUFFLE_DELETION_ENABLED)) {
           LOG.info("Eager shuffle deletion is enabled, initializing stage dependency tracker...");
           this.stageDependencyTracker =
-              Optional.of(new StageDependencyTracker(shuffleId -> unregisterShuffle(shuffleId)));
+              Optional.of(
+                  new StageDependencyTracker(rssConf, shuffleId -> unregisterShuffle(shuffleId)));
         }
       }
     }

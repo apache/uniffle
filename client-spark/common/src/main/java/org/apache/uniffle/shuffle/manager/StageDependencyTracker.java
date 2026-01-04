@@ -17,65 +17,90 @@
 
 package org.apache.uniffle.shuffle.manager;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.DelayQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Consumer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.uniffle.common.config.RssConf;
+import org.apache.uniffle.common.util.JavaUtils;
+
+import static org.apache.spark.shuffle.RssSparkConfig.RSS_EAGER_SHUFFLE_DELETION_DELAYED_MINUTES;
+
 /**
  * This class tracks the dependencies between stages. It maintains a mapping of stage IDs to their
  * parent stage IDs and reference counts to manage the lifecycle of stages and their associated
- * shuffle data.
+ * shuffle data. But for the shuffle-reuse scenario, we have to introduce the delayed deletion
+ * mechanism to avoid the too-early deletion issue.
+ *
+ * <p>ATTENTION: This is still an experimental feature and may not cover all edge cases.
  */
 public class StageDependencyTracker {
   private static final Logger LOG = LoggerFactory.getLogger(StageDependencyTracker.class);
 
   // key: stageId, value: shuffleId of writer
-  private Map<Integer, Integer> stageIdToShuffleIdOfWriters = new HashMap<>();
+  private Map<Integer, Integer> stageIdToShuffleIdOfWriters = JavaUtils.newConcurrentMap();
 
   // key: shuffleId, value: stageIds of readers
-  private Map<Integer, Set<Integer>> shuffleIdToStageIdsOfReaders = new HashMap<>();
+  private Map<Integer, Set<Integer>> shuffleIdToStageIdsOfReaders = JavaUtils.newConcurrentMap();
   // reverse link by the stageId
-  private Map<Integer, Set<Integer>> stageIdToShuffleIdOfReaders = new HashMap<>();
+  private Map<Integer, Set<Integer>> stageIdToShuffleIdOfReaders = JavaUtils.newConcurrentMap();
 
-  private final ExecutorService cleanupExecutor;
-  private final LinkedBlockingQueue<Integer> cleanupQueue;
+  private final ExecutorService deletionExecutor;
+  private final DelayQueue<ShuffleDeletionItem> deletionDelayQueue = new DelayQueue<>();
+
+  private long deletionDelayMs = -1L;
 
   // for the test cases
-  private List<Integer> cleanedShuffles = new ArrayList<>();
+  private Set<Integer> cleanedShuffles = ConcurrentHashMap.newKeySet();
 
-  public StageDependencyTracker(Consumer<Integer> cleanupFunction) {
-    this.cleanupQueue = new LinkedBlockingQueue<>();
-    this.cleanupExecutor = Executors.newFixedThreadPool(1);
-    cleanupExecutor.execute(
+  public StageDependencyTracker(RssConf rssConf, Consumer<Integer> deletionFunc) {
+    this.deletionExecutor = Executors.newFixedThreadPool(1);
+    deletionExecutor.execute(
         () -> {
           while (true) {
             try {
-              int shuffleId = cleanupQueue.take();
-              LOG.info("Cleaning the shuffle data for shuffleId: {}", shuffleId);
-              cleanedShuffles.add(shuffleId);
-              cleanupFunction.accept(shuffleId);
+              ShuffleDeletionItem item = deletionDelayQueue.take();
+              int shuffleId = item.getShuffleId();
+              // to check references again
+              Set<Integer> readers = shuffleIdToStageIdsOfReaders.get(shuffleId);
+              if (readers == null || readers.isEmpty()) {
+                LOG.info("Deleting shuffle data for shuffleId: {}", shuffleId);
+                deletionFunc.accept(shuffleId);
+                cleanedShuffles.add(shuffleId);
+                shuffleIdToStageIdsOfReaders.remove(shuffleId);
+              } else {
+                LOG.info("Skipping deletion for shuffleId: {} as it has new readers", shuffleId);
+              }
             } catch (InterruptedException e) {
-              LOG.error("Cleanup executor interrupted", e);
+              LOG.info("Interrupted while waiting for deletion delay queue", e);
               Thread.currentThread().interrupt();
               break;
             } catch (Exception e) {
-              LOG.error("Error during cleanup", e);
+              LOG.error("Errors on deleting", e);
             }
           }
         });
+    if (rssConf != null) {
+      int delayMinutes = rssConf.get(RSS_EAGER_SHUFFLE_DELETION_DELAYED_MINUTES);
+      if (delayMinutes > 0) {
+        this.deletionDelayMs = delayMinutes * 60L * 1000L;
+        LOG.info("Set deletion delay to {} ms", this.deletionDelayMs);
+      }
+    }
   }
 
-  public synchronized int getShuffleIdByStageIdOfWriter(int stageId) {
+  public StageDependencyTracker(Consumer<Integer> deletionFunc) {
+    this(null, deletionFunc);
+  }
+
+  public int getShuffleIdByStageIdOfWriter(int stageId) {
     Integer shuffleId = stageIdToShuffleIdOfWriters.get(stageId);
     if (shuffleId == null) {
       // ignore this.
@@ -84,18 +109,20 @@ public class StageDependencyTracker {
     return shuffleId;
   }
 
-  public synchronized void linkWriter(int shuffleId, int writerStageId) {
+  public void linkWriter(int shuffleId, int writerStageId) {
     stageIdToShuffleIdOfWriters.put(writerStageId, shuffleId);
   }
 
-  public synchronized void linkReader(int shuffleId, int readerStageId) {
+  public void linkReader(int shuffleId, int readerStageId) {
     shuffleIdToStageIdsOfReaders
-        .computeIfAbsent(shuffleId, k -> new HashSet<>())
+        .computeIfAbsent(shuffleId, k -> ConcurrentHashMap.newKeySet())
         .add(readerStageId);
-    stageIdToShuffleIdOfReaders.computeIfAbsent(readerStageId, k -> new HashSet<>()).add(shuffleId);
+    stageIdToShuffleIdOfReaders
+        .computeIfAbsent(readerStageId, k -> ConcurrentHashMap.newKeySet())
+        .add(shuffleId);
   }
 
-  public synchronized void removeStage(int stageId) {
+  public void removeStage(int stageId) {
     Set<Integer> allUpstreamShuffleIdsOfRead = stageIdToShuffleIdOfReaders.get(stageId);
     if (allUpstreamShuffleIdsOfRead != null) {
       for (int shuffleId : allUpstreamShuffleIdsOfRead) {
@@ -103,16 +130,15 @@ public class StageDependencyTracker {
         if (readers != null) {
           readers.remove(stageId);
           if (readers.isEmpty()) {
-            // for this shuffle, all readers have been removed
-            cleanupQueue.offer(shuffleId);
-            shuffleIdToStageIdsOfReaders.remove(shuffleId);
+            // add into the delayed deletion queue
+            deletionDelayQueue.offer(new ShuffleDeletionItem(shuffleId, deletionDelayMs));
           }
         }
       }
     }
   }
 
-  public synchronized int getActiveShuffleCount() {
+  public int getActiveShuffleCount() {
     return shuffleIdToStageIdsOfReaders.size();
   }
 
