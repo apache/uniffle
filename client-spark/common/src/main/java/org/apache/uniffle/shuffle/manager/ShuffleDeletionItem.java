@@ -37,7 +37,7 @@ public class ShuffleDeletionItem implements Delayed {
 
   @Override
   public int compareTo(Delayed o) {
-    if (this == o) {
+    if (this.equals(o)) {
       return 0;
     }
     long diff = this.getDelay(TimeUnit.MILLISECONDS) - o.getDelay(TimeUnit.MILLISECONDS);
