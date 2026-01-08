@@ -1083,7 +1083,8 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
       throw new RssException(
           "An unexpected error occurred: internalHandle is null, which should not happen");
     }
-    synchronized (internalHandle) {
+    internalHandle.writeLock().lock();
+    try {
       // If the reassignment servers for one partition exceeds the max reassign server num,
       // it should fast fail.
       if (!partitionSplit) {
@@ -1185,6 +1186,8 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
       postReassignTriggeredEvent(
           partitionSplit ? reassignTriggeredOnPartitionSplit : reassignTriggeredOnBlockSendFailure);
       return internalHandle;
+    } finally {
+      internalHandle.writeLock().unlock();
     }
   }
 

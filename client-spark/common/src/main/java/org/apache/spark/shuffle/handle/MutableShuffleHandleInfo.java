@@ -27,6 +27,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -71,6 +73,8 @@ public class MutableShuffleHandleInfo extends ShuffleHandleInfoBase {
   private PartitionSplitMode partitionSplitMode = PartitionSplitMode.PIPELINE;
 
   private AtomicBoolean isUpdated = new AtomicBoolean(false);
+
+  private final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock();
 
   public MutableShuffleHandleInfo(
       int shuffleId,
@@ -126,6 +130,14 @@ public class MutableShuffleHandleInfo extends ShuffleHandleInfoBase {
 
   public boolean isUpdated() {
     return isUpdated.get();
+  }
+
+  public Lock readLock() {
+    return readWriteLock.readLock();
+  }
+
+  public Lock writeLock() {
+    return readWriteLock.writeLock();
   }
 
   public Set<ShuffleServerInfo> getReplacements(String faultyServerId) {
@@ -317,7 +329,8 @@ public class MutableShuffleHandleInfo extends ShuffleHandleInfoBase {
   }
 
   public static RssProtos.MutableShuffleHandleInfo toProto(MutableShuffleHandleInfo handleInfo) {
-    synchronized (handleInfo) {
+    handleInfo.readLock().lock();
+    try {
       // value: (PartitionId, ReplicaIndex, SequenceIndex)
       Map<ShuffleServerInfo, List<Triple<Integer, Integer, Integer>>> serverToPartitions =
           new HashMap<>();
@@ -385,6 +398,8 @@ public class MutableShuffleHandleInfo extends ShuffleHandleInfoBase {
               .addAllSplitPartitionId(handleInfo.excludedServerForPartitionToReplacements.keySet())
               .build();
       return handleProto;
+    } finally {
+      handleInfo.readLock().unlock();
     }
   }
 
