@@ -54,6 +54,14 @@ public class TopNShuffleDataSizeOfAppCalcTask {
     this.scheduler = Executors.newScheduledThreadPool(1);
   }
 
+  private void calcTopNShuffleDataSizeIgnoreErrors() {
+    try {
+      calcTopNShuffleDataSize();
+    } catch (Throwable e) {
+      LOG.warn("Failed to calculate top N shuffle data size", e);
+    }
+  }
+
   private void calcTopNShuffleDataSize() {
     List<Map.Entry<String, ShuffleTaskInfo>> topNTaskInfo = calcTopNTotalDataSizeTaskInfo();
     gaugeTotalDataSize.clear();
@@ -127,8 +135,8 @@ public class TopNShuffleDataSizeOfAppCalcTask {
 
   public void start() {
     LOG.info("TopNShuffleDataSizeOfAppCalcTask start schedule.");
-    this.scheduler.scheduleAtFixedRate(
-        this::calcTopNShuffleDataSize,
+    this.scheduler.scheduleWithFixedDelay(
+        this::calcTopNShuffleDataSizeIgnoreErrors,
         0,
         topNShuffleDataTaskRefreshInterval,
         TimeUnit.MILLISECONDS);
