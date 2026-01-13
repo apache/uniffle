@@ -19,7 +19,6 @@ package org.apache.uniffle.server;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -27,6 +26,8 @@ import java.util.stream.Collectors;
 import io.prometheus.client.Gauge;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import org.apache.uniffle.common.util.ThreadUtils;
 
 public class TopNShuffleDataSizeOfAppCalcTask {
   private static final Logger LOG = LoggerFactory.getLogger(TopNShuffleDataSizeOfAppCalcTask.class);
@@ -51,15 +52,9 @@ public class TopNShuffleDataSizeOfAppCalcTask {
     this.gaugeInMemoryDataSize = ShuffleServerMetrics.gaugeInMemoryDataSizeUsage;
     this.gaugeOnLocalFileDataSize = ShuffleServerMetrics.gaugeOnDiskDataSizeUsage;
     this.gaugeOnHadoopDataSize = ShuffleServerMetrics.gaugeOnHadoopDataSizeUsage;
-    this.scheduler = Executors.newScheduledThreadPool(1);
-  }
-
-  private void calcTopNShuffleDataSizeIgnoreErrors() {
-    try {
-      calcTopNShuffleDataSize();
-    } catch (Throwable e) {
-      LOG.warn("Failed to calculate top N shuffle data size", e);
-    }
+    this.scheduler =
+        ThreadUtils.getDaemonSingleThreadScheduledExecutor(
+            ThreadUtils.getExceptionCatchingThreadFactory("topN-shuffleDataSize-calc"));
   }
 
   private void calcTopNShuffleDataSize() {
@@ -136,7 +131,7 @@ public class TopNShuffleDataSizeOfAppCalcTask {
   public void start() {
     LOG.info("TopNShuffleDataSizeOfAppCalcTask start schedule.");
     this.scheduler.scheduleWithFixedDelay(
-        this::calcTopNShuffleDataSizeIgnoreErrors,
+        this::calcTopNShuffleDataSize,
         0,
         topNShuffleDataTaskRefreshInterval,
         TimeUnit.MILLISECONDS);

@@ -54,6 +54,10 @@ public class ThreadUtils {
     return new DefaultThreadFactory(threadPoolPrefix, true);
   }
 
+  public static ThreadFactory getExceptionCatchingThreadFactory(String factoryName) {
+    return new ExceptionCatchingThreadFactory(getThreadFactory(factoryName));
+  }
+
   /**
    * Encapsulation of the ScheduledExecutorService
    *
@@ -62,8 +66,12 @@ public class ThreadUtils {
    */
   public static ScheduledExecutorService getDaemonSingleThreadScheduledExecutor(
       String factoryName) {
-    ScheduledThreadPoolExecutor executor =
-        new ScheduledThreadPoolExecutor(1, getThreadFactory(factoryName));
+    return getDaemonSingleThreadScheduledExecutor(getThreadFactory(factoryName));
+  }
+
+  public static ScheduledExecutorService getDaemonSingleThreadScheduledExecutor(
+      ThreadFactory threadFactory) {
+    ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(1, threadFactory);
     executor.setRemoveOnCancelPolicy(true);
     return executor;
   }
@@ -199,6 +207,21 @@ public class ThreadUtils {
         continue;
       }
       builder.append(info + "\n");
+    }
+  }
+
+  private static class ExceptionCatchingThreadFactory implements ThreadFactory {
+    private final ThreadFactory delegate;
+
+    ExceptionCatchingThreadFactory(ThreadFactory delegate) {
+      this.delegate = delegate;
+    }
+
+    public Thread newThread(final Runnable runnable) {
+      Thread t = delegate.newThread(runnable);
+      t.setUncaughtExceptionHandler(
+          (t1, e) -> LOGGER.error("Thread {} threw an Exception.", t1, e));
+      return t;
     }
   }
 }
