@@ -18,6 +18,7 @@
 package org.apache.uniffle.common;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
 import io.netty.buffer.ByteBuf;
@@ -31,7 +32,7 @@ import io.netty.buffer.Unpooled;
 public class DeferredCompressedBlock extends ShuffleBlockInfo {
   private final Function<DeferredCompressedBlock, DeferredCompressedBlock> rebuildFunction;
   private int estimatedCompressedSize;
-  private boolean isInitialized = false;
+  private AtomicBoolean isInitialized = new AtomicBoolean(false);
 
   public DeferredCompressedBlock(
       int shuffleId,
@@ -66,9 +67,8 @@ public class DeferredCompressedBlock extends ShuffleBlockInfo {
   }
 
   private void initialize() {
-    if (!isInitialized) {
+    if (isInitialized.compareAndSet(false, true)) {
       rebuildFunction.apply(this);
-      isInitialized = true;
     }
   }
 
