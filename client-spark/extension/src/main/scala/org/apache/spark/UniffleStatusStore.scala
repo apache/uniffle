@@ -186,15 +186,15 @@ case class ShuffleReadTimesSummary(var fetch: Long = 0,
                                    var decompress: Long = 0,
                                    var backgroundDecompress: Long = 0,
                                    var total: Long = 0) {
-  def inc(other: ShuffleReadTimes): Unit = {
-    if (other == null) return
-    this.fetch += other.getFetch
-    this.crc += other.getCrc
-    this.copy += other.getCopy
-    this.deserialize += other.getDeserialize
-    this.decompress += other.getDecompress
-    this.backgroundDecompress += other.getBackgroundDecompress
-    this.backgroundFetch += other.getBackgroundFetch
+  def inc(times: ShuffleReadTimes): Unit = {
+    if (times == null) return
+    this.fetch += times.getFetch
+    this.crc += times.getCrc
+    this.copy += times.getCopy
+    this.deserialize += times.getDeserialize
+    this.decompress += times.getDecompress
+    this.backgroundDecompress += times.getBackgroundDecompress
+    this.backgroundFetch += times.getBackgroundFetch
   }
 }
 
@@ -207,13 +207,13 @@ case class ShuffleWriteTimesSummary(var copy: Long = 0,
                                     var total: Long = 0) {
   def inc(times: ShuffleWriteTimes): Unit = {
     if (times == null) return
-    total += times.getTotal
-    copy += times.getCopy
-    serialize += times.getSerialize
-    compress += times.getCompress
-    sort += times.getSort
-    requireMemory += times.getRequireMemory
-    waitFinish += times.getWaitFinish
+    this.total += times.getTotal
+    this.copy += times.getCopy
+    this.serialize += times.getSerialize
+    this.compress += times.getCompress
+    this.sort += times.getSort
+    this.requireMemory += times.getRequireMemory
+    this.waitFinish += times.getWaitFinish
   }
 }
 
