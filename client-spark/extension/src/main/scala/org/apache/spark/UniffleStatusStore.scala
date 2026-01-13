@@ -33,7 +33,7 @@ class UniffleStatusStore(store: KVStore) {
     Utils.tryWithResource(view.closeableIterator())(iter => iter.asScala.toList)
   }
 
-  def shuffleTaskSummary(shuffleType: ShuffleType): ShuffleTaskSummary = {
+  def shuffleTaskSummary(shuffleType: ShuffleType.Value): ShuffleTaskSummary = {
     val kClass = classOf[ShuffleTaskSummary]
     try {
       store.read(kClass, s"${kClass.getName}_$shuffleType")
@@ -65,7 +65,7 @@ class UniffleStatusStore(store: KVStore) {
     try {
       store.read(kClass, kClass.getName)
     } catch {
-      case _: NoSuchElementException => AggregatedShuffleReadTimesUIData(new ShuffleReadTimes())
+      case _: NoSuchElementException => AggregatedShuffleReadTimesUIData(new ShuffleReadTimesSummary())
     }
   }
 
@@ -74,7 +74,7 @@ class UniffleStatusStore(store: KVStore) {
     try {
       store.read(kClass, kClass.getName)
     } catch {
-      case _: NoSuchElementException => AggregatedShuffleWriteTimesUIData(new ShuffleWriteTimes())
+      case _: NoSuchElementException => AggregatedShuffleWriteTimesUIData(new ShuffleWriteTimesSummary())
     }
   }
 
@@ -178,13 +178,52 @@ case class AggregatedTaskInfoUIData(cpuTimeMillis: Long,
   def id: String = classOf[AggregatedTaskInfoUIData].getName()
 }
 
-case class AggregatedShuffleWriteTimesUIData(times: ShuffleWriteTimes) {
+case class ShuffleReadTimesSummary(var fetch: Long = 0,
+                                   var backgroundFetch: Long = 0,
+                                   var crc: Long = 0,
+                                   var copy: Long = 0,
+                                   var deserialize: Long = 0,
+                                   var decompress: Long = 0,
+                                   var backgroundDecompress: Long = 0,
+                                   var total: Long = 0) {
+  def inc(other: ShuffleReadTimes): Unit = {
+    if (other == null) return
+    this.fetch += other.getFetch
+    this.crc += other.getCrc
+    this.copy += other.getCopy
+    this.deserialize += other.getDeserialize
+    this.decompress += other.getDecompress
+    this.backgroundDecompress += other.getBackgroundDecompress
+    this.backgroundFetch += other.getBackgroundFetch
+  }
+}
+
+case class ShuffleWriteTimesSummary(var copy: Long = 0,
+                                    var serialize: Long = 0,
+                                    var compress: Long = 0,
+                                    var sort: Long = 0,
+                                    var requireMemory: Long = 0,
+                                    var waitFinish: Long = 0,
+                                    var total: Long = 0) {
+  def inc(times: ShuffleWriteTimes): Unit = {
+    if (times == null) return
+    total += times.getTotal
+    copy += times.getCopy
+    serialize += times.getSerialize
+    compress += times.getCompress
+    sort += times.getSort
+    requireMemory += times.getRequireMemory
+    waitFinish += times.getWaitFinish
+  }
+}
+
+case class AggregatedShuffleWriteTimesUIData(times: ShuffleWriteTimesSummary) {
   @JsonIgnore
   @KVIndex
   def id: String = classOf[AggregatedShuffleWriteTimesUIData].getName()
 }
 
-case class AggregatedShuffleReadTimesUIData(times: ShuffleReadTimes) {
+case class AggregatedShuffleReadTimesUIData(times: ShuffleReadTimesSummary) {
   @JsonIgnore
   @KVIndex
   def id: String = classOf[AggregatedShuffleReadTimesUIData].getName()
@@ -196,13 +235,11 @@ case class ReassignInfoUIData(event: TaskReassignInfoEvent) {
   def id: String = classOf[ReassignInfoUIData].getName()
 }
 
-sealed abstract class ShuffleType private ()
-object ShuffleType {
-  val READ: ShuffleType = new ShuffleType {}
-  val WRITE: ShuffleType = new ShuffleType {}
+object ShuffleType extends Enumeration {
+  val READ, WRITE = Value
 }
 
-case class ShuffleTaskSummary(shuffleType: ShuffleType,
+case class ShuffleTaskSummary(shuffleType: ShuffleType.Value,
                               var failureReasons: mutable.HashSet[String] = new mutable.HashSet[String](),
                               var failedTaskNumber: Long = -1,
                               var failedTaskMaxAttemptNumber: Long = -1) {

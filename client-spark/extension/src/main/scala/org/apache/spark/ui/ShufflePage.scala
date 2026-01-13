@@ -162,30 +162,30 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
 
     // render shuffle read times
     val readTimes = runtimeStatusStore.shuffleReadTimes().times
-    val readTotal = if (readTimes.getTotal <= 0) -1 else readTimes.getTotal
+    val readTotal = if (readTimes.total <= 0) -1 else readTimes.total
     val readTimesUI = UIUtils.listingTable(
       Seq("Total", "Fetch", "Copy", "CRC", "Deserialize", "Decompress", "Background Decompress", "Background Fetch"),
       shuffleReadTimesRow,
       Seq(
         Seq(
           UIUtils.formatDuration(readTotal),
-          UIUtils.formatDuration(readTimes.getFetch),
-          UIUtils.formatDuration(readTimes.getCopy),
-          UIUtils.formatDuration(readTimes.getCrc),
-          UIUtils.formatDuration(readTimes.getDeserialize),
-          UIUtils.formatDuration(readTimes.getDecompress),
-          UIUtils.formatDuration(readTimes.getBackgroundDecompress),
-          UIUtils.formatDuration(readTimes.getBackgroundFetch),
+          UIUtils.formatDuration(readTimes.fetch),
+          UIUtils.formatDuration(readTimes.copy),
+          UIUtils.formatDuration(readTimes.crc),
+          UIUtils.formatDuration(readTimes.deserialize),
+          UIUtils.formatDuration(readTimes.decompress),
+          UIUtils.formatDuration(readTimes.backgroundDecompress),
+          UIUtils.formatDuration(readTimes.backgroundFetch),
         ),
         Seq(
           1,
-          readTimes.getFetch.toDouble / readTotal,
-          readTimes.getCopy.toDouble / readTotal,
-          readTimes.getCrc.toDouble / readTotal,
-          readTimes.getDeserialize.toDouble / readTotal,
-          readTimes.getDecompress.toDouble / readTotal,
-          readTimes.getBackgroundDecompress.toDouble / readTotal,
-          readTimes.getBackgroundFetch.toDouble / readTotal,
+          readTimes.fetch.toDouble / readTotal,
+          readTimes.copy.toDouble / readTotal,
+          readTimes.crc.toDouble / readTotal,
+          readTimes.deserialize.toDouble / readTotal,
+          readTimes.decompress.toDouble / readTotal,
+          readTimes.backgroundDecompress.toDouble / readTotal,
+          readTimes.backgroundFetch.toDouble / readTotal,
         ).map(x => roundToTwoDecimals(x).toString)
       ),
       fixedWidth = true
@@ -193,28 +193,28 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
 
     // render shuffle write times
     val writeTimes = runtimeStatusStore.shuffleWriteTimes().times
-    val writeTotal = if (writeTimes.getTotal <= 0) -1 else writeTimes.getTotal
+    val writeTotal = if (writeTimes.total <= 0) -1 else writeTimes.total
     val writeTimesUI = UIUtils.listingTable(
       Seq("Total Time", "Wait Finish Time", "Copy Time", "Serialize Time", "Compress Time", "Sort Time", "Require Memory Time"),
       shuffleWriteTimesRow,
       Seq(
         Seq(
-          UIUtils.formatDuration(writeTimes.getTotal),
-          UIUtils.formatDuration(writeTimes.getWaitFinish),
-          UIUtils.formatDuration(writeTimes.getCopy),
-          UIUtils.formatDuration(writeTimes.getSerialize),
-          UIUtils.formatDuration(writeTimes.getCompress),
-          UIUtils.formatDuration(writeTimes.getSort),
-          UIUtils.formatDuration(writeTimes.getRequireMemory),
+          UIUtils.formatDuration(writeTimes.total),
+          UIUtils.formatDuration(writeTimes.waitFinish),
+          UIUtils.formatDuration(writeTimes.copy),
+          UIUtils.formatDuration(writeTimes.serialize),
+          UIUtils.formatDuration(writeTimes.compress),
+          UIUtils.formatDuration(writeTimes.sort),
+          UIUtils.formatDuration(writeTimes.requireMemory),
         ),
         Seq(
           1.toDouble,
-          writeTimes.getWaitFinish.toDouble / writeTotal,
-          writeTimes.getCopy.toDouble / writeTotal,
-          writeTimes.getSerialize.toDouble / writeTotal,
-          writeTimes.getCompress.toDouble / writeTotal,
-          writeTimes.getSort.toDouble / writeTotal,
-          writeTimes.getRequireMemory.toDouble / writeTotal,
+          writeTimes.waitFinish.toDouble / writeTotal,
+          writeTimes.copy.toDouble / writeTotal,
+          writeTimes.serialize.toDouble / writeTotal,
+          writeTimes.compress.toDouble / writeTotal,
+          writeTimes.sort.toDouble / writeTotal,
+          writeTimes.requireMemory.toDouble / writeTotal,
         ).map(x => roundToTwoDecimals(x).toString)
       ),
       fixedWidth = true
