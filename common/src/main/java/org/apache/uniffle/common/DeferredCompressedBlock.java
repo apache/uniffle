@@ -67,8 +67,13 @@ public class DeferredCompressedBlock extends ShuffleBlockInfo {
   }
 
   private void initialize() {
-    if (isInitialized.compareAndSet(false, true)) {
-      rebuildFunction.apply(this);
+    if (!isInitialized.get()) {
+      synchronized (this) {
+        if (!isInitialized.get()) {
+          rebuildFunction.apply(this);
+          isInitialized.set(true);
+        }
+      }
     }
   }
 
