@@ -169,6 +169,30 @@ spark.rss.client.reassign.maxReassignServerNum     10
 spark.rss.client.reassign.blockRetryMaxTimes       1
 ```
 
+### Partition split for huge partitions
+
+To address scenarios where extremely large partitions may cause OOM or disk exhaustion on the shuffle server, a partition splitting mechanism has been introduced.
+
+When a partition is identified as a huge partition, it is automatically split into multiple sub-partitions and distributed across multiple shuffle servers for writing. 
+This mechanism effectively mitigates memory and disk pressure on individual shuffle servers and significantly improves the performance of tasks with highly skewed data.
+The following configurations are used to enable this feature (this features also should be activated by the shuffle-server side):
+
+#### shuffle-server side
+```bash
+# the partition threshold size of partition split. the following threshold is 20GB.
+rss.server.huge-partition.split.limit 21474836480
+```
+
+#### client side
+```bash
+# whether to enable reassign mechanism
+spark.rss.client.reassign.enabled                                 true
+# the partition split mode for huge partition, currently supports LOAD_BALANCE and PIPELINE, but for performance, we should recommend LOAD_BALANCE mode.
+spark.rss.client.reassign.partitionSplitMode                      LOAD_BALANCE
+# the load balanced server number for one huge partition when using LOAD_BALANCE mode.
+spark.rss.client.reassign.partitionSplitLoadBalanceServerNumber   20
+```
+
 ### Map side combine
 
 Map side combine is a feature for rdd aggregation operators that combines the shuffle data on map side before sending it to the shuffle server, which can reduce the amount of data transmitted and the pressure on the shuffle server.
@@ -199,8 +223,36 @@ This mechanism allows compression to overlap with upstream data reading, maximiz
 
 The feature can be enabled or disabled through the following configuration:
 
-| Property Name                                          | Default   | Description                                                                                                                                      |
-|--------------------------------------------------------|-----------|--------------------------------------------------------------------------------------------------------------------------------------------------|
-| spark.rss.client.write.overlappingCompressionEnable    | true      | Whether to overlapping compress shuffle blocks.                                                                                                  |
-| rss.client.write.overlappingCompressionThreadsPerVcore | -1        | Specifies the ratio of overlapping compression threads to Spark executor vCores. By default, all cores on the machine are used for compression.  | 
+| Property Name                                                | Default   | Description                                                                                                                                      |
+|--------------------------------------------------------------|-----------|--------------------------------------------------------------------------------------------------------------------------------------------------|
+| spark.rss.client.write.overlappingCompressionEnable          | true      | Whether to overlapping compress shuffle blocks.                                                                                                  |
+| spark.rss.client.write.overlappingCompressionThreadsPerVcore | -1        | Specifies the ratio of overlapping compression threads to Spark executor vCores. By default, all cores on the machine are used for compression.  | 
 
+### Overlapping decompression for shuffle read
+
+This mechanism allows decompression to overlap with downstream data processing, maximizing shuffle read throughput. It can improve shuffle read speed by up to 80%, especially when reading large-scale data.
+
+| Property Name                                          | Default | Description                                                         |
+|--------------------------------------------------------|---------|---------------------------------------------------------------------|
+| spark.rss.client.read.overlappingDecompressionEnable   | false   | Whether to overlapping decompress shuffle blocks.                   |
+| spark.rss.client.read.overlappingDecompressionThreads  | 1       | Number of threads to use for overlapping decompress shuffle blocks  | 
+
+### Prefetch for shuffle read
+
+This mechanism allows prefetching shuffle data before it is needed, reducing wait time for shuffle read operations. It can improve shuffle read performance by up to 30%, especially in scenarios with high latency between Spark executors and shuffle servers.
+
+| Property Name                                 | Default | Description                                         |
+|-----------------------------------------------|---------|-----------------------------------------------------|
+| spark.rss.client.read.prefetch.enabled        | false   | Whether to enable prefetch for shuffle read.        |
+
+### Integrity validation for shuffle write and read processing 
+
+To ensure the data consistency between Spark client and shuffle server, integrity validation has been introduced for shuffle write and read processing.
+This feature can detect data corruption during transmission and storage, and take corresponding measures to ensure data consistency.
+We will track the upstream writers' partitions record number, and validate it with the downstream readers' partitions record number, these metadata will be stored in the Spark driver side.
+(attention: if having many tasks, this mechanism will slow down the driver and cause more GC pressure)
+
+| Property Name                                               | Default | Description                                                             |
+|-------------------------------------------------------------|---------|-------------------------------------------------------------------------|
+| spark.rss.client.integrityValidation.enabled                | false   | Whether to enable integrity validation                                  |
+| spark.rss.client.integrityValidation.failureAnalysisEnabled | false   | Whether to print out the detailed failure if having data inconsistency  |
