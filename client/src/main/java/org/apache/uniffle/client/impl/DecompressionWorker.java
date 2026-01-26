@@ -44,12 +44,16 @@ public class DecompressionWorker {
   private final Codec codec;
 
   private final AtomicLong decompressionMillis = new AtomicLong(0);
+  private final AtomicLong decompressionBytes = new AtomicLong(0);
   private final AtomicLong decompressionBufferAllocationMillis = new AtomicLong(0);
 
   // the millis for the block get operation to measure profit from overlapping decompression
   private final AtomicLong waitMillis = new AtomicLong(0);
 
   private final int fetchSecondsThreshold;
+
+  private AtomicLong peekMemoryUsed = new AtomicLong(0);
+  private AtomicLong nowMemoryUsed = new AtomicLong(0);
 
   public DecompressionWorker(Codec codec, int threads, int fetchSecondsThreshold) {
     if (codec == null) {
@@ -96,6 +100,10 @@ public class DecompressionWorker {
                 long startDecompression = System.currentTimeMillis();
                 codec.decompress(buffer, uncompressedLen, dst, 0);
                 decompressionMillis.addAndGet(System.currentTimeMillis() - startDecompression);
+                decompressionBytes.addAndGet(length);
+
+                nowMemoryUsed.addAndGet(uncompressedLen);
+                resetPeekMemoryUsed();
 
                 return dst;
               },
@@ -119,20 +127,36 @@ public class DecompressionWorker {
       return null;
     }
     DecompressedShuffleBlock block = blocks.remove(segmentIndex);
+    // simplify the memory statistic logic here, just decrease the memory used when the block is
+    // fetched, this is effective due to the upstream will use single-thread to get and release the
+    // block
+    if (block != null) {
+      nowMemoryUsed.addAndGet(-block.getUncompressLength());
+    }
     return block;
+  }
+
+  private void resetPeekMemoryUsed() {
+    long currentMemoryUsed = nowMemoryUsed.get();
+    long peekMemory = peekMemoryUsed.get();
+    if (currentMemoryUsed > peekMemory) {
+      peekMemoryUsed.set(currentMemoryUsed);
+    }
   }
 
   public void close() {
     long bufferAllocation = decompressionBufferAllocationMillis.get();
-    long decompression = decompressionMillis.get();
+    long decompressionMillis = this.decompressionMillis.get();
     long wait = waitMillis.get();
+    long decompressionBytes = this.decompressionBytes.get() / 1024 / 1024;
     LOG.info(
-        "The statistic of overlapping compression is that bufferAllocation: {}(ms), "
-            + "decompression: {}(ms), wait: {}(ms), overlappingRatio((bufferAllocation+decompression)/wait)={}",
+        "Overlapping decompression stats: bufferAllocation={}ms, decompression={}ms, getWait={}ms, peekMemoryUsed={}MB, decompressionBytes={}MB, decompressionThroughput={}MB/s",
         bufferAllocation,
-        decompression,
+        decompressionMillis,
         wait,
-        wait == 0 ? 0 : (bufferAllocation + decompression) / wait);
+        peekMemoryUsed.get() / 1024 / 1024,
+        decompressionBytes,
+        (decompressionBytes * 1000L) / decompressionMillis);
     executorService.shutdown();
   }
 
