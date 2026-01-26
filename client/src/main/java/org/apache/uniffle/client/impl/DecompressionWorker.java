@@ -156,7 +156,7 @@ public class DecompressionWorker {
         wait,
         peekMemoryUsed.get() / 1024 / 1024,
         decompressionBytes,
-        (decompressionBytes * 1000L) / decompressionMillis);
+        decompressionMillis == 0 ? 0 : (decompressionBytes * 1000L) / decompressionMillis);
     executorService.shutdown();
   }
 
