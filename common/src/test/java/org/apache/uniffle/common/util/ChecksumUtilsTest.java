@@ -153,7 +153,8 @@ public class ChecksumUtilsTest {
     composite.addComponent(true, Unpooled.wrappedBuffer(part2));
 
     // Ensure this test hits the composite path (nioBufferCount > 1).
-    // Note: CompositeByteBuf.nioBufferCount() depends on readerIndex/readableBytes, so check it here.
+    // Note: CompositeByteBuf.nioBufferCount() depends on readerIndex/readableBytes, so check it
+    // here.
     assertEquals(true, composite.nioBufferCount() > 1);
 
     int skip = 13; // cross-component offsets are fine; expected CRC is computed on readable bytes.
