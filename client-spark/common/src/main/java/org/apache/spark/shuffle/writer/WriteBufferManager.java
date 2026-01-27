@@ -436,7 +436,10 @@ public class WriteBufferManager extends MemoryConsumer {
 
     final long blockId =
         blockIdLayout.getBlockId(getNextSeqNo(partitionId), partitionId, taskAttemptId);
+
+    // todo: support ByteBuf compress directly to avoid copying
     final byte[] rawData = writerBuffer.getData();
+
     Function<DeferredCompressedBlock, DeferredCompressedBlock> rebuildFunction =
         block -> {
           byte[] compressed = rawData;
