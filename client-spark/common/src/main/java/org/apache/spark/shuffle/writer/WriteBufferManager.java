@@ -427,10 +427,8 @@ public class WriteBufferManager extends MemoryConsumer {
 
   protected ShuffleBlockInfo createDeferredCompressedBlock(
       int partitionId, WriterBuffer writerBuffer) {
-    ByteBuf data = writerBuffer.getDataAsByteBuf();
     final int uncompressLength = writerBuffer.getDataLength();
     final int memoryUsed = writerBuffer.getMemoryUsed();
-    final long records = writerBuffer.getRecordCount();
 
     this.blockCounter.incrementAndGet();
     this.uncompressedDataLen += uncompressLength;
@@ -441,10 +439,11 @@ public class WriteBufferManager extends MemoryConsumer {
 
     Function<DeferredCompressedBlock, DeferredCompressedBlock> rebuildFunction =
         block -> {
-          byte[] compressed = data.array();
+          final byte[] rawData = writerBuffer.getDataAsByteBuf().array();
+          byte[] compressed = rawData;
           if (codec.isPresent()) {
             long start = System.currentTimeMillis();
-            compressed = codec.get().compress(data.array());
+            compressed = codec.get().compress(rawData);
             this.compressTime += System.currentTimeMillis() - start;
           }
           this.compressedDataLen += compressed.length;
@@ -471,7 +470,7 @@ public class WriteBufferManager extends MemoryConsumer {
         partitionAssignmentRetrieveFunc,
         rebuildFunction,
         estimatedCompressedSize,
-        records);
+        writerBuffer.getRecordCount());
   }
 
   // transform records to shuffleBlock
