@@ -439,7 +439,7 @@ public class WriteBufferManager extends MemoryConsumer {
 
     Function<DeferredCompressedBlock, DeferredCompressedBlock> rebuildFunction =
         block -> {
-          final byte[] rawData = writerBuffer.getDataAsByteBuf().array();
+          final byte[] rawData = writerBuffer.getData();
           byte[] compressed = rawData;
           if (codec.isPresent()) {
             long start = System.currentTimeMillis();
@@ -485,7 +485,7 @@ public class WriteBufferManager extends MemoryConsumer {
     if (codec.isPresent()) {
       long start = System.currentTimeMillis();
       // todo: support ByteBuf compress directly to avoid copying
-      byte[] compressedByteArr = codec.get().compress(data.array());
+      byte[] compressedByteArr = codec.get().compress(wb.getData());
       compressed = Unpooled.wrappedBuffer(compressedByteArr);
       compressTime += System.currentTimeMillis() - start;
     }

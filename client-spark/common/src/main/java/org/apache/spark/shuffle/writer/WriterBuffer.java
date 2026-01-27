@@ -80,7 +80,10 @@ public class WriterBuffer {
 
   @VisibleForTesting
   public byte[] getData() {
-    return getDataAsByteBuf().array();
+    ByteBuf buf = getDataAsByteBuf();
+    byte[] result = new byte[buf.readableBytes()];
+    buf.getBytes(0, result);
+    return result;
   }
 
   public ByteBuf getDataAsByteBuf() {
@@ -98,10 +101,10 @@ public class WriterBuffer {
     CompositeByteBuf composite = Unpooled.compositeBuffer(buffers.size() + 1);
 
     // Add completed buffers
-    for (WrappedBuffer wrappedBuffer : buffers) {
-      if (wrappedBuffer.getSize() > 0) {
+    for (WrappedBuffer stagingBuffer : buffers) {
+      if (stagingBuffer.getSize() > 0) {
         composite.addComponent(
-            true, Unpooled.wrappedBuffer(wrappedBuffer.getBuffer(), 0, wrappedBuffer.getSize()));
+            true, Unpooled.wrappedBuffer(stagingBuffer.getBuffer(), 0, stagingBuffer.getSize()));
       }
     }
 
