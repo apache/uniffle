@@ -436,10 +436,9 @@ public class WriteBufferManager extends MemoryConsumer {
 
     final long blockId =
         blockIdLayout.getBlockId(getNextSeqNo(partitionId), partitionId, taskAttemptId);
-
+    final byte[] rawData = writerBuffer.getData();
     Function<DeferredCompressedBlock, DeferredCompressedBlock> rebuildFunction =
         block -> {
-          final byte[] rawData = writerBuffer.getData();
           byte[] compressed = rawData;
           if (codec.isPresent()) {
             long start = System.currentTimeMillis();
