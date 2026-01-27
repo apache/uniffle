@@ -19,7 +19,11 @@ package org.apache.spark.shuffle.writer;
 
 import java.util.List;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.CompositeByteBuf;
+import io.netty.buffer.Unpooled;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -74,18 +78,39 @@ public class WriterBuffer {
     return buffer == null || nextOffset + length > bufferSize;
   }
 
+  @VisibleForTesting
   public byte[] getData() {
-    byte[] data = new byte[dataLength];
-    int offset = 0;
-    long start = System.currentTimeMillis();
-    for (WrappedBuffer wrappedBuffer : buffers) {
-      System.arraycopy(wrappedBuffer.getBuffer(), 0, data, offset, wrappedBuffer.getSize());
-      offset += wrappedBuffer.getSize();
+    return getDataAsByteBuf().array();
+  }
+
+  public ByteBuf getDataAsByteBuf() {
+    // Fast path: if there is only one underlying chunk, return it directly to avoid creating
+    // CompositeByteBuf (which may trigger coalescing/copy when calling nioBuffer()).
+    if (buffers.isEmpty()) {
+      if (buffer == null || nextOffset <= 0) {
+        return Unpooled.EMPTY_BUFFER;
+      }
+      return Unpooled.wrappedBuffer(buffer, 0, nextOffset);
     }
-    // nextOffset is the length of current buffer used
-    System.arraycopy(buffer, 0, data, offset, nextOffset);
-    copyTime += System.currentTimeMillis() - start;
-    return data;
+
+    // Build a zero-copy composite view over existing buffers.
+    // The returned ByteBuf shares the underlying byte[] with WriterBuffer.
+    CompositeByteBuf composite = Unpooled.compositeBuffer(buffers.size() + 1);
+
+    // Add completed buffers
+    for (WrappedBuffer wrappedBuffer : buffers) {
+      if (wrappedBuffer.getSize() > 0) {
+        composite.addComponent(
+            true, Unpooled.wrappedBuffer(wrappedBuffer.getBuffer(), 0, wrappedBuffer.getSize()));
+      }
+    }
+
+    // Add the current in-progress buffer
+    if (buffer != null && nextOffset > 0) {
+      composite.addComponent(true, Unpooled.wrappedBuffer(buffer, 0, nextOffset));
+    }
+
+    return composite;
   }
 
   public int getDataLength() {
