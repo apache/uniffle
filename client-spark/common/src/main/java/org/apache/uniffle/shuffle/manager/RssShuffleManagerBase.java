@@ -353,13 +353,10 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
       int poolSize = sparkConf.get(RssSparkConfig.RSS_CLIENT_SEND_THREAD_POOL_SIZE);
       int keepAliveTime = sparkConf.get(RssSparkConfig.RSS_CLIENT_SEND_THREAD_POOL_KEEPALIVE);
 
-      boolean overlappingCompressionEnabled =
-          rssConf.get(RssSparkConfig.RSS_WRITE_OVERLAPPING_COMPRESSION_ENABLED);
-      int overlappingCompressionThreadsPerVcore =
-          rssConf.get(RssSparkConfig.RSS_WRITE_OVERLAPPING_COMPRESSION_THREADS_PER_VCORE);
-      if (overlappingCompressionEnabled && overlappingCompressionThreadsPerVcore > 0) {
-        int compressionThreads =
-            overlappingCompressionThreadsPerVcore * sparkConf.getInt(EXECUTOR_CORES, 1);
+      if (OverlappingCompressionDataPusher.isEnabled(rssConf)) {
+        int threads =
+            rssConf.get(RssSparkConfig.RSS_WRITE_OVERLAPPING_COMPRESSION_THREADS_PER_VCORE)
+                * sparkConf.getInt(EXECUTOR_CORES, 1);
         this.dataPusher =
             new OverlappingCompressionDataPusher(
                 shuffleWriteClient,
@@ -368,7 +365,9 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
                 failedTaskIds,
                 poolSize,
                 keepAliveTime,
-                compressionThreads);
+                threads);
+        LOG.info(
+            "Using {} with {} compression threads", dataPusher.getClass().getSimpleName(), threads);
       } else {
         this.dataPusher =
             new DataPusher(

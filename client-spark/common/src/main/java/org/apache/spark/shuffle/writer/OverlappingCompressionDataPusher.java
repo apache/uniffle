@@ -29,6 +29,8 @@ import org.slf4j.LoggerFactory;
 
 import org.apache.uniffle.client.api.ShuffleWriteClient;
 import org.apache.uniffle.client.impl.FailedBlockSendTracker;
+import org.apache.uniffle.common.compression.Codec;
+import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.util.ThreadUtils;
 
@@ -81,5 +83,18 @@ public class OverlappingCompressionDataPusher extends DataPusher {
               // Step 2: forward to the parent class's send method
               return super.send(processedEvent);
             });
+  }
+
+  public static boolean isEnabled(RssConf rssConf) {
+    boolean overlappingCompressionEnabled =
+        rssConf.get(RssSparkConfig.RSS_WRITE_OVERLAPPING_COMPRESSION_ENABLED);
+    int overlappingCompressionThreadsPerVcore =
+        rssConf.get(RssSparkConfig.RSS_WRITE_OVERLAPPING_COMPRESSION_THREADS_PER_VCORE);
+    if (Codec.hasCodec(rssConf)
+        && overlappingCompressionEnabled
+        && overlappingCompressionThreadsPerVcore > 0) {
+      return true;
+    }
+    return false;
   }
 }

@@ -58,8 +58,6 @@ import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.util.BlockIdLayout;
 import org.apache.uniffle.common.util.ChecksumUtils;
 
-import static org.apache.spark.shuffle.RssSparkConfig.RSS_WRITE_OVERLAPPING_COMPRESSION_ENABLED;
-
 public class WriteBufferManager extends MemoryConsumer {
 
   private static final Logger LOG = LoggerFactory.getLogger(WriteBufferManager.class);
@@ -111,7 +109,8 @@ public class WriteBufferManager extends MemoryConsumer {
   private Function<Integer, List<ShuffleServerInfo>> partitionAssignmentRetrieveFunc;
   private int stageAttemptNumber;
   private ShuffleServerPushCostTracker shuffleServerPushCostTracker;
-  private boolean overlappingCompressionEnabled;
+  // whether to use deferred compression for shuffle blocks
+  private final boolean isDeferredCompression;
 
   public WriteBufferManager(
       int shuffleId,
@@ -187,8 +186,7 @@ public class WriteBufferManager extends MemoryConsumer {
     this.requireMemoryInterval = bufferManagerOptions.getRequireMemoryInterval();
     this.requireMemoryRetryMax = bufferManagerOptions.getRequireMemoryRetryMax();
     this.arrayOutputStream = new WrappedByteArrayOutputStream(serializerBufferSize);
-    this.overlappingCompressionEnabled =
-        rssConf.getBoolean(RSS_WRITE_OVERLAPPING_COMPRESSION_ENABLED);
+    this.isDeferredCompression = OverlappingCompressionDataPusher.isEnabled(rssConf);
     // in columnar shuffle, the serializer here is never used
     this.isRowBased = rssConf.getBoolean(RssSparkConfig.RSS_ROW_BASED);
     if (isRowBased) {
@@ -474,7 +472,7 @@ public class WriteBufferManager extends MemoryConsumer {
 
   // transform records to shuffleBlock
   protected ShuffleBlockInfo createShuffleBlock(int partitionId, WriterBuffer wb) {
-    if (overlappingCompressionEnabled) {
+    if (isDeferredCompression) {
       return createDeferredCompressedBlock(partitionId, wb);
     }
 
