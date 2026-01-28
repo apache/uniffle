@@ -33,6 +33,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ChecksumUtilsTest {
 
@@ -155,7 +156,7 @@ public class ChecksumUtilsTest {
     // Ensure this test hits the composite path (nioBufferCount > 1).
     // Note: CompositeByteBuf.nioBufferCount() depends on readerIndex/readableBytes, so check it
     // here.
-    assertEquals(true, composite.nioBufferCount() > 1);
+    assertTrue(composite.nioBufferCount() > 1);
 
     int skip = 13; // cross-component offsets are fine; expected CRC is computed on readable bytes.
     composite.skipBytes(skip);
