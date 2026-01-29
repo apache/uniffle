@@ -36,6 +36,8 @@ import scala.reflect.ManifestFactory$;
 import com.clearspring.analytics.util.Lists;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Maps;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import org.apache.spark.executor.ShuffleWriteMetrics;
 import org.apache.spark.memory.MemoryConsumer;
 import org.apache.spark.memory.MemoryMode;
@@ -423,10 +425,8 @@ public class WriteBufferManager extends MemoryConsumer {
 
   protected ShuffleBlockInfo createDeferredCompressedBlock(
       int partitionId, WriterBuffer writerBuffer) {
-    byte[] data = writerBuffer.getData();
-    final int uncompressLength = data.length;
+    final int uncompressLength = writerBuffer.getDataLength();
     final int memoryUsed = writerBuffer.getMemoryUsed();
-    final long records = writerBuffer.getRecordCount();
 
     this.blockCounter.incrementAndGet();
     this.uncompressedDataLen += uncompressLength;
@@ -435,12 +435,15 @@ public class WriteBufferManager extends MemoryConsumer {
     final long blockId =
         blockIdLayout.getBlockId(getNextSeqNo(partitionId), partitionId, taskAttemptId);
 
+    // todo: support ByteBuf compress directly to avoid copying
+    final byte[] rawData = writerBuffer.getData();
+
     Function<DeferredCompressedBlock, DeferredCompressedBlock> rebuildFunction =
         block -> {
-          byte[] compressed = data;
+          byte[] compressed = rawData;
           if (codec.isPresent()) {
             long start = System.currentTimeMillis();
-            compressed = codec.get().compress(data);
+            compressed = codec.get().compress(rawData);
             this.compressTime += System.currentTimeMillis() - start;
           }
           this.compressedDataLen += compressed.length;
@@ -451,9 +454,9 @@ public class WriteBufferManager extends MemoryConsumer {
           return block;
         };
 
-    int estimatedCompressedSize = data.length;
+    int estimatedCompressedSize = uncompressLength;
     if (codec.isPresent()) {
-      estimatedCompressedSize = codec.get().maxCompressedLength(data.length);
+      estimatedCompressedSize = codec.get().maxCompressedLength(uncompressLength);
     }
 
     return new DeferredCompressedBlock(
@@ -467,7 +470,7 @@ public class WriteBufferManager extends MemoryConsumer {
         partitionAssignmentRetrieveFunc,
         rebuildFunction,
         estimatedCompressedSize,
-        records);
+        writerBuffer.getRecordCount());
   }
 
   // transform records to shuffleBlock
@@ -476,28 +479,31 @@ public class WriteBufferManager extends MemoryConsumer {
       return createDeferredCompressedBlock(partitionId, wb);
     }
 
-    byte[] data = wb.getData();
-    final int uncompressLength = data.length;
-    byte[] compressed = data;
+    final int uncompressLength = wb.getDataLength();
+    final ByteBuf data = wb.getDataAsByteBuf();
+    ByteBuf compressed = data;
     if (codec.isPresent()) {
       long start = System.currentTimeMillis();
-      compressed = codec.get().compress(data);
+      // todo: support ByteBuf compress directly to avoid copying
+      byte[] compressedByteArr = codec.get().compress(wb.getData());
+      compressed = Unpooled.wrappedBuffer(compressedByteArr);
       compressTime += System.currentTimeMillis() - start;
     }
     final long crc32 = ChecksumUtils.getCrc32(compressed);
     final long blockId =
         blockIdLayout.getBlockId(getNextSeqNo(partitionId), partitionId, taskAttemptId);
     blockCounter.incrementAndGet();
-    uncompressedDataLen += data.length;
-    compressedDataLen += compressed.length;
-    shuffleWriteMetrics.incBytesWritten(compressed.length);
+    final int compressedLen = compressed.readableBytes();
+    uncompressedDataLen += uncompressLength;
+    compressedDataLen += compressedLen;
+    shuffleWriteMetrics.incBytesWritten(compressedLen);
     // add memory to indicate bytes which will be sent to shuffle server
     inSendListBytes.addAndGet(wb.getMemoryUsed());
     return new ShuffleBlockInfo(
         shuffleId,
         partitionId,
         blockId,
-        compressed.length,
+        compressedLen,
         crc32,
         compressed,
         partitionAssignmentRetrieveFunc.apply(partitionId),

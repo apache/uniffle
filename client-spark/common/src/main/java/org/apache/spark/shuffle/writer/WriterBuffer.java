@@ -19,7 +19,11 @@ package org.apache.spark.shuffle.writer;
 
 import java.util.List;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.CompositeByteBuf;
+import io.netty.buffer.Unpooled;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -74,18 +78,33 @@ public class WriterBuffer {
     return buffer == null || nextOffset + length > bufferSize;
   }
 
+  @VisibleForTesting
   public byte[] getData() {
-    byte[] data = new byte[dataLength];
-    int offset = 0;
-    long start = System.currentTimeMillis();
-    for (WrappedBuffer wrappedBuffer : buffers) {
-      System.arraycopy(wrappedBuffer.getBuffer(), 0, data, offset, wrappedBuffer.getSize());
-      offset += wrappedBuffer.getSize();
+    ByteBuf buf = getDataAsByteBuf();
+    byte[] result = new byte[buf.readableBytes()];
+    buf.getBytes(0, result);
+    return result;
+  }
+
+  public ByteBuf getDataAsByteBuf() {
+    if (buffers.isEmpty()) {
+      if (buffer == null || nextOffset <= 0) {
+        return Unpooled.EMPTY_BUFFER;
+      }
+      return Unpooled.wrappedBuffer(buffer, 0, nextOffset);
     }
-    // nextOffset is the length of current buffer used
-    System.arraycopy(buffer, 0, data, offset, nextOffset);
-    copyTime += System.currentTimeMillis() - start;
-    return data;
+
+    CompositeByteBuf composite = Unpooled.compositeBuffer(buffers.size() + 1);
+    for (WrappedBuffer stagingBuffer : buffers) {
+      if (stagingBuffer.getSize() > 0) {
+        composite.addComponent(
+            true, Unpooled.wrappedBuffer(stagingBuffer.getBuffer(), 0, stagingBuffer.getSize()));
+      }
+    }
+    if (buffer != null && nextOffset > 0) {
+      composite.addComponent(true, Unpooled.wrappedBuffer(buffer, 0, nextOffset));
+    }
+    return composite;
   }
 
   public int getDataLength() {
