@@ -87,8 +87,6 @@ public class WriterBuffer {
   }
 
   public ByteBuf getDataAsByteBuf() {
-    // Fast path: if there is only one underlying chunk, return it directly to avoid creating
-    // CompositeByteBuf (which may trigger coalescing/copy when calling nioBuffer()).
     if (buffers.isEmpty()) {
       if (buffer == null || nextOffset <= 0) {
         return Unpooled.EMPTY_BUFFER;
@@ -96,23 +94,16 @@ public class WriterBuffer {
       return Unpooled.wrappedBuffer(buffer, 0, nextOffset);
     }
 
-    // Build a zero-copy composite view over existing buffers.
-    // The returned ByteBuf shares the underlying byte[] with WriterBuffer.
     CompositeByteBuf composite = Unpooled.compositeBuffer(buffers.size() + 1);
-
-    // Add completed buffers
     for (WrappedBuffer stagingBuffer : buffers) {
       if (stagingBuffer.getSize() > 0) {
         composite.addComponent(
             true, Unpooled.wrappedBuffer(stagingBuffer.getBuffer(), 0, stagingBuffer.getSize()));
       }
     }
-
-    // Add the current in-progress buffer
     if (buffer != null && nextOffset > 0) {
       composite.addComponent(true, Unpooled.wrappedBuffer(buffer, 0, nextOffset));
     }
-
     return composite;
   }
 
