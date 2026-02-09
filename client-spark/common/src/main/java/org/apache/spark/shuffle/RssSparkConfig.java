@@ -190,6 +190,14 @@ public class RssSparkConfig {
           .defaultValue(1)
           .withDescription("The block retry max times when partition reassign is enabled.");
 
+  public static final ConfigOption<Boolean>
+      RSS_PARTITION_REASSIGN_STALE_ASSIGNMENT_FAST_SWITCH_ENABLED =
+          ConfigOptions.key("rss.client.reassign.staleAssignmentFastSwitchEnabled")
+              .booleanType()
+              .defaultValue(true)
+              .withDescription(
+                  "Whether to fast-switch the stale shuffle server assignment when pushing shuffle data. It can be enabled when partition reassign mechanism is enabled.");
+
   public static final ConfigOption<Boolean> RSS_CLIENT_MAP_SIDE_COMBINE_ENABLED =
       ConfigOptions.key("rss.client.mapSideCombine.enabled")
           .booleanType()

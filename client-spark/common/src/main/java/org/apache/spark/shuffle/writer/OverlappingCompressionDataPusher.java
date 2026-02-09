@@ -23,6 +23,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.spark.shuffle.RssSparkConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,14 +50,16 @@ public class OverlappingCompressionDataPusher extends DataPusher {
       Set<String> failedTaskIds,
       int threadPoolSize,
       int threadKeepAliveTime,
-      int compressionThreads) {
+      int compressionThreads,
+      RssConf rssConf) {
     super(
         shuffleWriteClient,
         taskToSuccessBlockIds,
         taskToFailedBlockSendTracker,
         failedTaskIds,
         threadPoolSize,
-        threadKeepAliveTime);
+        threadKeepAliveTime,
+        rssConf);
     if (compressionThreads <= 0) {
       throw new RssException(
           "Invalid rss configuration of "
@@ -67,6 +70,26 @@ public class OverlappingCompressionDataPusher extends DataPusher {
     this.compressionThreadPool =
         Executors.newFixedThreadPool(
             compressionThreads, ThreadUtils.getThreadFactory("compression-thread"));
+  }
+
+  @VisibleForTesting
+  public OverlappingCompressionDataPusher(
+      ShuffleWriteClient shuffleWriteClient,
+      Map<String, Set<Long>> taskToSuccessBlockIds,
+      Map<String, FailedBlockSendTracker> taskToFailedBlockSendTracker,
+      Set<String> failedTaskIds,
+      int threadPoolSize,
+      int threadKeepAliveTime,
+      int compressionThreads) {
+    this(
+        shuffleWriteClient,
+        taskToSuccessBlockIds,
+        taskToFailedBlockSendTracker,
+        failedTaskIds,
+        threadPoolSize,
+        threadKeepAliveTime,
+        compressionThreads,
+        new RssConf());
   }
 
   @Override

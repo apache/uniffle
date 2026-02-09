@@ -365,7 +365,8 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
                 failedTaskIds,
                 poolSize,
                 keepAliveTime,
-                threads);
+                threads,
+                rssConf);
         LOG.info(
             "Using {} with {} compression threads", dataPusher.getClass().getSimpleName(), threads);
       } else {
@@ -376,7 +377,8 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
                 taskToFailedBlockSendTracker,
                 failedTaskIds,
                 poolSize,
-                keepAliveTime);
+                keepAliveTime,
+                rssConf);
       }
     }
 

@@ -29,6 +29,7 @@ import java.util.function.Supplier;
 
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import org.apache.spark.shuffle.RssSparkConfig;
 import org.junit.jupiter.api.Test;
 
 import org.apache.uniffle.client.common.ShuffleServerPushCostTracker;
@@ -38,6 +39,8 @@ import org.apache.uniffle.client.impl.ShuffleWriteClientImpl;
 import org.apache.uniffle.client.response.SendShuffleDataResult;
 import org.apache.uniffle.common.ShuffleBlockInfo;
 import org.apache.uniffle.common.ShuffleServerInfo;
+import org.apache.uniffle.common.config.RssClientConf;
+import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.rpc.StatusCode;
 import org.apache.uniffle.common.util.JavaUtils;
 
@@ -97,6 +100,9 @@ public class DataPusherTest {
     Map<String, FailedBlockSendTracker> taskToFailedBlockSendTracker = JavaUtils.newConcurrentMap();
     Set<String> failedTaskIds = new HashSet<>();
 
+    RssConf rssConf = new RssConf();
+    rssConf.set(RssClientConf.RSS_CLIENT_REASSIGN_ENABLED, true);
+    rssConf.set(RssSparkConfig.RSS_PARTITION_REASSIGN_STALE_ASSIGNMENT_FAST_SWITCH_ENABLED, true);
     DataPusher dataPusher =
         new DataPusher(
             shuffleWriteClient,
@@ -104,7 +110,8 @@ public class DataPusherTest {
             taskToFailedBlockSendTracker,
             failedTaskIds,
             1,
-            2);
+            2,
+            rssConf);
     dataPusher.setRssAppId("testFilterOutStaleAssignmentBlocks");
 
     String taskId = "taskId1";
