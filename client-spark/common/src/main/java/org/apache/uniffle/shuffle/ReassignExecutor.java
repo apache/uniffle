@@ -98,10 +98,10 @@ public class ReassignExecutor {
     // 1. reassign for split partitions.
     reassignOnPartitionNeedSplit();
     // 2. reassign for failed blocks
-    reassignOnFailedBlocks();
+    reassignAndResendForFailedBlocks();
   }
 
-  private void reassignOnFailedBlocks() {
+  private void reassignAndResendForFailedBlocks() {
     Set<Long> failedBlockIds = failedBlockSendTracker.getFailedBlockIds();
     if (CollectionUtils.isEmpty(failedBlockIds)) {
       return;
