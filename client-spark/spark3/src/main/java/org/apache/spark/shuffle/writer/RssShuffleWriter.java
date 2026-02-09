@@ -633,6 +633,12 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
       synchronized (failedBlockStatus) {
         int retryIndex =
             failedBlockStatus.stream()
+                .filter(
+                    x -> {
+                      // If statusCode is null, the block was resent due to a stale assignment.
+                      // In this case, the retry count checking should be ignored.
+                      return x.getStatusCode() != null;
+                    })
                 .map(x -> x.getShuffleBlockInfo().getRetryCnt())
                 .max(Comparator.comparing(Integer::valueOf))
                 .get();

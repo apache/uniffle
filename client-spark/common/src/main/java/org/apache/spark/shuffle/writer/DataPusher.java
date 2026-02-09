@@ -47,7 +47,6 @@ import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.exception.RssException;
-import org.apache.uniffle.common.rpc.StatusCode;
 import org.apache.uniffle.common.util.ThreadUtils;
 
 /**
@@ -197,9 +196,11 @@ public class DataPusher implements Closeable {
       if (servers == null || servers.size() != 1) {
         validBlocks.add(block);
       } else {
+        ShuffleServerInfo server = servers.get(0);
         if (block.isStaleAssignment()) {
-          staleBlockTracker.add(
-              block, block.getShuffleServerInfos().get(0), StatusCode.INTERNAL_ERROR);
+          // It means the block failed due to the stale assignment fast-switch when status code is
+          // null.
+          staleBlockTracker.add(block, server, null);
         } else {
           validBlocks.add(block);
         }
