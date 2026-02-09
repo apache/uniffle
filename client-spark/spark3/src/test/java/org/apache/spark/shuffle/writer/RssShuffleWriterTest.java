@@ -212,7 +212,7 @@ public class RssShuffleWriterTest {
     String taskId = "taskId";
     MutableShuffleHandleInfo shuffleHandle = createMutableShuffleHandle();
     RssShuffleWriter writer = createMockWriter(shuffleHandle, taskId);
-    writer.setBlockFailSentRetryMaxTimes(10);
+    writer.resetBlockFailSentRetryMaxTimes(10);
 
     // Make the id1 + id10 + id11 broken, and then finally, it will use the id12 successfully
     AtomicInteger failureCnt = new AtomicInteger();
@@ -498,7 +498,7 @@ public class RssShuffleWriterTest {
     assertEquals(2, serverToPartitionToBlockIds.get(replacement).get(0).size());
 
     // case2. If exceeding the max retry times, it will fast fail.
-    rssShuffleWriter.setBlockFailSentRetryMaxTimes(1);
+    rssShuffleWriter.resetBlockFailSentRetryMaxTimes(1);
     rssShuffleWriter.setTaskId("taskId2");
     rssShuffleWriter.getBufferManager().setTaskId("taskId2");
     taskToFailedBlockSendTracker.put("taskId2", new FailedBlockSendTracker());

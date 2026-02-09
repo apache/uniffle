@@ -18,9 +18,7 @@
 package org.apache.spark.shuffle.writer;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -52,7 +50,6 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.apache.spark.Partitioner;
 import org.apache.spark.ShuffleDependency;
 import org.apache.spark.SparkConf;
-import org.apache.spark.SparkEnv;
 import org.apache.spark.TaskContext;
 import org.apache.spark.executor.ShuffleWriteMetrics;
 import org.apache.spark.scheduler.MapStatus;
@@ -62,7 +59,6 @@ import org.apache.spark.shuffle.RssShuffleManager;
 import org.apache.spark.shuffle.RssSparkConfig;
 import org.apache.spark.shuffle.RssSparkShuffleUtils;
 import org.apache.spark.shuffle.ShuffleWriter;
-import org.apache.spark.shuffle.handle.MutableShuffleHandleInfo;
 import org.apache.spark.shuffle.handle.ShuffleHandleInfo;
 import org.apache.spark.storage.BlockManagerId;
 import org.roaringbitmap.longlong.Roaring64NavigableMap;
@@ -73,13 +69,10 @@ import org.apache.uniffle.client.api.ShuffleManagerClient;
 import org.apache.uniffle.client.api.ShuffleWriteClient;
 import org.apache.uniffle.client.impl.FailedBlockSendTracker;
 import org.apache.uniffle.client.impl.TrackingBlockStatus;
-import org.apache.uniffle.client.request.RssReassignOnBlockSendFailureRequest;
 import org.apache.uniffle.client.request.RssReportShuffleWriteFailureRequest;
 import org.apache.uniffle.client.request.RssReportShuffleWriteMetricRequest;
-import org.apache.uniffle.client.response.RssReassignOnBlockSendFailureResponse;
 import org.apache.uniffle.client.response.RssReportShuffleWriteFailureResponse;
 import org.apache.uniffle.client.response.RssReportShuffleWriteMetricResponse;
-import org.apache.uniffle.common.ReceivingFailureServer;
 import org.apache.uniffle.common.ShuffleBlockInfo;
 import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.config.RssClientConf;
@@ -89,6 +82,7 @@ import org.apache.uniffle.common.exception.RssSendFailedException;
 import org.apache.uniffle.common.exception.RssWaitFailedException;
 import org.apache.uniffle.common.rpc.StatusCode;
 import org.apache.uniffle.shuffle.BlockStats;
+import org.apache.uniffle.shuffle.ReassignExecutor;
 import org.apache.uniffle.shuffle.ShuffleWriteTaskStats;
 import org.apache.uniffle.storage.util.StorageType;
 
@@ -127,7 +121,6 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
   private SparkConf sparkConf;
   private RssConf rssConf;
   private boolean blockFailSentRetryEnabled;
-  private int blockFailSentRetryMaxTimes = 1;
 
   /** used by columnar rss shuffle writer implementation */
   protected final long taskAttemptId;
@@ -156,6 +149,8 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
   protected ShuffleWriteTaskStats shuffleTaskStats;
 
   private boolean isIntegrityValidationClientManagementEnabled = false;
+
+  private final ReassignExecutor reassignExecutor;
 
   // Only for tests
   @VisibleForTesting
@@ -239,7 +234,6 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
             RssSparkConfig.SPARK_RSS_CONFIG_PREFIX
                 + RssClientConf.RSS_CLIENT_REASSIGN_ENABLED.key(),
             RssClientConf.RSS_CLIENT_REASSIGN_ENABLED.defaultValue());
-    this.blockFailSentRetryMaxTimes = rssConf.get(RSS_PARTITION_REASSIGN_BLOCK_RETRY_MAX_TIMES);
     this.enableWriteFailureRetry = rssConf.get(RSS_RESUBMIT_STAGE_WITH_WRITE_FAILURE_ENABLED);
     this.recordReportFailedShuffleservers = Sets.newConcurrentHashSet();
     this.isIntegrityValidationClientManagementEnabled =
@@ -247,6 +241,16 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
     this.shuffleTaskStats =
         new ShuffleWriteTaskStats(
             rssConf, partitioner.numPartitions(), taskAttemptId, taskContext.taskAttemptId());
+    this.reassignExecutor =
+        new ReassignExecutor(
+            shuffleManager.getBlockIdsFailedSendTracker(taskId),
+            taskAttemptAssignment,
+            block -> clearFailedBlockState(block),
+            blocks -> processShuffleBlockInfos(blocks),
+            managerClientSupplier,
+            taskContext,
+            shuffleId,
+            rssConf.get(RSS_PARTITION_REASSIGN_BLOCK_RETRY_MAX_TIMES));
   }
 
   // Gluten needs this method
@@ -578,7 +582,7 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
   // This method should remain protected so that Gluten can invoke it
   protected void checkDataIfAnyFailure() {
     if (blockFailSentRetryEnabled) {
-      collectFailedBlocksToResend();
+      reassignExecutor.reassign();
     } else {
       String errorMsg = getFirstBlockFailure();
       if (errorMsg != null) {
@@ -606,281 +610,6 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
       return errorMsg;
     }
     return null;
-  }
-
-  private void collectFailedBlocksToResend() {
-    if (!blockFailSentRetryEnabled) {
-      return;
-    }
-
-    FailedBlockSendTracker failedTracker = shuffleManager.getBlockIdsFailedSendTracker(taskId);
-    if (failedTracker == null) {
-      return;
-    }
-
-    reassignOnPartitionNeedSplit(failedTracker);
-
-    Set<Long> failedBlockIds = failedTracker.getFailedBlockIds();
-    if (CollectionUtils.isEmpty(failedBlockIds)) {
-      return;
-    }
-
-    boolean isFastFail = false;
-    Set<TrackingBlockStatus> resendCandidates = new HashSet<>();
-    // to check whether the blocks resent exceed the max resend count.
-    for (Long blockId : failedBlockIds) {
-      List<TrackingBlockStatus> failedBlockStatus = failedTracker.getFailedBlockStatus(blockId);
-      synchronized (failedBlockStatus) {
-        int retryCnt =
-            failedBlockStatus.stream()
-                .filter(
-                    x -> {
-                      // If statusCode is null, the block was resent due to a stale assignment.
-                      // In this case, the retry count checking should be ignored.
-                      return x.getStatusCode() != null;
-                    })
-                .map(x -> x.getShuffleBlockInfo().getRetryCnt())
-                .max(Comparator.comparing(Integer::valueOf))
-                .orElse(-1);
-        if (retryCnt >= blockFailSentRetryMaxTimes) {
-          LOG.error(
-              "Partial blocks for taskId: [{}] retry exceeding the max retry times: [{}]. Fast fail! faulty server list: {}",
-              taskId,
-              blockFailSentRetryMaxTimes,
-              failedBlockStatus.stream()
-                  .map(x -> x.getShuffleServerInfo())
-                  .collect(Collectors.toSet()));
-          isFastFail = true;
-          break;
-        }
-
-        for (TrackingBlockStatus status : failedBlockStatus) {
-          StatusCode code = status.getStatusCode();
-          if (STATUS_CODE_WITHOUT_BLOCK_RESEND.contains(code)) {
-            LOG.error(
-                "Partial blocks for taskId: [{}] failed on the illegal status code: [{}] without resend on server: {}",
-                taskId,
-                code,
-                status.getShuffleServerInfo());
-            isFastFail = true;
-            break;
-          }
-        }
-
-        // todo: if setting multi replica and another replica is succeed to send, no need to resend
-        resendCandidates.addAll(failedBlockStatus);
-      }
-    }
-
-    if (isFastFail) {
-      // release data and allocated memory
-      for (Long blockId : failedBlockIds) {
-        List<TrackingBlockStatus> failedBlockStatus = failedTracker.getFailedBlockStatus(blockId);
-        if (CollectionUtils.isNotEmpty(failedBlockStatus)) {
-          TrackingBlockStatus blockStatus = failedBlockStatus.get(0);
-          blockStatus.getShuffleBlockInfo().executeCompletionCallback(true);
-        }
-      }
-
-      throw new RssSendFailedException(
-          "Errors on resending the blocks data to the remote shuffle-server.");
-    }
-
-    reassignAndResendBlocks(resendCandidates);
-  }
-
-  private void reassignOnPartitionNeedSplit(FailedBlockSendTracker failedTracker) {
-    Map<Integer, List<ReceivingFailureServer>> failurePartitionToServers = new HashMap<>();
-
-    failedTracker
-        .removeAllTrackedPartitions()
-        .forEach(
-            partitionStatus -> {
-              List<ReceivingFailureServer> servers =
-                  failurePartitionToServers.computeIfAbsent(
-                      partitionStatus.getPartitionId(), x -> new ArrayList<>());
-              String serverId = partitionStatus.getShuffleServerInfo().getId();
-              // todo: use better data structure to filter
-              if (!servers.stream()
-                  .map(x -> x.getServerId())
-                  .collect(Collectors.toSet())
-                  .contains(serverId)) {
-                servers.add(new ReceivingFailureServer(serverId, StatusCode.SUCCESS));
-              }
-            });
-
-    if (failurePartitionToServers.isEmpty()) {
-      return;
-    }
-
-    //
-    // For the [load balance] mode
-    // Once partition has been split, the following split trigger will be ignored.
-    //
-    // For the [pipeline] mode
-    // The split request will be always response
-    //
-    Map<Integer, List<ReceivingFailureServer>> partitionToServersReassignList = new HashMap<>();
-    for (Map.Entry<Integer, List<ReceivingFailureServer>> entry :
-        failurePartitionToServers.entrySet()) {
-      int partitionId = entry.getKey();
-      List<ReceivingFailureServer> failureServers = entry.getValue();
-      if (!taskAttemptAssignment.updatePartitionSplitAssignment(
-          partitionId,
-          failureServers.stream()
-              .map(x -> ShuffleServerInfo.from(x.getServerId()))
-              .collect(Collectors.toList()))) {
-        partitionToServersReassignList.put(partitionId, failureServers);
-      }
-    }
-
-    if (partitionToServersReassignList.isEmpty()) {
-      LOG.info(
-          "[Partition split] Skip the following partition split request (maybe has been load balanced). partitionIds: {}",
-          failurePartitionToServers.keySet());
-      return;
-    }
-
-    doReassignOnBlockSendFailure(partitionToServersReassignList, true);
-
-    LOG.info("========================= Partition Split Result =========================");
-    for (Map.Entry<Integer, List<ReceivingFailureServer>> entry :
-        partitionToServersReassignList.entrySet()) {
-      LOG.info(
-          "partitionId:{}. {} -> {}",
-          entry.getKey(),
-          entry.getValue().stream().map(x -> x.getServerId()).collect(Collectors.toList()),
-          taskAttemptAssignment.retrieve(entry.getKey()));
-    }
-    LOG.info("==========================================================================");
-  }
-
-  private void doReassignOnBlockSendFailure(
-      Map<Integer, List<ReceivingFailureServer>> failurePartitionToServers,
-      boolean partitionSplit) {
-    LOG.info(
-        "Initiate reassignOnBlockSendFailure of taskId[{}]. partition split: {}. failure partition servers: {}. ",
-        taskAttemptId,
-        partitionSplit,
-        failurePartitionToServers);
-    String executorId = SparkEnv.get().executorId();
-    long taskAttemptId = taskContext.taskAttemptId();
-    int stageId = taskContext.stageId();
-    int stageAttemptNum = taskContext.stageAttemptNumber();
-    try {
-      RssReassignOnBlockSendFailureRequest request =
-          new RssReassignOnBlockSendFailureRequest(
-              shuffleId,
-              failurePartitionToServers,
-              executorId,
-              taskAttemptId,
-              stageId,
-              stageAttemptNum,
-              partitionSplit);
-      RssReassignOnBlockSendFailureResponse response =
-          managerClientSupplier.get().reassignOnBlockSendFailure(request);
-      if (response.getStatusCode() != StatusCode.SUCCESS) {
-        String msg =
-            String.format(
-                "Reassign failed. statusCode: %s, msg: %s",
-                response.getStatusCode(), response.getMessage());
-        throw new RssException(msg);
-      }
-      MutableShuffleHandleInfo handle = MutableShuffleHandleInfo.fromProto(response.getHandle());
-      taskAttemptAssignment.update(handle);
-
-      // print the lastest assignment for those reassignment partition ids
-      Map<Integer, List<String>> reassignments = new HashMap<>();
-      for (Map.Entry<Integer, List<ReceivingFailureServer>> entry :
-          failurePartitionToServers.entrySet()) {
-        int partitionId = entry.getKey();
-        List<ShuffleServerInfo> servers = taskAttemptAssignment.retrieve(partitionId);
-        reassignments.put(
-            partitionId, servers.stream().map(x -> x.getId()).collect(Collectors.toList()));
-      }
-      LOG.info("Succeed to reassign that the latest assignment is {}", reassignments);
-    } catch (Exception e) {
-      throw new RssException(
-          "Errors on reassign on block send failure. failure partition->servers : "
-              + failurePartitionToServers,
-          e);
-    }
-  }
-
-  private void reassignAndResendBlocks(Set<TrackingBlockStatus> blocks) {
-    List<ShuffleBlockInfo> resendCandidates = Lists.newArrayList();
-    Map<Integer, List<TrackingBlockStatus>> partitionedFailedBlocks =
-        blocks.stream()
-            .collect(Collectors.groupingBy(d -> d.getShuffleBlockInfo().getPartitionId()));
-
-    Map<Integer, List<ReceivingFailureServer>> failurePartitionToServers = new HashMap<>();
-    for (Map.Entry<Integer, List<TrackingBlockStatus>> entry : partitionedFailedBlocks.entrySet()) {
-      int partitionId = entry.getKey();
-      List<TrackingBlockStatus> partitionBlocks = entry.getValue();
-      Map<ShuffleServerInfo, TrackingBlockStatus> serverBlocks =
-          partitionBlocks.stream()
-              .collect(Collectors.groupingBy(d -> d.getShuffleServerInfo()))
-              .entrySet()
-              .stream()
-              .collect(
-                  Collectors.toMap(
-                      Map.Entry::getKey, x -> x.getValue().stream().findFirst().get()));
-      for (Map.Entry<ShuffleServerInfo, TrackingBlockStatus> blockStatusEntry :
-          serverBlocks.entrySet()) {
-        String serverId = blockStatusEntry.getKey().getId();
-        // avoid duplicate reassign for the same failure server.
-        // todo: getting the replacement should support multi replica.
-        List<ShuffleServerInfo> servers = getPartitionAssignedServers(partitionId);
-        // Gets the first replica for this partition for now.
-        // It can not work if we want to use multiple replicas.
-        ShuffleServerInfo replacement = servers.get(0);
-        String latestServerId = replacement.getId();
-        if (!serverId.equals(latestServerId)) {
-          continue;
-        }
-        StatusCode code = blockStatusEntry.getValue().getStatusCode();
-        failurePartitionToServers
-            .computeIfAbsent(partitionId, x -> new ArrayList<>())
-            .add(new ReceivingFailureServer(serverId, code));
-      }
-    }
-
-    if (!failurePartitionToServers.isEmpty()) {
-      doReassignOnBlockSendFailure(failurePartitionToServers, false);
-    }
-
-    for (TrackingBlockStatus blockStatus : blocks) {
-      ShuffleBlockInfo block = blockStatus.getShuffleBlockInfo();
-      // todo: getting the replacement should support multi replica.
-      List<ShuffleServerInfo> servers = getPartitionAssignedServers(block.getPartitionId());
-      // Gets the first replica for this partition for now.
-      // It can not work if we want to use multiple replicas.
-      ShuffleServerInfo replacement = servers.get(0);
-      if (blockStatus.getShuffleServerInfo().getId().equals(replacement.getId())) {
-        LOG.warn(
-            "PartitionId:{} has the following assigned servers: {}. But currently the replacement server:{} is the same with previous one!",
-            block.getPartitionId(),
-            taskAttemptAssignment.list(block.getPartitionId()),
-            replacement);
-        throw new RssException(
-            "No available replacement server for: " + blockStatus.getShuffleServerInfo().getId());
-      }
-      // clear the previous retry state of block
-      clearFailedBlockState(block);
-      final ShuffleBlockInfo newBlock = block;
-      // if the status code is null, it means the block is resent due to stale assignment, not
-      // because of the block send failure. In this case, the retry count should not be increased;
-      // otherwise it may cause unexpected fast failure.
-      if (blockStatus.getStatusCode() != null) {
-        newBlock.incrRetryCnt();
-      }
-      newBlock.reassignShuffleServers(Arrays.asList(replacement));
-      resendCandidates.add(newBlock);
-    }
-
-    processShuffleBlockInfos(resendCandidates);
-    LOG.info(
-        "Failed blocks have been resent to data pusher queue since reassignment has been finished successfully");
   }
 
   private void clearFailedBlockState(ShuffleBlockInfo block) {
@@ -1109,8 +838,8 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
   }
 
   @VisibleForTesting
-  protected void setBlockFailSentRetryMaxTimes(int blockFailSentRetryMaxTimes) {
-    this.blockFailSentRetryMaxTimes = blockFailSentRetryMaxTimes;
+  protected void resetBlockFailSentRetryMaxTimes(int times) {
+    reassignExecutor.resetBlockRetryMaxTimes(times);
   }
 
   @VisibleForTesting
