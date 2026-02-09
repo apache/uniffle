@@ -90,15 +90,15 @@ public class ReassignExecutor {
     this.blockFailSentRetryMaxTimes = blockFailSentRetryMaxTimes;
   }
 
-  public void resetBlockRetryMaxTimes(int times) {
-    this.blockFailSentRetryMaxTimes = times;
-  }
-
   public void reassign() {
     // 1. reassign for split partitions.
     reassignOnPartitionNeedSplit();
     // 2. reassign for failed blocks
     reassignAndResendForFailedBlocks();
+  }
+
+  public void resetBlockRetryMaxTimes(int times) {
+    this.blockFailSentRetryMaxTimes = times;
   }
 
   private void reassignAndResendForFailedBlocks() {
@@ -205,7 +205,7 @@ public class ReassignExecutor {
     // For the [pipeline] mode
     // The split request will be always response
     //
-    Map<Integer, List<ReceivingFailureServer>> partitionToServersReassignList = new HashMap<>();
+    Map<Integer, List<ReceivingFailureServer>> reassignPartitionServers = new HashMap<>();
     for (Map.Entry<Integer, List<ReceivingFailureServer>> entry :
         failurePartitionToServers.entrySet()) {
       int partitionId = entry.getKey();
@@ -215,29 +215,33 @@ public class ReassignExecutor {
           failureServers.stream()
               .map(x -> ShuffleServerInfo.from(x.getServerId()))
               .collect(Collectors.toList()))) {
-        partitionToServersReassignList.put(partitionId, failureServers);
+        reassignPartitionServers.put(partitionId, failureServers);
       }
     }
 
-    if (partitionToServersReassignList.isEmpty()) {
+    if (reassignPartitionServers.isEmpty()) {
       LOG.info(
-          "[Partition split] Skip the following partition split request (maybe has been load balanced). partitionIds: {}",
+          "[partition-split] switch to another shuffle-server for split partitions (maybe has been load balanced). partitionIds: {}",
           failurePartitionToServers.keySet());
       return;
     }
 
-    doReassignOnBlockSendFailure(partitionToServersReassignList, true);
+    doReassignOnBlockSendFailure(reassignPartitionServers, true);
 
-    LOG.info("========================= Partition Split Result =========================");
+    StringBuilder builder = new StringBuilder();
+    builder.append("=partition-split=");
     for (Map.Entry<Integer, List<ReceivingFailureServer>> entry :
-        partitionToServersReassignList.entrySet()) {
-      LOG.info(
-          "partitionId:{}. {} -> {}",
-          entry.getKey(),
-          entry.getValue().stream().map(x -> x.getServerId()).collect(Collectors.toList()),
-          taskAttemptAssignment.retrieve(entry.getKey()));
+        reassignPartitionServers.entrySet()) {
+      builder.append("partitionId");
+      builder.append(entry.getKey());
+      builder.append(": ");
+      builder.append(
+          entry.getValue().stream().map(x -> x.getServerId()).collect(Collectors.toList()));
+      builder.append(" -> ");
+      builder.append(taskAttemptAssignment.retrieve(entry.getKey()));
     }
-    LOG.info("==========================================================================");
+    builder.append("==");
+    LOG.info(builder.toString());
   }
 
   private void doReassignOnBlockSendFailure(
