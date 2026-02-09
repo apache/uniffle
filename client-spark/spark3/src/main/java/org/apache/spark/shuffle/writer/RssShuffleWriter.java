@@ -631,7 +631,7 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
     for (Long blockId : failedBlockIds) {
       List<TrackingBlockStatus> failedBlockStatus = failedTracker.getFailedBlockStatus(blockId);
       synchronized (failedBlockStatus) {
-        int retryIndex =
+        int retryCnt =
             failedBlockStatus.stream()
                 .filter(
                     x -> {
@@ -641,8 +641,8 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
                     })
                 .map(x -> x.getShuffleBlockInfo().getRetryCnt())
                 .max(Comparator.comparing(Integer::valueOf))
-                .get();
-        if (retryIndex >= blockFailSentRetryMaxTimes) {
+                .orElse(-1);
+        if (retryCnt >= blockFailSentRetryMaxTimes) {
           LOG.error(
               "Partial blocks for taskId: [{}] retry exceeding the max retry times: [{}]. Fast fail! faulty server list: {}",
               taskId,
