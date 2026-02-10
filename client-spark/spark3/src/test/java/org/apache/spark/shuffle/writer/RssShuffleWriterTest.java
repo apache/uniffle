@@ -500,11 +500,11 @@ public class RssShuffleWriterTest {
     assertEquals(2, serverToPartitionToBlockIds.get(replacement).get(0).size());
 
     // case2. If exceeding the max retry times, it will fast fail.
-    String taskId = "t2";
     FailedBlockSendTracker tracker = new FailedBlockSendTracker();
     rssShuffleWriter.getReassignExecutor().resetBlockSendTracker(tracker);
     bufferManagerSpy.resetRecordCount();
     rssShuffleWriter.resetBlockFailSentRetryMaxTimes(1);
+    String taskId = "t2";
     rssShuffleWriter.setTaskId(taskId);
     rssShuffleWriter.getBufferManager().setTaskId(taskId);
     taskToFailedBlockSendTracker.put(taskId, tracker);
