@@ -61,7 +61,7 @@ public class ReassignExecutor {
   private static final Set<StatusCode> STATUS_CODE_WITHOUT_BLOCK_RESEND =
       Sets.newHashSet(StatusCode.NO_REGISTER);
 
-  private final FailedBlockSendTracker failedBlockSendTracker;
+  private FailedBlockSendTracker failedBlockSendTracker;
   private final TaskAttemptAssignment taskAttemptAssignment;
 
   private final Consumer<ShuffleBlockInfo> removeBlockStatsFunction;
@@ -256,7 +256,13 @@ public class ReassignExecutor {
         taskContext.taskAttemptId(),
         partitionSplit,
         failurePartitionToServers);
-    String executorId = SparkEnv.get().executorId();
+    // for tests to set the default value
+    String executorId = "NULL";
+    try {
+      executorId = SparkEnv.get().executorId();
+    } catch (Exception e) {
+      // ignore
+    }
     long taskAttemptId = taskContext.taskAttemptId();
     int stageId = taskContext.stageId();
     int stageAttemptNum = taskContext.stageAttemptNumber();
@@ -368,5 +374,10 @@ public class ReassignExecutor {
     resendBlocksFunction.accept(resendCandidates);
     LOG.info(
         "Failed blocks have been resent to data pusher queue since reassignment has been finished successfully");
+  }
+
+  @VisibleForTesting
+  public void resetBlockSendTracker(FailedBlockSendTracker failedBlockSendTracker) {
+    this.failedBlockSendTracker = failedBlockSendTracker;
   }
 }

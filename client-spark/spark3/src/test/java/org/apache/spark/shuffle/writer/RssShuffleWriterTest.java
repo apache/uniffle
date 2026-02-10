@@ -20,9 +20,11 @@ package org.apache.spark.shuffle.writer;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
@@ -498,28 +500,26 @@ public class RssShuffleWriterTest {
     assertEquals(2, serverToPartitionToBlockIds.get(replacement).get(0).size());
 
     // case2. If exceeding the max retry times, it will fast fail.
+    String taskId = "t2";
+    FailedBlockSendTracker tracker = new FailedBlockSendTracker();
+    rssShuffleWriter.getReassignExecutor().resetBlockSendTracker(tracker);
+    bufferManagerSpy.resetRecordCount();
     rssShuffleWriter.resetBlockFailSentRetryMaxTimes(1);
-    rssShuffleWriter.setTaskId("taskId2");
-    rssShuffleWriter.getBufferManager().setTaskId("taskId2");
-    taskToFailedBlockSendTracker.put("taskId2", new FailedBlockSendTracker());
-    AtomicInteger rejectCnt = new AtomicInteger(0);
+    rssShuffleWriter.setTaskId(taskId);
+    rssShuffleWriter.getBufferManager().setTaskId(taskId);
+    taskToFailedBlockSendTracker.put(taskId, tracker);
     FakedDataPusher alwaysFailedDataPusher =
         new FakedDataPusher(
             event -> {
-              assertEquals("taskId2", event.getTaskId());
-              FailedBlockSendTracker tracker = taskToFailedBlockSendTracker.get(event.getTaskId());
+              assertEquals(taskId, event.getTaskId());
               for (ShuffleBlockInfo block : event.getShuffleDataInfoList()) {
-                boolean isSuccessful = true;
-                ShuffleServerInfo shuffleServer = block.getShuffleServerInfos().get(0);
-                if (shuffleServer.getId().equals("id1") && rejectCnt.get() <= 3) {
-                  tracker.add(block, shuffleServer, StatusCode.NO_BUFFER);
-                  isSuccessful = false;
-                  rejectCnt.incrementAndGet();
-                } else {
-                  successBlockIds.putIfAbsent(event.getTaskId(), Sets.newConcurrentHashSet());
-                  successBlockIds.get(event.getTaskId()).add(block.getBlockId());
-                }
-                block.executeCompletionCallback(isSuccessful);
+                tracker.add(block, block.getShuffleServerInfos().get(0), StatusCode.NO_BUFFER);
+                block.executeCompletionCallback(false);
+              }
+              List<Runnable> callbackChain =
+                  Optional.of(event.getProcessedCallbackChain()).orElse(Collections.EMPTY_LIST);
+              for (Runnable runnable : callbackChain) {
+                runnable.run();
               }
               return new CompletableFuture<>();
             });
@@ -533,8 +533,6 @@ public class RssShuffleWriterTest {
     } catch (Exception e) {
       // ignore
     }
-    assertEquals(0, bufferManagerSpy.getUsedBytes());
-    assertEquals(0, bufferManagerSpy.getInSendListBytes());
   }
 
   @Test

@@ -435,11 +435,11 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
 
   private void checkSentRecordCount(long recordCount) {
     if (recordCount != bufferManager.getRecordCount()) {
-      String errorMsg =
-          "Potential record loss may have occurred while preparing to send blocks for task["
-              + taskId
-              + "]";
-      throw new RssSendFailedException(errorMsg);
+      String message =
+          String.format(
+              "Inconsistent records number for taskId[%s]. expected: %d, actual: %d.",
+              taskId, recordCount, bufferManager.getRecordCount());
+      throw new RssSendFailedException(message);
     }
   }
 
@@ -897,6 +897,11 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
   @VisibleForTesting
   protected RssShuffleManager getShuffleManager() {
     return shuffleManager;
+  }
+
+  @VisibleForTesting
+  public ReassignExecutor getReassignExecutor() {
+    return reassignExecutor;
   }
 
   public TaskAttemptAssignment getTaskAttemptAssignment() {

@@ -678,6 +678,11 @@ public class WriteBufferManager extends MemoryConsumer {
     return recordCounter.get();
   }
 
+  @VisibleForTesting
+  protected void resetRecordCount() {
+    recordCounter.set(0);
+  }
+
   public long getBlockCount() {
     return blockCounter.get();
   }
