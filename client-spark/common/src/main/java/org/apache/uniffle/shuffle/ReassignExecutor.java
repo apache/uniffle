@@ -104,15 +104,24 @@ public class ReassignExecutor {
     this.blockFailSentRetryMaxTimes = times;
   }
 
+  private void releaseResources(Set<Long> blockIds) {
+    for (Long blockId : blockIds) {
+      List<TrackingBlockStatus> failedBlockStatus =
+          failedBlockSendTracker.getFailedBlockStatus(blockId);
+      if (CollectionUtils.isNotEmpty(failedBlockStatus)) {
+        TrackingBlockStatus blockStatus = failedBlockStatus.get(0);
+        blockStatus.getShuffleBlockInfo().executeCompletionCallback(true);
+      }
+    }
+  }
+
   private void reassignAndResendForFailedBlocks() {
     Set<Long> failedBlockIds = failedBlockSendTracker.getFailedBlockIds();
     if (CollectionUtils.isEmpty(failedBlockIds)) {
       return;
     }
 
-    boolean isFastFail = false;
-    Set<TrackingBlockStatus> resendCandidates = new HashSet<>();
-    // to check whether the blocks resent exceed the max resend count.
+    Set<TrackingBlockStatus> resendBlocks = new HashSet<>();
     for (Long blockId : failedBlockIds) {
       List<TrackingBlockStatus> failedBlockStatus =
           failedBlockSendTracker.getFailedBlockStatus(blockId);
@@ -129,51 +138,40 @@ public class ReassignExecutor {
                 .max(Comparator.comparing(Integer::valueOf))
                 .orElse(-1);
         if (retryCnt >= blockFailSentRetryMaxTimes) {
-          LOG.error(
-              "Partial blocks for taskId: [{}] retry exceeding the max retry times: [{}]. Fast fail! faulty server list: {}",
-              taskContext.taskAttemptId(),
-              blockFailSentRetryMaxTimes,
-              failedBlockStatus.stream()
-                  .map(x -> x.getShuffleServerInfo())
-                  .collect(Collectors.toSet()));
-          isFastFail = true;
-          break;
+          releaseResources(failedBlockIds);
+          String message =
+              String.format(
+                  "Block send retry exceeded max retries. blockId=%d, retryCount=%d, maxRetry=%d, faultyServers=%s",
+                  blockId,
+                  retryCnt,
+                  blockFailSentRetryMaxTimes,
+                  failedBlockStatus.stream()
+                      .map(TrackingBlockStatus::getShuffleServerInfo)
+                      .collect(Collectors.toSet()));
+          throw new RssSendFailedException(message);
         }
 
         for (TrackingBlockStatus status : failedBlockStatus) {
           StatusCode code = status.getStatusCode();
           if (STATUS_CODE_WITHOUT_BLOCK_RESEND.contains(code)) {
-            LOG.error(
-                "Partial blocks for taskId: [{}] failed on the illegal status code: [{}] without resend on server: {}",
-                taskContext.taskAttemptId(),
-                code,
-                status.getShuffleServerInfo());
-            isFastFail = true;
-            break;
+            releaseResources(failedBlockIds);
+            String message =
+                String.format(
+                    "Block send failed with status code [%s] which does not trigger block resend. blockId=%d, retryCount=%d, maxRetry=%d, faultyServer=%s",
+                    code,
+                    blockId,
+                    retryCnt,
+                    blockFailSentRetryMaxTimes,
+                    status.getShuffleServerInfo());
+            throw new RssSendFailedException(message);
           }
         }
 
         // todo: if setting multi replica and another replica is succeed to send, no need to resend
-        resendCandidates.addAll(failedBlockStatus);
+        resendBlocks.addAll(failedBlockStatus);
       }
     }
-
-    if (isFastFail) {
-      // release data and allocated memory
-      for (Long blockId : failedBlockIds) {
-        List<TrackingBlockStatus> failedBlockStatus =
-            failedBlockSendTracker.getFailedBlockStatus(blockId);
-        if (CollectionUtils.isNotEmpty(failedBlockStatus)) {
-          TrackingBlockStatus blockStatus = failedBlockStatus.get(0);
-          blockStatus.getShuffleBlockInfo().executeCompletionCallback(true);
-        }
-      }
-
-      throw new RssSendFailedException(
-          "Errors on resending the blocks data to the remote shuffle-server.");
-    }
-
-    reassignAndResendBlocks(resendCandidates);
+    reassignAndResendBlocks(resendBlocks);
   }
 
   private void reassignOnPartitionNeedSplit() {
@@ -224,7 +222,7 @@ public class ReassignExecutor {
 
     if (reassignPartitionServers.isEmpty()) {
       LOG.info(
-          "[partition-split] switch to another shuffle-server for split partitions (maybe has been load balanced). partitionIds: {}",
+          "[partition-split] Switch to another shuffle-server for split partitions (maybe has been load balanced). partitionIds: {}",
           failurePartitionToServers.keySet());
       return;
     }
