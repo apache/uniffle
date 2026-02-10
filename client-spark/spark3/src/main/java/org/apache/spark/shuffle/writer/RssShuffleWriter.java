@@ -150,7 +150,7 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
 
   private boolean isIntegrityValidationClientManagementEnabled = false;
 
-  private final ReassignExecutor reassignExecutor;
+  private ReassignExecutor reassignExecutor;
 
   // Only for tests
   @VisibleForTesting
@@ -184,6 +184,16 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
         context);
     this.bufferManager = bufferManager;
     this.taskAttemptAssignment = new TaskAttemptAssignment(taskAttemptId, shuffleHandleInfo);
+    this.reassignExecutor =
+        new ReassignExecutor(
+            shuffleManager.getBlockIdsFailedSendTracker(taskId),
+            taskAttemptAssignment,
+            block -> clearFailedBlockState(block),
+            blocks -> processShuffleBlockInfos(blocks),
+            managerClientSupplier,
+            taskContext,
+            shuffleId,
+            rssConf.get(RSS_PARTITION_REASSIGN_BLOCK_RETRY_MAX_TIMES));
   }
 
   private RssShuffleWriter(
@@ -241,16 +251,6 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
     this.shuffleTaskStats =
         new ShuffleWriteTaskStats(
             rssConf, partitioner.numPartitions(), taskAttemptId, taskContext.taskAttemptId());
-    this.reassignExecutor =
-        new ReassignExecutor(
-            shuffleManager.getBlockIdsFailedSendTracker(taskId),
-            taskAttemptAssignment,
-            block -> clearFailedBlockState(block),
-            blocks -> processShuffleBlockInfos(blocks),
-            managerClientSupplier,
-            taskContext,
-            shuffleId,
-            rssConf.get(RSS_PARTITION_REASSIGN_BLOCK_RETRY_MAX_TIMES));
   }
 
   // Gluten needs this method
@@ -325,6 +325,16 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
             this::getPartitionAssignedServers,
             context.stageAttemptNumber());
     this.bufferManager = bufferManager;
+    this.reassignExecutor =
+        new ReassignExecutor(
+            shuffleManager.getBlockIdsFailedSendTracker(taskId),
+            taskAttemptAssignment,
+            block -> clearFailedBlockState(block),
+            blocks -> processShuffleBlockInfos(blocks),
+            managerClientSupplier,
+            taskContext,
+            shuffleId,
+            rssConf.get(RSS_PARTITION_REASSIGN_BLOCK_RETRY_MAX_TIMES));
   }
 
   @VisibleForTesting
