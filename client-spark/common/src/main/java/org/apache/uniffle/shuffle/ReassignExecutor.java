@@ -29,6 +29,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import org.apache.commons.collections4.CollectionUtils;
@@ -100,6 +101,7 @@ public class ReassignExecutor {
     reassignAndResendForFailedBlocks();
   }
 
+  @VisibleForTesting
   public void resetBlockRetryMaxTimes(int times) {
     this.blockFailSentRetryMaxTimes = times;
   }
