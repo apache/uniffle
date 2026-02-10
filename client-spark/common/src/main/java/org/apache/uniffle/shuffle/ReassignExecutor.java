@@ -247,7 +247,8 @@ public class ReassignExecutor {
     LOG.info(builder.toString());
   }
 
-  private void doReassignOnBlockSendFailure(
+  @VisibleForTesting
+  protected void doReassignOnBlockSendFailure(
       Map<Integer, List<ReceivingFailureServer>> failurePartitionToServers,
       boolean partitionSplit) {
     LOG.info(
