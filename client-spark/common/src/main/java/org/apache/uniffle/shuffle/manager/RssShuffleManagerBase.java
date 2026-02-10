@@ -1526,7 +1526,6 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
             try {
               String appId = getAppId();
               shuffleWriteClient.sendAppHeartbeat(appId, heartbeatTimeout);
-              LOG.info("Finish send heartbeat to coordinator and servers");
             } catch (Exception e) {
               LOG.warn("Fail to send heartbeat to coordinator and servers", e);
             }
