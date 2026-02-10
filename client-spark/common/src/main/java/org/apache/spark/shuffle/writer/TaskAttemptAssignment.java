@@ -88,8 +88,7 @@ public class TaskAttemptAssignment {
    * @param exclusiveServers
    * @return
    */
-  public boolean updatePartitionSplitAssignment(
-      int partitionId, List<ShuffleServerInfo> exclusiveServers) {
+  public boolean update(int partitionId, List<ShuffleServerInfo> exclusiveServers) {
     if (hasBeenLoadBalanced(partitionId)) {
       Set<ShuffleServerInfo> servers =
           this.exclusiveServersForPartition.computeIfAbsent(
