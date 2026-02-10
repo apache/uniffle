@@ -367,7 +367,12 @@ public class ReassignExecutor {
       // clear the previous retry state of block
       removeBlockStatsFunction.accept(block);
       final ShuffleBlockInfo newBlock = block;
-      newBlock.incrRetryCnt();
+      // if the status code is null, it means the block is resent due to stale assignment, not
+      // because of the block send failure. In this case, the retry count should not be increased;
+      // otherwise it may cause unexpected fast failure.
+      if (blockStatus.getStatusCode() != null) {
+        newBlock.incrRetryCnt();
+      }
       newBlock.reassignShuffleServers(Arrays.asList(replacement));
       resendCandidates.add(newBlock);
     }
