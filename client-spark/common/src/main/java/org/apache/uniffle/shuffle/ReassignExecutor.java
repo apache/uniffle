@@ -91,6 +91,9 @@ public class ReassignExecutor {
   }
 
   public void reassign() {
+    if (failedBlockSendTracker == null) {
+      return;
+    }
     // 1. reassign for split partitions.
     reassignOnPartitionNeedSplit();
     // 2. reassign for failed blocks
