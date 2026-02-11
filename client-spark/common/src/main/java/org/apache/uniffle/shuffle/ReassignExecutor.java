@@ -61,19 +61,21 @@ public class ReassignExecutor {
   private static final Set<StatusCode> STATUS_CODE_WITHOUT_BLOCK_RESEND =
       Sets.newHashSet(StatusCode.NO_REGISTER);
 
-  private FailedBlockSendTracker failedBlockSendTracker;
+  private Map<String, FailedBlockSendTracker> taskToFailedBlockSendTracker;
   private final TaskAttemptAssignment taskAttemptAssignment;
 
   private final Consumer<ShuffleBlockInfo> removeBlockStatsFunction;
   private final Consumer<List<ShuffleBlockInfo>> resendBlocksFunction;
   private final Supplier<ShuffleManagerClient> managerClientSupplier;
 
+  private String taskId;
   private final TaskContext taskContext;
   private final int shuffleId;
   private int blockFailSentRetryMaxTimes;
 
   public ReassignExecutor(
-      FailedBlockSendTracker failedBlockSendTracker,
+      Map<String, FailedBlockSendTracker> taskToFailedBlockSendTracker,
+      String taskId,
       TaskAttemptAssignment taskAttemptAssignment,
       Consumer<ShuffleBlockInfo> removeBlockStatsFunction,
       Consumer<List<ShuffleBlockInfo>> resendBlocksFunction,
@@ -81,7 +83,8 @@ public class ReassignExecutor {
       TaskContext taskContext,
       int shuffleId,
       int blockFailSentRetryMaxTimes) {
-    this.failedBlockSendTracker = failedBlockSendTracker;
+    this.taskToFailedBlockSendTracker = taskToFailedBlockSendTracker;
+    this.taskId = taskId;
     this.taskAttemptAssignment = taskAttemptAssignment;
     this.removeBlockStatsFunction = removeBlockStatsFunction;
     this.resendBlocksFunction = resendBlocksFunction;
@@ -89,16 +92,22 @@ public class ReassignExecutor {
     this.taskContext = taskContext;
     this.shuffleId = shuffleId;
     this.blockFailSentRetryMaxTimes = blockFailSentRetryMaxTimes;
+    LOG.info(
+        "Initialized {} for taskId[{}]",
+        this.getClass().getSimpleName(),
+        taskContext.taskAttemptId());
   }
 
   public void reassign() {
-    if (failedBlockSendTracker == null) {
+    FailedBlockSendTracker tracker = taskToFailedBlockSendTracker.get(taskId);
+    if (tracker == null) {
+      LOG.info("Unexpected null of failedBlockSendTracker");
       return;
     }
     // 1. reassign for split partitions.
-    reassignOnPartitionNeedSplit();
+    reassignOnPartitionNeedSplit(tracker);
     // 2. reassign for failed blocks
-    reassignAndResendForFailedBlocks();
+    reassignAndResendForFailedBlocks(tracker);
   }
 
   @VisibleForTesting
@@ -106,10 +115,9 @@ public class ReassignExecutor {
     this.blockFailSentRetryMaxTimes = times;
   }
 
-  private void releaseResources(Set<Long> blockIds) {
+  private void releaseResources(FailedBlockSendTracker tracker, Set<Long> blockIds) {
     for (Long blockId : blockIds) {
-      List<TrackingBlockStatus> failedBlockStatus =
-          failedBlockSendTracker.getFailedBlockStatus(blockId);
+      List<TrackingBlockStatus> failedBlockStatus = tracker.getFailedBlockStatus(blockId);
       if (CollectionUtils.isNotEmpty(failedBlockStatus)) {
         TrackingBlockStatus blockStatus = failedBlockStatus.get(0);
         blockStatus.getShuffleBlockInfo().executeCompletionCallback(true);
@@ -117,11 +125,13 @@ public class ReassignExecutor {
     }
   }
 
-  private void reassignAndResendForFailedBlocks() {
+  private void reassignAndResendForFailedBlocks(FailedBlockSendTracker failedBlockSendTracker) {
     Set<Long> failedBlockIds = failedBlockSendTracker.getFailedBlockIds();
     if (CollectionUtils.isEmpty(failedBlockIds)) {
+      LOG.info("Skip due to the empty failed block ids.");
       return;
     }
+    LOG.info("Reassign for failed block ids: {}", failedBlockIds);
 
     Set<TrackingBlockStatus> resendBlocks = new HashSet<>();
     for (Long blockId : failedBlockIds) {
@@ -140,7 +150,7 @@ public class ReassignExecutor {
                 .max(Comparator.comparing(Integer::valueOf))
                 .orElse(-1);
         if (retryCnt >= blockFailSentRetryMaxTimes) {
-          releaseResources(failedBlockIds);
+          releaseResources(failedBlockSendTracker, failedBlockIds);
           String message =
               String.format(
                   "Block send retry exceeded max retries. blockId=%d, retryCount=%d, maxRetry=%d, faultyServers=%s",
@@ -156,7 +166,7 @@ public class ReassignExecutor {
         for (TrackingBlockStatus status : failedBlockStatus) {
           StatusCode code = status.getStatusCode();
           if (STATUS_CODE_WITHOUT_BLOCK_RESEND.contains(code)) {
-            releaseResources(failedBlockIds);
+            releaseResources(failedBlockSendTracker, failedBlockIds);
             String message =
                 String.format(
                     "Block send failed with status code [%s] which does not trigger block resend. blockId=%d, retryCount=%d, maxRetry=%d, faultyServer=%s",
@@ -176,8 +186,7 @@ public class ReassignExecutor {
     reassignAndResendBlocks(resendBlocks);
   }
 
-  private void reassignOnPartitionNeedSplit() {
-    final FailedBlockSendTracker failedTracker = failedBlockSendTracker;
+  private void reassignOnPartitionNeedSplit(FailedBlockSendTracker failedTracker) {
     Map<Integer, List<ReceivingFailureServer>> failurePartitionToServers = new HashMap<>();
 
     failedTracker
@@ -382,7 +391,7 @@ public class ReassignExecutor {
   }
 
   @VisibleForTesting
-  public void resetBlockSendTracker(FailedBlockSendTracker failedBlockSendTracker) {
-    this.failedBlockSendTracker = failedBlockSendTracker;
+  public void resetTaskId(String taskId) {
+    this.taskId = taskId;
   }
 }

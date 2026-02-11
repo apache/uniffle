@@ -186,7 +186,8 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
     this.taskAttemptAssignment = new TaskAttemptAssignment(taskAttemptId, shuffleHandleInfo);
     this.reassignExecutor =
         new ReassignExecutor(
-            shuffleManager.getBlockIdsFailedSendTracker(taskId),
+            shuffleManager.getTaskToFailedBlockSendTracker(),
+            taskId,
             taskAttemptAssignment,
             block -> clearFailedBlockState(block),
             blocks -> processShuffleBlockInfos(blocks),
@@ -327,7 +328,8 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
     this.bufferManager = bufferManager;
     this.reassignExecutor =
         new ReassignExecutor(
-            shuffleManager.getBlockIdsFailedSendTracker(taskId),
+            shuffleManager.getTaskToFailedBlockSendTracker(),
+            taskId,
             taskAttemptAssignment,
             block -> clearFailedBlockState(block),
             blocks -> processShuffleBlockInfos(blocks),
@@ -580,6 +582,8 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
                 + sendCheckTimeout
                 + " ms.";
         LOG.error(errorMsg);
+        FailedBlockSendTracker tracker = shuffleManager.getBlockIdsFailedSendTracker(taskId);
+        LOG.error("failed block ids: {}", tracker.getFailedBlockIds());
         throw new RssWaitFailedException(errorMsg);
       }
     } finally {

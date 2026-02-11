@@ -18,8 +18,10 @@
 package org.apache.uniffle.shuffle;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 import org.apache.spark.TaskContext;
@@ -62,9 +64,12 @@ public class ReassignExecutorTest {
     when(taskContext.stageId()).thenReturn(1);
     when(taskContext.stageAttemptNumber()).thenReturn(0);
 
+    Map<String, FailedBlockSendTracker> taskToTracker = new HashMap<>();
+    taskToTracker.put("task1", failedBlockSendTracker);
     executor =
         new ReassignExecutor(
-            failedBlockSendTracker,
+            taskToTracker,
+            "task1",
             taskAttemptAssignment,
             removeBlockStatsFunction,
             resendBlocksFunction,
