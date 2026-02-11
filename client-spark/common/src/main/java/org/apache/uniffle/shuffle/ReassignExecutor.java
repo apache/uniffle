@@ -213,7 +213,7 @@ public class ReassignExecutor {
         failurePartitionToServers.entrySet()) {
       int partitionId = entry.getKey();
       List<ReceivingFailureServer> failureServers = entry.getValue();
-      if (!taskAttemptAssignment.update(
+      if (!taskAttemptAssignment.tryNextServerForSplitPartition(
           partitionId,
           failureServers.stream()
               .map(x -> ShuffleServerInfo.from(x.getServerId()))

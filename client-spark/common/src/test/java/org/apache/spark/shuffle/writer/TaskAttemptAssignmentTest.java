@@ -78,6 +78,8 @@ public class TaskAttemptAssignmentTest {
   @Test
   public void testUpdatePartitionSplitAssignment() {
     TaskAttemptAssignment assignment = new TaskAttemptAssignment(1, new MockShuffleHandleInfo());
-    assertTrue(assignment.update(1, Arrays.asList(new ShuffleServerInfo("localhost", 122))));
+    assertTrue(
+        assignment.tryNextServerForSplitPartition(
+            1, Arrays.asList(new ShuffleServerInfo("localhost", 122))));
   }
 }
