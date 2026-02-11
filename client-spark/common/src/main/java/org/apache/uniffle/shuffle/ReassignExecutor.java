@@ -33,6 +33,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.spark.SparkEnv;
 import org.apache.spark.TaskContext;
 import org.apache.spark.shuffle.handle.MutableShuffleHandleInfo;
@@ -92,16 +93,12 @@ public class ReassignExecutor {
     this.taskContext = taskContext;
     this.shuffleId = shuffleId;
     this.blockFailSentRetryMaxTimes = blockFailSentRetryMaxTimes;
-    LOG.info(
-        "Initialized {} for taskId[{}]",
-        this.getClass().getSimpleName(),
-        taskContext.taskAttemptId());
+    LOG.debug("Initialized {} for taskId[{}]", this.getClass().getSimpleName(), taskId);
   }
 
   public void reassign() {
     FailedBlockSendTracker tracker = taskToFailedBlockSendTracker.get(taskId);
     if (tracker == null) {
-      LOG.info("Unexpected null of failedBlockSendTracker");
       return;
     }
     // 1. reassign for split partitions.
@@ -128,10 +125,8 @@ public class ReassignExecutor {
   private void reassignAndResendForFailedBlocks(FailedBlockSendTracker failedBlockSendTracker) {
     Set<Long> failedBlockIds = failedBlockSendTracker.getFailedBlockIds();
     if (CollectionUtils.isEmpty(failedBlockIds)) {
-      LOG.info("Skip due to the empty failed block ids.");
       return;
     }
-    LOG.info("Reassign for failed block ids: {}", failedBlockIds);
 
     Set<TrackingBlockStatus> resendBlocks = new HashSet<>();
     for (Long blockId : failedBlockIds) {
@@ -159,6 +154,7 @@ public class ReassignExecutor {
                   blockFailSentRetryMaxTimes,
                   failedBlockStatus.stream()
                       .map(TrackingBlockStatus::getShuffleServerInfo)
+                      .map(ShuffleServerInfo::getId)
                       .collect(Collectors.toSet()));
           throw new RssSendFailedException(message);
         }
@@ -184,6 +180,69 @@ public class ReassignExecutor {
       }
     }
     reassignAndResendBlocks(resendBlocks);
+  }
+
+  private Map<Integer, Pair<List<String>, List<String>>> constructUpdateList(
+      Map<Integer, List<ReceivingFailureServer>> requestList) {
+    Map<Integer, Pair<List<String>, List<String>>> reassignUpdateList = new HashMap<>();
+    for (Map.Entry<Integer, List<ReceivingFailureServer>> entry : requestList.entrySet()) {
+      Integer partitionId = entry.getKey();
+      List<String> oldServers =
+          entry.getValue().stream()
+              .map(ReceivingFailureServer::getServerId)
+              .collect(Collectors.toList());
+      List<String> newServers =
+          taskAttemptAssignment.retrieve(partitionId).stream()
+              .map(ShuffleServerInfo::getId)
+              .collect(Collectors.toList());
+      reassignUpdateList.put(partitionId, Pair.of(oldServers, newServers));
+    }
+    return reassignUpdateList;
+  }
+
+  @VisibleForTesting
+  protected static String readableResult(
+      Map<Integer, Pair<List<String>, List<String>>> fastSwitchList) {
+    if (fastSwitchList == null || fastSwitchList.isEmpty()) {
+      return "";
+    }
+
+    StringBuilder sb = new StringBuilder();
+    boolean hasDiff = false;
+
+    for (Map.Entry<Integer, Pair<List<String>, List<String>>> entry :
+        fastSwitchList.entrySet().stream()
+            .sorted(Map.Entry.comparingByKey())
+            .collect(Collectors.toList())) {
+
+      Integer partitionId = entry.getKey();
+      Pair<List<String>, List<String>> servers = entry.getValue();
+      List<String> oldServers = servers.getLeft();
+      List<String> newServers = servers.getRight();
+
+      // compare as set to avoid ordering impact
+      if (oldServers != null
+          && newServers != null
+          && new HashSet<>(oldServers).equals(new HashSet<>(newServers))) {
+        continue;
+      }
+
+      hasDiff = true;
+
+      sb.append("partitionId=")
+          .append(partitionId)
+          .append(": ")
+          .append(oldServers)
+          .append(" -> ")
+          .append(newServers)
+          .append("; ");
+    }
+
+    if (!hasDiff) {
+      return "";
+    }
+
+    return sb.toString().trim();
   }
 
   private void reassignOnPartitionNeedSplit(FailedBlockSendTracker failedTracker) {
@@ -217,43 +276,58 @@ public class ReassignExecutor {
     // For the [pipeline] mode
     // The split request will be always response
     //
-    Map<Integer, List<ReceivingFailureServer>> reassignPartitionServers = new HashMap<>();
+
+    // the list of reassign list
+    Map<Integer, List<ReceivingFailureServer>> reassignList = new HashMap<>();
+
+    // the list of fast switch list. key: partitionId, value: left=old, right=new
+    Map<Integer, Pair<List<String>, List<String>>> fastSwitchList = new HashMap<>();
+
     for (Map.Entry<Integer, List<ReceivingFailureServer>> entry :
         failurePartitionToServers.entrySet()) {
       int partitionId = entry.getKey();
       List<ReceivingFailureServer> failureServers = entry.getValue();
-      if (!taskAttemptAssignment.tryNextServerForSplitPartition(
+      if (taskAttemptAssignment.tryNextServerForSplitPartition(
           partitionId,
           failureServers.stream()
               .map(x -> ShuffleServerInfo.from(x.getServerId()))
               .collect(Collectors.toList()))) {
-        reassignPartitionServers.put(partitionId, failureServers);
+        fastSwitchList.put(
+            partitionId,
+            Pair.of(
+                failureServers.stream()
+                    .map(ReceivingFailureServer::getServerId)
+                    .collect(Collectors.toList()),
+                taskAttemptAssignment.retrieve(partitionId).stream()
+                    .map(ShuffleServerInfo::getId)
+                    .collect(Collectors.toList())));
+      } else {
+        reassignList.put(partitionId, failureServers);
       }
     }
 
-    if (reassignPartitionServers.isEmpty()) {
+    if (reassignList.isEmpty()) {
       LOG.info(
-          "[partition-split] Switch to another shuffle-server for split partitions (maybe has been load balanced). partitionIds: {}",
-          failurePartitionToServers.keySet());
+          "[partition-split] All fast switch to another servers successfully for taskId[{}]. list: {}",
+          taskId,
+          readableResult(fastSwitchList));
       return;
+    } else {
+      if (!fastSwitchList.isEmpty()) {
+        LOG.info(
+            "[partition-split] Partial fast switch to another servers for taskId[{}]. list: {}",
+            taskId,
+            readableResult(fastSwitchList));
+      }
     }
 
-    doReassignOnBlockSendFailure(reassignPartitionServers, true);
-
-    StringBuilder builder = new StringBuilder();
-    builder.append("=partition-split=");
-    for (Map.Entry<Integer, List<ReceivingFailureServer>> entry :
-        reassignPartitionServers.entrySet()) {
-      builder.append("partitionId");
-      builder.append(entry.getKey());
-      builder.append(": ");
-      builder.append(
-          entry.getValue().stream().map(x -> x.getServerId()).collect(Collectors.toList()));
-      builder.append(" -> ");
-      builder.append(taskAttemptAssignment.retrieve(entry.getKey()));
-    }
-    builder.append("==");
-    LOG.info(builder.toString());
+    long start = System.currentTimeMillis();
+    doReassignOnBlockSendFailure(reassignList, true);
+    LOG.info(
+        "[partition-split] Reassign successfully for taskId[{}] in {} ms. list: {}",
+        taskId,
+        System.currentTimeMillis() - start,
+        readableResult(constructUpdateList(reassignList)));
   }
 
   @VisibleForTesting
@@ -261,8 +335,8 @@ public class ReassignExecutor {
       Map<Integer, List<ReceivingFailureServer>> failurePartitionToServers,
       boolean partitionSplit) {
     LOG.info(
-        "Initiate reassignOnBlockSendFailure of taskId[{}]. partition split: {}. failure partition servers: {}. ",
-        taskContext.taskAttemptId(),
+        "Initiate reassignOnBlockSendFailure of taskId[{}]. isPartitionSplit: {}. failurePartitionServers: {}.",
+        taskId,
         partitionSplit,
         failurePartitionToServers);
     // for tests to set the default value
@@ -290,23 +364,12 @@ public class ReassignExecutor {
       if (response.getStatusCode() != StatusCode.SUCCESS) {
         String msg =
             String.format(
-                "Reassign failed. statusCode: %s, msg: %s",
+                "Reassign request failed. statusCode: %s, msg: %s",
                 response.getStatusCode(), response.getMessage());
         throw new RssException(msg);
       }
       MutableShuffleHandleInfo handle = MutableShuffleHandleInfo.fromProto(response.getHandle());
       taskAttemptAssignment.update(handle);
-
-      // print the lastest assignment for those reassignment partition ids
-      Map<Integer, List<String>> reassignments = new HashMap<>();
-      for (Map.Entry<Integer, List<ReceivingFailureServer>> entry :
-          failurePartitionToServers.entrySet()) {
-        int partitionId = entry.getKey();
-        List<ShuffleServerInfo> servers = taskAttemptAssignment.retrieve(partitionId);
-        reassignments.put(
-            partitionId, servers.stream().map(x -> x.getId()).collect(Collectors.toList()));
-      }
-      LOG.info("Succeed to reassign that the latest assignment is {}", reassignments);
     } catch (Exception e) {
       throw new RssException(
           "Errors on reassign on block send failure. failure partition->servers : "
@@ -316,6 +379,7 @@ public class ReassignExecutor {
   }
 
   private void reassignAndResendBlocks(Set<TrackingBlockStatus> blocks) {
+    long start = System.currentTimeMillis();
     List<ShuffleBlockInfo> resendCandidates = Lists.newArrayList();
     Map<Integer, List<TrackingBlockStatus>> partitionedFailedBlocks =
         blocks.stream()
@@ -354,7 +418,12 @@ public class ReassignExecutor {
     }
 
     if (!failurePartitionToServers.isEmpty()) {
+      long requestStart = System.currentTimeMillis();
       doReassignOnBlockSendFailure(failurePartitionToServers, false);
+      LOG.info(
+          "[partition-reassign] Do reassign successfully in {} ms. list: {}",
+          System.currentTimeMillis() - requestStart,
+          readableResult(constructUpdateList(failurePartitionToServers)));
     }
 
     for (TrackingBlockStatus blockStatus : blocks) {
@@ -387,7 +456,9 @@ public class ReassignExecutor {
     }
     resendBlocksFunction.accept(resendCandidates);
     LOG.info(
-        "Failed blocks have been resent to data pusher queue since reassignment has been finished successfully");
+        "[partition-reassign] All {} blocks have been resent to queue successfully in {} ms.",
+        blocks.size(),
+        System.currentTimeMillis() - start);
   }
 
   @VisibleForTesting

@@ -582,8 +582,6 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
                 + sendCheckTimeout
                 + " ms.";
         LOG.error(errorMsg);
-        FailedBlockSendTracker tracker = shuffleManager.getBlockIdsFailedSendTracker(taskId);
-        LOG.error("failed block ids: {}", tracker.getFailedBlockIds());
         throw new RssWaitFailedException(errorMsg);
       }
     } finally {

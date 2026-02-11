@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.spark.TaskContext;
 import org.apache.spark.shuffle.writer.TaskAttemptAssignment;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,10 +35,13 @@ import org.apache.uniffle.client.api.ShuffleManagerClient;
 import org.apache.uniffle.client.impl.FailedBlockSendTracker;
 import org.apache.uniffle.client.impl.TrackingBlockStatus;
 import org.apache.uniffle.common.ShuffleBlockInfo;
+import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.exception.RssSendFailedException;
 import org.apache.uniffle.common.rpc.StatusCode;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -89,6 +93,7 @@ public class ReassignExecutorTest {
     TrackingBlockStatus status = org.mockito.Mockito.mock(TrackingBlockStatus.class);
     when(status.getShuffleBlockInfo()).thenReturn(blockInfo);
     when(status.getStatusCode()).thenReturn(StatusCode.INTERNAL_ERROR);
+    when(status.getShuffleServerInfo()).thenReturn(new ShuffleServerInfo("localhost", 1234));
 
     when(failedBlockSendTracker.getFailedBlockIds())
         .thenReturn(new HashSet<>(Arrays.asList(blockId)));
@@ -97,5 +102,23 @@ public class ReassignExecutorTest {
     assertThrows(RssSendFailedException.class, executor::reassign);
 
     verify(blockInfo).executeCompletionCallback(true);
+  }
+
+  @Test
+  public void testMixedSameAndDifferent() throws Exception {
+    Map<Integer, Pair<List<String>, List<String>>> map = new HashMap<>();
+
+    // same -> should ignore
+    map.put(1, Pair.of(Arrays.asList("s1", "s2"), Arrays.asList("s2", "s1")));
+
+    // diff -> should print
+    map.put(3, Pair.of(Arrays.asList("x"), Arrays.asList("y")));
+
+    String result = ReassignExecutor.readableResult(map);
+
+    System.out.println(result);
+
+    assertFalse(result.contains("partitionId=1"));
+    assertTrue(result.contains("partitionId=3"));
   }
 }
