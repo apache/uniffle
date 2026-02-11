@@ -421,7 +421,7 @@ public class ReassignExecutor {
       long requestStart = System.currentTimeMillis();
       doReassignOnBlockSendFailure(failurePartitionToServers, false);
       LOG.info(
-          "[partition-reassign] Do reassign successfully in {} ms. list: {}",
+          "[partition-reassign] Do reassign request successfully in {} ms. list: {}",
           System.currentTimeMillis() - requestStart,
           readableResult(constructUpdateList(failurePartitionToServers)));
     }
