@@ -321,6 +321,7 @@ public class ReassignExecutor {
       }
     }
 
+    @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
     long start = System.currentTimeMillis();
     doReassignOnBlockSendFailure(reassignList, true);
     LOG.info(
@@ -379,6 +380,7 @@ public class ReassignExecutor {
   }
 
   private void reassignAndResendBlocks(Set<TrackingBlockStatus> blocks) {
+    @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
     long start = System.currentTimeMillis();
     List<ShuffleBlockInfo> resendCandidates = Lists.newArrayList();
     Map<Integer, List<TrackingBlockStatus>> partitionedFailedBlocks =
@@ -418,6 +420,7 @@ public class ReassignExecutor {
     }
 
     if (!failurePartitionToServers.isEmpty()) {
+      @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
       long requestStart = System.currentTimeMillis();
       doReassignOnBlockSendFailure(failurePartitionToServers, false);
       LOG.info(
