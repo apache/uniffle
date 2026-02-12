@@ -259,6 +259,15 @@ public class MutableShuffleHandleInfo extends ShuffleHandleInfoBase {
             // 0, 1, 2
             int idx = (int) (taskAttemptId % (serverSize - 1)) + 1;
             candidate = servers.get(idx);
+          } else {
+            // fallback to random server if no available servers in load-balanced mode
+            servers =
+                replicaServerEntry.getValue().stream()
+                    .filter(x -> !excludedServerToReplacements.containsKey(x.getId()))
+                    .collect(Collectors.toList());
+            serverSize = servers.size();
+            int idx = (int) (taskAttemptId % (serverSize - 1)) + 1;
+            candidate = servers.get(idx);
           }
         }
 

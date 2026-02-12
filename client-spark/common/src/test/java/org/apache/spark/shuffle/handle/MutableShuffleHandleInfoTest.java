@@ -276,4 +276,46 @@ public class MutableShuffleHandleInfoTest {
     // All the servers were selected as writer are available as reader
     assertEquals(6, assignment.get(1).size());
   }
+
+  @Test
+  public void testLoadBalanceFallbackToNonExcludedServers() {
+    // prepare servers
+    ShuffleServerInfo a = createFakeServerInfo("a");
+    ShuffleServerInfo b = createFakeServerInfo("b");
+
+    Map<Integer, List<ShuffleServerInfo>> partitionToServers = new HashMap<>();
+    partitionToServers.put(1, Arrays.asList(a, b));
+
+    // create handle with LOAD_BALANCE mode
+    MutableShuffleHandleInfo handleInfo =
+        new MutableShuffleHandleInfo(
+            1,
+            partitionToServers,
+            new RemoteStorageInfo(""),
+            org.apache.uniffle.common.PartitionSplitMode.LOAD_BALANCE);
+
+    int partitionId = 1;
+
+    // mark partition as split by excluding server "a"
+    Set<ShuffleServerInfo> replacements = Sets.newHashSet(createFakeServerInfo("c"));
+    handleInfo.updateAssignmentOnPartitionSplit(partitionId, "a", replacements);
+
+    // also make sure excludedServerToReplacements contains "b"
+    // so that first filtering (exclude problem nodes) removes all servers
+    handleInfo.updateAssignment(partitionId, "b", Sets.newHashSet(createFakeServerInfo("d")));
+
+    // now call writer assignment
+    Map<Integer, List<ShuffleServerInfo>> available =
+        handleInfo.getAvailablePartitionServersForWriter(null);
+
+    // fallback branch should be triggered and still return a valid candidate
+    // ensure we have exactly one candidate for replica 0
+    assertTrue(available.containsKey(partitionId));
+    assertEquals(2, available.get(partitionId).size());
+
+    // candidate must be one of the original servers or appended replacements, rather than always
+    // the last one
+    ShuffleServerInfo candidate = available.get(partitionId).get(0);
+    assertEquals("c", candidate.getId());
+  }
 }

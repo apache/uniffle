@@ -385,6 +385,7 @@ public class ReassignExecutor {
     List<ShuffleBlockInfo> resendCandidates = Lists.newArrayList();
     Map<Integer, List<TrackingBlockStatus>> partitionedFailedBlocks =
         blocks.stream()
+            .filter(x -> x.getStatusCode() != null)
             .collect(Collectors.groupingBy(d -> d.getShuffleBlockInfo().getPartitionId()));
 
     Map<Integer, List<ReceivingFailureServer>> failurePartitionToServers = new HashMap<>();
