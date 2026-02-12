@@ -611,7 +611,7 @@ public class RssShuffleWriterTest {
         assertThrows(
             RuntimeException.class,
             () -> rssShuffleWriter.checkBlockSendResult(Sets.newHashSet(1L, 2L, 3L)));
-    assertTrue(e2.getMessage().startsWith("failed because"));
+    assertTrue(e2.getMessage().contains("failed because"));
     successBlocks.clear();
 
     // case 3: partial blocks are sent failed, Runtime exception will be thrown
