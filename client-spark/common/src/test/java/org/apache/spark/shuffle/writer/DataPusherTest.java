@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
 import com.google.common.collect.Maps;
@@ -128,6 +129,70 @@ public class DataPusherTest {
     Set<Long> failedBlockIds = taskToFailedBlockSendTracker.get(taskId).getFailedBlockIds();
     assertEquals(1, failedBlockIds.size());
     assertEquals(3, failedBlockIds.stream().findFirst().get());
+  }
+
+  /**
+   * Test that when all blocks in a batch are stale (filtered out by fast-switch), the
+   * processedCallbackChain is still executed. Before the fix, if all blocks were stale, the early
+   * return skipped the finally block, causing the callback (which notifies checkBlockSendResult via
+   * finishEventQueue) to never run. This led to checkBlockSendResult blocking indefinitely on
+   * poll(), unable to call reassign() to resend the stale blocks, ultimately timing out.
+   */
+  @Test
+  public void testProcessedCallbackChainExecutedWhenAllBlocksAreStale()
+      throws ExecutionException, InterruptedException {
+    FakedShuffleWriteClient shuffleWriteClient = new FakedShuffleWriteClient();
+
+    Map<String, Set<Long>> taskToSuccessBlockIds = Maps.newConcurrentMap();
+    Map<String, FailedBlockSendTracker> taskToFailedBlockSendTracker = JavaUtils.newConcurrentMap();
+    Set<String> failedTaskIds = new HashSet<>();
+
+    RssConf rssConf = new RssConf();
+    rssConf.set(RssClientConf.RSS_CLIENT_REASSIGN_ENABLED, true);
+    rssConf.set(RssSparkConfig.RSS_PARTITION_REASSIGN_STALE_ASSIGNMENT_FAST_SWITCH_ENABLED, true);
+    DataPusher dataPusher =
+        new DataPusher(
+            shuffleWriteClient,
+            taskToSuccessBlockIds,
+            taskToFailedBlockSendTracker,
+            failedTaskIds,
+            1,
+            2,
+            rssConf);
+    dataPusher.setRssAppId("testCallbackWhenAllStale");
+
+    String taskId = "taskId1";
+    List<ShuffleServerInfo> server1 =
+        Collections.singletonList(new ShuffleServerInfo("0", "localhost", 1234));
+    // Create a stale block: isStaleAssignment() returns true because the
+    // partitionAssignmentRetrieveFunc returns an empty list (different from the block's servers).
+    ShuffleBlockInfo staleBlock =
+        new ShuffleBlockInfo(
+            1, 1, 10, 1, 1, new byte[1], server1, 1, 100, 1, integer -> Collections.emptyList());
+
+    // Track whether processedCallbackChain is invoked
+    AtomicBoolean callbackExecuted = new AtomicBoolean(false);
+    AddBlockEvent event = new AddBlockEvent(taskId, Arrays.asList(staleBlock));
+    event.addCallback(() -> callbackExecuted.set(true));
+
+    CompletableFuture<Long> future = dataPusher.send(event);
+    long result = future.get();
+
+    // The block is stale, so no data is actually sent (0 bytes freed)
+    assertEquals(0L, result);
+
+    // The stale block should be tracked in the FailedBlockSendTracker
+    Set<Long> failedBlockIds = taskToFailedBlockSendTracker.get(taskId).getFailedBlockIds();
+    assertEquals(1, failedBlockIds.size());
+    assertEquals(10, failedBlockIds.stream().findFirst().get());
+
+    // The processedCallbackChain MUST be executed even when all blocks are stale.
+    // Before the fix, this assertion would fail because the early return (return 0L)
+    // was placed before the try-finally that executes the callback chain.
+    assertTrue(
+        callbackExecuted.get(),
+        "processedCallbackChain must be executed even when all blocks are stale, "
+            + "otherwise checkBlockSendResult will block on finishEventQueue.poll() indefinitely");
   }
 
   @Test
