@@ -572,17 +572,14 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
       }
       Set<Long> successBlockIds = shuffleManager.getSuccessBlockIds(taskId);
       if (currentAckValue != 0 || blockIds.size() != successBlockIds.size()) {
-        int failedBlockCount = blockIds.size() - successBlockIds.size();
-        String errorMsg =
-            "Timeout: Task["
-                + taskId
-                + "] failed because "
-                + failedBlockCount
-                + " blocks can't be sent to shuffle server in "
-                + sendCheckTimeout
-                + " ms.";
-        LOG.error(errorMsg);
-        throw new RssWaitFailedException(errorMsg);
+        int missing = blockIds.size() - successBlockIds.size();
+        int failed =
+            Optional.ofNullable(shuffleManager.getFailedBlockIds(taskId)).map(Set::size).orElse(0);
+        String message =
+            String.format(
+                "TaskId[%s] failed because %d blocks (failed: %d}) can't be sent to shuffle server in %d ms.",
+                taskId, missing, failed, sendCheckTimeout);
+        throw new RssWaitFailedException(message);
       }
     } finally {
       if (interrupted) {
