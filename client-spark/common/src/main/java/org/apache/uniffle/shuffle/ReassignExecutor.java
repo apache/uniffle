@@ -33,6 +33,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.spark.SparkEnv;
 import org.apache.spark.TaskContext;
@@ -306,19 +307,22 @@ public class ReassignExecutor {
       }
     }
 
+    String readableMessage = readableResult(fastSwitchList);
     if (reassignList.isEmpty()) {
-      LOG.info(
-          "[partition-split] All fast switch to another servers successfully for taskId[{}]. list: {}",
-          taskId,
-          readableResult(fastSwitchList));
-      return;
-    } else {
-      if (!fastSwitchList.isEmpty()) {
+      if (StringUtils.isNotEmpty(readableMessage)) {
         LOG.info(
-            "[partition-split] Partial fast switch to another servers for taskId[{}]. list: {}",
+            "[partition-split] All partitions fast-switched successfully for taskId[{}]. list: {}",
             taskId,
-            readableResult(fastSwitchList));
+            readableMessage);
       }
+      return;
+    }
+
+    if (StringUtils.isNotEmpty(readableMessage)) {
+      LOG.info(
+          "[partition-split] Partial partitions fast-switched for taskId[{}]. list: {}",
+          taskId,
+          readableMessage);
     }
 
     @SuppressWarnings("checkstyle:VariableDeclarationUsageDistance")
@@ -430,8 +434,12 @@ public class ReassignExecutor {
           readableResult(constructUpdateList(failurePartitionToServers)));
     }
 
+    int staleCnt = 0;
     for (TrackingBlockStatus blockStatus : blocks) {
       ShuffleBlockInfo block = blockStatus.getShuffleBlockInfo();
+      if (blockStatus.getStatusCode() == null) {
+        staleCnt += 1;
+      }
       // todo: getting the replacement should support multi replica.
       List<ShuffleServerInfo> servers = taskAttemptAssignment.retrieve(block.getPartitionId());
       // Gets the first replica for this partition for now.
@@ -460,8 +468,10 @@ public class ReassignExecutor {
     }
     resendBlocksFunction.accept(resendCandidates);
     LOG.info(
-        "[partition-reassign] All {} blocks have been resent to queue successfully in {} ms.",
+        "[partition-reassign] {} blocks (failed/stale: {}/{}) have been resent to queue successfully in {} ms.",
         blocks.size(),
+        blocks.size() - staleCnt,
+        staleCnt,
         System.currentTimeMillis() - start);
   }
 
