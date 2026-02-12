@@ -81,6 +81,7 @@ import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.exception.RssSendFailedException;
 import org.apache.uniffle.common.exception.RssWaitFailedException;
 import org.apache.uniffle.common.rpc.StatusCode;
+import org.apache.uniffle.common.util.BlockIdLayout;
 import org.apache.uniffle.shuffle.BlockStats;
 import org.apache.uniffle.shuffle.ReassignExecutor;
 import org.apache.uniffle.shuffle.ShuffleWriteTaskStats;
@@ -576,8 +577,20 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
             Optional.ofNullable(shuffleManager.getFailedBlockIds(taskId)).map(Set::size).orElse(0);
         String message =
             String.format(
-                "TaskId[%s] failed because %d blocks (failed: %d}) can't be sent to shuffle server in %d ms.",
+                "TaskId[%s] failed because %d blocks (failed: %d}) can't be sent to shuffle server in %d ms",
                 taskId, missing, failed, sendCheckTimeout);
+
+        // detailed error message
+        Set<Long> missingBlockIds = new HashSet<>(blockIds);
+        missingBlockIds.removeAll(successBlockIds);
+        BlockIdLayout layout = BlockIdLayout.from(rssConf);
+        LOG.error(
+            "{}, includes partitions: {}",
+            message,
+            missingBlockIds.stream()
+                .map(x -> layout.getPartitionId(x))
+                .collect(Collectors.toSet()));
+
         throw new RssWaitFailedException(message);
       }
     } finally {
