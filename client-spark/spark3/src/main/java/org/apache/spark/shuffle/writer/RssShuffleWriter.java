@@ -518,8 +518,7 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
       }
       event.addCallback(
           () -> {
-            boolean ret = finishEventQueue.add(new Object());
-            if (!ret) {
+            if (!finishEventQueue.add(new Object())) {
               LOG.error("Add event " + event + " to finishEventQueue fail");
             }
           });
