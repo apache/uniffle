@@ -124,27 +124,26 @@ public class DataPusher implements Closeable {
               String taskId = event.getTaskId();
               List<ShuffleBlockInfo> blocks = event.getShuffleDataInfoList();
               List<ShuffleBlockInfo> validBlocks = filterOutStaleAssignmentBlocks(taskId, blocks);
-              if (CollectionUtils.isEmpty(validBlocks)) {
-                return 0L;
-              }
 
               SendShuffleDataResult result = null;
               try {
-                result =
-                    shuffleWriteClient.sendShuffleData(
-                        rssAppId,
-                        event.getStageAttemptNumber(),
-                        validBlocks,
-                        () -> !isValidTask(taskId));
-                // completionCallback should be executed before updating taskToSuccessBlockIds
-                // structure to avoid side effect
-                Set<Long> succeedBlockIds = getSucceedBlockIds(result);
-                for (ShuffleBlockInfo block : validBlocks) {
-                  block.executeCompletionCallback(succeedBlockIds.contains(block.getBlockId()));
+                if (CollectionUtils.isNotEmpty(validBlocks)) {
+                  result =
+                      shuffleWriteClient.sendShuffleData(
+                          rssAppId,
+                          event.getStageAttemptNumber(),
+                          validBlocks,
+                          () -> !isValidTask(taskId));
+                  // completionCallback should be executed before updating taskToSuccessBlockIds
+                  // structure to avoid side effect
+                  Set<Long> succeedBlockIds = getSucceedBlockIds(result);
+                  for (ShuffleBlockInfo block : validBlocks) {
+                    block.executeCompletionCallback(succeedBlockIds.contains(block.getBlockId()));
+                  }
+                  putBlockId(taskToSuccessBlockIds, taskId, result.getSuccessBlockIds());
+                  putFailedBlockSendTracker(
+                      taskToFailedBlockSendTracker, taskId, result.getFailedBlockSendTracker());
                 }
-                putBlockId(taskToSuccessBlockIds, taskId, result.getSuccessBlockIds());
-                putFailedBlockSendTracker(
-                    taskToFailedBlockSendTracker, taskId, result.getFailedBlockSendTracker());
               } finally {
                 WriteBufferManager bufferManager = event.getBufferManager();
                 if (bufferManager != null && result != null) {
@@ -158,6 +157,9 @@ public class DataPusher implements Closeable {
                 for (Runnable runnable : callbackChain) {
                   runnable.run();
                 }
+              }
+              if (CollectionUtils.isEmpty(validBlocks)) {
+                return 0L;
               }
               Set<Long> succeedBlockIds = getSucceedBlockIds(result);
               return validBlocks.stream()
