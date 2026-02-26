@@ -188,6 +188,7 @@ case class ShuffleReadTimesSummary(var fetch: Long = 0,
                                    var total: Long = 0) {
   def inc(times: ShuffleReadTimes): Unit = {
     if (times == null) return
+    this.total += times.getTotal
     this.fetch += times.getFetch
     this.crc += times.getCrc
     this.copy += times.getCopy
