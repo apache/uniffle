@@ -21,8 +21,11 @@ import java.nio.ByteBuffer;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class NettyManagedBuffer extends ManagedBuffer {
+  private static final Logger LOG = LoggerFactory.getLogger(NettyManagedBuffer.class);
 
   public static final NettyManagedBuffer EMPTY_BUFFER =
       new NettyManagedBuffer(Unpooled.EMPTY_BUFFER);
@@ -56,6 +59,12 @@ public class NettyManagedBuffer extends ManagedBuffer {
 
   @Override
   public ManagedBuffer release() {
+    LOG.warn("Check NettyManagedBuffer release");
+    LOG.warn(Thread.currentThread().getName());
+    LOG.warn(this.toString());
+    LOG.warn(this.buf.toString());
+    LOG.warn("size: " + this.buf.readableBytes());
+    LOG.warn("Check NettyManagedBuffer release stack tree", new Throwable());
     buf.release();
     return this;
   }
