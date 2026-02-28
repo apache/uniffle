@@ -19,12 +19,15 @@ package org.apache.uniffle.client.impl;
 
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicLong;
 
+import com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,7 +58,10 @@ public class DecompressionWorker {
   private AtomicLong peekMemoryUsed = new AtomicLong(0);
   private AtomicLong nowMemoryUsed = new AtomicLong(0);
 
-  public DecompressionWorker(Codec codec, int threads, int fetchSecondsThreshold) {
+  private final Optional<Semaphore> segmentPermits;
+
+  public DecompressionWorker(
+      Codec codec, int threads, int fetchSecondsThreshold, int maxConcurrentDecompressionSegments) {
     if (codec == null) {
       throw new IllegalArgumentException("Codec cannot be null");
     }
@@ -67,6 +73,16 @@ public class DecompressionWorker {
         Executors.newFixedThreadPool(threads, ThreadUtils.getThreadFactory("decompressionWorker"));
     this.codec = codec;
     this.fetchSecondsThreshold = fetchSecondsThreshold;
+
+    if (maxConcurrentDecompressionSegments <= 0) {
+      this.segmentPermits = Optional.empty();
+    } else if (threads != 1) {
+      LOG.info(
+          "Disable backpressure control since threads is {} to avoid potential deadlock", threads);
+      this.segmentPermits = Optional.empty();
+    } else {
+      this.segmentPermits = Optional.of(new Semaphore(maxConcurrentDecompressionSegments));
+    }
   }
 
   public void add(int batchIndex, ShuffleDataResult shuffleDataResult) {
@@ -80,34 +96,49 @@ public class DecompressionWorker {
     for (BufferSegment bufferSegment : bufferSegments) {
       CompletableFuture<ByteBuffer> f =
           CompletableFuture.supplyAsync(
-              () -> {
-                int offset = bufferSegment.getOffset();
-                int length = bufferSegment.getLength();
-                ByteBuffer buffer = sharedByteBuffer.duplicate();
-                buffer.position(offset);
-                buffer.limit(offset + length);
+                  () -> {
+                    try {
+                      if (segmentPermits.isPresent()) {
+                        segmentPermits.get().acquire();
+                      }
+                    } catch (InterruptedException e) {
+                      Thread.currentThread().interrupt();
+                      LOG.warn("Interrupted while acquiring segment permit", e);
+                      return null;
+                    }
 
-                int uncompressedLen = bufferSegment.getUncompressLength();
+                    int offset = bufferSegment.getOffset();
+                    int length = bufferSegment.getLength();
+                    ByteBuffer buffer = sharedByteBuffer.duplicate();
+                    buffer.position(offset);
+                    buffer.limit(offset + length);
 
-                long startBufferAllocation = System.currentTimeMillis();
-                ByteBuffer dst =
-                    buffer.isDirect()
-                        ? ByteBuffer.allocateDirect(uncompressedLen)
-                        : ByteBuffer.allocate(uncompressedLen);
-                decompressionBufferAllocationMillis.addAndGet(
-                    System.currentTimeMillis() - startBufferAllocation);
+                    int uncompressedLen = bufferSegment.getUncompressLength();
 
-                long startDecompression = System.currentTimeMillis();
-                codec.decompress(buffer, uncompressedLen, dst, 0);
-                decompressionMillis.addAndGet(System.currentTimeMillis() - startDecompression);
-                decompressionBytes.addAndGet(length);
+                    long startBufferAllocation = System.currentTimeMillis();
+                    ByteBuffer dst =
+                        buffer.isDirect()
+                            ? ByteBuffer.allocateDirect(uncompressedLen)
+                            : ByteBuffer.allocate(uncompressedLen);
+                    decompressionBufferAllocationMillis.addAndGet(
+                        System.currentTimeMillis() - startBufferAllocation);
 
-                nowMemoryUsed.addAndGet(uncompressedLen);
-                resetPeekMemoryUsed();
+                    long startDecompression = System.currentTimeMillis();
+                    codec.decompress(buffer, uncompressedLen, dst, 0);
+                    decompressionMillis.addAndGet(System.currentTimeMillis() - startDecompression);
+                    decompressionBytes.addAndGet(length);
 
-                return dst;
-              },
-              executorService);
+                    nowMemoryUsed.addAndGet(uncompressedLen);
+                    resetPeekMemoryUsed();
+
+                    return dst;
+                  },
+                  executorService)
+              .exceptionally(
+                  ex -> {
+                    LOG.error("Errors on decompressing shuffle block", ex);
+                    return null;
+                  });
       ConcurrentHashMap<Integer, DecompressedShuffleBlock> blocks =
           tasks.computeIfAbsent(batchIndex, k -> new ConcurrentHashMap<>());
       blocks.put(
@@ -132,6 +163,7 @@ public class DecompressionWorker {
     // block
     if (block != null) {
       nowMemoryUsed.addAndGet(-block.getUncompressLength());
+      segmentPermits.ifPresent(x -> x.release());
     }
     return block;
   }
@@ -162,5 +194,18 @@ public class DecompressionWorker {
 
   public long decompressionMillis() {
     return decompressionMillis.get() + decompressionBufferAllocationMillis.get();
+  }
+
+  @VisibleForTesting
+  protected long getPeekMemoryUsed() {
+    return peekMemoryUsed.get();
+  }
+
+  @VisibleForTesting
+  protected int getAvailablePermits() {
+    if (segmentPermits.isPresent()) {
+      return segmentPermits.get().availablePermits();
+    }
+    return -1;
   }
 }
