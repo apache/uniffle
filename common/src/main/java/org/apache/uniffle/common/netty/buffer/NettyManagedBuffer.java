@@ -20,7 +20,10 @@ package org.apache.uniffle.common.netty.buffer;
 import java.nio.ByteBuffer;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.CompositeByteBuf;
 import io.netty.buffer.Unpooled;
+
+import org.apache.uniffle.common.util.NettyUtils;
 
 public class NettyManagedBuffer extends ManagedBuffer {
 
@@ -45,6 +48,22 @@ public class NettyManagedBuffer extends ManagedBuffer {
 
   @Override
   public ByteBuffer nioByteBuffer() {
+    // CompositeByteBuf.nioBuffer will return a heap buffer if the composite buffer has more than
+    // one component, even if all components are direct buffers. In native client scenarios
+    // (like gluten), we prefer to use direct buffer to reduce data copying.
+    if (buf instanceof CompositeByteBuf
+        && buf.isDirect()
+        && buf.nioBufferCount() > 1
+        && NettyUtils.preferDirectForCompositeBuffer()) {
+      int length = buf.readableBytes();
+      ByteBuffer merged = ByteBuffer.allocateDirect(length).order(buf.order());
+      for (ByteBuffer buf : buf.nioBuffers()) {
+        merged.put(buf);
+      }
+      merged.flip();
+      return merged;
+    }
+
     return buf.nioBuffer();
   }
 
