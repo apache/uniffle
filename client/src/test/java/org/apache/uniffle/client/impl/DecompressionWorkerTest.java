@@ -21,7 +21,9 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Test;
 
 import org.apache.uniffle.client.response.DecompressedShuffleBlock;
@@ -37,9 +39,41 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 public class DecompressionWorkerTest {
 
   @Test
+  public void testBackpressure() throws Exception {
+    RssConf rssConf = new RssConf();
+    rssConf.set(COMPRESSION_TYPE, Codec.Type.NOOP);
+    Codec codec = Codec.newInstance(rssConf).get();
+
+    int threads = 1;
+    int maxSegments = 10;
+    int fetchSecondsThreshold = 2;
+    DecompressionWorker worker =
+        new DecompressionWorker(codec, threads, fetchSecondsThreshold, maxSegments);
+
+    ShuffleDataResult shuffleDataResult = createShuffleDataResult(maxSegments + 1, codec, 1024);
+    worker.add(0, shuffleDataResult);
+
+    // case1: check the peek memory used is correct when the decompression is in progress
+    Awaitility.await()
+        .timeout(200, TimeUnit.MILLISECONDS)
+        .until(() -> 1024 * maxSegments == worker.getPeekMemoryUsed());
+    assertEquals(0, worker.getAvailablePermits());
+
+    // case2: after the previous segments are consumed, the blocked segments can be gotten after the
+    // decompression is done
+    for (int i = 0; i < maxSegments; i++) {
+      worker.get(0, i);
+    }
+    Thread.sleep(10);
+    worker.get(0, maxSegments).getByteBuffer();
+    assertEquals(1024 * maxSegments, worker.getPeekMemoryUsed());
+    assertEquals(maxSegments, worker.getAvailablePermits());
+  }
+
+  @Test
   public void testEmptyGet() throws Exception {
     DecompressionWorker worker =
-        new DecompressionWorker(Codec.newInstance(new RssConf()).get(), 1, 10);
+        new DecompressionWorker(Codec.newInstance(new RssConf()).get(), 1, 10, 10000);
     assertNull(worker.get(1, 1));
   }
 
@@ -78,7 +112,7 @@ public class DecompressionWorkerTest {
     RssConf rssConf = new RssConf();
     rssConf.set(COMPRESSION_TYPE, Codec.Type.NOOP);
     Codec codec = Codec.newInstance(rssConf).get();
-    DecompressionWorker worker = new DecompressionWorker(codec, 1, 10);
+    DecompressionWorker worker = new DecompressionWorker(codec, 1, 10, 100000);
 
     // create some data
     ShuffleDataResult shuffleDataResult = createShuffleDataResult(10, codec, 100);
