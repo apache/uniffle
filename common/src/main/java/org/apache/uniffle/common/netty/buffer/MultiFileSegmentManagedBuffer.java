@@ -24,9 +24,10 @@ import java.util.List;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.FileRegion;
-import io.netty.util.CompositeFileRegion;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import org.apache.uniffle.common.netty.protocol.CompositeFileRegion;
 
 /** A wrapper of multiple {@link FileSegmentManagedBuffer}, used for combine shuffle index files. */
 public class MultiFileSegmentManagedBuffer extends ManagedBuffer {

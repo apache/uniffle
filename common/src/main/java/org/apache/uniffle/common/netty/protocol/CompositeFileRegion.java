@@ -15,14 +15,12 @@
  * limitations under the License.
  */
 
-package io.netty.util;
+package org.apache.uniffle.common.netty.protocol;
 
 import java.io.IOException;
 import java.nio.channels.WritableByteChannel;
 
 import io.netty.channel.FileRegion;
-
-import org.apache.uniffle.common.netty.protocol.AbstractFileRegion;
 
 public class CompositeFileRegion extends AbstractFileRegion {
   private final FileRegion[] regions;
@@ -114,13 +112,7 @@ public class CompositeFileRegion extends AbstractFileRegion {
   }
 
   @Override
-  protected void deallocate() {
-    for (FileRegion region : regions) {
-      if (region instanceof AbstractReferenceCounted) {
-        ((AbstractReferenceCounted) region).deallocate();
-      }
-    }
-  }
+  protected void deallocate() {}
 
   @Override
   public AbstractFileRegion touch() {
