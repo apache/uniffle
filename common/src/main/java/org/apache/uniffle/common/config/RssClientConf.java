@@ -394,6 +394,6 @@ public class RssClientConf {
       RSS_READ_OVERLAPPING_DECOMPRESSION_MAX_CONCURRENT_SEGMENTS =
           ConfigOptions.key("rss.client.read.overlappingDecompressionMaxConcurrentSegments")
               .intType()
-              .defaultValue(-1)
+              .defaultValue(10)
               .withDescription("Max concurrent segments number for overlapping decompression.");
 }
