@@ -148,7 +148,8 @@ public class DecompressionWorker {
               waitMillis -> this.waitMillis.addAndGet(waitMillis),
               bufferSegment.getTaskAttemptId(),
               fetchSecondsThreshold,
-              bufferSegment.getLength()));
+              bufferSegment.getLength(),
+              bufferSegment.getUncompressLength()));
     }
   }
 
@@ -162,8 +163,8 @@ public class DecompressionWorker {
     // fetched, this is effective due to the upstream will use single-thread to get and release the
     // block
     if (block != null) {
-      nowMemoryUsed.addAndGet(-block.getUncompressLength());
       segmentPermits.ifPresent(x -> x.release());
+      nowMemoryUsed.addAndGet(-block.getUncompressLength());
     }
     return block;
   }
