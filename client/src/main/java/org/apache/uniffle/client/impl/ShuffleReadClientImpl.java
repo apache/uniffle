@@ -424,8 +424,8 @@ public class ShuffleReadClientImpl implements ShuffleReadClient {
 
     return new ShuffleReadTimes(
         readDataTime.get(),
-        copyTime.get(),
         crcCheckTime.get(),
+        copyTime.get(),
         backgroundDecompressionTime,
         backgroundFetchTime);
   }
