@@ -17,6 +17,7 @@
 
 package org.apache.uniffle.common.util;
 
+import java.util.Optional;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 
@@ -178,5 +179,26 @@ public class NettyUtils {
 
   public static long getMaxDirectMemory() {
     return MAX_DIRECT_MEMORY_IN_BYTES;
+  }
+
+  private static final String PREFER_DIRECT_FOR_COMPOSITE_BUFFER_PROPERTY_KEY =
+      "rss.netty.preferDirectForCompositeBuffer";
+  private static final String PREFER_DIRECT_FOR_COMPOSITE_BUFFER_ENV_KEY =
+      "RSS_NETTY_PREFER_DIRECT_FOR_COMPOSITE_BUFFER";
+  private static final boolean PREFER_DIRECT_FOR_COMPOSITE_BUFFER_DEFAULT = false;
+  private static final boolean _preferDirectForCompositeBuffer;
+
+  static {
+    _preferDirectForCompositeBuffer =
+        Optional.ofNullable(System.getProperty(PREFER_DIRECT_FOR_COMPOSITE_BUFFER_PROPERTY_KEY))
+            .map(Boolean::new)
+            .orElse(
+                Optional.ofNullable(System.getenv(PREFER_DIRECT_FOR_COMPOSITE_BUFFER_ENV_KEY))
+                    .map(Boolean::new)
+                    .orElse(PREFER_DIRECT_FOR_COMPOSITE_BUFFER_DEFAULT));
+  }
+
+  public static boolean preferDirectForCompositeBuffer() {
+    return _preferDirectForCompositeBuffer;
   }
 }
