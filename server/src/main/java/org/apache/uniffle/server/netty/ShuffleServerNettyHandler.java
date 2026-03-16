@@ -317,8 +317,7 @@ public class ShuffleServerNettyHandler implements BaseMessageHandler {
               // after each cacheShuffleData call, the `preAllocatedSize` is updated timely.
               shuffleTaskManager.releasePreAllocatedSize(toReleasedSize);
               alreadyReleasedSize += toReleasedSize;
-              shuffleTaskManager.updateCachedBlockIds(
-                  appId, shuffleId, spd.getPartitionId(), spd);
+              shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, spd.getPartitionId(), spd);
             }
           } catch (ExceedHugePartitionHardLimitException e) {
             String errorMsg =

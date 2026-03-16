@@ -143,7 +143,8 @@ public class TopNShuffleDataSizeOfAppCalcTask {
         .sorted(
             (e1, e2) ->
                 Long.compare(
-                    e1.getValue().getInMemoryAvgBlockSize(), e2.getValue().getInMemoryAvgBlockSize()))
+                    e1.getValue().getInMemoryAvgBlockSize(),
+                    e2.getValue().getInMemoryAvgBlockSize()))
         .limit(topNShuffleDataNumber)
         .collect(Collectors.toList());
   }

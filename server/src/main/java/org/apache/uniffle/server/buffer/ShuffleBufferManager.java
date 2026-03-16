@@ -499,15 +499,16 @@ public class ShuffleBufferManager {
               shuffleFlushManager.getDataDistributionType(appId));
       if (event != null) {
         event.addCleanupCallback(() -> releaseMemory(event.getEncodedLength(), true, false));
-        event.addCleanupCallback(() -> {
-          long blockCount = event.getBlockCount();
-          ShuffleTaskInfo shuffleTaskInfo = shuffleTaskManager.getShuffleTaskInfo(appId);
-          if (shuffleTaskInfo != null) {
-            shuffleTaskInfo.addInMemoryBlockCount(-blockCount);
-          }
-          addInMemoryBlockCount(-blockCount);
-          addInFlushBlockCount(-blockCount);
-        });
+        event.addCleanupCallback(
+            () -> {
+              long blockCount = event.getBlockCount();
+              ShuffleTaskInfo shuffleTaskInfo = shuffleTaskManager.getShuffleTaskInfo(appId);
+              if (shuffleTaskInfo != null) {
+                shuffleTaskInfo.addInMemoryBlockCount(-blockCount);
+              }
+              addInMemoryBlockCount(-blockCount);
+              addInFlushBlockCount(-blockCount);
+            });
         updateShuffleSize(appId, shuffleId, -event.getEncodedLength());
         inFlushSize.addAndGet(event.getEncodedLength());
         if (isHugePartition) {

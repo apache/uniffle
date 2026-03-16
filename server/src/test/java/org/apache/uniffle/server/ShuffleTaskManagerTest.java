@@ -666,8 +666,7 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
       Thread.sleep(1000);
       ShufflePartitionedData partitionedData0 = createPartitionedData(1, 1, 35);
       shuffleTaskManager.cacheShuffleData("clearTest1", shuffleId, false, partitionedData0);
-      shuffleTaskManager.updateCachedBlockIds(
-          "clearTest1", shuffleId, partitionedData0);
+      shuffleTaskManager.updateCachedBlockIds("clearTest1", shuffleId, partitionedData0);
       shuffleTaskManager.refreshAppId("clearTest1");
       shuffleTaskManager.checkResourceStatus();
       retry++;
