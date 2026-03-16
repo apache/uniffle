@@ -60,6 +60,7 @@ public class ShuffleTaskInfo {
 
   private final AtomicLong totalDataSize = new AtomicLong(0);
   private final AtomicLong inMemoryDataSize = new AtomicLong(0);
+  private final AtomicLong inMemoryBlockCount = new AtomicLong(0);
   private final AtomicLong onLocalFileNum = new AtomicLong(0);
   private final AtomicLong onLocalFileDataSize = new AtomicLong(0);
   private final AtomicLong onHadoopFileNum = new AtomicLong(0);
@@ -174,6 +175,19 @@ public class ShuffleTaskInfo {
 
   public long getInMemoryDataSize() {
     return inMemoryDataSize.get();
+  }
+
+  public long getInMemoryBlockCount() {
+    return inMemoryBlockCount.get();
+  }
+
+  public void addInMemoryBlockCount(long delta) {
+    inMemoryBlockCount.addAndGet(delta);
+  }
+
+  public long getInMemoryAvgBlockSize() {
+    long blockCount = getInMemoryBlockCount();
+    return blockCount <= 0 ? Long.MAX_VALUE : getInMemoryDataSize() / blockCount;
   }
 
   public long addOnLocalFileDataSize(long delta, boolean isNewlyCreated) {

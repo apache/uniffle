@@ -57,6 +57,8 @@ public class ShuffleBufferWithLinkedList extends AbstractShuffleBuffer {
     }
     long currentEncodedLength = 0;
     long currentDataLength = 0;
+    int duplicateBlockCount = 0;
+    long duplicateBlockSize = 0;
 
     for (ShufflePartitionedBlock block : data.getBlockList()) {
       // If sendShuffleData retried, we may receive duplicate block. The duplicate
@@ -65,11 +67,15 @@ public class ShuffleBufferWithLinkedList extends AbstractShuffleBuffer {
         currentEncodedLength += block.getEncodedLength();
         currentDataLength += block.getDataLength();
       } else {
+        duplicateBlockCount++;
+        duplicateBlockSize += block.getEncodedLength();
         releaseBlock(block);
       }
     }
     this.encodedLength += currentEncodedLength;
     this.dataLength += currentDataLength;
+    data.setDuplicateBlockCount(duplicateBlockCount);
+    data.setDuplicateBlockSize(duplicateBlockSize);
 
     return currentEncodedLength;
   }

@@ -156,7 +156,7 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
       ShufflePartitionedData partitionedData0 = createPartitionedData(1, 1, 35);
       shuffleTaskManager.requireBuffer(35);
       shuffleTaskManager.cacheShuffleData(appId, i, false, partitionedData0);
-      shuffleTaskManager.updateCachedBlockIds(appId, i, partitionedData0.getBlockList());
+      shuffleTaskManager.updateCachedBlockIds(appId, i, partitionedData0);
     }
 
     assertEquals(1, shuffleTaskManager.getAppIds().size());
@@ -220,7 +220,7 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
     // case3
     ShufflePartitionedData partitionedData0 = createPartitionedData(1, 1, 500);
     shuffleTaskManager.cacheShuffleData(appId, shuffleId, true, partitionedData0);
-    shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, 1, partitionedData0.getBlockList());
+    shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, 1, partitionedData0);
     try {
       long requiredId =
           shuffleTaskManager.requireBuffer(appId, 1, Arrays.asList(1), Arrays.asList(500), 500);
@@ -232,7 +232,7 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
     // case4
     partitionedData0 = createPartitionedData(1, 1, 500);
     shuffleTaskManager.cacheShuffleData(appId, shuffleId, true, partitionedData0);
-    shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, 1, partitionedData0.getBlockList());
+    shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, 1, partitionedData0);
     try {
       shuffleTaskManager.requireBuffer(appId, 1, Arrays.asList(1), Arrays.asList(500), 500);
       fail("Should throw NoBufferForHugePartitionException");
@@ -255,7 +255,7 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
     shuffleServer.getShuffleBufferManager().setBufferFlushThreshold(1024);
     partitionedData0 = createPartitionedData(1, 1, 500);
     shuffleTaskManager.cacheShuffleData(appId, shuffleId, true, partitionedData0);
-    shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, 1, partitionedData0.getBlockList());
+    shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, 1, partitionedData0);
     try {
       shuffleTaskManager.requireBuffer(appId, 1, Arrays.asList(1), Arrays.asList(500), 500);
       fail("Should throw NoBufferForHugePartitionException");
@@ -298,14 +298,14 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
     // case1
     ShufflePartitionedData partitionedData0 = createPartitionedData(1, 1, 35);
     long size1 = partitionedData0.getTotalBlockEncodedLength();
-    shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, 1, partitionedData0.getBlockList());
+    shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, 1, partitionedData0);
 
     assertEquals(size1, shuffleTaskManager.getShuffleTaskInfo(appId).getTotalDataSize());
 
     // case2
     partitionedData0 = createPartitionedData(1, 1, 35);
     long size2 = partitionedData0.getTotalBlockEncodedLength();
-    shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, 1, partitionedData0.getBlockList());
+    shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, 1, partitionedData0);
     assertEquals(size1 + size2, shuffleTaskManager.getShuffleTaskInfo(appId).getTotalDataSize());
     assertEquals(
         size1 + size2, shuffleTaskManager.getShuffleTaskInfo(appId).getPartitionDataSize(1, 1));
@@ -412,7 +412,7 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
     PreAllocatedBufferInfo pabi = bufferIds.get(bufferId);
     assertEquals(35, pabi.getRequireSize());
     StatusCode sc = shuffleTaskManager.cacheShuffleData(appId, shuffleId, true, partitionedData0);
-    shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, partitionedData0.getBlockList());
+    shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, partitionedData0);
     // the required id won't be removed in shuffleTaskManager, it is removed in Grpc service
     assertEquals(1, bufferIds.size());
     assertEquals(StatusCode.SUCCESS, sc);
@@ -429,7 +429,7 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
     expectedBlocks1.addAll(Lists.newArrayList(partitionedData1.getBlockList()));
     bufferId = shuffleTaskManager.requireBuffer(70);
     sc = shuffleTaskManager.cacheShuffleData(appId, shuffleId, true, partitionedData1);
-    shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, partitionedData1.getBlockList());
+    shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, partitionedData1);
     assertEquals(StatusCode.SUCCESS, sc);
     shuffleTaskManager.removeAndReleasePreAllocatedBuffer(bufferId);
     waitForFlush(shuffleFlushManager, appId, shuffleId, 2 + 1);
@@ -439,7 +439,7 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
     expectedBlocks1.addAll(Lists.newArrayList(partitionedData2.getBlockList()));
     // receive un-preAllocation data
     sc = shuffleTaskManager.cacheShuffleData(appId, shuffleId, false, partitionedData2);
-    shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, partitionedData2.getBlockList());
+    shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, partitionedData2);
     assertEquals(StatusCode.SUCCESS, sc);
 
     // won't flush for partition 2-2
@@ -447,7 +447,7 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
     expectedBlocks2.addAll(Lists.newArrayList(partitionedData3.getBlockList()));
     bufferId = shuffleTaskManager.requireBuffer(30);
     sc = shuffleTaskManager.cacheShuffleData(appId, shuffleId, true, partitionedData3);
-    shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, partitionedData3.getBlockList());
+    shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, partitionedData3);
     shuffleTaskManager.removeAndReleasePreAllocatedBuffer(bufferId);
     assertEquals(StatusCode.SUCCESS, sc);
 
@@ -456,7 +456,7 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
     expectedBlocks2.addAll(Lists.newArrayList(partitionedData4.getBlockList()));
     bufferId = shuffleTaskManager.requireBuffer(35);
     sc = shuffleTaskManager.cacheShuffleData(appId, shuffleId, true, partitionedData4);
-    shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, partitionedData4.getBlockList());
+    shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, partitionedData4);
     shuffleTaskManager.removeAndReleasePreAllocatedBuffer(bufferId);
     assertEquals(StatusCode.SUCCESS, sc);
 
@@ -466,7 +466,7 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
 
     // flush for partition 1-1
     ShufflePartitionedData partitionedData5 = createPartitionedData(1, 2, 35);
-    shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, partitionedData5.getBlockList());
+    shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, partitionedData5);
     expectedBlocks1.addAll(Lists.newArrayList(partitionedData5.getBlockList()));
     bufferId = shuffleTaskManager.requireBuffer(70);
     sc = shuffleTaskManager.cacheShuffleData(appId, shuffleId, true, partitionedData5);
@@ -483,7 +483,7 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
 
     // flush for partition 0-1
     ShufflePartitionedData partitionedData7 = createPartitionedData(1, 2, 35);
-    shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, partitionedData7.getBlockList());
+    shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, partitionedData7);
     bufferId = shuffleTaskManager.requireBuffer(70);
     sc = shuffleTaskManager.cacheShuffleData(appId, shuffleId, true, partitionedData7);
     assertEquals(StatusCode.SUCCESS, sc);
@@ -544,9 +544,9 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
     shuffleTaskManager.requireBuffer(35);
     shuffleTaskManager.requireBuffer(35);
     shuffleTaskManager.cacheShuffleData(appId, 0, false, partitionedData0);
-    shuffleTaskManager.updateCachedBlockIds(appId, 0, partitionedData0.getBlockList());
+    shuffleTaskManager.updateCachedBlockIds(appId, 0, partitionedData0);
     shuffleTaskManager.cacheShuffleData(appId, 1, false, partitionedData0);
-    shuffleTaskManager.updateCachedBlockIds(appId, 1, partitionedData0.getBlockList());
+    shuffleTaskManager.updateCachedBlockIds(appId, 1, partitionedData0);
     shuffleTaskManager.refreshAppId(appId);
     shuffleTaskManager.checkResourceStatus();
 
@@ -596,7 +596,7 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
       ShufflePartitionedData partitionedData0 = createPartitionedData(1, 1, 35);
       shuffleTaskManager.requireBuffer(35);
       shuffleTaskManager.cacheShuffleData(appId, i, false, partitionedData0);
-      shuffleTaskManager.updateCachedBlockIds(appId, i, partitionedData0.getBlockList());
+      shuffleTaskManager.updateCachedBlockIds(appId, i, partitionedData0);
     }
 
     assertEquals(1, shuffleTaskManager.getAppIds().size());
@@ -667,7 +667,7 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
       ShufflePartitionedData partitionedData0 = createPartitionedData(1, 1, 35);
       shuffleTaskManager.cacheShuffleData("clearTest1", shuffleId, false, partitionedData0);
       shuffleTaskManager.updateCachedBlockIds(
-          "clearTest1", shuffleId, partitionedData0.getBlockList());
+          "clearTest1", shuffleId, partitionedData0);
       shuffleTaskManager.refreshAppId("clearTest1");
       shuffleTaskManager.checkResourceStatus();
       retry++;
@@ -1039,7 +1039,7 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
       Thread.sleep(1000);
       ShufflePartitionedData shuffleData = createPartitionedData(1, 1, 48);
       shuffleTaskManager.cacheShuffleData(appId, shuffleId, false, shuffleData);
-      shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, shuffleData.getBlockList());
+      shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, shuffleData);
       shuffleTaskManager.refreshAppId(appId);
       shuffleTaskManager.checkResourceStatus();
 
@@ -1215,7 +1215,7 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
     ShufflePartitionedData partitionedData0 = createPartitionedData(1, 1, 35);
     shuffleTaskManager.requireBuffer(35);
     shuffleTaskManager.cacheShuffleData(appId, 0, false, partitionedData0);
-    shuffleTaskManager.updateCachedBlockIds(appId, 0, partitionedData0.getBlockList());
+    shuffleTaskManager.updateCachedBlockIds(appId, 0, partitionedData0);
     shuffleTaskManager.refreshAppId(appId);
     shuffleTaskManager.checkResourceStatus();
     assertEquals(1, shuffleTaskManager.getAppIds().size());
@@ -1260,7 +1260,7 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
     ShufflePartitionedData partitionedData0 = createPartitionedData(1, 1, 35);
     shuffleTaskManager.requireBuffer(35);
     shuffleTaskManager.cacheShuffleData(appId, 0, false, partitionedData0);
-    shuffleTaskManager.updateCachedBlockIds(appId, 0, partitionedData0.getBlockList());
+    shuffleTaskManager.updateCachedBlockIds(appId, 0, partitionedData0);
     shuffleTaskManager.refreshAppId(appId);
     shuffleTaskManager.checkResourceStatus();
     assertEquals(1, shuffleTaskManager.getAppIds().size());

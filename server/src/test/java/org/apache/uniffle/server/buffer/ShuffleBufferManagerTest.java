@@ -517,7 +517,7 @@ public class ShuffleBufferManagerTest extends BufferTestBase {
     shuffleBufferManager.registerBuffer(appId, shuffleId, 0, 0);
     ShufflePartitionedData partitionedData = createData(0, 1);
     shuffleTaskManager.cacheShuffleData(appId, shuffleId, false, partitionedData);
-    shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, 0, partitionedData.getBlockList());
+    shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, 0, partitionedData);
     assertEquals(1 + 32, shuffleBufferManager.getUsedMemory());
     long usedSize = shuffleTaskManager.getPartitionDataSize(appId, shuffleId, 0);
     assertEquals(1 + 32, usedSize);
@@ -532,7 +532,7 @@ public class ShuffleBufferManagerTest extends BufferTestBase {
     // case2: its partition is huge partition, its buffer will be flushed to DISK directly
     partitionedData = createData(0, 36);
     shuffleTaskManager.cacheShuffleData(appId, shuffleId, false, partitionedData);
-    shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, 0, partitionedData.getBlockList());
+    shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, 0, partitionedData);
     assertEquals(33 + 36 + 32, shuffleBufferManager.getUsedMemory());
     assertTrue(
         HugePartitionUtils.limitHugePartition(
@@ -543,7 +543,7 @@ public class ShuffleBufferManagerTest extends BufferTestBase {
             shuffleTaskManager.getPartitionDataSize(appId, shuffleId, 0)));
     partitionedData = createData(0, 1);
     shuffleTaskManager.cacheShuffleData(appId, shuffleId, false, partitionedData);
-    shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, 0, partitionedData.getBlockList());
+    shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, 0, partitionedData);
     waitForFlush(shuffleFlushManager, appId, shuffleId, 3);
   }
 
@@ -845,7 +845,7 @@ public class ShuffleBufferManagerTest extends BufferTestBase {
     shuffleBufferManager.registerBuffer(appId, shuffleId, 0, 0);
     ShufflePartitionedData partitionedData = createData(0, 1);
     shuffleTaskManager.cacheShuffleData(appId, shuffleId, false, partitionedData);
-    shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, 0, partitionedData.getBlockList());
+    shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, 0, partitionedData);
     long usedSize = shuffleTaskManager.getPartitionDataSize(appId, shuffleId, 0);
     assertEquals(1 + 32, usedSize);
     assertFalse(
@@ -855,7 +855,7 @@ public class ShuffleBufferManagerTest extends BufferTestBase {
     // case2: its partition exceed the split limit
     partitionedData = createData(0, 200);
     shuffleTaskManager.cacheShuffleData(appId, shuffleId, false, partitionedData);
-    shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, 0, partitionedData.getBlockList());
+    shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, 0, partitionedData);
     usedSize = shuffleTaskManager.getPartitionDataSize(appId, shuffleId, 0);
     assertEquals(1 + 32 + 200 + 32, usedSize);
     assertTrue(

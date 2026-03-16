@@ -459,7 +459,7 @@ public class ShuffleServerGrpcService extends ShuffleServerImplBase {
               manager.releasePreAllocatedSize(toReleasedSize);
               alreadyReleasedSize += toReleasedSize;
               manager.updateCachedBlockIds(
-                  appId, shuffleId, spd.getPartitionId(), spd.getBlockList());
+                  appId, shuffleId, spd.getPartitionId(), spd);
             }
           } catch (ExceedHugePartitionHardLimitException e) {
             String errorMsg =

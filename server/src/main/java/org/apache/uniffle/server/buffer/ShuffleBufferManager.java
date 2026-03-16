@@ -55,6 +55,7 @@ import org.apache.uniffle.server.ShuffleDataFlushEvent;
 import org.apache.uniffle.server.ShuffleFlushManager;
 import org.apache.uniffle.server.ShuffleServerConf;
 import org.apache.uniffle.server.ShuffleServerMetrics;
+import org.apache.uniffle.server.ShuffleTaskInfo;
 import org.apache.uniffle.server.ShuffleTaskManager;
 import org.apache.uniffle.server.buffer.lab.ChunkCreator;
 import org.apache.uniffle.server.buffer.lab.LABShuffleBufferWithLinkedList;
@@ -96,6 +97,8 @@ public class ShuffleBufferManager {
   protected AtomicLong inFlushSize = new AtomicLong(0L);
   protected AtomicLong usedMemory = new AtomicLong(0L);
   private AtomicLong readDataMemory = new AtomicLong(0L);
+  private final AtomicLong inMemoryBlockCount = new AtomicLong(0);
+  private final AtomicLong inFlushBlockCount = new AtomicLong(0);
   // appId -> shuffleId -> partitionId -> ShuffleBuffer to avoid too many appId
   protected Map<String, Map<Integer, RangeMap<Integer, ShuffleBuffer>>> bufferPool;
   // appId -> shuffleId -> shuffle size in buffer
@@ -496,11 +499,21 @@ public class ShuffleBufferManager {
               shuffleFlushManager.getDataDistributionType(appId));
       if (event != null) {
         event.addCleanupCallback(() -> releaseMemory(event.getEncodedLength(), true, false));
+        event.addCleanupCallback(() -> {
+          long blockCount = event.getBlockCount();
+          ShuffleTaskInfo shuffleTaskInfo = shuffleTaskManager.getShuffleTaskInfo(appId);
+          if (shuffleTaskInfo != null) {
+            shuffleTaskInfo.addInMemoryBlockCount(-blockCount);
+          }
+          addInMemoryBlockCount(-blockCount);
+          addInFlushBlockCount(-blockCount);
+        });
         updateShuffleSize(appId, shuffleId, -event.getEncodedLength());
         inFlushSize.addAndGet(event.getEncodedLength());
         if (isHugePartition) {
           event.markOwnedByHugePartition();
         }
+        addInFlushBlockCount(event.getBlockCount());
         ShuffleServerMetrics.gaugeInFlushBufferSize.set(inFlushSize.get());
         shuffleFlushManager.addToFlushQueue(event);
         return true;
@@ -522,6 +535,16 @@ public class ShuffleBufferManager {
     if (appBlockSizeMetricEnabled) {
       ShuffleServerMetrics.appHistogramWriteBlockSize.remove(appId);
     }
+  }
+
+  public void addInMemoryBlockCount(long delta) {
+    long blockCount = inMemoryBlockCount.addAndGet(delta);
+    ShuffleServerMetrics.gaugeTotalInMemoryBlockCount.set(blockCount);
+  }
+
+  public void addInFlushBlockCount(long delta) {
+    long blockCount = inFlushBlockCount.addAndGet(delta);
+    ShuffleServerMetrics.gaugeTotalInFlushBlockCount.set(blockCount);
   }
 
   public synchronized boolean requireMemory(long size, boolean isPreAllocated) {
@@ -891,6 +914,7 @@ public class ShuffleBufferManager {
       Collection<ShuffleBuffer> buffers = bufferRangeMap.asMapOfRanges().values();
       if (buffers != null) {
         for (ShuffleBuffer buffer : buffers) {
+          addInMemoryBlockCount(-buffer.getBlockCount());
           // the actual released size by this thread
           long releasedSize = buffer.release();
           ShuffleServerMetrics.gaugeTotalPartitionNum.dec();

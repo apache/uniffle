@@ -134,9 +134,9 @@ public class KerberizedShuffleTaskManagerTest extends KerberizedHadoopBase {
     shuffleTaskManager.requireBuffer(35);
     shuffleTaskManager.requireBuffer(35);
     shuffleTaskManager.cacheShuffleData(appId, 0, false, partitionedData0);
-    shuffleTaskManager.updateCachedBlockIds(appId, 0, partitionedData0.getBlockList());
+    shuffleTaskManager.updateCachedBlockIds(appId, 0, partitionedData0);
     shuffleTaskManager.cacheShuffleData(appId, 1, false, partitionedData0);
-    shuffleTaskManager.updateCachedBlockIds(appId, 1, partitionedData0.getBlockList());
+    shuffleTaskManager.updateCachedBlockIds(appId, 1, partitionedData0);
     shuffleTaskManager.refreshAppId(appId);
     shuffleTaskManager.checkResourceStatus();
 

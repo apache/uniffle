@@ -99,6 +99,8 @@ public class ShuffleServerMetrics {
   private static final String ALLOCATED_BUFFER_SIZE = "allocated_buffer_size";
   private static final String IN_FLUSH_BUFFER_SIZE = "in_flush_buffer_size";
   private static final String USED_BUFFER_SIZE = "used_buffer_size";
+  private static final String TOTAL_IN_MEMORY_BLOCK_COUNT = "total_in_memory_block_count";
+  private static final String TOTAL_IN_FLUSH_BLOCK_COUNT = "total_in_flush_block_count";
   private static final String READ_USED_BUFFER_SIZE = "read_used_buffer_size";
   public static final String USED_DIRECT_MEMORY_SIZE = "used_direct_memory_size";
   public static final String USED_DIRECT_MEMORY_SIZE_BY_NETTY = "used_direct_memory_size_by_netty";
@@ -158,6 +160,10 @@ public class ShuffleServerMetrics {
   public static final String TOPN_OF_TOTAL_DATA_SIZE_FOR_APP = "topN_of_total_data_size_for_app";
   public static final String TOPN_OF_IN_MEMORY_DATA_SIZE_FOR_APP =
       "topN_of_in_memory_data_size_for_app";
+  public static final String TOPN_OF_IN_MEMORY_BLOCK_COUNT_FOR_APP =
+      "topN_of_in_memory_block_count_for_app";
+  public static final String BOTTOMN_OF_IN_MEMORY_AVG_BLOCK_SIZE_FOR_APP =
+      "bottomN_of_in_memory_avg_block_size_for_app";
   public static final String TOPN_OF_ON_LOCALFILE_DATA_SIZE_FOR_APP =
       "topN_of_on_localfile_data_size_for_app";
   public static final String TOPN_OF_ON_HADOOP_DATA_SIZE_FOR_APP =
@@ -239,6 +245,8 @@ public class ShuffleServerMetrics {
   public static Gauge.Child gaugeAllocatedBufferSize;
   public static Gauge.Child gaugeInFlushBufferSize;
   public static Gauge.Child gaugeUsedBufferSize;
+  public static Gauge.Child gaugeTotalInMemoryBlockCount;
+  public static Gauge.Child gaugeTotalInFlushBlockCount;
   public static Gauge.Child gaugeReadBufferUsedSize;
   public static Gauge.Child gaugeWriteHandler;
   public static Gauge.Child gaugeMergeEventQueueSize;
@@ -257,6 +265,8 @@ public class ShuffleServerMetrics {
 
   public static Gauge gaugeTotalDataSizeUsage;
   public static Gauge gaugeInMemoryDataSizeUsage;
+  public static Gauge gaugeInMemoryBlockCount;
+  public static Gauge gaugeInMemoryAvgBlockSize;
   public static Gauge gaugeOnDiskDataSizeUsage;
   public static Gauge gaugeOnHadoopDataSizeUsage;
 
@@ -477,6 +487,8 @@ public class ShuffleServerMetrics {
     gaugeAllocatedBufferSize = metricsManager.addLabeledGauge(ALLOCATED_BUFFER_SIZE);
     gaugeInFlushBufferSize = metricsManager.addLabeledGauge(IN_FLUSH_BUFFER_SIZE);
     gaugeUsedBufferSize = metricsManager.addLabeledGauge(USED_BUFFER_SIZE);
+    gaugeTotalInMemoryBlockCount = metricsManager.addLabeledGauge(TOTAL_IN_MEMORY_BLOCK_COUNT);
+    gaugeTotalInFlushBlockCount = metricsManager.addLabeledGauge(TOTAL_IN_FLUSH_BLOCK_COUNT);
     gaugeReadBufferUsedSize = metricsManager.addLabeledGauge(READ_USED_BUFFER_SIZE);
     gaugeWriteHandler = metricsManager.addLabeledGauge(TOTAL_WRITE_HANDLER);
     gaugeMergeEventQueueSize = metricsManager.addLabeledGauge(MERGE_EVENT_QUEUE_SIZE);
@@ -533,6 +545,20 @@ public class ShuffleServerMetrics {
         Gauge.build()
             .name(TOPN_OF_IN_MEMORY_DATA_SIZE_FOR_APP)
             .help("top N of in memory shuffle data size for app level")
+            .labelNames("app_id")
+            .register(metricsManager.getCollectorRegistry());
+
+    gaugeInMemoryBlockCount =
+        Gauge.build()
+            .name(TOPN_OF_IN_MEMORY_BLOCK_COUNT_FOR_APP)
+            .help("top N of in memory shuffle block count for app level")
+            .labelNames("app_id")
+            .register(metricsManager.getCollectorRegistry());
+
+    gaugeInMemoryAvgBlockSize =
+        Gauge.build()
+            .name(BOTTOMN_OF_IN_MEMORY_AVG_BLOCK_SIZE_FOR_APP)
+            .help("bottom N of in memory shuffle average block size for app level")
             .labelNames("app_id")
             .register(metricsManager.getCollectorRegistry());
 

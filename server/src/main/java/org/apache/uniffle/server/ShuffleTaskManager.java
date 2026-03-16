@@ -481,12 +481,13 @@ public class ShuffleTaskManager {
   }
 
   // Only for tests
-  public void updateCachedBlockIds(String appId, int shuffleId, ShufflePartitionedBlock[] spbs) {
-    updateCachedBlockIds(appId, shuffleId, 0, spbs);
+  public void updateCachedBlockIds(String appId, int shuffleId, ShufflePartitionedData shufflePartitionedData) {
+    updateCachedBlockIds(appId, shuffleId, 0, shufflePartitionedData);
   }
 
   public void updateCachedBlockIds(
-      String appId, int shuffleId, int partitionId, ShufflePartitionedBlock[] spbs) {
+      String appId, int shuffleId, int partitionId, ShufflePartitionedData shufflePartitionedData) {
+    ShufflePartitionedBlock[] spbs = shufflePartitionedData.getBlockList();
     if (spbs == null || spbs.length == 0) {
       return;
     }
@@ -512,7 +513,10 @@ public class ShuffleTaskManager {
         size += spb.getEncodedLength();
       }
     }
-    long partitionSize = shuffleTaskInfo.addPartitionDataSize(shuffleId, partitionId, size);
+    int blockCount = spbs.length - shufflePartitionedData.getDuplicateBlockCount();
+    shuffleBufferManager.addInMemoryBlockCount(blockCount);
+    shuffleTaskInfo.addInMemoryBlockCount(blockCount);
+    long partitionSize = shuffleTaskInfo.addPartitionDataSize(shuffleId, partitionId, size - shufflePartitionedData.getDuplicateBlockSize());
     HugePartitionUtils.markHugePartition(
         shuffleBufferManager, shuffleTaskInfo, shuffleId, partitionId, partitionSize);
   }

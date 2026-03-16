@@ -330,7 +330,7 @@ public class Partition<K, V> {
       shuffle
           .shuffleServer
           .getShuffleTaskManager()
-          .updateCachedBlockIds(appId, shuffle.shuffleId, spd.getPartitionId(), spd.getBlockList());
+          .updateCachedBlockIds(appId, shuffle.shuffleId, spd.getPartitionId(), spd);
       sleepTime = initSleepTime;
       return true;
     } else {

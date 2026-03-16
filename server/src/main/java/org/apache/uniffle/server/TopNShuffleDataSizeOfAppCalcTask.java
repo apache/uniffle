@@ -37,6 +37,8 @@ public class TopNShuffleDataSizeOfAppCalcTask {
 
   private final Gauge gaugeTotalDataSize;
   private final Gauge gaugeInMemoryDataSize;
+  private final Gauge gaugeInMemoryBlockCount;
+  private final Gauge gaugeInMemoryAvgBlockSize;
   private final Gauge gaugeOnLocalFileDataSize;
   private final Gauge gaugeOnHadoopDataSize;
 
@@ -50,6 +52,8 @@ public class TopNShuffleDataSizeOfAppCalcTask {
     shuffleTaskManager = taskManager;
     this.gaugeTotalDataSize = ShuffleServerMetrics.gaugeTotalDataSizeUsage;
     this.gaugeInMemoryDataSize = ShuffleServerMetrics.gaugeInMemoryDataSizeUsage;
+    this.gaugeInMemoryBlockCount = ShuffleServerMetrics.gaugeInMemoryBlockCount;
+    this.gaugeInMemoryAvgBlockSize = ShuffleServerMetrics.gaugeInMemoryAvgBlockSize;
     this.gaugeOnLocalFileDataSize = ShuffleServerMetrics.gaugeOnDiskDataSizeUsage;
     this.gaugeOnHadoopDataSize = ShuffleServerMetrics.gaugeOnHadoopDataSizeUsage;
     this.scheduler =
@@ -70,6 +74,22 @@ public class TopNShuffleDataSizeOfAppCalcTask {
       gaugeInMemoryDataSize
           .labels(taskInfo.getKey())
           .set(taskInfo.getValue().getInMemoryDataSize());
+    }
+
+    topNTaskInfo = calcTopNInMemoryBlockCountTaskInfo();
+    gaugeInMemoryBlockCount.clear();
+    for (Map.Entry<String, ShuffleTaskInfo> taskInfo : topNTaskInfo) {
+      gaugeInMemoryBlockCount
+          .labels(taskInfo.getKey())
+          .set(taskInfo.getValue().getInMemoryBlockCount());
+    }
+
+    topNTaskInfo = calcBottomNInMemoryAvgBlockSizeTaskInfo();
+    gaugeInMemoryAvgBlockSize.clear();
+    for (Map.Entry<String, ShuffleTaskInfo> taskInfo : topNTaskInfo) {
+      gaugeInMemoryAvgBlockSize
+          .labels(taskInfo.getKey())
+          .set(taskInfo.getValue().getInMemoryAvgBlockSize());
     }
 
     topNTaskInfo = calcTopNOnLocalFileDataSizeTaskInfo();
@@ -104,6 +124,26 @@ public class TopNShuffleDataSizeOfAppCalcTask {
             (e1, e2) ->
                 Long.compare(
                     e2.getValue().getInMemoryDataSize(), e1.getValue().getInMemoryDataSize()))
+        .limit(topNShuffleDataNumber)
+        .collect(Collectors.toList());
+  }
+
+  public List<Map.Entry<String, ShuffleTaskInfo>> calcTopNInMemoryBlockCountTaskInfo() {
+    return shuffleTaskManager.getShuffleTaskInfos().entrySet().stream()
+        .sorted(
+            (e1, e2) ->
+                Long.compare(
+                    e2.getValue().getInMemoryBlockCount(), e1.getValue().getInMemoryBlockCount()))
+        .limit(topNShuffleDataNumber)
+        .collect(Collectors.toList());
+  }
+
+  public List<Map.Entry<String, ShuffleTaskInfo>> calcBottomNInMemoryAvgBlockSizeTaskInfo() {
+    return shuffleTaskManager.getShuffleTaskInfos().entrySet().stream()
+        .sorted(
+            (e1, e2) ->
+                Long.compare(
+                    e1.getValue().getInMemoryAvgBlockSize(), e2.getValue().getInMemoryAvgBlockSize()))
         .limit(topNShuffleDataNumber)
         .collect(Collectors.toList());
   }

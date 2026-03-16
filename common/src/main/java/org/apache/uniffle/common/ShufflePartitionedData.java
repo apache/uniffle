@@ -29,6 +29,8 @@ public class ShufflePartitionedData {
   private final ShufflePartitionedBlock[] blockList;
   private final long totalBlockEncodedLength;
   private final long totalBlockDataLength;
+  private int duplicateBlockCount;
+  private long duplicateBlockSize;
 
   public ShufflePartitionedData(
       int partitionId, long encodedLength, long dataLength, ShufflePartitionedBlock[] blockList) {
@@ -79,5 +81,21 @@ public class ShufflePartitionedData {
 
   public long getTotalBlockDataLength() {
     return totalBlockDataLength;
+  }
+
+  public int getDuplicateBlockCount() {
+    return duplicateBlockCount;
+  }
+
+  public void setDuplicateBlockCount(int duplicateBlockCount) {
+    this.duplicateBlockCount = duplicateBlockCount;
+  }
+
+  public long getDuplicateBlockSize() {
+    return duplicateBlockSize;
+  }
+
+  public void setDuplicateBlockSize(long duplicateBlockSize) {
+    this.duplicateBlockSize = duplicateBlockSize;
   }
 }

@@ -120,6 +120,10 @@ public class ShuffleDataFlushEvent {
     return dataLength;
   }
 
+  public long getBlockCount() {
+    return shuffleBlocks.size();
+  }
+
   public String getAppId() {
     return appId;
   }
