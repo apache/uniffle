@@ -28,7 +28,6 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.time.DateFormatUtils;
 import org.apache.hadoop.conf.Configuration;
-import org.roaringbitmap.longlong.Roaring64NavigableMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -66,7 +65,7 @@ public class ShuffleFlushManager {
   private final boolean storageTypeWithMemory;
   private Configuration hadoopConf;
   // appId -> shuffleId -> committed shuffle blockIds
-  private Map<String, Map<Integer, Roaring64NavigableMap>> committedBlockIds =
+  private Map<String, Map<Integer, AtomicLong>> committedBlockIdCount =
       JavaUtils.newConcurrentMap();
   private final int retryMax;
 
@@ -98,9 +97,9 @@ public class ShuffleFlushManager {
     ShuffleServerMetrics.addLabeledCacheGauge(
         COMMITTED_BLOCK_COUNT,
         () ->
-            committedBlockIds.values().stream()
+            committedBlockIdCount.values().stream()
                 .flatMap(innerMap -> innerMap.values().stream())
-                .mapToLong(bitmap -> bitmap.getLongCardinality())
+                .mapToLong(AtomicLong::get)
                 .sum(),
         2 * 60 * 1000L /* 2 minutes */);
     this.storageTypeWithMemory = StorageType.withMemory(StorageType.valueOf(storageType));
@@ -256,41 +255,37 @@ public class ShuffleFlushManager {
 
   private void updateCommittedBlockIds(
       String appId, int shuffleId, Collection<ShufflePartitionedBlock> blocks) {
-    if (blocks == null || blocks.size() == 0) {
+    if (blocks == null || blocks.isEmpty()) {
       return;
     }
-    committedBlockIds.computeIfAbsent(appId, key -> JavaUtils.newConcurrentMap());
-    Map<Integer, Roaring64NavigableMap> shuffleToBlockIds = committedBlockIds.get(appId);
-    shuffleToBlockIds.computeIfAbsent(shuffleId, key -> Roaring64NavigableMap.bitmapOf());
-    Roaring64NavigableMap bitmap = shuffleToBlockIds.get(shuffleId);
-    synchronized (bitmap) {
-      for (ShufflePartitionedBlock spb : blocks) {
-        bitmap.addLong(spb.getBlockId());
-      }
-    }
+    committedBlockIdCount.computeIfAbsent(appId, key -> JavaUtils.newConcurrentMap());
+    Map<Integer, AtomicLong> shuffleToBlockIds = committedBlockIdCount.get(appId);
+    shuffleToBlockIds.computeIfAbsent(shuffleId, key -> new AtomicLong());
+    AtomicLong blockCounter = shuffleToBlockIds.get(shuffleId);
+    blockCounter.addAndGet(blocks.size());
   }
 
-  public Roaring64NavigableMap getCommittedBlockIds(String appId, Integer shuffleId) {
-    Map<Integer, Roaring64NavigableMap> shuffleIdToBlockIds = committedBlockIds.get(appId);
-    if (shuffleIdToBlockIds == null) {
-      LOG.warn("Unexpected value when getCommittedBlockIds for appId[" + appId + "]");
-      return Roaring64NavigableMap.bitmapOf();
+  public long getCommittedBlockCount(String appId, Integer shuffleId) {
+    Map<Integer, AtomicLong> shuffleIdToBlockCount = committedBlockIdCount.get(appId);
+    if (shuffleIdToBlockCount == null) {
+      LOG.warn("Unexpected value when getCommittedBlockCount for appId[" + appId + "]");
+      return 0;
     }
-    Roaring64NavigableMap blockIds = shuffleIdToBlockIds.get(shuffleId);
-    if (blockIds == null) {
+    AtomicLong blockCount = shuffleIdToBlockCount.get(shuffleId);
+    if (blockCount == null) {
       LOG.warn(
-          "Unexpected value when getCommittedBlockIds for appId["
+          "Unexpected value when getCommittedBlockCount for appId["
               + appId
               + "], shuffleId["
               + shuffleId
               + "]");
-      return Roaring64NavigableMap.bitmapOf();
+      return 0;
     }
-    return blockIds;
+    return blockCount.get();
   }
 
   public void removeResources(String appId) {
-    committedBlockIds.remove(appId);
+    committedBlockIdCount.remove(appId);
   }
 
   protected void initHadoopConf() {
@@ -314,7 +309,7 @@ public class ShuffleFlushManager {
   }
 
   public void removeResourcesOfShuffleId(String appId, Collection<Integer> shuffleIds) {
-    Optional.ofNullable(committedBlockIds.get(appId))
+    Optional.ofNullable(committedBlockIdCount.get(appId))
         .ifPresent(shuffleIdToBlockIds -> shuffleIds.forEach(shuffleIdToBlockIds::remove));
   }
 

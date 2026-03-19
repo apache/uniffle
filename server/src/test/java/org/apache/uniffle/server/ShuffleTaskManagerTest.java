@@ -421,8 +421,7 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
     shuffleTaskManager.removeAndReleasePreAllocatedBuffer(bufferId);
 
     ShuffleFlushManager shuffleFlushManager = shuffleServer.getShuffleFlushManager();
-    assertEquals(
-        1, shuffleFlushManager.getCommittedBlockIds(appId, shuffleId).getLongCardinality());
+    assertEquals(1, shuffleFlushManager.getCommittedBlockCount(appId, shuffleId));
 
     // flush for partition 1-1
     ShufflePartitionedData partitionedData1 = createPartitionedData(1, 2, 35);
@@ -673,8 +672,7 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
     }
     // application "clearTest2" was removed according to rss.server.app.expired.withoutHeartbeat
     assertEquals(Sets.newHashSet("clearTest1"), shuffleTaskManager.getAppIds());
-    assertEquals(
-        10, shuffleTaskManager.getCachedBlockIds("clearTest1", shuffleId).getLongCardinality());
+    assertEquals(10, shuffleTaskManager.getCachedBlockCount("clearTest1", shuffleId));
 
     // register again
     shuffleTaskManager.registerShuffle(
@@ -691,7 +689,7 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
     // wait resource delete
     Thread.sleep(3000);
     assertEquals(Collections.EMPTY_SET, shuffleTaskManager.getAppIds());
-    assertTrue(shuffleTaskManager.getCachedBlockIds("clearTest1", shuffleId).isEmpty());
+    assertEquals(0, shuffleTaskManager.getCachedBlockCount("clearTest1", shuffleId));
   }
 
   @Test
@@ -742,7 +740,7 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
     }
     countDownLatch.await();
     assertEquals(Collections.EMPTY_SET, shuffleTaskManager.getAppIds());
-    assertTrue(shuffleTaskManager.getCachedBlockIds(appId, shuffleId).isEmpty());
+    assertEquals(0, shuffleTaskManager.getCachedBlockCount(appId, shuffleId));
   }
 
   @Test
@@ -1097,8 +1095,7 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
     int retry = 0;
     while (true) {
       // remove flushed eventId to test timeout in commit
-      if (shuffleFlushManager.getCommittedBlockIds(appId, shuffleId).getIntCardinality()
-          == expectedBlockNum) {
+      if (shuffleFlushManager.getCommittedBlockCount(appId, shuffleId) == expectedBlockNum) {
         break;
       }
       Thread.sleep(1000);

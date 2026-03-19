@@ -667,8 +667,7 @@ public class ShuffleBufferManagerTest extends BufferTestBase {
     long committedCount = 0;
     do {
       try {
-        committedCount =
-            shuffleFlushManager.getCommittedBlockIds(appId, shuffleId).getLongCardinality();
+        committedCount = shuffleFlushManager.getCommittedBlockCount(appId, shuffleId);
       } catch (Throwable e) {
         // ignore ArrayIndexOutOfBoundsException and ConcurrentModificationException
         LOG.error("Ignored exception.", e);
