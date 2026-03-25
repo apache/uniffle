@@ -950,7 +950,8 @@ public class ShuffleBufferManagerTest extends BufferTestBase {
         .atMost(Duration.ofSeconds(10))
         .until(() -> !shuffleBufferManager.ifTooManyBlock());
     Awaitility.await()
-        .atMost(Duration.ofSeconds(100))
+        .atMost(Duration.ofSeconds(10))
         .until(() -> shuffleBufferManager.inMemoryBlockCount.get() == 4);
+
   }
 }
