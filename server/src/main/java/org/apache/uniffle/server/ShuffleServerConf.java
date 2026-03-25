@@ -40,6 +40,12 @@ public class ShuffleServerConf extends RssBaseConf {
           .defaultValue(-1L)
           .withDescription("Max memory of buffer manager for shuffle server");
 
+  public static final ConfigOption<Long> SERVER_BUFFER_BLOCK_COUNT_CAPACITY =
+      ConfigOptions.key("rss.server.buffer.blockCount.capacity")
+          .longType()
+          .defaultValue(0L)
+          .withDescription("Max block count of buffer manager for shuffle server");
+
   public static final ConfigOption<Double> SERVER_BUFFER_CAPACITY_RATIO =
       ConfigOptions.key("rss.server.buffer.capacity.ratio")
           .doubleType()
@@ -510,6 +516,15 @@ public class ShuffleServerConf extends RssBaseConf {
           .withDescription(
               "Threshold when flushing shuffle data to persistent storage, recommend value would be 256K, "
                   + "512K, or even 1M");
+
+  public static final ConfigOption<Long> SERVER_SHUFFLE_FLUSH_BLOCKCOUNT_THRESHOLD =
+      ConfigOptions.key("rss.server.shuffle.flush.blockCountThreshold")
+          .longType()
+          .checkValue(
+              ConfigUtils.NON_NEGATIVE_LONG_VALIDATOR, "Block count threshold must be non-negative")
+          .defaultValue(0L)
+          .withDescription(
+              "Threshold for flushing shuffle data to persistent storage based on block count");
 
   public static final ConfigOption<Boolean> SERVER_SHUFFLE_BUFFER_LAB_ENABLE =
       ConfigOptions.key("rss.server.buffer.lab.enabled")

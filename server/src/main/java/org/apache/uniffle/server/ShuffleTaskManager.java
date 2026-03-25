@@ -1048,6 +1048,9 @@ public class ShuffleTaskManager {
     if (this.shuffleBufferManager.needToFlush()) {
       this.shuffleBufferManager.flushIfNecessary();
     }
+    if (this.shuffleBufferManager.ifTooManyBlock()) {
+      this.shuffleBufferManager.flushIfTooManyBlock();
+    }
   }
 
   public Map<String, ShuffleTaskInfo> getShuffleTaskInfos() {

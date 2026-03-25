@@ -894,4 +894,63 @@ public class ShuffleBufferManagerTest extends BufferTestBase {
     assertEquals(StatusCode.SUCCESS, sc);
     assertEquals(48, shuffleBufferManager.getUsedMemory());
   }
+
+  @Test
+  public void flushIfTooManyBlockTest(@TempDir File tmpDir) throws Exception {
+    ShuffleServerConf shuffleConf = new ShuffleServerConf();
+    File dataDir = new File(tmpDir, "data");
+    shuffleConf.setString(ShuffleServerConf.RSS_STORAGE_TYPE.key(), StorageType.LOCALFILE.name());
+    shuffleConf.set(
+        ShuffleServerConf.RSS_STORAGE_BASE_PATH, Arrays.asList(dataDir.getAbsolutePath()));
+    shuffleConf.set(ShuffleServerConf.SERVER_BUFFER_CAPACITY, 5000L);
+    shuffleConf.set(ShuffleServerConf.SERVER_MEMORY_SHUFFLE_LOWWATERMARK_PERCENTAGE, 40.0);
+    shuffleConf.set(ShuffleServerConf.SERVER_MEMORY_SHUFFLE_HIGHWATERMARK_PERCENTAGE, 80.0);
+    shuffleConf.setLong(ShuffleServerConf.DISK_CAPACITY, 1024L * 1024L * 1024L);
+    shuffleConf.setLong(ShuffleServerConf.SERVER_TRIGGER_FLUSH_CHECK_INTERVAL, 500L);
+    // Configure block count capacity and threshold
+    // blockCountHighWaterMark = 10 * 80% = 8, so 9 blocks will trigger flush
+    shuffleConf.setLong(ShuffleServerConf.SERVER_BUFFER_BLOCK_COUNT_CAPACITY, 10L);
+    shuffleConf.set(ShuffleServerConf.SERVER_SHUFFLE_FLUSH_BLOCKCOUNT_THRESHOLD, 2L);
+
+    ShuffleServer mockShuffleServer = mock(ShuffleServer.class);
+    StorageManager storageManager =
+        StorageManagerFactory.getInstance().createStorageManager(shuffleConf);
+    ShuffleFlushManager shuffleFlushManager =
+        new ShuffleFlushManager(shuffleConf, mockShuffleServer, storageManager);
+    shuffleBufferManager = new ShuffleBufferManager(shuffleConf, shuffleFlushManager, false);
+    ShuffleTaskManager shuffleTaskManager =
+        new ShuffleTaskManager(
+            shuffleConf, shuffleFlushManager, shuffleBufferManager, storageManager);
+
+    when(mockShuffleServer.getShuffleFlushManager()).thenReturn(shuffleFlushManager);
+    when(mockShuffleServer.getShuffleBufferManager()).thenReturn(shuffleBufferManager);
+    when(mockShuffleServer.getShuffleTaskManager()).thenReturn(shuffleTaskManager);
+
+    String appId = "flushIfTooManyBlockTest";
+    int shuffleId = 1;
+
+    shuffleTaskManager.registerShuffle(
+        appId,
+        shuffleId,
+        Arrays.asList(new PartitionRange(0, 0), new PartitionRange(1, 1)),
+        new RemoteStorageInfo(""),
+        "");
+
+    // Cache 9 blocks total to exceed blockCountHighWaterMark (8)
+    // Each cacheShuffleData call caches 1 block
+    for (int i = 0; i < 9; i++) {
+      int partitionId = i % 2;
+      ShufflePartitionedData data = createData(partitionId, 16);
+      shuffleTaskManager.cacheShuffleData(appId, shuffleId, false, data);
+      shuffleTaskManager.updateCachedBlockIds(appId, shuffleId, partitionId, data);
+    }
+
+    // Wait for flush to complete
+    Awaitility.await()
+        .atMost(Duration.ofSeconds(10))
+        .until(() -> !shuffleBufferManager.ifTooManyBlock());
+    Awaitility.await()
+        .atMost(Duration.ofSeconds(100))
+        .until(() -> shuffleBufferManager.inMemoryBlockCount.get() == 4);
+  }
 }
