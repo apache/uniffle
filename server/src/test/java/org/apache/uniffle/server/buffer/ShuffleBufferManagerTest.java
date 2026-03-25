@@ -952,6 +952,5 @@ public class ShuffleBufferManagerTest extends BufferTestBase {
     Awaitility.await()
         .atMost(Duration.ofSeconds(10))
         .until(() -> shuffleBufferManager.inMemoryBlockCount.get() == 4);
-
   }
 }
