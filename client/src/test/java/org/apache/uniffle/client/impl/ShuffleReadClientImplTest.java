@@ -783,9 +783,6 @@ public class ShuffleReadClientImplTest extends HadoopTestBase {
     Map<Long, byte[]> expectedData = Maps.newHashMap();
     Roaring64NavigableMap blockIdBitmap = Roaring64NavigableMap.bitmapOf();
 
-    // Expect only taskAttemptId=0 blocks; taskAttemptId=2 blocks will be skipped by the reader.
-    Roaring64NavigableMap taskIdBitmap = Roaring64NavigableMap.bitmapOf(0);
-
     // Write skipped blocks first to increase the chance of exhausting permits if permits are not
     // released when skipping.
     writeTestData(writeHandler, 20, 30, 1, 2, Maps.newHashMap(), blockIdBitmap);
@@ -797,6 +794,8 @@ public class ShuffleReadClientImplTest extends HadoopTestBase {
     rssConf.setInteger(RssClientConf.RSS_READ_OVERLAPPING_DECOMPRESSION_FETCH_SECONDS_THRESHOLD, 1);
     rssConf.setInteger(RssClientConf.RSS_READ_OVERLAPPING_DECOMPRESSION_MAX_CONCURRENT_SEGMENTS, 1);
 
+    // Expect only taskAttemptId=0 blocks; taskAttemptId=2 blocks will be skipped by the reader.
+    Roaring64NavigableMap taskIdBitmap = Roaring64NavigableMap.bitmapOf(0);
     ShuffleReadClientImpl readClient =
         builderSupplier
             .get()
