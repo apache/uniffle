@@ -314,7 +314,16 @@ public class ShuffleReadClientImpl implements ShuffleReadClient {
         // mark block as processed
         processedBlockIds.add(bs.getBlockId());
         pendingBlockIds.removeLong(bs.getBlockId());
-        // update the segment index to skip the unnecessary block in overlapping decompression mode
+
+        // update the segment index to skip the unnecessary block in overlapping decompression mode.
+        // In overlapping decompression mode, decompression tasks for the whole batch have already
+        // been submitted. If we skip a segment without removing the corresponding handler, the
+        // backpressure permits may never be released, which can block subsequent decompression.
+        //        if (decompressionWorker != null) {
+        //          decompressionWorker.get(batchIndex - 1, segmentIndex++);
+        //        } else {
+        //          segmentIndex += 1;
+        //        }
         segmentIndex += 1;
       }
 

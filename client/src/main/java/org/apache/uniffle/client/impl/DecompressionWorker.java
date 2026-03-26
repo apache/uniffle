@@ -154,10 +154,30 @@ public class DecompressionWorker {
   }
 
   public DecompressedShuffleBlock get(int batchIndex, int segmentIndex) {
+    // guardedly safe to remove the previous batches if exist since the upstream will fetch the
+    // segments in order
+    for (int i = 0; i < batchIndex; i++) {
+      ConcurrentHashMap<Integer, DecompressedShuffleBlock> prevBlocks = tasks.remove(i);
+      if (prevBlocks != null) {
+        for (DecompressedShuffleBlock block : prevBlocks.values()) {
+          segmentPermits.ifPresent(x -> x.release());
+        }
+      }
+    }
+
     ConcurrentHashMap<Integer, DecompressedShuffleBlock> blocks = tasks.get(batchIndex);
     if (blocks == null) {
       return null;
     }
+
+    // guardedly safe to remove the previous segments if exist since the upstream will fetch the
+    // segments in order
+    for (int i = 0; i < segmentIndex; i++) {
+      if (blocks.remove(i) != null) {
+        segmentPermits.ifPresent(x -> x.release());
+      }
+    }
+
     DecompressedShuffleBlock block = blocks.remove(segmentIndex);
     // simplify the memory statistic logic here, just decrease the memory used when the block is
     // fetched, this is effective due to the upstream will use single-thread to get and release the

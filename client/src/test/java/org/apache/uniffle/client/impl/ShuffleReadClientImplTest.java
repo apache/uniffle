@@ -52,6 +52,7 @@ import org.apache.uniffle.storage.HadoopTestBase;
 import org.apache.uniffle.storage.handler.impl.HadoopShuffleWriteHandler;
 import org.apache.uniffle.storage.util.StorageType;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -765,6 +766,48 @@ public class ShuffleReadClientImplTest extends HadoopTestBase {
             .shuffleServerInfoList(Lists.newArrayList(ssi1, ssi2))
             .build();
     TestUtils.validateResult(readClient, expectedData1);
+    readClient.checkProcessedBlockIds();
+    readClient.close();
+  }
+
+  @ParameterizedTest
+  @MethodSource("clientBuilderProvider")
+  public void readTestSkipBlocksWithBackpressureDoesNotHang(
+      Supplier<ShuffleClientFactory.ReadClientBuilder> builderSupplier) throws Exception {
+    // This test is meaningful only when overlapping decompression is enabled.
+    // For non-overlapping mode, it should still pass and act as a regression guard.
+    String basePath = uniq(HDFS_URI + "clientReadTestSkipBlocksWithBackpressureDoesNotHang");
+    HadoopShuffleWriteHandler writeHandler =
+        new HadoopShuffleWriteHandler("appId", 0, 1, 1, basePath, ssi1.getId(), conf);
+
+    Map<Long, byte[]> expectedData = Maps.newHashMap();
+    Roaring64NavigableMap blockIdBitmap = Roaring64NavigableMap.bitmapOf();
+
+    // Expect only taskAttemptId=0 blocks; taskAttemptId=2 blocks will be skipped by the reader.
+    Roaring64NavigableMap taskIdBitmap = Roaring64NavigableMap.bitmapOf(0);
+
+    // Write skipped blocks first to increase the chance of exhausting permits if permits are not
+    // released when skipping.
+    writeTestData(writeHandler, 20, 30, 1, 2, Maps.newHashMap(), blockIdBitmap);
+    writeTestData(writeHandler, 5, 30, 1, 0, expectedData, blockIdBitmap);
+
+    RssConf rssConf = new RssConf();
+    // Provide required base configs to avoid reader treating this as "prod mode" with empty values.
+    rssConf.set(RssClientConf.RSS_STORAGE_TYPE, StorageType.HDFS.name());
+    rssConf.setInteger(RssClientConf.RSS_READ_OVERLAPPING_DECOMPRESSION_FETCH_SECONDS_THRESHOLD, 1);
+    rssConf.setInteger(RssClientConf.RSS_READ_OVERLAPPING_DECOMPRESSION_MAX_CONCURRENT_SEGMENTS, 1);
+
+    ShuffleReadClientImpl readClient =
+        builderSupplier
+            .get()
+            .partitionId(1)
+            .basePath(basePath)
+            .blockIdBitmap(blockIdBitmap)
+            .taskIdBitmap(taskIdBitmap)
+            .rssConf(rssConf)
+            .build();
+
+    assertDoesNotThrow(() -> TestUtils.validateResult(readClient, expectedData));
     readClient.checkProcessedBlockIds();
     readClient.close();
   }
