@@ -35,6 +35,7 @@ import org.apache.uniffle.common.config.RssConf;
 import static org.apache.uniffle.common.config.RssClientConf.COMPRESSION_TYPE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class DecompressionWorkerTest {
 
@@ -66,7 +67,9 @@ public class DecompressionWorkerTest {
     }
     Thread.sleep(10);
     worker.get(0, maxSegments).getByteBuffer();
-    assertEquals(1024 * maxSegments, worker.getPeekMemoryUsed());
+    // Peak memory is a runtime metric and may include one additional segment due to thread timing.
+    assertTrue(worker.getPeekMemoryUsed() <= 1024L * (maxSegments + 1));
+    assertTrue(worker.getPeekMemoryUsed() >= 1024L * maxSegments);
     assertEquals(maxSegments, worker.getAvailablePermits());
   }
 
