@@ -319,12 +319,11 @@ public class ShuffleReadClientImpl implements ShuffleReadClient {
         // In overlapping decompression mode, decompression tasks for the whole batch have already
         // been submitted. If we skip a segment without removing the corresponding handler, the
         // backpressure permits may never be released, which can block subsequent decompression.
-        //        if (decompressionWorker != null) {
-        //          decompressionWorker.get(batchIndex - 1, segmentIndex++);
-        //        } else {
-        //          segmentIndex += 1;
-        //        }
-        segmentIndex += 1;
+        if (decompressionWorker != null) {
+          decompressionWorker.get(batchIndex - 1, segmentIndex++);
+        } else {
+          segmentIndex += 1;
+        }
       }
 
       if (bs != null) {
