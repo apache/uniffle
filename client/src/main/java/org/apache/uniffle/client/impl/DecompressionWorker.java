@@ -159,9 +159,7 @@ public class DecompressionWorker {
     for (int i = 0; i < batchIndex; i++) {
       ConcurrentHashMap<Integer, DecompressedShuffleBlock> prevBlocks = tasks.remove(i);
       if (prevBlocks != null) {
-        for (DecompressedShuffleBlock block : prevBlocks.values()) {
-          segmentPermits.ifPresent(x -> x.release());
-        }
+        segmentPermits.ifPresent(x -> x.release(prevBlocks.values().size()));
       }
     }
 
