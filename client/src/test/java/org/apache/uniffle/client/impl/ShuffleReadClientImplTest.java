@@ -39,7 +39,6 @@ import org.roaringbitmap.longlong.Roaring64NavigableMap;
 
 import org.apache.uniffle.client.TestUtils;
 import org.apache.uniffle.client.factory.ShuffleClientFactory;
-import org.apache.uniffle.client.response.ShuffleBlock;
 import org.apache.uniffle.common.ClientType;
 import org.apache.uniffle.common.ShufflePartitionedBlock;
 import org.apache.uniffle.common.ShuffleServerInfo;
@@ -403,14 +402,17 @@ public class ShuffleReadClientImplTest extends HadoopTestBase {
     // crc32 is incorrect
     AtomicInteger readCount = new AtomicInteger(0);
     try (MockedStatic<ChecksumUtils> checksumUtilsMock = Mockito.mockStatic(ChecksumUtils.class)) {
-      checksumUtilsMock.when(() -> ChecksumUtils.getCrc32(any(ByteBuffer.class), anyInt(), anyInt())).then(invocation -> {
-        // crc check fails for readClient1 and frist block of readClient2
-        if (readCount.getAndIncrement() < 2) {
-           return -1;
-        } else {
-          return invocation.callRealMethod();
-        }
-      });
+      checksumUtilsMock
+          .when(() -> ChecksumUtils.getCrc32(any(ByteBuffer.class), anyInt(), anyInt()))
+          .then(
+              invocation -> {
+                // crc check fails for readClient1 and frist block of readClient2
+                if (readCount.getAndIncrement() < 2) {
+                  return -1;
+                } else {
+                  return invocation.callRealMethod();
+                }
+              });
       try {
         ByteBuffer bb = readClient.readShuffleBlockData().getByteBuffer();
         while (bb != null) {
