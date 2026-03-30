@@ -18,6 +18,7 @@
 package org.apache.uniffle.client.impl;
 
 import java.nio.ByteBuffer;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -59,6 +60,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 
 public class ShuffleReadClientImplTest extends HadoopTestBase {
 
@@ -371,11 +373,14 @@ public class ShuffleReadClientImplTest extends HadoopTestBase {
     String basePath = uniq(HDFS_URI + "clientReadTest8");
     HadoopShuffleWriteHandler writeHandler =
         new HadoopShuffleWriteHandler("appId", 0, 0, 1, basePath, ssi1.getId(), conf);
+    HadoopShuffleWriteHandler writeHandler2 =
+        new HadoopShuffleWriteHandler("appId", 0, 0, 1, basePath, ssi2.getId(), conf);
 
-    Map<Long, byte[]> expectedData = Maps.newHashMap();
+    LinkedHashMap<Long, byte[]> expectedData = Maps.newLinkedHashMap();
     Roaring64NavigableMap blockIdBitmap = Roaring64NavigableMap.bitmapOf();
     Roaring64NavigableMap taskIdBitmap = Roaring64NavigableMap.bitmapOf(0);
     writeTestData(writeHandler, 2, 30, 0, 0, expectedData, blockIdBitmap);
+    writeTestData(writeHandler2, 2, 30, 0, 0, expectedData, blockIdBitmap);
     ShuffleReadClientImpl readClient =
         builderSupplier
             .get()
@@ -396,8 +401,16 @@ public class ShuffleReadClientImplTest extends HadoopTestBase {
             .shuffleServerInfoList(Lists.newArrayList(ssi1, ssi2))
             .build();
     // crc32 is incorrect
+    AtomicInteger readCount = new AtomicInteger(0);
     try (MockedStatic<ChecksumUtils> checksumUtilsMock = Mockito.mockStatic(ChecksumUtils.class)) {
-      checksumUtilsMock.when(() -> ChecksumUtils.getCrc32((ByteBuffer) any())).thenReturn(-1L);
+      checksumUtilsMock.when(() -> ChecksumUtils.getCrc32(any(ByteBuffer.class), anyInt(), anyInt())).then(invocation -> {
+        // crc check fails for readClient1 and frist block of readClient2
+        if (readCount.getAndIncrement() < 2) {
+           return -1;
+        } else {
+          return invocation.callRealMethod();
+        }
+      });
       try {
         ByteBuffer bb = readClient.readShuffleBlockData().getByteBuffer();
         while (bb != null) {
@@ -408,8 +421,15 @@ public class ShuffleReadClientImplTest extends HadoopTestBase {
         assertTrue(e.getMessage().startsWith("Unexpected crc value"), e.getMessage());
       }
 
-      ShuffleBlock block = readClient2.readShuffleBlockData();
-      assertNull(block);
+      // the frist block has been skipped due to crc check failure
+      Long firstKey = expectedData.keySet().iterator().next();
+      expectedData.remove(firstKey);
+      TestUtils.validateResult(readClient2, expectedData);
+      try {
+        readClient2.checkProcessedBlockIds();
+      } catch (Exception e) {
+        assertTrue(e.getMessage().contains("expected 4 blocks, actual 3 blocks"), e.getMessage());
+      }
     }
     readClient.close();
     readClient2.close();

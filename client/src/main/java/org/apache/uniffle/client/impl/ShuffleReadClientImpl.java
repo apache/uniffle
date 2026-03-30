@@ -297,6 +297,11 @@ public class ShuffleReadClientImpl implements ShuffleReadClient {
             if (shuffleServerInfoList.size() > 1) {
               LOG.warn(errMsg);
               clientReadHandler.updateConsumedBlockInfo(bs, true);
+              if (decompressionWorker != null) {
+                decompressionWorker.get(batchIndex - 1, segmentIndex++);
+              } else {
+                segmentIndex += 1;
+              }
               continue;
             } else {
               throw new RssFetchFailedException(errMsg);
