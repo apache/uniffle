@@ -292,6 +292,7 @@ public class ShuffleServerMetrics {
 
   private static MetricsManager metricsManager;
   private static boolean isRegister = false;
+  @VisibleForTesting public static Supplier<Void> callbackBenchmark;
 
   public static synchronized void register(
       CollectorRegistry collectorRegistry, String tags, ShuffleServerConf serverConf) {
@@ -351,6 +352,9 @@ public class ShuffleServerMetrics {
         counterRemoteStorageSuccessWrite.labels(tags, storageHost).inc();
       }
     }
+    if (callbackBenchmark != null) {
+      callbackBenchmark.get();
+    }
   }
 
   public static void incStorageFailedCounter(String storageHost) {
@@ -362,6 +366,9 @@ public class ShuffleServerMetrics {
         counterRemoteStorageTotalWrite.labels(tags, storageHost).inc();
         counterRemoteStorageFailedWrite.labels(tags, storageHost).inc();
       }
+    }
+    if (callbackBenchmark != null) {
+      callbackBenchmark.get();
     }
   }
 
