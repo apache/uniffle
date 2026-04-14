@@ -177,6 +177,29 @@ public class RssSparkConfig {
           .defaultValue(1.0d)
           .withDescription(
               "The buffer size to spill when spill triggered by config spark.rss.writer.buffer.spill.size");
+
+  public static final ConfigOption<Double> RSS_WRITER_MAX_ALLOCATED_MEMORY_RATIO =
+      ConfigOptions.key("rss.writer.maxAllocatedMemoryRatio")
+          .doubleType()
+          .checkValue(
+              ConfigUtils.DOUBLE_VALIDATOR_ZERO_TO_ONE,
+              "The 'rss.writer.maxAllocatedMemoryRatio' must be between 0.0 and 1.0")
+          .defaultValue(0.0d)
+          .withDescription(
+              "Max fraction of spark.executor.memory for shuffle write buffer allocated bytes; "
+                  + "waits instead of growing past this. 0 or negative disables.");
+
+  public static final ConfigOption<Long> RSS_WRITER_MAX_ALLOCATED_WAIT_TIMEOUT_MS =
+      ConfigOptions.key("rss.writer.maxAllocatedWaitTimeoutMillis")
+          .longType()
+          .checkValue(
+              ConfigUtils.POSITIVE_LONG_VALIDATOR,
+              "The 'rss.writer.maxAllocatedWaitTimeoutMillis' must be positive")
+          .defaultValue(10 * 60 * 1000L)
+          .withDescription(
+              "Timeout when waiting for allocated shuffle buffer memory to drop below the "
+                  + "ratio cap (e.g. slow remote push). Unit is milliseconds; default 10 minutes.");
+
   public static final ConfigOption<Integer> RSS_PARTITION_REASSIGN_MAX_REASSIGNMENT_SERVER_NUM =
       ConfigOptions.key("rss.client.reassign.maxReassignServerNum")
           .intType()
