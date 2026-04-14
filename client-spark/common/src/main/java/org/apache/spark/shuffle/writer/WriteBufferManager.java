@@ -834,4 +834,16 @@ public class WriteBufferManager extends MemoryConsumer {
   public long getUncompressedDataLen() {
     return uncompressedDataLen;
   }
+
+  public Optional<Codec> getCodec() {
+    return codec;
+  }
+
+  public void setAllocatedBytes(long allocatedBytes) {
+    this.allocatedBytes.set(allocatedBytes);
+  }
+
+  public void setUsedBytes(long usedBytes) {
+    this.usedBytes.set(usedBytes);
+  }
 }

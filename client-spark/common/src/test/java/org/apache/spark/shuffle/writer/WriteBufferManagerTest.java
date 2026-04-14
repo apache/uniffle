@@ -25,12 +25,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
 import com.google.common.collect.Maps;
-import org.apache.commons.lang3.reflect.FieldUtils;
 import org.apache.spark.SparkConf;
 import org.apache.spark.executor.ShuffleWriteMetrics;
 import org.apache.spark.memory.MemoryConsumer;
@@ -131,7 +129,7 @@ public class WriteBufferManagerTest {
       conf.set(RssSparkConfig.SPARK_SHUFFLE_COMPRESS_KEY, String.valueOf(false));
     }
     WriteBufferManager wbm = createManager(conf);
-    Optional<Codec> codec = (Optional<Codec>) FieldUtils.readField(wbm, "codec", true);
+    Optional<Codec> codec = wbm.getCodec();
     if (compress) {
       Assertions.assertTrue(codec.isPresent());
     } else {
@@ -659,13 +657,8 @@ public class WriteBufferManagerTest {
             spillWithoutReleasingMemory,
             0);
 
-    AtomicLong allocated = (AtomicLong) FieldUtils.readField(wbm, "allocatedBytes", true);
-    AtomicLong used = (AtomicLong) FieldUtils.readField(wbm, "usedBytes", true);
-    // bufferSegmentSize is 32 in getConf(); require slack < 32 so insertIntoBuffer calls
-    // requestMemory
-    long slackBelowSegment = 20L;
-    allocated.set(cap);
-    used.set(cap - slackBelowSegment);
+    wbm.setAllocatedBytes(cap);
+    wbm.setUsedBytes(cap - 20L);
 
     RssException thrown =
         Assertions.assertThrows(
