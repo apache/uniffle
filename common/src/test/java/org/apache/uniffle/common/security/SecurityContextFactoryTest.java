@@ -20,12 +20,17 @@ package org.apache.uniffle.common.security;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIfSystemProperty;
 
 import org.apache.uniffle.common.KerberizedHadoopBase;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
+@DisabledIfSystemProperty(
+    named = "uniffle.test.skip.kerberos",
+    matches = "true",
+    disabledReason = "MiniKdc is not compatible with JDK 17+")
 public class SecurityContextFactoryTest extends KerberizedHadoopBase {
 
   @BeforeAll

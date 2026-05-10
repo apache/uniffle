@@ -1,0 +1,342 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ~ Licensed to the Apache Software Foundation (ASF) under one or more
+  ~ contributor license agreements.  See the NOTICE file distributed with
+  ~ this work for additional information regarding copyright ownership.
+  ~ The ASF licenses this file to You under the Apache License, Version 2.0
+  ~ (the "License"); you may not use this file except in compliance with
+  ~ the License.  You may obtain a copy of the License at
+  ~
+  ~    http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+  -->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>org.apache.uniffle</groupId>
+    <artifactId>uniffle-parent</artifactId>
+    <version>0.11.0-SNAPSHOT</version>
+    <relativePath>../../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>rss-client-spark4-shaded</artifactId>
+  <packaging>jar</packaging>
+  <name>Apache Uniffle Shaded Client (Spark 4)</name>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.apache.uniffle</groupId>
+      <artifactId>rss-client-spark4</artifactId>
+      <version>${project.version}</version>
+      <!-- use the lz4 from spark env -->
+      <exclusions>
+        <exclusion>
+            <groupId>org.lz4</groupId>
+          <artifactId>lz4-java</artifactId>
+        </exclusion>
+        <exclusion>
+          <artifactId>log4j-slf4j-impl</artifactId>
+          <groupId>org.apache.logging.log4j</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>slf4j-api</artifactId>
+          <groupId>org.slf4j</groupId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.esotericsoftware</groupId>
+          <artifactId>kryo-shaded</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <!-- log4j2 -->
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <scope>provided</scope>
+    </dependency>
+    <!-- Use log4j-slf4j2-impl for Spark 4 (SLF4J 2.x) -->
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-slf4j2-impl</artifactId>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-api</artifactId>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-core</artifactId>
+      <scope>provided</scope>
+    </dependency>
+    <!-- end -->
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>rss-client-spark4-shaded-jar</id>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+            <configuration>
+              <artifactSet>
+                <excludes>
+                  <exclude>org.apache.logging.log4j:log4j-slf4j-impl</exclude>
+                  <exclude>org.apache.logging.log4j:log4j-slf4j2-impl</exclude>
+                </excludes>
+              </artifactSet>
+              <finalName>${project.artifactId}-${project.version}</finalName>
+              <transformers>
+                <transformer
+                    implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                <transformer
+                    implementation="org.apache.maven.plugins.shade.resource.ApacheLicenseResourceTransformer"/>
+                <transformer
+                    implementation="org.apache.maven.plugins.shade.resource.ApacheNoticeResourceTransformer"/>
+              </transformers>
+              <filters>
+                <filter>
+                  <artifact>*:*</artifact>
+                  <excludes>
+                    <exclude>module-info.class</exclude>
+                    <exclude>META-INF/*.SF</exclude>
+                    <exclude>META-INF/*.DSA</exclude>
+                    <exclude>META-INF/*.RSA</exclude>
+                    <exclude>**/*.proto</exclude>
+                    <exclude>**/*.css</exclude>
+                    <exclude>**/*.html</exclude>
+                  </excludes>
+                </filter>
+              </filters>
+              <relocations>
+                <relocation>
+                  <pattern>com.google</pattern>
+                  <shadedPattern>${rss.shade.packageName}.com.google</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>google.protobuf</pattern>
+                  <shadedPattern>${rss.shade.packageName}.google.protobuf</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>com.fasterxml.jackson.core</pattern>
+                  <shadedPattern>${rss.shade.packageName}.jackson.core</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>com.fasterxml.jackson.databind</pattern>
+                  <shadedPattern>${rss.shade.packageName}.jackson.databind</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>com.fasterxml.jackson.annotation</pattern>
+                  <shadedPattern>${rss.shade.packageName}.jackson.annotation</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>io.netty</pattern>
+                  <shadedPattern>${rss.shade.packageName}.io.netty</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>io.grpc</pattern>
+                  <shadedPattern>${rss.shade.packageName}.io.grpc</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>io.perfmark</pattern>
+                  <shadedPattern>${rss.shade.packageName}.io.perfmark</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>org.roaringbitmap</pattern>
+                  <shadedPattern>${rss.shade.packageName}.org.roaringbitmap</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>org.apache</pattern>
+                  <shadedPattern>${rss.shade.packageName}.org.apache</shadedPattern>
+                  <excludes>
+                    <!-- Exclude the provided dependencies -->
+                    <!-- Exclude the packages belonging to uniffle -->
+                    <exclude>org/apache/uniffle/**/*</exclude>
+                    <!-- Exclude the packages belonging to hadoop -->
+                    <exclude>org/apache/hadoop/*</exclude>
+                    <exclude>org/apache/hadoop/**/*</exclude>
+                    <!-- Exclude the logging packages-->
+                    <exclude>**/pom.xml</exclude>
+                    <exclude>org/apache/commons/logging/*</exclude>
+                    <exclude>org/apache/commons/logging/**/*</exclude>
+                    <exclude>org/apache/log4j/*</exclude>
+                    <exclude>org/apache/log4j/**/*</exclude>
+                    <exclude>org/apache/logging/**/*</exclude>
+                    <!-- Exclude spark packages -->
+                    <exclude>org/apache/spark/**/*</exclude>
+                    <!-- Exclude commons-io packages -->
+                    <exclude>org/apache/commons/io/**/*</exclude>
+                    <!-- Exclude the packages belonging to collections 3 -->
+                    <exclude>org/apache/commons/collections/**/*</exclude>
+                  </excludes>
+                </relocation>
+                <relocation>
+                  <pattern>org.codehaus</pattern>
+                  <shadedPattern>${rss.shade.packageName}.codehaus</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>android.annotation</pattern>
+                  <shadedPattern>${rss.shade.packageName}.android.annotation</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>javassist</pattern>
+                  <shadedPattern>${rss.shade.packageName}.javassist</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>io.prometheus.client</pattern>
+                  <shadedPattern>${rss.shade.packageName}.io.prometheus.client</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>com.sun.activation</pattern>
+                  <shadedPattern>${rss.shade.packageName}.com.sun.activation</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>org.checkerframework</pattern>
+                  <shadedPattern>${rss.shade.packageName}.org.checkerframework</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>org.eclipse</pattern>
+                  <shadedPattern>${rss.shade.packageName}.org.eclipse</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>picocli</pattern>
+                  <shadedPattern>${rss.shade.packageName}.picocli</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>META-INF/license</pattern>
+                  <shadedPattern>META-INF/license-tmp</shadedPattern>
+                </relocation>
+              </relocations>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <!-- shade the native netty libs as well -->
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>regex-property</id>
+            <goals>
+              <goal>regex-property</goal>
+            </goals>
+            <configuration>
+              <name>rss.shade.native.packageName</name>
+              <value>${rss.shade.packageName}</value>
+              <regex>\.</regex>
+              <replacement>_</replacement>
+              <failIfNoMatch>true</failIfNoMatch>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-antrun-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>unpack</id>
+            <phase>package</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <target>
+                <echo message="Shade netty native libraries to ${rss.shade.native.packageName}"/>
+                <unzip src="${project.build.directory}/${project.artifactId}-${project.version}.jar"
+                       dest="${project.build.directory}/unpacked/"/>
+                <echo message="renaming native epoll library"></echo>
+                <move includeemptydirs="false"
+                      todir="${project.build.directory}/unpacked/META-INF/native">
+                  <fileset dir="${project.build.directory}/unpacked/META-INF/native"></fileset>
+                  <mapper from="libnetty_transport_native_epoll_x86_64.so"
+                          to="lib${rss.shade.native.packageName}_netty_transport_native_epoll_x86_64.so"
+                          type="glob"></mapper>
+                </move>
+                <move includeemptydirs="false"
+                      todir="${project.build.directory}/unpacked/META-INF/native">
+                  <fileset dir="${project.build.directory}/unpacked/META-INF/native"></fileset>
+                  <mapper from="libnetty_transport_native_epoll_aarch_64.so"
+                          to="lib${rss.shade.native.packageName}_netty_transport_native_epoll_aarch_64.so"
+                          type="glob"></mapper>
+                </move>
+                <move includeemptydirs="false"
+                      todir="${project.build.directory}/unpacked/META-INF/native">
+                  <fileset dir="${project.build.directory}/unpacked/META-INF/native"></fileset>
+                  <mapper from="libnetty_transport_native_epoll_riscv64.so"
+                          to="lib${rss.shade.native.packageName}_netty_transport_native_epoll_riscv64.so"
+                          type="glob"></mapper>
+                </move>
+                <move includeemptydirs="false"
+                      todir="${project.build.directory}/unpacked/META-INF/native">
+                  <fileset dir="${project.build.directory}/unpacked/META-INF/native"></fileset>
+                  <mapper from="libnetty_transport_native_kqueue_x86_64.jnilib"
+                          to="lib${rss.shade.native.packageName}_netty_transport_native_kqueue_x86_64.jnilib"
+                          type="glob"></mapper>
+                </move>
+                <move includeemptydirs="false"
+                      todir="${project.build.directory}/unpacked/META-INF/native">
+                  <fileset dir="${project.build.directory}/unpacked/META-INF/native"></fileset>
+                  <mapper from="libnetty_resolver_dns_native_macos_aarch_64.jnilib"
+                          to="lib${rss.shade.native.packageName}_netty_resolver_dns_native_macos_aarch_64.jnilib"
+                          type="glob"></mapper>
+                </move>
+                <move includeemptydirs="false"
+                      todir="${project.build.directory}/unpacked/META-INF/native">
+                  <fileset dir="${project.build.directory}/unpacked/META-INF/native"></fileset>
+                  <mapper from="libnetty_resolver_dns_native_macos_x86_64.jnilib"
+                          to="lib${rss.shade.native.packageName}_netty_resolver_dns_native_macos_x86_64.jnilib"
+                          type="glob"></mapper>
+                </move>
+                <move includeemptydirs="false"
+                      todir="${project.build.directory}/unpacked/META-INF/native">
+                  <fileset dir="${project.build.directory}/unpacked/META-INF/native"></fileset>
+                  <mapper from="libnetty_transport_native_kqueue_aarch_64.jnilib"
+                          to="lib${rss.shade.native.packageName}_netty_transport_native_kqueue_aarch_64.jnilib"
+                          type="glob"></mapper>
+                </move>
+                <!-- Since it may be compiled on case-insensitive operating system, it may be executed multiple times.
+                 Here the license directory, licenses directory, and LICENSE file are processed with aliases. -->
+                <move failonerror="false" quiet="true"
+                      todir="${project.build.directory}/unpacked/META-INF/license-tmps">
+                  <fileset dir="${project.build.directory}/unpacked/META-INF/license-tmp">
+                    <include name="LICENSE*.txt"/>
+                  </fileset>
+                </move>
+                <delete failonerror="false" quiet="true"
+                        dir="${project.build.directory}/unpacked/META-INF/license-tmp"/>
+                <move failonerror="false" quiet="true"
+                      file="${project.build.directory}/unpacked/META-INF/license-tmps"
+                      tofile="${project.build.directory}/unpacked/META-INF/licenses"/>
+                <move failonerror="false" quiet="true"
+                      file="${project.build.directory}/unpacked/META-INF/LICENSE-binary"
+                      tofile="${project.build.directory}/unpacked/META-INF/LICENSE"/>
+                <echo message="repackaging netty jar"></echo>
+                <jar destfile="${project.build.directory}/${project.artifactId}-${project.version}.jar"
+                     basedir="${project.build.directory}/unpacked"/>
+                <exec executable="bash" failonerror="true" dir="${project.build.directory}/">
+                  <arg line="${project.basedir}/../../dev/scripts/checkshade.sh ${project.build.directory}/${project.artifactId}-${project.version}.jar"/>
+                </exec>
+              </target>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

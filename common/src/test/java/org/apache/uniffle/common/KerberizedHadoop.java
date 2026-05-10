@@ -24,6 +24,7 @@ import java.io.OutputStreamWriter;
 import java.io.Serializable;
 import java.lang.reflect.Method;
 import java.net.BindException;
+import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -342,6 +343,16 @@ public class KerberizedHadoop implements Serializable {
     /** Allow the user of HDFS can be delegated to alex. */
     @Override
     public void authorize(UserGroupInformation userGroupInformation, String s)
+        throws AuthorizationException {
+      UserGroupInformation superUser = userGroupInformation.getRealUser();
+      LOGGER.info("Proxy: {}", superUser.getShortUserName());
+    }
+
+    /**
+     * Added in Hadoop 3.4 as a new abstract method in ImpersonationProvider. This override is
+     * needed for compilation with Hadoop 3.4+ while remaining compatible with older versions.
+     */
+    public void authorize(UserGroupInformation userGroupInformation, InetAddress address)
         throws AuthorizationException {
       UserGroupInformation superUser = userGroupInformation.getRealUser();
       LOGGER.info("Proxy: {}", superUser.getShortUserName());

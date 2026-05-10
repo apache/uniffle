@@ -48,6 +48,10 @@ public class SparkVersionUtils {
     return MAJOR_VERSION == 3;
   }
 
+  public static boolean isSpark4() {
+    return MAJOR_VERSION == 4;
+  }
+
   public static boolean isSpark320() {
     return SPARK_VERSION.matches("^3.2.0([^\\d].*)?$");
   }

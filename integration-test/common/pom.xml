@@ -177,7 +177,7 @@
                         </systemPropertyVariables>
                         <redirectTestOutputToFile>${test.redirectToFile}</redirectTestOutputToFile>
                         <useFile>${test.redirectToFile}</useFile>
-                        <argLine>-ea -Xmx5g -Xss4m -XX:MaxMetaspaceSize=2g -XX:ReservedCodeCacheSize=1g</argLine>
+                        <argLine>-ea -Xmx5g -Xss4m -XX:MaxMetaspaceSize=2g -XX:ReservedCodeCacheSize=1g ${extraJavaTestArgs}</argLine>
                         <failIfNoTests>false</failIfNoTests>
                     </configuration>
                 </plugin>

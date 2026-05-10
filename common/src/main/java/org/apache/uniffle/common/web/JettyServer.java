@@ -175,11 +175,25 @@ public class JettyServer {
     try {
       server.start();
       httpPort = ((ServerConnector) server.getConnectors()[0]).getLocalPort();
-    } catch (BindException e) {
-      ExitUtils.terminate(1, "Fail to start jetty http server, port is " + httpPort, e, LOG);
+    } catch (Exception e) {
+      if (isBindException(e)) {
+        ExitUtils.terminate(1, "Fail to start jetty http server, port is " + httpPort, e, LOG);
+      } else {
+        throw e;
+      }
     }
     LOG.info("Jetty http server started, listening on port {}", httpPort);
     return httpPort;
+  }
+
+  private static boolean isBindException(Throwable t) {
+    while (t != null) {
+      if (t instanceof BindException) {
+        return true;
+      }
+      t = t.getCause();
+    }
+    return false;
   }
 
   public void stop() throws Exception {

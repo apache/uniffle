@@ -32,6 +32,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIfSystemProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,6 +55,10 @@ import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+@DisabledIfSystemProperty(
+    named = "uniffle.test.skip.kerberos",
+    matches = "true",
+    disabledReason = "MiniKdc is not compatible with JDK 17+")
 public class ShuffleFlushManagerOnKerberizedHadoopTest extends KerberizedHadoopBase {
   private static final Logger LOGGER =
       LoggerFactory.getLogger(ShuffleFlushManagerOnKerberizedHadoopTest.class);

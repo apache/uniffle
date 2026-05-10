@@ -363,7 +363,8 @@ public class RssSparkShuffleUtils {
     // FetchFailedException.
     // Therefore, the stage re-computation feature is only enabled for Spark versions larger than or
     // equal to 2.3.
-    return SparkVersionUtils.isSpark3()
+    return SparkVersionUtils.isSpark4()
+        || SparkVersionUtils.isSpark3()
         || (SparkVersionUtils.isSpark2() && SparkVersionUtils.MINOR_VERSION >= 3);
   }
 

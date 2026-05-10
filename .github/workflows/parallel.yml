@@ -53,23 +53,40 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        profile:
+        include:
           # Pay attention! Don't use profile with character ':'!
-          - spark2
-          - spark2.3
-          - spark3.0
-          - spark3
-          - spark3.2
-          - spark3.2.0
-          - spark3.3
-          - spark3.4
-          - spark3.5
-          - spark3.5-scala2.13
-          - mr-hadoop2.8
-          - mr-hadoop3.2
-          - tez
-          - tez-hadoop3.2
-          - dashboard
+          - profile: spark2
+            java-version: 8
+          - profile: spark2.3
+            java-version: 8
+          - profile: spark3.0
+            java-version: 8
+          - profile: spark3
+            java-version: 8
+          - profile: spark3.2
+            java-version: 8
+          - profile: spark3.2.0
+            java-version: 8
+          - profile: spark3.3
+            java-version: 8
+          - profile: spark3.4
+            java-version: 8
+          - profile: spark3.5
+            java-version: 8
+          - profile: spark3.5-scala2.13
+            java-version: 8
+          - profile: spark4
+            java-version: 17
+          - profile: mr-hadoop2.8
+            java-version: 8
+          - profile: mr-hadoop3.2
+            java-version: 8
+          - profile: tez
+            java-version: 8
+          - profile: tez-hadoop3.2
+            java-version: 8
+          - profile: dashboard
+            java-version: 8
       fail-fast: false
     name: -P${{ matrix.profile }}
     steps:
@@ -77,19 +94,19 @@ jobs:
       run: sudo hostname "action-host" | sudo echo "127.0.0.1 action-host" | sudo tee -a /etc/hosts
     - name: Checkout project
       uses: actions/checkout@v3
-    - name: Set up JDK ${{ inputs.java-version }}
+    - name: Set up JDK ${{ matrix.java-version }}
       uses: actions/setup-java@v3
       with:
-        java-version: ${{ inputs.java-version }}
+        java-version: ${{ matrix.java-version }}
         distribution: ${{ inputs.jdk-distro }}
     - name: Cache local Maven repository
       uses: actions/cache@v3
       with:
         path: ~/.m2/repository
-        key: mvn-${{ inputs.java-version }}-package-${{ matrix.profile }}-${{ hashFiles('**/pom.xml') }}
+        key: mvn-${{ matrix.java-version }}-package-${{ matrix.profile }}-${{ hashFiles('**/pom.xml') }}
         restore-keys: |
-          mvn-${{ inputs.java-version }}-package-${{ matrix.profile }}-
-          mvn-${{ inputs.java-version }}-package-
+          mvn-${{ matrix.java-version }}-package-${{ matrix.profile }}-
+          mvn-${{ matrix.java-version }}-package-
     - name: Execute `./mvnw ${{ inputs.maven-args }} -P${{ matrix.profile }}`
       run: |
         PROFILES="${{ matrix.profile }}"

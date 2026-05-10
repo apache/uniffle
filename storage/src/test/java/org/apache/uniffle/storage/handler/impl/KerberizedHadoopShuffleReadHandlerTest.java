@@ -20,9 +20,14 @@ package org.apache.uniffle.storage.handler.impl;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIfSystemProperty;
 
 import org.apache.uniffle.common.KerberizedHadoopBase;
 
+@DisabledIfSystemProperty(
+    named = "uniffle.test.skip.kerberos",
+    matches = "true",
+    disabledReason = "MiniKdc is not compatible with JDK 17+")
 public class KerberizedHadoopShuffleReadHandlerTest extends KerberizedHadoopBase {
 
   @BeforeAll

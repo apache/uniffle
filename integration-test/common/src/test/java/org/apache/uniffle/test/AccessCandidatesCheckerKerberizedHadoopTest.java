@@ -21,10 +21,15 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIfSystemProperty;
 
 import org.apache.uniffle.common.KerberizedHadoopBase;
 import org.apache.uniffle.coordinator.metric.CoordinatorMetrics;
 
+@DisabledIfSystemProperty(
+    named = "uniffle.test.skip.kerberos",
+    matches = "true",
+    disabledReason = "MiniKdc is not compatible with JDK 17+")
 public class AccessCandidatesCheckerKerberizedHadoopTest extends KerberizedHadoopBase {
 
   @BeforeAll

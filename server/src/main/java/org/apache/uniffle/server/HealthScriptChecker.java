@@ -17,7 +17,8 @@
 
 package org.apache.uniffle.server;
 
-import org.apache.hadoop.util.NodeHealthScriptRunner;
+import java.io.File;
+
 import org.apache.hadoop.util.Shell;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,7 +34,7 @@ public class HealthScriptChecker extends Checker {
   HealthScriptChecker(ShuffleServerConf conf) {
     super(conf);
     this.healthScriptPath = conf.getString(ShuffleServerConf.HEALTH_CHECKER_SCRIPT_PATH);
-    if (!NodeHealthScriptRunner.shouldRun(healthScriptPath)) {
+    if (!shouldRun(healthScriptPath)) {
       LOG.error(
           "Rss health check script:"
               + healthScriptPath
@@ -44,10 +45,19 @@ public class HealthScriptChecker extends Checker {
     this.scriptTimeout = conf.getLong(ShuffleServerConf.HEALTH_CHECKER_SCRIPT_EXECUTE_TIMEOUT);
   }
 
+  /** Returns true if the script path is non-empty, the file exists, and is executable. */
+  private static boolean shouldRun(String scriptPath) {
+    if (scriptPath == null || scriptPath.isEmpty()) {
+      return false;
+    }
+    File scriptFile = new File(scriptPath);
+    return scriptFile.exists() && scriptFile.canExecute();
+  }
+
   @Override
   public boolean checkIsHealthy() {
     HealthCheckerExitStatus status = HealthCheckerExitStatus.SUCCESS;
-    // always build executor is to load the latest script, the script file can update in need.
+    // Rebuild the executor each time to pick up any script file changes
     Shell.ShellCommandExecutor commandExecutor =
         new Shell.ShellCommandExecutor(new String[] {healthScriptPath}, null, null, scriptTimeout);
     try {
@@ -55,8 +65,7 @@ public class HealthScriptChecker extends Checker {
     } catch (Shell.ExitCodeException e) {
       // ignore the exit code of the script
       status = HealthCheckerExitStatus.FAILED_WITH_EXIT_CODE;
-      // On Windows, we will not hit the Stream closed IOException
-      // thrown by stdout buffered reader for timeout event.
+      // Windows does not raise IOException on timeout, so check explicitly
       if (Shell.WINDOWS && commandExecutor.isTimedOut()) {
         status = HealthCheckerExitStatus.TIMED_OUT;
       }
