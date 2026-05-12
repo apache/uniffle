@@ -32,9 +32,6 @@ public class SparkVersionUtilsTest {
 
   @Test
   public void testSpark4Version() {
-    assertFalse(Spark4VersionUtils.isSpark2());
-    assertFalse(Spark4VersionUtils.isSpark3());
-    assertTrue(Spark4VersionUtils.isSpark4());
     assertTrue(Spark4VersionUtils.isSparkVersionAtLeast("3.5.0"));
     assertTrue(Spark4VersionUtils.isSparkVersionAtLeast("4.0.0"));
   }

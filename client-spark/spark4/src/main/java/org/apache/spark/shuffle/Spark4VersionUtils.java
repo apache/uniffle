@@ -20,17 +20,19 @@ package org.apache.spark.shuffle;
 import org.apache.spark.package$;
 import org.apache.spark.util.VersionUtils;
 
-public class Spark4VersionUtils extends SparkVersionUtils {
+public class Spark4VersionUtils {
   public static final String SPARK_VERSION_SHORT = package$.MODULE$.SPARK_VERSION_SHORT();
+
+  private Spark4VersionUtils() {}
 
   public static boolean isSparkVersionAtLeast(String target) {
     int targetMajor = VersionUtils.majorVersion(target);
     int targetMinor = VersionUtils.minorVersion(target);
 
-    if (MAJOR_VERSION > targetMajor) {
+    if (SparkVersionUtils.MAJOR_VERSION > targetMajor) {
       return true;
-    } else if (MAJOR_VERSION == targetMajor) {
-      return MINOR_VERSION >= targetMinor;
+    } else if (SparkVersionUtils.MAJOR_VERSION == targetMajor) {
+      return SparkVersionUtils.MINOR_VERSION >= targetMinor;
     } else {
       return false;
     }
