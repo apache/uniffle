@@ -945,7 +945,7 @@
         <plugin>
           <groupId>org.codehaus.mojo</groupId>
           <artifactId>build-helper-maven-plugin</artifactId>
-          <version>1.10</version>
+          <version>3.6.0</version>
         </plugin>
         <plugin>
           <groupId>org.codehaus.mojo</groupId>
@@ -2008,6 +2008,7 @@
         <module>client-spark/spark4-shaded</module>
         <module>integration-test/spark-common</module>
         <module>integration-test/spark4</module>
+        <module>client-spark/extension</module>
       </modules>
       <dependencyManagement>
         <dependencies>

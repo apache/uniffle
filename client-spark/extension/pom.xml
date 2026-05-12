@@ -33,6 +33,31 @@
     <packaging>jar</packaging>
     <name>Apache Uniffle Client spark ui</name>
 
+    <!--
+        WebUIPage.render's request parameter uses javax.servlet in Spark 3
+        and jakarta.servlet in Spark 4. A single ShufflePage.scala cannot
+        override both signatures, so the module ships two source roots
+        (src/main/scala-javax and src/main/scala-jakarta), each with its
+        own ServletCompat aliasing HttpServletRequest to the matching
+        package. build-helper-maven-plugin picks one via
+        ${extension.servlet.source.dir}; the javax variant is the default
+        and the spark4 profile at the bottom of this pom overrides it.
+
+        To add another servlet flavor, create src/main/scala-<flavor>/
+        with a mirrored ServletCompat (same aliases), then point a new
+        profile at it. Keep aliases in lock-step across every variant.
+
+        rss-client-spark-ui is published under a single Maven coordinate,
+        but different profiles produce incompatible bytecode (servlet +
+        Scala binary). Run `mvn clean` between profiles locally; shipping
+        multiple profile builds to the same remote coordinate is out of
+        scope for this module.
+    -->
+    <properties>
+        <!-- Overridden by the spark4 profile below. -->
+        <extension.servlet.source.dir>src/main/scala-javax</extension.servlet.source.dir>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>org.apache.uniffle</groupId>
@@ -73,6 +98,24 @@
     <build>
         <plugins>
             <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>add-servlet-compat-source</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>add-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <source>${extension.servlet.source.dir}</source>
+                            </sources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
                 <groupId>net.alchim31.maven</groupId>
                 <artifactId>scala-maven-plugin</artifactId>
                 <version>${scala.maven.plugin.version}</version>
@@ -90,4 +133,14 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <!-- Merged with the root pom's spark4 profile by shared id. -->
+            <id>spark4</id>
+            <properties>
+                <extension.servlet.source.dir>src/main/scala-jakarta</extension.servlet.source.dir>
+            </properties>
+        </profile>
+    </profiles>
 </project>

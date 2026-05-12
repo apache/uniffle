@@ -18,11 +18,11 @@
 package org.apache.spark.ui
 
 import org.apache.spark.internal.Logging
+import org.apache.spark.ui.ServletCompat.HttpServletRequest
 import org.apache.spark.util.Utils
 import org.apache.spark.{AggregatedShuffleMetric, AggregatedShuffleReadMetric, AggregatedShuffleWriteMetric, AggregatedTaskInfoUIData, ShuffleType}
 
 import java.util.concurrent.ConcurrentHashMap
-import javax.servlet.http.HttpServletRequest
 import scala.collection.JavaConverters.{collectionAsScalaIterableConverter, mapAsScalaMapConverter}
 import scala.xml.{Node, NodeSeq}
 
