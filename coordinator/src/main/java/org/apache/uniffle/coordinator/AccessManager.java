@@ -40,6 +40,7 @@ public class AccessManager {
   private final CoordinatorConf coordinatorConf;
   private final ClusterManager clusterManager;
   private final QuotaManager quotaManager;
+  private final BannedManager bannedManager;
   private final Configuration hadoopConf;
   private List<AccessChecker> accessCheckers = Lists.newArrayList();
 
@@ -53,6 +54,7 @@ public class AccessManager {
     this.clusterManager = clusterManager;
     this.hadoopConf = hadoopConf;
     this.quotaManager = quotaManager;
+    this.bannedManager = new BannedManager(coordinatorConf);
     init();
   }
 
@@ -101,6 +103,10 @@ public class AccessManager {
 
   public QuotaManager getQuotaManager() {
     return quotaManager;
+  }
+
+  public BannedManager getBannedManager() {
+    return bannedManager;
   }
 
   public void close() throws IOException {
