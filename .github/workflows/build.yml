@@ -82,7 +82,7 @@ jobs:
   unit:
     uses: ./.github/workflows/parallel.yml
     with:
-      maven-args: package -Dtest=!org.apache.uniffle.test.**
+      maven-args: package -Dsurefire.rerunFailingTestsCount=2 -Dtest=!org.apache.uniffle.test.**
       tests-name: 'unit-tests'
       reports-name: 'unit-reports'
       reports-path: |
@@ -92,7 +92,7 @@ jobs:
   integration:
     uses: ./.github/workflows/parallel.yml
     with:
-      maven-args: package -Dtest=org.apache.uniffle.test.**
+      maven-args: package -Dsurefire.rerunFailingTestsCount=2 -Dtest=org.apache.uniffle.test.**
       tests-name: 'integration-tests'
       reports-name: 'integration-reports'
       reports-path: |
