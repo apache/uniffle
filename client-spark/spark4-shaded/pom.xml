@@ -209,6 +209,20 @@
                   <shadedPattern>${rss.shade.packageName}.org.checkerframework</shadedPattern>
                 </relocation>
                 <relocation>
+                  <!--
+                      Spark 4.1's hadoop 3.4.1 pulls bcprov-jdk18on transitively,
+                      and netty 4.2 stopped internally shading jctools. Both leak
+                      into the shaded jar; relocate them so checkshade.sh stays
+                      happy and we don't conflict with users' classpath.
+                  -->
+                  <pattern>org.bouncycastle</pattern>
+                  <shadedPattern>${rss.shade.packageName}.org.bouncycastle</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>org.jctools</pattern>
+                  <shadedPattern>${rss.shade.packageName}.org.jctools</shadedPattern>
+                </relocation>
+                <relocation>
                   <pattern>org.eclipse</pattern>
                   <shadedPattern>${rss.shade.packageName}.org.eclipse</shadedPattern>
                 </relocation>

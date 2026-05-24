@@ -136,8 +136,23 @@
 
     <profiles>
         <profile>
-            <!-- Merged with the root pom's spark4 profile by shared id. -->
+            <!--
+                Co-activated with the root pom's spark4 profile via the shared
+                -Pspark4 flag. Each pom contributes its own profile body; Maven
+                does not merge profiles across poms by id.
+            -->
             <id>spark4</id>
+            <properties>
+                <extension.servlet.source.dir>src/main/scala-jakarta</extension.servlet.source.dir>
+            </properties>
+        </profile>
+        <profile>
+            <!--
+                Co-activated with the root pom's spark4.1 profile via the shared
+                -Pspark4.1 flag. Each pom contributes its own profile body; Maven
+                does not merge profiles across poms by id.
+            -->
+            <id>spark4.1</id>
             <properties>
                 <extension.servlet.source.dir>src/main/scala-jakarta</extension.servlet.source.dir>
             </properties>

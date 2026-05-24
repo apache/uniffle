@@ -59,6 +59,7 @@ import org.apache.spark.shuffle.RssShuffleManager;
 import org.apache.spark.shuffle.RssSparkConfig;
 import org.apache.spark.shuffle.RssSparkShuffleUtils;
 import org.apache.spark.shuffle.ShuffleWriter;
+import org.apache.spark.shuffle.compat.Spark4Compat;
 import org.apache.spark.shuffle.handle.ShuffleHandleInfo;
 import org.apache.spark.storage.BlockManagerId;
 import org.roaringbitmap.longlong.Roaring64NavigableMap;
@@ -720,7 +721,8 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
                         ? shuffleTaskStats.encode()
                         : Long.toString(taskAttemptId)));
         MapStatus mapStatus =
-            MapStatus.apply(blockManagerId, shuffleTaskStats.getPartitionLengths(), taskAttemptId);
+            Spark4Compat.mapStatus(
+                blockManagerId, shuffleTaskStats.getPartitionLengths(), taskAttemptId);
         return Option.apply(mapStatus);
       } else {
         return Option.empty();

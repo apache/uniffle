@@ -48,6 +48,7 @@ import org.apache.spark.shuffle.RssShuffleHandle;
 import org.apache.spark.shuffle.RssShuffleManager;
 import org.apache.spark.shuffle.RssSparkConfig;
 import org.apache.spark.shuffle.ShuffleReader;
+import org.apache.spark.shuffle.compat.Spark4Compat;
 import org.apache.spark.util.CompletionIterator;
 import org.apache.spark.util.CompletionIterator$;
 import org.apache.spark.util.collection.ExternalSorter;
@@ -223,7 +224,7 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
         }
       }
       ExternalSorter<K, Object, C> sorter =
-          new ExternalSorter<>(
+          Spark4Compat.newExternalSorter(
               context, aggregator, Option.empty(), shuffleDependency.keyOrdering(), serializer);
       long startTime = System.currentTimeMillis();
       sorter.insertAll(rssShuffleDataIterator);
