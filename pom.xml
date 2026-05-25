@@ -2127,7 +2127,13 @@
         <fasterxml.jackson.version>2.12.7</fasterxml.jackson.version>
         <jetty.version>9.4.53.v20231009</jetty.version>
         <enforcer.skip>true</enforcer.skip>
-        <jackson.version>2.18.2</jackson.version>
+        <!--
+            Spark 4.1.1 ships jackson-module-scala_2.13 2.20.0, which requires
+            jackson-databind in [2.20.0, 2.21.0). Pin databind/core to 2.20.0
+            so RDDOperationScope's static initializer (registers DefaultScalaModule
+            on a shared ObjectMapper) doesn't blow up under -Pspark4.1.
+        -->
+        <jackson.version>2.20.0</jackson.version>
         <log4j.version>2.24.3</log4j.version>
         <slf4j.version>2.0.16</slf4j.version>
         <java.version>17</java.version>
