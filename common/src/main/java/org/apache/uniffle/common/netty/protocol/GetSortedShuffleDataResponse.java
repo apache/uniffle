@@ -76,7 +76,7 @@ public class GetSortedShuffleDataResponse extends RpcResponse {
     String retMessage = ByteBufUtils.readLengthAndString(buf);
     NettyManagedBuffer nettyManagedBuffer;
     if (decodeBody) {
-      nettyManagedBuffer = new NettyManagedBuffer(buf);
+      nettyManagedBuffer = new NettyManagedBuffer(buf.retain());
     } else {
       nettyManagedBuffer = NettyManagedBuffer.EMPTY_BUFFER;
     }

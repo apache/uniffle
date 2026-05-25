@@ -91,7 +91,7 @@ public class GetLocalShuffleIndexV2Response extends GetLocalShuffleIndexResponse
       storageIds[i] = byteBuf.readInt();
     }
     if (decodeBody) {
-      NettyManagedBuffer nettyManagedBuffer = new NettyManagedBuffer(byteBuf);
+      NettyManagedBuffer nettyManagedBuffer = new NettyManagedBuffer(byteBuf.retain());
       return new GetLocalShuffleIndexV2Response(
           requestId, statusCode, retMessage, nettyManagedBuffer, fileLength, storageIds);
     } else {

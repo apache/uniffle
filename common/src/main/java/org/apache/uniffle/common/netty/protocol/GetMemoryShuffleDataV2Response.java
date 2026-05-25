@@ -87,7 +87,7 @@ public class GetMemoryShuffleDataV2Response extends GetMemoryShuffleDataResponse
     List<BufferSegment> bufferSegments = Decoders.decodeBufferSegments(byteBuf);
     boolean isEnd = byteBuf.readByte() == 1;
     if (decodeBody) {
-      NettyManagedBuffer nettyManagedBuffer = new NettyManagedBuffer(byteBuf);
+      NettyManagedBuffer nettyManagedBuffer = new NettyManagedBuffer(byteBuf.retain());
       return new GetMemoryShuffleDataV2Response(
           requestId, statusCode, retMessage, bufferSegments, nettyManagedBuffer, isEnd);
     } else {

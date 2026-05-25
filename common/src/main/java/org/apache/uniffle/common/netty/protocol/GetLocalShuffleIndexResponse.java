@@ -76,7 +76,7 @@ public class GetLocalShuffleIndexResponse extends RpcResponse {
     String retMessage = ByteBufUtils.readLengthAndString(byteBuf);
     long fileLength = byteBuf.readLong();
     if (decodeBody) {
-      NettyManagedBuffer nettyManagedBuffer = new NettyManagedBuffer(byteBuf);
+      NettyManagedBuffer nettyManagedBuffer = new NettyManagedBuffer(byteBuf.retain());
       return new GetLocalShuffleIndexResponse(
           requestId, statusCode, retMessage, nettyManagedBuffer, fileLength);
     } else {

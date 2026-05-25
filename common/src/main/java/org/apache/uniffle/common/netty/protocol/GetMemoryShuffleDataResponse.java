@@ -81,7 +81,7 @@ public class GetMemoryShuffleDataResponse extends RpcResponse {
     String retMessage = ByteBufUtils.readLengthAndString(byteBuf);
     List<BufferSegment> bufferSegments = Decoders.decodeBufferSegments(byteBuf);
     if (decodeBody) {
-      NettyManagedBuffer nettyManagedBuffer = new NettyManagedBuffer(byteBuf);
+      NettyManagedBuffer nettyManagedBuffer = new NettyManagedBuffer(byteBuf.retain());
       return new GetMemoryShuffleDataResponse(
           requestId, statusCode, retMessage, bufferSegments, nettyManagedBuffer);
     } else {

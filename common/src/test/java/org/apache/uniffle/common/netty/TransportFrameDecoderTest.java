@@ -47,7 +47,6 @@ import org.apache.uniffle.common.netty.protocol.SendShuffleDataRequest;
 import org.apache.uniffle.common.rpc.StatusCode;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TransportFrameDecoderTest {
@@ -72,7 +71,10 @@ public class TransportFrameDecoderTest {
     assertEquals(byteBuf2.readableBytes(), length2);
     byteBuf2.writeBytes(body2);
     Message message2 = Message.decode(rpcResponse2.type(), byteBuf2);
-    assertFalse(TransportFrameDecoder.shouldRelease(message2));
+    // Frame ownership is released here unconditionally; the response decoder retained
+    // the buffer for the body, so the body keeps an independent ref count.
+    assertTrue(TransportFrameDecoder.shouldRelease(message2));
+    byteBuf2.release();
     // after processing some business logic in the code, and finally release the body buffer
     message2.body().release();
 
@@ -84,7 +86,8 @@ public class TransportFrameDecoderTest {
     assertEquals(byteBuf3.readableBytes(), length3);
     byteBuf3.writeBytes(body3);
     Message message3 = Message.decode(rpcResponse3.type(), byteBuf3);
-    assertFalse(TransportFrameDecoder.shouldRelease(message3));
+    assertTrue(TransportFrameDecoder.shouldRelease(message3));
+    byteBuf3.release();
     // after processing some business logic in the code, and finally release the body buffer
     message3.body().release();
 
@@ -96,7 +99,8 @@ public class TransportFrameDecoderTest {
     assertEquals(byteBuf4.readableBytes(), length4);
     byteBuf4.writeBytes(body4);
     Message message4 = Message.decode(rpcResponse4.type(), byteBuf4);
-    assertFalse(TransportFrameDecoder.shouldRelease(message4));
+    assertTrue(TransportFrameDecoder.shouldRelease(message4));
+    byteBuf4.release();
     // after processing some business logic in the code, and finally release the body buffer
     message4.body().release();
 
@@ -108,7 +112,8 @@ public class TransportFrameDecoderTest {
     assertEquals(byteBuf5.readableBytes(), length5);
     byteBuf5.writeBytes(body5);
     Message message5 = Message.decode(rpcResponse5.type(), byteBuf5);
-    assertFalse(TransportFrameDecoder.shouldRelease(message5));
+    assertTrue(TransportFrameDecoder.shouldRelease(message5));
+    byteBuf5.release();
     // after processing some business logic in the code, and finally release the body buffer
     message5.body().release();
   }

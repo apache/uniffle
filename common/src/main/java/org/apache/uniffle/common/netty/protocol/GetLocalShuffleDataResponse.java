@@ -36,7 +36,7 @@ public class GetLocalShuffleDataResponse extends RpcResponse {
     StatusCode statusCode = StatusCode.fromCode(byteBuf.readInt());
     String retMessage = ByteBufUtils.readLengthAndString(byteBuf);
     if (decodeBody) {
-      NettyManagedBuffer nettyManagedBuffer = new NettyManagedBuffer(byteBuf);
+      NettyManagedBuffer nettyManagedBuffer = new NettyManagedBuffer(byteBuf.retain());
       return new GetLocalShuffleDataResponse(requestId, statusCode, retMessage, nettyManagedBuffer);
     } else {
       return new GetLocalShuffleDataResponse(

@@ -83,7 +83,7 @@ public class RpcResponse extends ResponseMessage {
     StatusCode statusCode = StatusCode.fromCode(byteBuf.readInt());
     String retMessage = ByteBufUtils.readLengthAndString(byteBuf);
     if (decodeBody) {
-      NettyManagedBuffer nettyManagedBuffer = new NettyManagedBuffer(byteBuf);
+      NettyManagedBuffer nettyManagedBuffer = new NettyManagedBuffer(byteBuf.retain());
       return new RpcResponse(requestId, statusCode, retMessage, nettyManagedBuffer);
     } else {
       return new RpcResponse(requestId, statusCode, retMessage, NettyManagedBuffer.EMPTY_BUFFER);
