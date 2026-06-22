@@ -84,11 +84,12 @@ public class FailedBlockSendTracker {
   }
 
   public Set<Long> getFailedBlockIds() {
-    return trackingBlockStatusMap.keySet();
+    return Sets.newHashSet(trackingBlockStatusMap.keySet());
   }
 
   public List<TrackingBlockStatus> getFailedBlockStatus(Long blockId) {
-    return trackingBlockStatusMap.get(blockId);
+    List<TrackingBlockStatus> statuses = trackingBlockStatusMap.get(blockId);
+    return statuses == null ? Collections.emptyList() : statuses;
   }
 
   public Set<ShuffleServerInfo> getFaultyShuffleServers() {

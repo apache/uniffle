@@ -18,6 +18,7 @@
 package org.apache.uniffle.client.impl;
 
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -30,6 +31,8 @@ import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.rpc.StatusCode;
 
 import static org.awaitility.Awaitility.await;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class FailedBlockSendTrackerTest {
   @Test
@@ -71,5 +74,31 @@ public class FailedBlockSendTrackerTest {
                       .collect(Collectors.toList());
               return CollectionUtils.isEqualCollection(expected, actual);
             });
+  }
+
+  @Test
+  public void getFailedBlockIdsShouldReturnSnapshot() {
+    FailedBlockSendTracker tracker = new FailedBlockSendTracker();
+    ShuffleServerInfo shuffleServerInfo = new ShuffleServerInfo("host1", 19999);
+    ShuffleBlockInfo shuffleBlockInfo =
+        new ShuffleBlockInfo(
+            0,
+            0,
+            1L,
+            0,
+            0L,
+            new byte[] {},
+            Lists.newArrayList(shuffleServerInfo),
+            0,
+            0L,
+            0L);
+
+    tracker.add(shuffleBlockInfo, shuffleServerInfo, StatusCode.INTERNAL_ERROR);
+
+    Set<Long> failedBlockIds = tracker.getFailedBlockIds();
+    tracker.remove(shuffleBlockInfo.getBlockId());
+
+    assertEquals(1, failedBlockIds.size());
+    assertTrue(tracker.getFailedBlockStatus(shuffleBlockInfo.getBlockId()).isEmpty());
   }
 }

@@ -133,6 +133,9 @@ public class ReassignExecutor {
     for (Long blockId : failedBlockIds) {
       List<TrackingBlockStatus> failedBlockStatus =
           failedBlockSendTracker.getFailedBlockStatus(blockId);
+      if (CollectionUtils.isEmpty(failedBlockStatus)) {
+        continue;
+      }
       synchronized (failedBlockStatus) {
         int retryCnt =
             failedBlockStatus.stream()
@@ -179,6 +182,9 @@ public class ReassignExecutor {
         // todo: if setting multi replica and another replica is succeed to send, no need to resend
         resendBlocks.addAll(failedBlockStatus);
       }
+    }
+    if (resendBlocks.isEmpty()) {
+      return;
     }
     reassignAndResendBlocks(resendBlocks);
   }

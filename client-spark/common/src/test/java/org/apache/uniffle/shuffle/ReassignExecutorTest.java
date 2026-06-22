@@ -18,6 +18,7 @@
 package org.apache.uniffle.shuffle;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -44,6 +45,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 public class ReassignExecutorTest {
@@ -102,6 +104,18 @@ public class ReassignExecutorTest {
     assertThrows(RssSendFailedException.class, executor::reassign);
 
     verify(blockInfo).executeCompletionCallback(true);
+  }
+
+  @Test
+  void testRemovedFailureStatusShouldBeIgnored() {
+    long blockId = 100L;
+    when(failedBlockSendTracker.getFailedBlockIds())
+        .thenReturn(new HashSet<>(Arrays.asList(blockId)));
+    when(failedBlockSendTracker.getFailedBlockStatus(blockId)).thenReturn(Collections.emptyList());
+
+    executor.reassign();
+
+    verifyNoInteractions(removeBlockStatsFunction, resendBlocksFunction, shuffleManagerClient);
   }
 
   @Test
