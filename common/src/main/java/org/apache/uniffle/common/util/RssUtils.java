@@ -60,7 +60,6 @@ import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.config.RssBaseConf;
 import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.exception.RssException;
-import org.apache.uniffle.common.rpc.ServerInterface;
 
 import static org.apache.uniffle.common.config.RssClientConf.RSS_CLIENT_EXTRA_JAVA_SYSTEM_PROPERTIES;
 
@@ -68,6 +67,11 @@ public class RssUtils {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(RssUtils.class);
   public static final String RSS_LOCAL_DIR_KEY = "RSS_LOCAL_DIRS";
+
+  @FunctionalInterface
+  public interface ServiceStarter {
+    int startOnPort(int port) throws Exception;
+  }
 
   private RssUtils() {}
 
@@ -184,37 +188,34 @@ public class RssUtils {
     return siteLocalAddress;
   }
 
-  public static int startServiceOnPort(
-      ServerInterface service, String serviceName, int servicePort, RssBaseConf conf) {
+  public static int startServiceOnPortWithFallback(
+      ServiceStarter serviceStarter, String serviceName, int servicePort) {
     if (servicePort < 0 || servicePort > 65535) {
       throw new IllegalArgumentException(
           String.format("Bad service %s on port (%s)", serviceName, servicePort));
     }
-    int actualPort = servicePort;
-    int maxRetries = conf.get(RssBaseConf.SERVER_PORT_MAX_RETRIES);
-    for (int i = 0; i < maxRetries; i++) {
-      try {
-        if (servicePort == 0) {
-          actualPort = findRandomTcpPort(conf);
-        } else {
-          actualPort += i;
-        }
-        service.startOnPort(actualPort);
-        return actualPort;
-      } catch (Exception e) {
-        if (isServerPortBindCollision(e)) {
-          LOGGER.warn(
-              String.format(
-                  "%s:Service %s failed after %s retries (on a random free port (%s))!",
-                  e.getMessage(), serviceName, i + 1, actualPort));
-        } else {
+    try {
+      return serviceStarter.startOnPort(servicePort);
+    } catch (Exception e) {
+      if (servicePort > 0 && isServerPortBindCollision(e)) {
+        LOGGER.warn(
+            "{}: Service {} failed to bind on port {}, falling back to port 0.",
+            e.getMessage(),
+            serviceName,
+            servicePort);
+        try {
+          return serviceStarter.startOnPort(0);
+        } catch (Exception fallbackException) {
           throw new RssException(
-              String.format("Failed to start service %s on port %s", serviceName, servicePort), e);
+              String.format(
+                  "Failed to start service %s on port 0 after falling back from port %s",
+                  serviceName, servicePort),
+              fallbackException);
         }
       }
+      throw new RssException(
+          String.format("Failed to start service %s on port %s", serviceName, servicePort), e);
     }
-    throw new RssException(
-        String.format("Failed to start service %s on port %s", serviceName, servicePort));
   }
 
   /** check whether the exception is caused by an address-port collision when binding. */
