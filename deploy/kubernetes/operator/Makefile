@@ -105,7 +105,7 @@ docker-push: docker-build
 CONTROLLER_GEN = $(LOCAL_DIR)/controller-gen
 .PHONY: controller-gen
 controller-gen: ## Download controller-gen locally if necessary.
-	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.12.1)
+	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.20.0)
 	./hack/update-codegen.sh
 
 KUSTOMIZE = $(LOCAL_DIR)/kustomize
@@ -121,7 +121,7 @@ envtest: ## Download envtest-setup locally if necessary.
 GOIMPORTS = $(LOCAL_DIR)/goimports
 .PHONY: goimports
 goimports: ## Download goimports locally if necessary.
-	$(call go-get-tool,$(GOIMPORTS),golang.org/x/tools/cmd/goimports@v0.15.0)
+	$(call go-get-tool,$(GOIMPORTS),golang.org/x/tools/cmd/goimports@v0.41.0)
 	$(GOIMPORTS) -local github.com/apache/incubator-uniffle/deploy/kubernetes/operator -w .
 
 REVIVE = $(LOCAL_DIR)/revive
