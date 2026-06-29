@@ -17,7 +17,7 @@
 
 package org.apache.uniffle.server.netty;
 
-import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -171,20 +171,19 @@ public class StreamServer implements ServerInterface {
   }
 
   @Override
-  public int start() throws IOException {
+  public int start() throws Exception {
     int port = shuffleServerConf.getInteger(ShuffleServerConf.NETTY_SERVER_PORT);
     try {
       port =
-          RssUtils.startServiceOnPort(
-              this, Constants.NETTY_STREAM_SERVICE_NAME, port, shuffleServerConf);
+          RssUtils.startServiceOnPortWithFallback(
+              this::startOnPort, Constants.NETTY_STREAM_SERVICE_NAME, port);
     } catch (Exception e) {
       ExitUtils.terminate(1, "Fail to start stream server", e, LOG);
     }
     return port;
   }
 
-  @Override
-  public void startOnPort(int port) throws Exception {
+  private int startOnPort(int port) throws Exception {
 
     ServerBootstrap serverBootstrap =
         bootstrapChannel(
@@ -201,7 +200,9 @@ public class StreamServer implements ServerInterface {
       channelFuture = serverBootstrap.bind(port);
       channelFuture.syncUninterruptibly();
       LOG.info("bind localAddress is " + channelFuture.channel().localAddress());
-      LOG.info("Start stream server successfully with port " + port);
+      int actualPort = ((InetSocketAddress) channelFuture.channel().localAddress()).getPort();
+      LOG.info("Start stream server successfully with port " + actualPort);
+      return actualPort;
     } catch (Exception e) {
       throw e;
     }

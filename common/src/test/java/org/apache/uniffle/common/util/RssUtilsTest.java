@@ -102,19 +102,16 @@ public class RssUtilsTest {
   }
 
   @Test
-  public void testStartServiceOnPort() throws InterruptedException {
-    RssBaseConf rssBaseConf = new RssBaseConf();
-    rssBaseConf.set(RssBaseConf.SERVER_PORT_MAX_RETRIES, 100);
-    rssBaseConf.set(RssBaseConf.RSS_RANDOM_PORT_MIN, 30000);
-    rssBaseConf.set(RssBaseConf.RSS_RANDOM_PORT_MAX, 39999);
-    // zero port to get random port
+  public void testStartServiceOnPortWithFallback() throws InterruptedException {
+    // zero port should be delegated to the service, so the OS assigns an available port.
     MockServer mockServer = new MockServer();
     int port = 0;
     try {
-      int actualPort = RssUtils.startServiceOnPort(mockServer, "MockServer", port, rssBaseConf);
-      assertTrue(
-          actualPort >= 30000
-              && actualPort < 39999 + rssBaseConf.get(RssBaseConf.SERVER_PORT_MAX_RETRIES));
+      int actualPort =
+          RssUtils.startServiceOnPortWithFallback(mockServer::startOnPort, "MockServer", port);
+      assertEquals(0, mockServer.startPort);
+      assertEquals(mockServer.serverSocket.getLocalPort(), actualPort);
+      assertTrue(actualPort > 0);
     } finally {
       if (mockServer != null) {
         mockServer.stop();
@@ -123,7 +120,7 @@ public class RssUtilsTest {
     // error port test
     try {
       port = -1;
-      RssUtils.startServiceOnPort(mockServer, "MockServer", port, rssBaseConf);
+      RssUtils.startServiceOnPortWithFallback(mockServer::startOnPort, "MockServer", port);
     } catch (RuntimeException e) {
       assertTrue(e.toString().startsWith("java.lang.IllegalArgumentException: Bad service"));
     }
@@ -131,11 +128,9 @@ public class RssUtilsTest {
     try {
       mockServer = new MockServer();
       port = 10000;
-      rssBaseConf.set(RssBaseConf.SERVER_PORT_MAX_RETRIES, 100);
-      int actualPort = RssUtils.startServiceOnPort(mockServer, "MockServer", port, rssBaseConf);
-      assertTrue(
-          actualPort >= port
-              && actualPort < port + rssBaseConf.get(RssBaseConf.SERVER_PORT_MAX_RETRIES));
+      int actualPort =
+          RssUtils.startServiceOnPortWithFallback(mockServer::startOnPort, "MockServer", port);
+      assertEquals(port, actualPort);
     } finally {
       if (mockServer != null) {
         mockServer.stop();
@@ -147,17 +142,21 @@ public class RssUtilsTest {
     try {
       mockServer = new MockServer();
       port = 10000;
-      int actualPort1 = RssUtils.startServiceOnPort(mockServer, "MockServer", port, rssBaseConf);
-      rssBaseConf.set(RssBaseConf.SERVER_PORT_MAX_RETRIES, 10);
+      int actualPort1 =
+          RssUtils.startServiceOnPortWithFallback(mockServer::startOnPort, "MockServer", port);
       int actualPort2 =
-          RssUtils.startServiceOnPort(toStartSockServer, "MockServer", actualPort1, rssBaseConf);
-      assertTrue(actualPort1 < actualPort2);
+          RssUtils.startServiceOnPortWithFallback(
+              toStartSockServer::startOnPort, "MockServer", actualPort1);
+      assertEquals(0, toStartSockServer.startPort);
+      assertEquals(toStartSockServer.serverSocket.getLocalPort(), actualPort2);
+      assertTrue(actualPort2 > 0);
+      assertTrue(actualPort1 != actualPort2);
       toStartSockServer.stop();
-      rssBaseConf.set(RssBaseConf.SERVER_PORT_MAX_RETRIES, 0);
-      RssUtils.startServiceOnPort(toStartSockServer, "MockServer", actualPort1, rssBaseConf);
-      assertFalse(false);
+      toStartSockServer = new MockServer();
+      RssUtils.startServiceOnPortWithFallback(toStartSockServer::startOnPort, "MockServer", 0);
+      assertEquals(0, toStartSockServer.startPort);
     } catch (RuntimeException e) {
-      assertTrue(e.getMessage().startsWith("Failed to start service"));
+      fail(e.getMessage());
     } finally {
       if (mockServer != null) {
         mockServer.stop();
@@ -351,15 +350,15 @@ public class RssUtilsTest {
   public static class MockServer implements ServerInterface {
 
     ServerSocket serverSocket;
+    int startPort = -1;
 
     @Override
     public int start() throws IOException {
-      // not implement
-      return -1;
+      return startOnPort(0);
     }
 
-    @Override
-    public void startOnPort(int port) throws IOException {
+    int startOnPort(int port) throws IOException {
+      startPort = port;
       serverSocket =
           ServerSocketFactory.getDefault()
               .createServerSocket(port, 1, InetAddress.getByName("localhost"));
@@ -374,6 +373,7 @@ public class RssUtilsTest {
                 }
               })
           .start();
+      return serverSocket.getLocalPort();
     }
 
     @Override

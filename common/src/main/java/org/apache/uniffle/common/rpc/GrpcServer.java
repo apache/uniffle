@@ -17,7 +17,6 @@
 
 package org.apache.uniffle.common.rpc;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
@@ -56,7 +55,7 @@ public class GrpcServer implements ServerInterface {
 
   private static volatile boolean poolExecutorHasExecuted;
   private Server server;
-  private final int port;
+  private final int configuredPort;
   private int listenPort;
   private final GrpcThreadPoolExecutor pool;
   private List<Pair<BindableService, List<ServerInterceptor>>> servicesWithInterceptors;
@@ -68,7 +67,7 @@ public class GrpcServer implements ServerInterface {
       List<Pair<BindableService, List<ServerInterceptor>>> servicesWithInterceptors,
       GRPCMetrics grpcMetrics) {
     this.rssConf = conf;
-    this.port = rssConf.getInteger(RssBaseConf.RPC_SERVER_PORT);
+    this.configuredPort = rssConf.getInteger(RssBaseConf.RPC_SERVER_PORT);
     this.servicesWithInterceptors = servicesWithInterceptors;
     this.grpcMetrics = grpcMetrics;
 
@@ -211,18 +210,18 @@ public class GrpcServer implements ServerInterface {
   }
 
   @Override
-  public int start() throws IOException {
+  public int start() throws Exception {
     try {
       this.listenPort =
-          RssUtils.startServiceOnPort(this, Constants.GRPC_SERVICE_NAME, port, rssConf);
+          RssUtils.startServiceOnPortWithFallback(
+              this::startOnPort, Constants.GRPC_SERVICE_NAME, configuredPort);
     } catch (Exception e) {
-      ExitUtils.terminate(1, "Fail to start grpc server on conf port:" + port, e, LOG);
+      ExitUtils.terminate(1, "Fail to start grpc server on conf port:" + configuredPort, e, LOG);
     }
     return listenPort;
   }
 
-  @Override
-  public void startOnPort(int startPort) throws Exception {
+  private int startOnPort(int startPort) throws Exception {
     this.server = buildGrpcServer(startPort);
     try {
       server.start();
@@ -230,7 +229,8 @@ public class GrpcServer implements ServerInterface {
     } catch (Exception e) {
       throw e;
     }
-    LOG.info("Grpc server started, configured port: {}, listening on {}.", port, listenPort);
+    LOG.info("Grpc server started, start port: {}, listening on {}.", startPort, listenPort);
+    return listenPort;
   }
 
   @Override

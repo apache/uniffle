@@ -17,13 +17,9 @@
 
 package org.apache.uniffle.common.rpc;
 
-import java.io.IOException;
-
 public interface ServerInterface {
 
-  int start() throws IOException;
-
-  void startOnPort(int port) throws Exception;
+  int start() throws Exception;
 
   void stop() throws InterruptedException;
 
