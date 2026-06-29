@@ -74,8 +74,6 @@ import org.apache.uniffle.shuffle.ShuffleReadTaskStats;
 import org.apache.uniffle.shuffle.ShuffleWriteTaskStats;
 import org.apache.uniffle.storage.handler.impl.ShuffleServerReadCostTracker;
 
-import static org.apache.spark.shuffle.RssSparkConfig.RSS_READ_OVERLAPPING_DECOMPRESSION_ENABLED;
-import static org.apache.spark.shuffle.RssSparkConfig.RSS_READ_OVERLAPPING_DECOMPRESSION_THREADS;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_READ_REORDER_MULTI_SERVERS_ENABLED;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_RESUBMIT_STAGE_WITH_FETCH_FAILURE_ENABLED;
 
@@ -372,13 +370,6 @@ public class RssShuffleReader<K, C> implements ShuffleReader<K, C> {
                 .retryIntervalMax(retryIntervalMax)
                 .rssConf(rssConf)
                 .taskAttemptId(taskAttemptId);
-        if (codec.isPresent() && rssConf.get(RSS_READ_OVERLAPPING_DECOMPRESSION_ENABLED)) {
-          builder
-              .overlappingDecompressionEnabled(true)
-              .codec(codec.get())
-              .overlappingDecompressionThreadNum(
-                  rssConf.get(RSS_READ_OVERLAPPING_DECOMPRESSION_THREADS));
-        }
         ShuffleReadClient shuffleReadClient =
             ShuffleClientFactory.getInstance().createShuffleReadClient(builder);
         RssShuffleDataIterator<K, C> iterator =

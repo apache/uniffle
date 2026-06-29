@@ -184,9 +184,6 @@ public class RssShuffleDataIteratorTest extends AbstractRssReaderTest {
             .blockIdBitmap(blockIdBitmap)
             .taskIdBitmap(taskIdBitmap)
             .shuffleServerInfoList(Lists.newArrayList(serverInfos))
-            .overlappingDecompressionEnabled(isOverlappingDecompression)
-            .codec(Codec.newInstance(new RssConf()).get())
-            .overlappingDecompressionThreadNum(1)
             .build();
     RssConf rc;
     if (!compress) {
@@ -196,6 +193,8 @@ public class RssShuffleDataIteratorTest extends AbstractRssReaderTest {
     } else {
       rc = new RssConf();
     }
+    rc.set(RssSparkConfig.RSS_READ_OVERLAPPING_DECOMPRESSION_ENABLED, isOverlappingDecompression);
+    rc.set(RssSparkConfig.RSS_READ_OVERLAPPING_DECOMPRESSION_THREADS, 1);
     return new RssShuffleDataIterator(KRYO_SERIALIZER, readClient, metrics, rc);
   }
 
