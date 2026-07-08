@@ -949,7 +949,7 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
    * @param shuffleId shuffleId
    * @return ShuffleHandleInfo
    */
-  protected synchronized StageAttemptShuffleHandleInfo getRemoteShuffleHandleInfoWithStageRetry(
+  protected StageAttemptShuffleHandleInfo getRemoteShuffleHandleInfoWithStageRetry(
       int stageAttemptId, int stageAttemptNumber, int shuffleId, boolean isWritePhase) {
     RssPartitionToShuffleServerRequest rssPartitionToShuffleServerRequest =
         new RssPartitionToShuffleServerRequest(
@@ -970,7 +970,7 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
    * @param shuffleId shuffleId
    * @return ShuffleHandleInfo
    */
-  protected synchronized MutableShuffleHandleInfo getRemoteShuffleHandleInfoWithBlockRetry(
+  protected MutableShuffleHandleInfo getRemoteShuffleHandleInfoWithBlockRetry(
       int stageAttemptId, int stageAttemptNumber, int shuffleId, boolean isWritePhase) {
     RssPartitionToShuffleServerRequest rssPartitionToShuffleServerRequest =
         new RssPartitionToShuffleServerRequest(
