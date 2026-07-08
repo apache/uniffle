@@ -82,16 +82,7 @@ public class FailedBlockSendTrackerTest {
     ShuffleServerInfo shuffleServerInfo = new ShuffleServerInfo("host1", 19999);
     ShuffleBlockInfo shuffleBlockInfo =
         new ShuffleBlockInfo(
-            0,
-            0,
-            1L,
-            0,
-            0L,
-            new byte[] {},
-            Lists.newArrayList(shuffleServerInfo),
-            0,
-            0L,
-            0L);
+            0, 0, 1L, 0, 0L, new byte[] {}, Lists.newArrayList(shuffleServerInfo), 0, 0L, 0L);
 
     tracker.add(shuffleBlockInfo, shuffleServerInfo, StatusCode.INTERNAL_ERROR);
 
