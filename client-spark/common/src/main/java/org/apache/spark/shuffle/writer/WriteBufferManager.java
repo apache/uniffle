@@ -371,7 +371,7 @@ public class WriteBufferManager extends MemoryConsumer {
 
   // Gluten needs this method.
   public synchronized List<ShuffleBlockInfo> clear() {
-    return clear(bufferSpillRatio);
+    return clear(1.0);
   }
 
   // transform all [partition, records] to [partition, ShuffleBlockInfo] and clear cache
