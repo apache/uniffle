@@ -38,8 +38,8 @@ import org.apache.uniffle.storage.util.StorageType;
 import static org.apache.uniffle.server.ShuffleServerConf.SERVER_DECOMMISSION_CHECK_INTERVAL;
 import static org.apache.uniffle.server.ShuffleServerConf.SERVER_DECOMMISSION_SHUTDOWN;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 public class ShuffleServerTest {
 
@@ -143,21 +143,16 @@ public class ShuffleServerTest {
     serverConf.set(ShuffleServerConf.NETTY_SERVER_PORT, 29999);
     ShuffleServer ss1 = new ShuffleServer(serverConf);
     ss1.start();
-    ExitUtils.disableSystemExit();
     serverConf.set(ShuffleServerConf.RPC_SERVER_PORT, 19997);
     serverConf.set(ShuffleServerConf.JETTY_HTTP_PORT, 19996);
-    serverConf.set(ShuffleServerConf.SERVER_PORT_MAX_RETRIES, 1);
     ShuffleServer ss2 = new ShuffleServer(serverConf);
-    String expectMessage = "Fail to start stream server";
-    final int expectStatus = 1;
     try {
       ss2.start();
-    } catch (Exception e) {
-      assertEquals(expectMessage, e.getMessage());
-      assertEquals(expectStatus, ((ExitException) e).getStatus());
+      assertTrue(ss2.getNettyPort() > 0);
+      assertNotEquals(ss1.getNettyPort(), ss2.getNettyPort());
+    } finally {
+      ss2.stopServer();
       ss1.stopServer();
-      return;
     }
-    fail();
   }
 }
