@@ -362,6 +362,7 @@ public class ShuffleManagerGrpcService extends ShuffleManagerImplBase {
    */
   public void unregisterShuffle(int shuffleId) {
     shuffleStatus.remove(shuffleId);
+    shuffleWriteStatus.remove(shuffleId);
   }
 
   private static class ShuffleServerWriterFailureRecord {
