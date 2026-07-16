@@ -69,6 +69,7 @@
     <guava.version>32.1.3-jre</guava.version>
     <hadoop.scope>provided</hadoop.scope>
     <hadoop.version>2.8.5</hadoop.version>
+    <hadoop-minicluster.artifactId>hadoop-minicluster</hadoop-minicluster.artifactId>
     <httpclient.version>4.5.3</httpclient.version>
     <httpcore.version>4.4.4</httpcore.version>
     <java.version>1.8</java.version>
@@ -641,7 +642,7 @@
 
       <dependency>
         <groupId>org.apache.hadoop</groupId>
-        <artifactId>hadoop-minicluster</artifactId>
+        <artifactId>${hadoop-minicluster.artifactId}</artifactId>
         <version>${hadoop.version}</version>
         <scope>test</scope>
         <exclusions>
@@ -1973,6 +1974,7 @@
         <spark.version>4.0.2</spark.version>
         <client.type>4</client.type>
         <hadoop.version>3.4.1</hadoop.version>
+        <hadoop-minicluster.artifactId>hadoop-client-minicluster</hadoop-minicluster.artifactId>
         <fasterxml.jackson.version>2.12.7</fasterxml.jackson.version>
         <jetty.version>9.4.53.v20231009</jetty.version>
         <enforcer.skip>true</enforcer.skip>
@@ -2124,6 +2126,7 @@
         <netty.version>4.2.7.Final</netty.version>
         <client.type>4</client.type>
         <hadoop.version>3.4.1</hadoop.version>
+        <hadoop-minicluster.artifactId>hadoop-client-minicluster</hadoop-minicluster.artifactId>
         <fasterxml.jackson.version>2.12.7</fasterxml.jackson.version>
         <jetty.version>9.4.53.v20231009</jetty.version>
         <enforcer.skip>true</enforcer.skip>
@@ -2687,6 +2690,7 @@
       <properties>
         <hadoop.version>2.8.5</hadoop.version>
         <hadoop.short.version>2.8</hadoop.short.version>
+        <hadoop-minicluster.artifactId>hadoop-minicluster</hadoop-minicluster.artifactId>
       </properties>
     </profile>
     <profile>
@@ -2694,6 +2698,7 @@
       <properties>
         <hadoop.version>3.2.1</hadoop.version>
         <hadoop.short.version>3.2</hadoop.short.version>
+        <hadoop-minicluster.artifactId>hadoop-client-minicluster</hadoop-minicluster.artifactId>
         <commons-codec.version>1.11</commons-codec.version>
         <metrics.version>3.2.4</metrics.version>
       </properties>

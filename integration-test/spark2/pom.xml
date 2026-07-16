@@ -153,7 +153,7 @@
     </dependency>
     <dependency>
       <groupId>org.apache.hadoop</groupId>
-      <artifactId>hadoop-minicluster</artifactId>
+      <artifactId>${hadoop-minicluster.artifactId}</artifactId>
       <scope>test</scope>
       <exclusions>
         <exclusion>
