@@ -71,6 +71,7 @@
     <hadoop.scope>provided</hadoop.scope>
     <hadoop.version>2.8.5</hadoop.version>
     <hadoop-client-api.artifactId>hadoop-common</hadoop-client-api.artifactId>
+    <hadoop-client-runtime.artifactId>hadoop-client</hadoop-client-runtime.artifactId>
     <hadoop-minicluster.artifactId>hadoop-minicluster</hadoop-minicluster.artifactId>
     <httpclient.version>4.5.3</httpclient.version>
     <httpcore.version>4.4.4</httpcore.version>
@@ -448,7 +449,7 @@
       </dependency>
       <dependency>
         <groupId>org.apache.hadoop</groupId>
-        <artifactId>hadoop-client</artifactId>
+        <artifactId>${hadoop-client-runtime.artifactId}</artifactId>
         <version>${hadoop.version}</version>
         <scope>${hadoop.scope}</scope>
         <exclusions>
@@ -1984,6 +1985,7 @@
         <client.type>4</client.type>
         <hadoop.version>3.4.1</hadoop.version>
         <hadoop-client-api.artifactId>hadoop-client-api</hadoop-client-api.artifactId>
+        <hadoop-client-runtime.artifactId>hadoop-client-runtime</hadoop-client-runtime.artifactId>
         <hadoop-minicluster.artifactId>hadoop-client-minicluster</hadoop-minicluster.artifactId>
         <fasterxml.jackson.version>2.12.7</fasterxml.jackson.version>
         <jetty.version>9.4.53.v20231009</jetty.version>
@@ -2100,6 +2102,11 @@
           <artifactId>${hadoop-client-api.artifactId}</artifactId>
           <scope>provided</scope>
         </dependency>
+        <dependency>
+          <groupId>org.apache.hadoop</groupId>
+          <artifactId>${hadoop-client-runtime.artifactId}</artifactId>
+          <scope>provided</scope>
+        </dependency>
         <!-- Remove log4j-slf4j-impl dependency -->
         <dependency>
           <groupId>org.apache.logging.log4j</groupId>
@@ -2142,6 +2149,7 @@
         <client.type>4</client.type>
         <hadoop.version>3.4.1</hadoop.version>
         <hadoop-client-api.artifactId>hadoop-client-api</hadoop-client-api.artifactId>
+        <hadoop-client-runtime.artifactId>hadoop-client-runtime</hadoop-client-runtime.artifactId>
         <hadoop-minicluster.artifactId>hadoop-client-minicluster</hadoop-minicluster.artifactId>
         <fasterxml.jackson.version>2.12.7</fasterxml.jackson.version>
         <jetty.version>9.4.53.v20231009</jetty.version>
@@ -2262,6 +2270,11 @@
         <dependency>
           <groupId>org.apache.hadoop</groupId>
           <artifactId>${hadoop-client-api.artifactId}</artifactId>
+          <scope>provided</scope>
+        </dependency>
+        <dependency>
+          <groupId>org.apache.hadoop</groupId>
+          <artifactId>${hadoop-client-runtime.artifactId}</artifactId>
           <scope>provided</scope>
         </dependency>
         <!-- Remove log4j-slf4j-impl dependency -->
