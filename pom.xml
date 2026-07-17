@@ -2085,6 +2085,11 @@
         </dependencies>
       </dependencyManagement>
       <dependencies>
+        <dependency>
+          <groupId>org.apache.hadoop</groupId>
+          <artifactId>hadoop-common</artifactId>
+          <scope>provided</scope>
+        </dependency>
         <!-- Remove log4j-slf4j-impl dependency -->
         <dependency>
           <groupId>org.apache.logging.log4j</groupId>
@@ -2100,6 +2105,13 @@
         <dependency>
           <groupId>commons-logging</groupId>
           <artifactId>commons-logging</artifactId>
+          <scope>test</scope>
+        </dependency>
+        <!-- Required by the unshaded Hadoop HttpServer2 used by MiniDFSCluster. -->
+        <dependency>
+          <groupId>org.eclipse.jetty</groupId>
+          <artifactId>jetty-webapp</artifactId>
+          <version>${jetty.version}</version>
           <scope>test</scope>
         </dependency>
       </dependencies>
@@ -2243,6 +2255,11 @@
         </dependencies>
       </dependencyManagement>
       <dependencies>
+        <dependency>
+          <groupId>org.apache.hadoop</groupId>
+          <artifactId>hadoop-common</artifactId>
+          <scope>provided</scope>
+        </dependency>
         <!-- Remove log4j-slf4j-impl dependency -->
         <dependency>
           <groupId>org.apache.logging.log4j</groupId>
@@ -2258,6 +2275,13 @@
         <dependency>
           <groupId>commons-logging</groupId>
           <artifactId>commons-logging</artifactId>
+          <scope>test</scope>
+        </dependency>
+        <!-- Required by the unshaded Hadoop HttpServer2 used by MiniDFSCluster. -->
+        <dependency>
+          <groupId>org.eclipse.jetty</groupId>
+          <artifactId>jetty-webapp</artifactId>
+          <version>${jetty.version}</version>
           <scope>test</scope>
         </dependency>
       </dependencies>
@@ -2698,7 +2722,11 @@
       <properties>
         <hadoop.version>3.2.1</hadoop.version>
         <hadoop.short.version>3.2</hadoop.short.version>
-        <hadoop-minicluster.artifactId>hadoop-client-minicluster</hadoop-minicluster.artifactId>
+        <!--
+          HADOOP-17324: Hadoop 3.2.x hadoop-client-minicluster does not include the shaded
+          Bouncy Castle classes required by the Kerberos MiniDFS tests.
+        -->
+        <hadoop-minicluster.artifactId>hadoop-minicluster</hadoop-minicluster.artifactId>
         <commons-codec.version>1.11</commons-codec.version>
         <metrics.version>3.2.4</metrics.version>
       </properties>
