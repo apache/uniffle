@@ -33,6 +33,11 @@
 
   <dependencies>
     <dependency>
+      <groupId>commons-io</groupId>
+      <artifactId>commons-io</artifactId>
+    </dependency>
+
+    <dependency>
       <artifactId>rss-internal-client</artifactId>
       <groupId>org.apache.uniffle</groupId>
     </dependency>

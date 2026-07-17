@@ -116,7 +116,7 @@
     </dependency>
     <dependency>
       <groupId>org.apache.hadoop</groupId>
-      <artifactId>hadoop-common</artifactId>
+      <artifactId>${hadoop-client-api.artifactId}</artifactId>
       <scope>test</scope>
       <exclusions>
         <exclusion>

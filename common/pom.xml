@@ -104,7 +104,7 @@
     </dependency>
     <dependency>
       <groupId>org.apache.hadoop</groupId>
-      <artifactId>hadoop-common</artifactId>
+      <artifactId>${hadoop-client-api.artifactId}</artifactId>
       <exclusions>
         <exclusion>
           <groupId>com.google.protobuf</groupId>
