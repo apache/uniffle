@@ -347,8 +347,8 @@
         <groupId>commons-io</groupId>
         <artifactId>commons-io</artifactId>
         <version>${commons-io.version}</version>
-        <!-- commonis-io introduced by hadoop-client, so mark it as provided -->
-        <scope>provided</scope>
+        <!-- commonis-io introduced by hadoop-client, so mark it as hadoop scope -->
+        <scope>${hadoop.scope}</scope>
       </dependency>
       <dependency>
         <groupId>commons-codec</groupId>
@@ -1986,6 +1986,11 @@
         <hadoop.version>3.4.1</hadoop.version>
         <hadoop-client-api.artifactId>hadoop-client-api</hadoop-client-api.artifactId>
         <hadoop-client-runtime.artifactId>hadoop-client-runtime</hadoop-client-runtime.artifactId>
+        <!--
+          Kerberos tests are skipped via uniffle.test.skip.kerberos=true for two reasons:
+          HADOOP-17324: hadoop-client-minicluster does not include Bouncy Castle; and MiniKdc
+          is not compatible with JDK 17+.
+        -->
         <hadoop-minicluster.artifactId>hadoop-client-minicluster</hadoop-minicluster.artifactId>
         <fasterxml.jackson.version>2.12.7</fasterxml.jackson.version>
         <jetty.version>9.4.53.v20231009</jetty.version>
@@ -2150,6 +2155,11 @@
         <hadoop.version>3.4.1</hadoop.version>
         <hadoop-client-api.artifactId>hadoop-client-api</hadoop-client-api.artifactId>
         <hadoop-client-runtime.artifactId>hadoop-client-runtime</hadoop-client-runtime.artifactId>
+        <!--
+          Kerberos tests are skipped via uniffle.test.skip.kerberos=true for two reasons:
+          HADOOP-17324: hadoop-client-minicluster does not include Bouncy Castle; and MiniKdc
+          is not compatible with JDK 17+.
+        -->
         <hadoop-minicluster.artifactId>hadoop-client-minicluster</hadoop-minicluster.artifactId>
         <fasterxml.jackson.version>2.12.7</fasterxml.jackson.version>
         <jetty.version>9.4.53.v20231009</jetty.version>
