@@ -347,8 +347,6 @@
         <groupId>commons-io</groupId>
         <artifactId>commons-io</artifactId>
         <version>${commons-io.version}</version>
-        <!-- commons-io introduced by hadoop-client, so mark it as hadoop scope -->
-        <scope>${hadoop.scope}</scope>
       </dependency>
       <dependency>
         <groupId>commons-codec</groupId>
