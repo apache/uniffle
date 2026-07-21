@@ -31,7 +31,7 @@
   <dependencies>
     <dependency>
       <groupId>org.apache.hadoop</groupId>
-      <artifactId>${hadoop-client-api.artifactId}</artifactId>
+      <artifactId>${hadoop.artifact.core}</artifactId>
       <version>${hadoop.version}</version>
       <exclusions>
         <exclusion>

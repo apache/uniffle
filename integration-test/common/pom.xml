@@ -85,7 +85,7 @@
         </dependency>
         <dependency>
             <groupId>org.apache.hadoop</groupId>
-            <artifactId>${hadoop-minicluster.artifactId}</artifactId>
+            <artifactId>${hadoop.artifact.minicluster}</artifactId>
             <exclusions>
                 <exclusion>
                     <groupId>com.sun.jersey</groupId>

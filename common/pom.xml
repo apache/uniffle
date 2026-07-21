@@ -104,7 +104,7 @@
     </dependency>
     <dependency>
       <groupId>org.apache.hadoop</groupId>
-      <artifactId>${hadoop-client-api.artifactId}</artifactId>
+      <artifactId>${hadoop.artifact.core}</artifactId>
       <exclusions>
         <exclusion>
           <groupId>com.google.protobuf</groupId>
@@ -136,7 +136,7 @@
     </dependency>
     <dependency>
       <groupId>org.apache.hadoop</groupId>
-      <artifactId>${hadoop-minicluster.artifactId}</artifactId>
+      <artifactId>${hadoop.artifact.minicluster}</artifactId>
       <exclusions>
         <exclusion>
           <groupId>org.slf4j</groupId>
