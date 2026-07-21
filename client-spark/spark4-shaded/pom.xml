@@ -53,6 +53,10 @@
           <groupId>com.esotericsoftware</groupId>
           <artifactId>kryo-shaded</artifactId>
         </exclusion>
+        <exclusion>
+          <artifactId>commons-io</artifactId>
+          <groupId>commons-io</groupId>
+        </exclusion>
       </exclusions>
     </dependency>
     <!-- log4j2 -->
