@@ -35,17 +35,17 @@
 
     <!--
         WebUIPage.render's request parameter uses javax.servlet in Spark 3
-        and jakarta.servlet in Spark 4. A single ShufflePage.scala cannot
-        override both signatures, so the module ships two source roots
-        (src/main/scala-javax and src/main/scala-jakarta), each with its
-        own ServletCompat aliasing HttpServletRequest to the matching
-        package. build-helper-maven-plugin picks one via
+        and jakarta.servlet in Spark 4. Spark 4.2 also replaced the legacy
+        collapseTable JavaScript helper with Bootstrap 5 markup. A single
+        compatibility object cannot cover those differences, so the module
+        ships profile-specific source roots. Each has a ServletCompat that
+        aliases HttpServletRequest and emits matching collapse markup.
+        build-helper-maven-plugin picks one via
         ${extension.servlet.source.dir}; the javax variant is the default
         and the spark4 profile at the bottom of this pom overrides it.
 
-        To add another servlet flavor, create src/main/scala-<flavor>/
-        with a mirrored ServletCompat (same aliases), then point a new
-        profile at it. Keep aliases in lock-step across every variant.
+        To add another UI compatibility flavor, create src/main/scala-<flavor>/
+        with a mirrored ServletCompat surface, then point a new profile at it.
 
         rss-client-spark-ui is published under a single Maven coordinate,
         but different profiles produce incompatible bytecode (servlet +
@@ -155,6 +155,16 @@
             <id>spark4.1</id>
             <properties>
                 <extension.servlet.source.dir>src/main/scala-jakarta</extension.servlet.source.dir>
+            </properties>
+        </profile>
+        <profile>
+            <!--
+                Co-activated with the root pom's spark4.2 profile via the shared
+                -Pspark4.2 flag. Spark 4.2 continues to use Jakarta Servlet.
+            -->
+            <id>spark4.2</id>
+            <properties>
+                <extension.servlet.source.dir>src/main/scala-jakarta-spark4_2</extension.servlet.source.dir>
             </properties>
         </profile>
     </profiles>

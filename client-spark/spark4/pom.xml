@@ -39,10 +39,9 @@
         (src/main/java-spark4_0, src/main/java-spark4_1) each ship a Spark4Compat
         with the matching call shape. build-helper-maven-plugin picks one via
         ${spark4.compat.source.dir}; the spark4 profile keeps the 4.0 default
-        while the spark4.1 profile in this pom (co-activated with the root
-        pom's spark4.1 profile via the shared -Pspark4.1 flag — each pom
-        contributes its own properties/build sections) switches it to the
-        4.1 variant.
+        while the spark4.1 and spark4.2 profiles in this pom (co-activated with
+        the matching root pom profiles — each pom contributes its own
+        properties/build sections) switch it to the 4.1-compatible variant.
 
         Keep the public method surface of Spark4Compat in lock-step across both
         variants; only the bodies differ.
@@ -161,6 +160,13 @@
                 does not merge profiles across poms by id.
             -->
             <id>spark4.1</id>
+            <properties>
+                <spark4.compat.source.dir>src/main/java-spark4_1</spark4.compat.source.dir>
+            </properties>
+        </profile>
+        <profile>
+            <!-- Spark 4.2 retains the Spark 4.1 MapStatus and ExternalSorter signatures. -->
+            <id>spark4.2</id>
             <properties>
                 <spark4.compat.source.dir>src/main/java-spark4_1</spark4.compat.source.dir>
             </properties>

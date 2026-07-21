@@ -83,7 +83,7 @@
       <artifactId>RoaringBitmap</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.lz4</groupId>
+      <groupId>${lz4-java.groupId}</groupId>
       <artifactId>lz4-java</artifactId>
     </dependency>
     <dependency>

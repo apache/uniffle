@@ -38,7 +38,7 @@
       <!-- use the lz4 from spark env -->
       <exclusions>
         <exclusion>
-          <groupId>org.lz4</groupId>
+            <groupId>${lz4-java.groupId}</groupId>
           <artifactId>lz4-java</artifactId>
         </exclusion>
         <exclusion>

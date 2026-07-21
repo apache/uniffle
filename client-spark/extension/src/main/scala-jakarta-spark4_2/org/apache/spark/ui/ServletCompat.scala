@@ -19,16 +19,26 @@ package org.apache.spark.ui
 
 import scala.xml.{MetaData, Null, UnprefixedAttribute}
 
-// javax.servlet variant of ServletCompat, picked up by the default
-// ${extension.servlet.source.dir} (see client-spark/extension/pom.xml).
-// Every alias here must also exist in the scala-jakarta/ variant —
-// only the underlying servlet package may differ.
+// Spark 4.2 uses Jakarta Servlet and Bootstrap 5 collapse markup. Spark 4.1 and
+// earlier rely on the collapseTable JavaScript helper and use the other source variants.
 private[ui] object ServletCompat {
-  type HttpServletRequest = javax.servlet.http.HttpServletRequest
+  type HttpServletRequest = jakarta.servlet.http.HttpServletRequest
 
   def collapseToggleAttributes(name: String, table: String): MetaData =
-    new UnprefixedAttribute("onClick", s"collapseTable('$name', '$table')", Null)
+    new UnprefixedAttribute(
+      "data-bs-toggle",
+      "collapse",
+      new UnprefixedAttribute(
+        "data-bs-target",
+        s"#$table",
+        new UnprefixedAttribute(
+          "data-collapse-name",
+          name,
+          new UnprefixedAttribute(
+            "aria-expanded",
+            "false",
+            new UnprefixedAttribute("aria-controls", table, Null)))))
 
   def collapsibleTableClass(table: String): String =
-    s"$table collapsible-table collapsed"
+    s"$table collapsible-table collapse"
 }
