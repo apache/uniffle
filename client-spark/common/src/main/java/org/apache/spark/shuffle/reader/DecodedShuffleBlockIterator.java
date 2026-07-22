@@ -15,24 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.uniffle.client.api;
+package org.apache.spark.shuffle.reader;
 
-import org.apache.uniffle.client.response.ShuffleBlock;
-import org.apache.uniffle.common.ShuffleReadTimes;
+interface DecodedShuffleBlockIterator extends AutoCloseable {
+  boolean hasNext();
 
-public interface ShuffleReadClient {
+  DecodedShuffleBlock next();
 
-  ShuffleBlock readShuffleBlockData();
+  long foregroundDecompressionMillis();
 
-  default ShuffleBlock readRetainedShuffleBlockData() {
-    return readShuffleBlockData();
-  }
+  long backgroundDecompressionMillis();
 
-  void checkProcessedBlockIds();
+  long uncompressedBytes();
 
+  long rawBytes();
+
+  long readMillis();
+
+  @Override
   void close();
-
-  void logStatics();
-
-  ShuffleReadTimes getShuffleReadTimes();
 }

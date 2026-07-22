@@ -796,8 +796,8 @@ public class ShuffleReadClientImplTest extends HadoopTestBase {
   @MethodSource("clientBuilderProvider")
   public void readTestSkipBlocksWithBackpressureDoesNotHang(
       Supplier<ShuffleClientFactory.ReadClientBuilder> builderSupplier) throws Exception {
-    // This test is meaningful only when overlapping decompression is enabled.
-    // For non-overlapping mode, it should still pass and act as a regression guard.
+    // Keep this as a regression guard for skipped segments while preserving read builder
+    // compatibility with the old overlapping decompression options.
     String basePath = uniq(HDFS_URI + "clientReadTestSkipBlocksWithBackpressureDoesNotHang");
     HadoopShuffleWriteHandler writeHandler =
         new HadoopShuffleWriteHandler("appId", 0, 1, 1, basePath, ssi1.getId(), conf);
@@ -813,8 +813,6 @@ public class ShuffleReadClientImplTest extends HadoopTestBase {
     RssConf rssConf = new RssConf();
     // Provide required base configs to avoid reader treating this as "prod mode" with empty values.
     rssConf.set(RssClientConf.RSS_STORAGE_TYPE, StorageType.HDFS.name());
-    rssConf.setInteger(RssClientConf.RSS_READ_OVERLAPPING_DECOMPRESSION_FETCH_SECONDS_THRESHOLD, 1);
-    rssConf.setInteger(RssClientConf.RSS_READ_OVERLAPPING_DECOMPRESSION_MAX_CONCURRENT_SEGMENTS, 1);
 
     // Expect only taskAttemptId=0 blocks; taskAttemptId=2 blocks will be skipped by the reader.
     Roaring64NavigableMap taskIdBitmap = Roaring64NavigableMap.bitmapOf(0);
