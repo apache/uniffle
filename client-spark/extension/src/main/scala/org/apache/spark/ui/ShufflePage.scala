@@ -29,6 +29,14 @@ import scala.xml.{Node, NodeSeq}
 class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
   private val runtimeStatusStore = parent.store
 
+  private def collapseHeader(name: String, table: String, title: String): Node =
+    (<span class={s"$name collapse-table"}>
+      <h4>
+        <span class="collapse-table-arrow arrow-closed"></span>
+        <a>{title}</a>
+      </h4>
+    </span>) % ServletCompat.collapseToggleAttributes(name, table)
+
   private def propertyHeader = Seq("Name", "Value")
 
   private def propertyRow(kv: (String, String)) = <tr>
@@ -359,118 +367,64 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
         </div>
 
         <div>
-          <span class="collapse-build-info-properties collapse-table"
-                onClick="collapseTable('collapse-build-info-properties', 'build-info-table')">
-            <h4>
-              <span class="collapse-table-arrow arrow-closed"></span>
-              <a>Uniffle Build Information</a>
-            </h4>
-          </span>
-          <div class="build-info-table collapsible-table collapsed">
+          {collapseHeader("collapse-build-info-properties", "build-info-table", "Uniffle Build Information")}
+          <div id="build-info-table" class={ServletCompat.collapsibleTableClass("build-info-table")}>
             {buildInfoTableUI}
           </div>
         </div>
 
         <div>
-          <span class="collapse-uniffle-config-properties collapse-table"
-                onClick="collapseTable('collapse-uniffle-config-properties', 'uniffle-config-table')">
-            <h4>
-              <span class="collapse-table-arrow arrow-closed"></span>
-              <a>Uniffle Properties</a>
-            </h4>
-          </span>
-          <div class="uniffle-config-table collapsible-table collapsed">
+          {collapseHeader("collapse-uniffle-config-properties", "uniffle-config-table", "Uniffle Properties")}
+          <div id="uniffle-config-table" class={ServletCompat.collapsibleTableClass("uniffle-config-table")}>
             {rssConfTableUI}
           </div>
         </div>
 
         <div>
-          <span class="collapse-throughput-properties collapse-table"
-                onClick="collapseTable('collapse-throughput-properties', 'statistics-table')">
-            <h4>
-              <span class="collapse-table-arrow arrow-closed"></span>
-              <a>Shuffle Throughput Statistics</a>
-            </h4>
-          </span>
-          <div class="statistics-table collapsible-table collapsed">
+          {collapseHeader("collapse-throughput-properties", "statistics-table", "Shuffle Throughput Statistics")}
+          <div id="statistics-table" class={ServletCompat.collapsibleTableClass("statistics-table")}>
             {shuffleMetricsTableUI}
           </div>
         </div>
 
         <div>
-          <span class="collapse-read-throughput-properties collapse-table"
-                onClick="collapseTable('collapse-read-throughput-properties', 'read-statistics-table')">
-            <h4>
-              <span class="collapse-table-arrow arrow-closed"></span>
-              <a>Hybrid Storage Read Statistics</a>
-            </h4>
-          </span>
-          <div class="read-statistics-table collapsible-table collapsed">
+          {collapseHeader("collapse-read-throughput-properties", "read-statistics-table", "Hybrid Storage Read Statistics")}
+          <div id="read-statistics-table" class={ServletCompat.collapsibleTableClass("read-statistics-table")}>
             {readTableUI}
           </div>
         </div>
 
         <div>
-          <span class="collapse-server-properties collapse-table"
-                onClick="collapseTable('collapse-server-properties', 'all-servers-table')">
-            <h4>
-              <span class="collapse-table-arrow arrow-closed"></span>
-              <a>Shuffle Server ({allServers.length})</a>
-            </h4>
-          </span>
-          <div class="all-servers-table collapsible-table collapsed">
+          {collapseHeader("collapse-server-properties", "all-servers-table", s"Shuffle Server (${allServers.length})")}
+          <div id="all-servers-table" class={ServletCompat.collapsibleTableClass("all-servers-table")}>
             {allServersTableUI}
           </div>
         </div>
 
         <div>
-          <span class="collapse-assignment-properties collapse-table"
-                onClick="collapseTable('collapse-assignment-properties', 'assignment-table')">
-            <h4>
-              <span class="collapse-table-arrow arrow-closed"></span>
-              <a>Assignment ({assignmentInfos.length})</a>
-            </h4>
-          </span>
-          <div class="assignment-table collapsible-table collapsed">
+          {collapseHeader("collapse-assignment-properties", "assignment-table", s"Assignment (${assignmentInfos.length})")}
+          <div id="assignment-table" class={ServletCompat.collapsibleTableClass("assignment-table")}>
             {assignmentTableUI}
           </div>
         </div>
 
         <div>
-          <span class="collapse-write-times-properties collapse-table"
-                onClick="collapseTable('collapse-write-times-properties', 'write-times-table')">
-            <h4>
-              <span class="collapse-table-arrow arrow-closed"></span>
-              <a>Shuffle Write Times</a>
-            </h4>
-          </span>
-          <div class="write-times-table collapsible-table collapsed">
+          {collapseHeader("collapse-write-times-properties", "write-times-table", "Shuffle Write Times")}
+          <div id="write-times-table" class={ServletCompat.collapsibleTableClass("write-times-table")}>
             {writeTimesUI}
           </div>
         </div>
 
         <div>
-          <span class="collapse-read-times-properties collapse-table"
-                onClick="collapseTable('collapse-read-times-properties', 'read-times-table')">
-            <h4>
-              <span class="collapse-table-arrow arrow-closed"></span>
-              <a>Shuffle Read Times</a>
-            </h4>
-          </span>
-          <div class="read-times-table collapsible-table collapsed">
+          {collapseHeader("collapse-read-times-properties", "read-times-table", "Shuffle Read Times")}
+          <div id="read-times-table" class={ServletCompat.collapsibleTableClass("read-times-table")}>
             {readTimesUI}
           </div>
         </div>
 
         <div>
-          <span class="collapse-failures-properties collapse-table"
-                onClick="collapseTable('collapse-failures-properties', 'failures-table')">
-            <h4>
-              <span class="collapse-table-arrow arrow-closed"></span>
-              <a>Shuffle Failures</a>
-            </h4>
-          </span>
-          <div class="failures-table collapsible-table collapsed">
+          {collapseHeader("collapse-failures-properties", "failures-table", "Shuffle Failures")}
+          <div id="failures-table" class={ServletCompat.collapsibleTableClass("failures-table")}>
             <h4>Write {writeSummary.failedTaskNumber} Failures (maxAttemptNumber:{writeSummary.failedTaskMaxAttemptNumber})</h4>
             <pre>
               {writeSummary.failureReasons.mkString("\n\n")}

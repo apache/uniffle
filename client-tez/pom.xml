@@ -82,7 +82,7 @@
         <artifactId>commons-lang3</artifactId>
       </dependency>
       <dependency>
-        <groupId>org.lz4</groupId>
+        <groupId>${lz4-java.groupId}</groupId>
         <artifactId>lz4-java</artifactId>
       </dependency>
       <dependency>
@@ -185,7 +185,7 @@
                                     <include>com.fasterxml.jackson.core:jackson-annotations</include>
                                     <include>org.roaringbitmap:RoaringBitmap</include>
                                     <include>org.roaringbitmap:shims</include>
-                                    <include>org.lz4:lz4-java</include>
+                                    <include>${lz4-java.groupId}:lz4-java</include>
                                     <include>org.apache.commons:commons-collections4</include>
                                 </includes>
                             </artifactSet>

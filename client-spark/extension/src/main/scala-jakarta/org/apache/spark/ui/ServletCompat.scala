@@ -17,10 +17,18 @@
 
 package org.apache.spark.ui
 
+import scala.xml.{MetaData, Null, UnprefixedAttribute}
+
 // jakarta.servlet variant of ServletCompat, picked up by the spark4
 // profile (see client-spark/extension/pom.xml). Every alias here must
 // also exist in the scala-javax/ variant — only the underlying servlet
 // package may differ.
 private[ui] object ServletCompat {
   type HttpServletRequest = jakarta.servlet.http.HttpServletRequest
+
+  def collapseToggleAttributes(name: String, table: String): MetaData =
+    new UnprefixedAttribute("onClick", s"collapseTable('$name', '$table')", Null)
+
+  def collapsibleTableClass(table: String): String =
+    s"$table collapsible-table collapsed"
 }

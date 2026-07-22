@@ -30,8 +30,9 @@ import org.apache.spark.storage.BlockManagerId;
 import org.apache.spark.util.collection.ExternalSorter;
 
 /**
- * Compatibility shim for Spark 4.1.x. Selected by the build via the
- * {@code src/main/java-spark4_1} source root under the {@code spark4.1} profile.
+ * Compatibility shim for Spark 4.1 and 4.2. Selected by the build via the
+ * {@code src/main/java-spark4_1} source root under the {@code spark4.1} and {@code spark4.2}
+ * profiles.
  *
  * <p>Spark 4.1 added a {@code checksumVal} parameter to {@code MapStatus.apply} and a
  * {@code rowBasedChecksums} parameter to {@link ExternalSorter}'s constructor. Both have Scala

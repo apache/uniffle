@@ -83,6 +83,8 @@
     <junit.platform.version>1.8.2</junit.platform.version>
     <system.stubs.version>2.0.1</system.stubs.version>
     <log4j.version>2.23.0</log4j.version>
+    <lz4-java.groupId>org.lz4</lz4-java.groupId>
+    <lz4-java.version>1.8.1</lz4-java.version>
     <lombok.version>1.18.34</lombok.version>
     <maven-checkstyle-plugin.version>3.1.2</maven-checkstyle-plugin.version>
     <maven.compiler.source>${java.version}</maven.compiler.source>
@@ -713,9 +715,9 @@
       </dependency>
 
       <dependency>
-        <groupId>org.lz4</groupId>
+        <groupId>${lz4-java.groupId}</groupId>
         <artifactId>lz4-java</artifactId>
-        <version>1.8.1</version>
+        <version>${lz4-java.version}</version>
       </dependency>
 
       <dependency>
@@ -2133,9 +2135,9 @@
     <profile>
       <id>spark4.1</id>
       <!--
-          Mutually exclusive with the spark4 profile: both pin spark.version and the
-          spark4 module's compat source dir to incompatible values. Activate one or
-          the other, never both. The CI matrix and sequential.yml run them in
+          Mutually exclusive with the spark4 and spark4.2 profiles: they pin
+          spark.version and the spark4 module's compat source dir to incompatible
+          values. Activate exactly one. The CI matrix and sequential.yml run them in
           separate invocations.
       -->
       <properties>
@@ -2297,6 +2299,182 @@
           <artifactId>log4j-slf4j2-impl</artifactId>
         </dependency>
         <!-- Hadoop 3.4.1 needs commons-logging explicitly since it's excluded from hadoop-client -->
+        <dependency>
+          <groupId>commons-logging</groupId>
+          <artifactId>commons-logging</artifactId>
+          <scope>test</scope>
+        </dependency>
+      </dependencies>
+    </profile>
+
+    <profile>
+      <id>spark4.2</id>
+      <!--
+          Mutually exclusive with the spark4 and spark4.1 profiles: these profiles
+          compile the same Maven coordinates against different Spark APIs and
+          dependency lines. Activate exactly one and run mvn clean when switching.
+      -->
+      <properties>
+        <scala.binary.version>2.13</scala.binary.version>
+        <scala.version>2.13.18</scala.version>
+        <spark.version>4.2.0</spark.version>
+        <netty.version>4.2.13.Final</netty.version>
+        <client.type>4</client.type>
+        <hadoop.version>3.5.0</hadoop.version>
+        <hadoop.artifact.core>hadoop-client-api</hadoop.artifact.core>
+        <hadoop.artifact.client>hadoop-client-runtime</hadoop.artifact.client>
+        <!--
+          Kerberos tests are skipped via uniffle.test.skip.kerberos=true for two reasons:
+          HADOOP-17324: hadoop-client-minicluster does not include Bouncy Castle; and MiniKdc
+          is not compatible with JDK 17+.
+        -->
+        <hadoop.artifact.minicluster>hadoop-client-minicluster</hadoop.artifact.minicluster>
+        <fasterxml.jackson.version>2.21.2</fasterxml.jackson.version>
+        <!-- Spark shades its Jetty 12 classes; Uniffle's web server remains on Jetty 9.4. -->
+        <jetty.version>9.4.53.v20231009</jetty.version>
+        <enforcer.skip>true</enforcer.skip>
+        <jackson.version>2.21.2</jackson.version>
+        <jackson.annotations.version>2.21</jackson.annotations.version>
+        <log4j.version>2.25.4</log4j.version>
+        <slf4j.version>2.0.17</slf4j.version>
+        <java.version>17</java.version>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <commons-io.version>2.22.0</commons-io.version>
+        <commons-lang3.version>3.20.0</commons-lang3.version>
+        <lz4-java.groupId>at.yawk.lz4</lz4-java.groupId>
+        <lz4-java.version>1.11.0</lz4-java.version>
+        <extraJavaTestArgs>
+          -XX:+IgnoreUnrecognizedVMOptions
+          --add-modules=jdk.incubator.vector
+          --add-opens=java.base/java.lang=ALL-UNNAMED
+          --add-opens=java.base/java.lang.invoke=ALL-UNNAMED
+          --add-opens=java.base/java.lang.reflect=ALL-UNNAMED
+          --add-opens=java.base/java.io=ALL-UNNAMED
+          --add-opens=java.base/java.net=ALL-UNNAMED
+          --add-opens=java.base/java.nio=ALL-UNNAMED
+          --add-opens=java.base/java.util=ALL-UNNAMED
+          --add-opens=java.base/java.util.concurrent=ALL-UNNAMED
+          --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED
+          --add-opens=java.base/jdk.internal.ref=ALL-UNNAMED
+          --add-opens=java.base/sun.nio.ch=ALL-UNNAMED
+          --add-opens=java.base/sun.nio.cs=ALL-UNNAMED
+          --add-opens=java.base/sun.security.action=ALL-UNNAMED
+          --add-opens=java.base/sun.util.calendar=ALL-UNNAMED
+          --add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED
+          -Djdk.reflect.useDirectMethodHandle=false
+          -Dio.netty.tryReflectionSetAccessible=true
+          -Duniffle.test.skip.kerberos=true
+        </extraJavaTestArgs>
+      </properties>
+      <modules>
+        <module>client-spark/common</module>
+        <module>client-spark/spark4</module>
+        <module>client-spark/spark4-shaded</module>
+        <module>integration-test/spark-common</module>
+        <module>integration-test/spark4</module>
+        <module>client-spark/extension</module>
+      </modules>
+      <dependencyManagement>
+        <dependencies>
+          <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+            <version>${jackson.annotations.version}</version>
+          </dependency>
+          <dependency>
+            <groupId>org.apache.uniffle</groupId>
+            <artifactId>rss-client-spark4</artifactId>
+            <version>${project.version}</version>
+          </dependency>
+          <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-core_${scala.binary.version}</artifactId>
+            <version>${spark.version}</version>
+            <exclusions>
+              <exclusion>
+                <groupId>org.apache.hadoop</groupId>
+                <artifactId>*</artifactId>
+              </exclusion>
+              <exclusion>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
+              </exclusion>
+              <exclusion>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-core</artifactId>
+              </exclusion>
+            </exclusions>
+          </dependency>
+          <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-sql_${scala.binary.version}</artifactId>
+            <version>${spark.version}</version>
+            <exclusions>
+              <exclusion>
+                <groupId>org.apache.hadoop</groupId>
+                <artifactId>*</artifactId>
+              </exclusion>
+              <exclusion>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
+              </exclusion>
+              <exclusion>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-core</artifactId>
+              </exclusion>
+            </exclusions>
+          </dependency>
+          <dependency>
+            <groupId>org.apache.uniffle</groupId>
+            <artifactId>rss-client-spark-common</artifactId>
+            <version>${project.version}</version>
+          </dependency>
+          <dependency>
+            <groupId>org.apache.uniffle</groupId>
+            <artifactId>rss-client-spark-common</artifactId>
+            <version>${project.version}</version>
+            <type>test-jar</type>
+          </dependency>
+          <dependency>
+            <groupId>org.apache.uniffle</groupId>
+            <artifactId>rss-integration-common-test</artifactId>
+            <version>${project.version}</version>
+            <type>test-jar</type>
+            <scope>test</scope>
+          </dependency>
+          <dependency>
+            <groupId>org.apache.uniffle</groupId>
+            <artifactId>rss-integration-spark-common-test</artifactId>
+            <version>${project.version}</version>
+            <type>test-jar</type>
+            <scope>test</scope>
+          </dependency>
+        </dependencies>
+      </dependencyManagement>
+      <dependencies>
+        <dependency>
+          <groupId>org.apache.hadoop</groupId>
+          <artifactId>${hadoop.artifact.core}</artifactId>
+          <scope>provided</scope>
+        </dependency>
+        <dependency>
+          <groupId>org.apache.hadoop</groupId>
+          <artifactId>${hadoop.artifact.client}</artifactId>
+          <scope>provided</scope>
+        </dependency>
+        <!-- Remove log4j-slf4j-impl dependency -->
+        <dependency>
+          <groupId>org.apache.logging.log4j</groupId>
+          <artifactId>log4j-slf4j-impl</artifactId>
+          <scope>provided</scope>
+        </dependency>
+        <!-- Add log4j-slf4j2-impl dependency -->
+        <dependency>
+          <groupId>org.apache.logging.log4j</groupId>
+          <artifactId>log4j-slf4j2-impl</artifactId>
+        </dependency>
+        <!-- Hadoop 3.5.0 needs commons-logging explicitly since it's excluded from hadoop-client -->
         <dependency>
           <groupId>commons-logging</groupId>
           <artifactId>commons-logging</artifactId>
