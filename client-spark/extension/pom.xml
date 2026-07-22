@@ -157,5 +157,16 @@
                 <extension.servlet.source.dir>src/main/scala-jakarta</extension.servlet.source.dir>
             </properties>
         </profile>
+        <profile>
+            <!--
+                Co-activated with the root pom's spark4.2 profile via the shared
+                -Pspark4.2 flag. Spark 4.2 keeps the jakarta servlet API, so this
+                mirrors the spark4.1 profile (scala-jakarta variant).
+            -->
+            <id>spark4.2</id>
+            <properties>
+                <extension.servlet.source.dir>src/main/scala-jakarta</extension.servlet.source.dir>
+            </properties>
+        </profile>
     </profiles>
 </project>
