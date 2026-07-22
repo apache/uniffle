@@ -36,6 +36,10 @@ public class BufferManagerOptions {
   private long requireMemoryInterval;
   private int requireMemoryRetryMax;
   private double bufferSpillPercent;
+  /** Long.MAX_VALUE means no cap (disabled). */
+  private long maxAllocatedBytesLimit;
+
+  private long maxAllocatedWaitTimeoutMs;
 
   public BufferManagerOptions(SparkConf sparkConf) {
     bufferSize =
@@ -64,6 +68,26 @@ public class BufferManagerOptions {
             RssSparkConfig.RSS_WRITER_PRE_ALLOCATED_BUFFER_SIZE.defaultValue().get());
     requireMemoryInterval = sparkConf.get(RssSparkConfig.RSS_WRITER_REQUIRE_MEMORY_INTERVAL);
     requireMemoryRetryMax = sparkConf.get(RssSparkConfig.RSS_WRITER_REQUIRE_MEMORY_RETRY_MAX);
+
+    double maxAllocatedRatio =
+        sparkConf.getDouble(
+            RssSparkConfig.RSS_WRITER_MAX_ALLOCATED_MEMORY_RATIO.key(),
+            RssSparkConfig.RSS_WRITER_MAX_ALLOCATED_MEMORY_RATIO.defaultValue());
+
+    String executorMemoryKey = "spark.executor.memory";
+    if (maxAllocatedRatio > 0d && sparkConf.contains(executorMemoryKey)) {
+      double ratio = Math.min(maxAllocatedRatio, 1.0d);
+      this.maxAllocatedBytesLimit = (long) (sparkConf.getSizeAsBytes(executorMemoryKey) * ratio);
+      if (this.maxAllocatedBytesLimit <= 0) {
+        this.maxAllocatedBytesLimit = Long.MAX_VALUE;
+      }
+    } else {
+      this.maxAllocatedBytesLimit = Long.MAX_VALUE;
+    }
+    this.maxAllocatedWaitTimeoutMs =
+        sparkConf.getLong(
+            RssSparkConfig.RSS_WRITER_MAX_ALLOCATED_WAIT_TIMEOUT_MS.key(),
+            RssSparkConfig.RSS_WRITER_MAX_ALLOCATED_WAIT_TIMEOUT_MS.defaultValue());
     if (LOG.isDebugEnabled()) {
       LOG.debug(
           "New buffer manager options, bufferSize: {}, bufferSpillThreshold: {}, preAllocatedBufferSize: {}",
@@ -137,5 +161,16 @@ public class BufferManagerOptions {
 
   public int getRequireMemoryRetryMax() {
     return requireMemoryRetryMax;
+  }
+
+  /**
+   * @return max {@code allocatedBytes} for WriteBufferManager; {@link Long#MAX_VALUE} if disabled
+   */
+  public long getMaxAllocatedBytesLimit() {
+    return maxAllocatedBytesLimit;
+  }
+
+  public long getMaxAllocatedWaitTimeoutMs() {
+    return maxAllocatedWaitTimeoutMs;
   }
 }

@@ -40,6 +40,8 @@ import io.netty.util.concurrent.DefaultThreadFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.uniffle.common.exception.RssException;
+
 public class ThreadUtils {
   private static final Logger LOGGER = LoggerFactory.getLogger(ThreadUtils.class);
   private static final ThreadMXBean THREAD_BEAN = ManagementFactory.getThreadMXBean();
@@ -222,6 +224,14 @@ public class ThreadUtils {
       t.setUncaughtExceptionHandler(
           (t1, e) -> LOGGER.error("Thread {} threw an Exception.", t1, e));
       return t;
+    }
+  }
+
+  public static void sleep(long millis, String errorMessage) {
+    try {
+      Thread.sleep(millis);
+    } catch (Exception e) {
+      throw new RssException(errorMessage, e);
     }
   }
 }
