@@ -70,29 +70,29 @@ jobs:
           mvn-${{ inputs.java-version }}-${{ inputs.cache-key }}-
     - name: Execute `./mvnw ${{ inputs.maven-args }} -Pspark4`
       if: inputs.java-version == '17'
-      run: ./mvnw -B -fae ${{ inputs.maven-args }} -Pspark4 | tee -a /tmp/maven.log;
+      run: ./mvnw -B -fae clean ${{ inputs.maven-args }} -Pspark4 | tee -a /tmp/maven.log;
       shell: bash
     - name: Execute `./mvnw ${{ inputs.maven-args }} -Pspark4.1`
       if: inputs.java-version == '17'
-      run: ./mvnw -B -fae ${{ inputs.maven-args }} -Pspark4.1 | tee -a /tmp/maven.log;
+      run: ./mvnw -B -fae clean ${{ inputs.maven-args }} -Pspark4.1 | tee -a /tmp/maven.log;
       shell: bash
     - name: Execute `./mvnw ${{ inputs.maven-args }} -Pspark3`
-      run: ./mvnw -B -fae ${{ inputs.maven-args }} -Pspark3 | tee -a /tmp/maven.log;
+      run: ./mvnw -B -fae clean ${{ inputs.maven-args }} -Pspark3 | tee -a /tmp/maven.log;
       shell: bash
     - name: Execute `./mvnw ${{ inputs.maven-args }} -Pspark2`
-      run: ./mvnw -B -fae ${{ inputs.maven-args }} -Pspark2 | tee -a /tmp/maven.log;
+      run: ./mvnw -B -fae clean ${{ inputs.maven-args }} -Pspark2 | tee -a /tmp/maven.log;
       shell: bash
     - name: Execute `./mvnw ${{ inputs.maven-args }} -Pmr,hadoop2.8`
-      run: ./mvnw -B -fae ${{ inputs.maven-args }} -Pmr,hadoop2.8 | tee -a /tmp/maven.log;
+      run: ./mvnw -B -fae clean ${{ inputs.maven-args }} -Pmr,hadoop2.8 | tee -a /tmp/maven.log;
       shell: bash
     - name: Execute `./mvnw ${{ inputs.maven-args }} -Pmr,hadoop3.2`
-      run: ./mvnw -B -fae ${{ inputs.maven-args }} -Pmr,hadoop3.2 | tee -a /tmp/maven.log;
+      run: ./mvnw -B -fae clean ${{ inputs.maven-args }} -Pmr,hadoop3.2 | tee -a /tmp/maven.log;
       shell: bash
     - name: Execute `./mvnw ${{ inputs.maven-args }} -Ptez`
-      run: ./mvnw -B -fae ${{ inputs.maven-args }} -Ptez | tee -a /tmp/maven.log;
+      run: ./mvnw -B -fae clean ${{ inputs.maven-args }} -Ptez | tee -a /tmp/maven.log;
       shell: bash
     - name: Execute `./mvnw ${{ inputs.maven-args }} -Pdashboard`
-      run: ./mvnw -B -fae ${{ inputs.maven-args }} -Pdashboard | tee -a /tmp/maven.log;
+      run: ./mvnw -B -fae clean ${{ inputs.maven-args }} -Pdashboard | tee -a /tmp/maven.log;
       shell: bash
     - name: Summary of failures
       if: ${{ failure() && inputs.summary != '' }}
