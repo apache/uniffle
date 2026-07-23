@@ -91,14 +91,17 @@
     <metrics.version>3.1.0</metrics.version>
     <mockito.version>3.12.4</mockito.version>
     <!--
-        lz4-java relocated its Maven coordinates from org.lz4 to at.yawk.lz4 in the
-        1.9+ line (org.lz4 only publishes up to a 1.8.1 relocation stub). Spark 4.2
-        needs at.yawk.lz4:1.11.0 (LZ4BlockInputStream.newBuilder). Modules that must
-        follow Spark's lz4 declare ${lz4.groupId}:lz4-java; the spark4.2 profile
-        flips this to at.yawk.lz4, every other profile keeps org.lz4. Both
-        coordinates are version-managed in the root dependencyManagement below.
+        lz4-java relocated its Maven coordinates from org.lz4 to at.yawk.lz4 after
+        1.8.1: org.lz4 ships real jars through 1.8.0 and a 1.8.1 relocation stub,
+        while at.yawk.lz4 hosts 1.8.1 onward. Spark 4.2 needs at.yawk.lz4:1.11.0
+        (LZ4BlockInputStream.newBuilder). Modules that must follow Spark's lz4
+        declare ${lz4.groupId}:lz4-java at ${lz4.version}; the spark4.2 profile
+        flips these to at.yawk.lz4 / 1.11.0, every other profile keeps
+        org.lz4 / 1.8.1. Both coordinates are version-managed in the root
+        dependencyManagement below.
     -->
     <lz4.groupId>org.lz4</lz4.groupId>
+    <lz4.version>1.8.1</lz4.version>
     <netty.version>4.1.109.Final</netty.version>
     <picocli.version>4.5.2</picocli.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -728,18 +731,19 @@
       </dependency>
 
       <!--
-          lz4-java relocated org.lz4 -> at.yawk.lz4 after 1.8.1 (org.lz4 only ships a
-          1.8.1 relocation stub). Spark 4.2 needs the at.yawk.lz4 1.11 line for
-          LZ4BlockInputStream.newBuilder(). This coordinate only reaches the graph
-          under the spark4.2 profile (which flips ${lz4.groupId} to at.yawk.lz4 and
-          pulls spark-core 4.2.0); every other profile stays on org.lz4:1.8.1 above.
-          Managed here (not in the profile) so flatten-maven-plugin always resolves
-          the version.
+          lz4-java relocated org.lz4 -> at.yawk.lz4 after 1.8.1 (org.lz4 real jars
+          stop at 1.8.0, 1.8.1 is a relocation stub; at.yawk.lz4 hosts 1.8.1 onward).
+          Everything that pulls lz4 transitively resolves the relocated at.yawk.lz4
+          coordinate, so this entry governs it. Version comes from ${lz4.version}:
+          1.8.1 by default (matches org.lz4:1.8.1 below), bumped to 1.11.0 only by
+          the spark4.2 profile, which needs LZ4BlockInputStream.newBuilder(). Kept
+          here (not in the profile) so flatten-maven-plugin always resolves a version
+          for the ${lz4.groupId}-declared modules.
       -->
       <dependency>
         <groupId>at.yawk.lz4</groupId>
         <artifactId>lz4-java</artifactId>
-        <version>1.11.0</version>
+        <version>${lz4.version}</version>
       </dependency>
 
       <dependency>
@@ -2338,8 +2342,9 @@
           sequential.yml run them in separate invocations.
 
           Structurally a clone of the spark4.1 profile: only spark.version,
-          scala.version, netty.version, and jackson.version differ. Keep the three
-          spark4.x profiles in lock-step when editing.
+          scala.version, netty.version, jackson.version, and the lz4 coordinate
+          (lz4.groupId + lz4.version) differ. Keep the three spark4.x profiles in
+          lock-step when editing.
       -->
       <properties>
         <scala.binary.version>2.13</scala.binary.version>
@@ -2376,10 +2381,12 @@
         <slf4j.version>2.0.16</slf4j.version>
         <!--
             Spark 4.2 needs at.yawk.lz4:lz4-java:1.11.0 (LZ4BlockInputStream.newBuilder).
-            Flip the coordinate the spark modules declare from org.lz4 to at.yawk.lz4;
-            its version (1.11.0) is pinned in the root dependencyManagement.
+            Flip both the coordinate (org.lz4 -> at.yawk.lz4) and the version
+            (1.8.1 -> 1.11.0) the spark modules declare; the default build and every
+            other profile keep org.lz4 / 1.8.1.
         -->
         <lz4.groupId>at.yawk.lz4</lz4.groupId>
+        <lz4.version>1.11.0</lz4.version>
         <java.version>17</java.version>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>

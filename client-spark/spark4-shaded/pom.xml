@@ -37,6 +37,13 @@
       <version>${project.version}</version>
       <!-- use the lz4 from spark env -->
       <exclusions>
+        <!--
+            Must stay org.lz4, do NOT switch to ${lz4.groupId}: Maven matches
+            exclusions on the as-declared coordinate. client-spark/common declares
+            lz4 as org.lz4, so this org.lz4 exclusion strips it. Parameterizing it
+            would make the exclusion miss the at.yawk.lz4 coordinate under -Pspark4.2
+            and leak lz4 into the shaded jar.
+        -->
         <exclusion>
             <groupId>org.lz4</groupId>
           <artifactId>lz4-java</artifactId>
