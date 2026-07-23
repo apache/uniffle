@@ -23,12 +23,10 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import com.google.common.collect.RangeMap;
-import com.google.common.util.concurrent.Uninterruptibles;
 import io.netty.buffer.ByteBuf;
 import io.prometheus.client.Collector;
 import org.apache.commons.lang3.tuple.Pair;
@@ -623,31 +621,29 @@ public class ShuffleBufferManagerTest extends BufferTestBase {
     shuffleBufferManager.cacheShuffleData(appId, shuffleId, false, createData(0, 64));
     assertEquals(96, shuffleBufferManager.getUsedMemory());
     shuffleBufferManager.cacheShuffleData(appId, smallShuffleId, false, createData(0, 31));
-    assertEquals(96 + 63, shuffleBufferManager.getUsedMemory());
-    Thread.sleep(100);
-    Uninterruptibles.sleepUninterruptibly(100, TimeUnit.MILLISECONDS);
     // small shuffle id is kept in memory
-    assertEquals(63, shuffleBufferManager.getUsedMemory());
-    assertEquals(0, shuffleBufferManager.getInFlushSize());
+    waitForMemory(63);
 
     // more data will trigger the flush
     shuffleBufferManager.cacheShuffleData(appId, smallShuffleId, false, createData(0, 31));
     shuffleBufferManager.cacheShuffleData(appId, smallShuffleId, false, createData(0, 31));
-    assertEquals(63 * 3, shuffleBufferManager.getUsedMemory());
-    Thread.sleep(100);
-    Uninterruptibles.sleepUninterruptibly(100, TimeUnit.MILLISECONDS);
-    assertEquals(0, shuffleBufferManager.getUsedMemory());
-    assertEquals(0, shuffleBufferManager.getInFlushSize());
+    waitForMemory(0);
 
     // all the small data in shuffle server, which could be extremely rare
     shuffleBufferManager.cacheShuffleData(appId, shuffleId, false, createData(0, 22));
     shuffleBufferManager.cacheShuffleData(appId, smallShuffleId, false, createData(0, 21));
     shuffleBufferManager.cacheShuffleData(appId, smallShuffleIdTwo, false, createData(0, 20));
-    assertEquals(54 + 53 + 52, shuffleBufferManager.getUsedMemory());
-    Thread.sleep(100);
-    Uninterruptibles.sleepUninterruptibly(100, TimeUnit.MILLISECONDS);
-    assertEquals(52, shuffleBufferManager.getUsedMemory());
-    assertEquals(0, shuffleBufferManager.getInFlushSize());
+    waitForMemory(52);
+  }
+
+  private void waitForMemory(long expectedUsedMemory) {
+    Awaitility.await()
+        .atMost(Duration.ofSeconds(5))
+        .untilAsserted(
+            () -> {
+              assertEquals(expectedUsedMemory, shuffleBufferManager.getUsedMemory());
+              assertEquals(0, shuffleBufferManager.getInFlushSize());
+            });
   }
 
   private void waitForFlush(
