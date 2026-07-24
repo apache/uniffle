@@ -44,6 +44,12 @@
         contributes its own properties/build sections) switches it to the
         4.1 variant.
 
+        Spark 4.2.0 keeps the 4.1 signatures for both APIs (verified with javap:
+        MapStatus.apply and the ExternalSorter constructor are byte-identical to
+        4.1.1), so the spark4.2 profile reuses src/main/java-spark4_1 as-is rather
+        than duplicating a byte-identical java-spark4_2. If a future 4.2.x changes
+        either signature, fork a new source root — same pattern as 4.0 -> 4.1.
+
         Keep the public method surface of Spark4Compat in lock-step across both
         variants; only the bodies differ.
     -->
@@ -161,6 +167,18 @@
                 does not merge profiles across poms by id.
             -->
             <id>spark4.1</id>
+            <properties>
+                <spark4.compat.source.dir>src/main/java-spark4_1</spark4.compat.source.dir>
+            </properties>
+        </profile>
+        <profile>
+            <!--
+                Co-activated with the root pom's spark4.2 profile via the shared
+                -Pspark4.2 flag. Reuses the 4.1 compat source root: Spark 4.2.0's
+                MapStatus.apply and ExternalSorter constructor signatures are
+                identical to 4.1.1, so java-spark4_1 satisfies both.
+            -->
+            <id>spark4.2</id>
             <properties>
                 <spark4.compat.source.dir>src/main/java-spark4_1</spark4.compat.source.dir>
             </properties>

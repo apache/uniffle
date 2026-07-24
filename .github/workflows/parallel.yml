@@ -79,6 +79,8 @@ jobs:
             java-version: 17
           - profile: spark4.1
             java-version: 17
+          - profile: spark4.2
+            java-version: 17
           - profile: mr-hadoop2.8
             java-version: 8
           - profile: mr-hadoop3.2

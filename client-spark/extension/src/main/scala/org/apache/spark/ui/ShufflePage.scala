@@ -307,6 +307,28 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
 
     val summary: NodeSeq = {
       <div>
+        <!--
+            Fallback for the collapsible-section toggles below. Spark 3.x / 4.0 / 4.1
+            ship a global collapseTable(name, table) in webui.js that the onClick
+            handlers call. Spark 4.2 dropped that function (it moved its own pages to
+            Bootstrap 5 data-bs-toggle collapse), so the onClick handlers would hit
+            "collapseTable is not defined" and the sections could not be expanded.
+            Define a compatible collapseTable only when the host Spark didn't provide
+            one, so 3.x/4.0/4.1 keep Spark's implementation and 4.2 gets a working
+            equivalent. Uses the same .collapsed / arrow-open|closed CSS classes that
+            every Spark line still ships.
+        -->
+        <script type="text/javascript">{scala.xml.Unparsed("""
+          if (typeof window.collapseTable !== 'function') {
+            window.collapseTable = function(thisName, table) {
+              var thisClass = '.' + thisName;
+              var tableDiv = $(thisClass).parent().find('.' + table);
+              $(tableDiv).toggleClass('collapsed');
+              $(thisClass).find('.collapse-table-arrow')
+                .toggleClass('arrow-open').toggleClass('arrow-closed');
+            };
+          }
+        """)}</script>
         <div>
           <ul class="list-unstyled">
             <li>
