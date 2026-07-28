@@ -24,7 +24,7 @@ endif
 
 MODULES ?= webhook controller
 
-# ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
+# ENVTEST_K8S_VERSION refers to the version of the envtest binaries downloaded by hack/download-envtest.sh.
 ENVTEST_K8S_VERSION = 1.24.1
 
 LOCAL_DIR=$(shell pwd)/local
@@ -72,7 +72,8 @@ vet: ## Run go vet against code.
 
 .PHONY: test
 test: manifests generate fmt vet envtest ## Run tests.
-	export KUBEBUILDER_ASSETS=$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCAL_DIR) -p path); \
+	export KUBEBUILDER_ASSETS=$(ENVTEST_ASSETS_DIR); \
+	[ -x "$$KUBEBUILDER_ASSETS/etcd" ] || { echo "envtest binaries are missing from $$KUBEBUILDER_ASSETS, run 'make envtest' first"; exit 1; }; \
 	go test ./... -coverprofile cover.out
 
 .PHONY: build
@@ -113,10 +114,10 @@ KUSTOMIZE = $(LOCAL_DIR)/kustomize
 kustomize: ## Download kustomize locally if necessary.
 	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@v4.5.2)
 
-ENVTEST = $(LOCAL_DIR)/setup-envtest
+ENVTEST_ASSETS_DIR = $(LOCAL_DIR)/controller-tools/envtest
 .PHONY: envtest
-envtest: ## Download envtest-setup locally if necessary.
-	$(call go-get-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.0.0-20230926180527-c93e2abcb28e)
+envtest: ## Download the envtest binaries locally if necessary.
+	./hack/download-envtest.sh $(ENVTEST_K8S_VERSION) $(LOCAL_DIR)
 
 GOIMPORTS = $(LOCAL_DIR)/goimports
 .PHONY: goimports
