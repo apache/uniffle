@@ -54,7 +54,7 @@ jobs:
     - name: Start the docker cluster
       id: up
       run: |
-        docker compose -f deploy/docker/docker-compose.yml up --wait --wait-timeout 60 \
+        docker compose -f deploy/docker/docker-compose.yml up --wait --wait-timeout 120 \
           --scale coordinator=2 --scale shuffle-server=4 --scale spark-worker=5
 
         # check all rss containers are up
