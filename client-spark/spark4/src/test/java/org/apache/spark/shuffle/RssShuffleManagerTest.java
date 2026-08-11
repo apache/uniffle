@@ -161,6 +161,22 @@ public class RssShuffleManagerTest extends RssShuffleManagerTestBase {
     assertNull(shuffleManager.getAppId());
   }
 
+  @Test
+  public void testShuffleBlockResolver() {
+    setupMockedRssShuffleUtils(StatusCode.SUCCESS);
+
+    SparkConf conf = new SparkConf();
+    conf.set(RssSparkConfig.RSS_DYNAMIC_CLIENT_CONF_ENABLED.key(), "false");
+    conf.set(RssSparkConfig.RSS_COORDINATOR_QUORUM.key(), "m1:8001,m2:8002");
+    conf.set("spark.rss.storage.type", StorageType.LOCALFILE.name());
+    conf.set(RssSparkConfig.RSS_TEST_MODE_ENABLE, true);
+
+    RssShuffleManager shuffleManager = new RssShuffleManager(conf, true);
+    ShuffleBlockResolver blockResolver = shuffleManager.shuffleBlockResolver();
+
+    assertTrue(blockResolver.getBlocksForShuffle(1, 1L).isEmpty());
+  }
+
   @ParameterizedTest
   @ValueSource(ints = {16, 20, 24})
   public void testRssShuffleManagerRegisterShuffle(int partitionIdBits) {
