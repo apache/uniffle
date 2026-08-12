@@ -83,36 +83,6 @@ import org.apache.uniffle.shuffle.manager.RssShuffleManagerBase;
 
 public class RssShuffleManager extends RssShuffleManagerBase {
   private static final Logger LOG = LoggerFactory.getLogger(RssShuffleManager.class);
-  // RSS has no local shuffle files. Spark 4 calls this resolver while cleaning shuffle data from
-  // an external shuffle service, so return no blocks instead of failing the cleanup.
-  private static final ShuffleBlockResolver SHUFFLE_BLOCK_RESOLVER =
-      new ShuffleBlockResolver() {
-        @Override
-        public ManagedBuffer getBlockData(BlockId blockId, scala.Option<String[]> dirs) {
-          throw new RssException("RssShuffleManager does not store shuffle blocks locally");
-        }
-
-        @Override
-        public scala.collection.immutable.Seq<BlockId> getBlocksForShuffle(
-            int shuffleId, long mapId) {
-          return scala.collection.immutable.List$.MODULE$.empty();
-        }
-
-        @Override
-        public scala.collection.immutable.Seq<ManagedBuffer> getMergedBlockData(
-            ShuffleMergedBlockId blockId, scala.Option<String[]> dirs) {
-          throw new RssException("RssShuffleManager does not store merged shuffle blocks locally");
-        }
-
-        @Override
-        public MergedBlockMeta getMergedBlockMeta(
-            ShuffleMergedBlockId blockId, scala.Option<String[]> dirs) {
-          throw new RssException("RssShuffleManager does not store merged shuffle blocks locally");
-        }
-
-        @Override
-        public void stop() {}
-      };
 
   public RssShuffleManager(SparkConf conf, boolean isDriver) {
     super(conf, isDriver);
@@ -555,6 +525,37 @@ public class RssShuffleManager extends RssShuffleManagerBase {
     }
     return Pair.of(taskIdBitmap, expectedRecordsRead);
   }
+
+  // RSS has no local shuffle files. Spark 4 calls this resolver while cleaning shuffle data from
+  // an external shuffle service, so return no blocks instead of failing the cleanup.
+  private static final ShuffleBlockResolver SHUFFLE_BLOCK_RESOLVER =
+      new ShuffleBlockResolver() {
+        @Override
+        public ManagedBuffer getBlockData(BlockId blockId, scala.Option<String[]> dirs) {
+          throw new RssException("RssShuffleManager does not store shuffle blocks locally");
+        }
+
+        @Override
+        public scala.collection.immutable.Seq<BlockId> getBlocksForShuffle(
+            int shuffleId, long mapId) {
+          return scala.collection.immutable.List$.MODULE$.empty();
+        }
+
+        @Override
+        public scala.collection.immutable.Seq<ManagedBuffer> getMergedBlockData(
+            ShuffleMergedBlockId blockId, scala.Option<String[]> dirs) {
+          throw new RssException("RssShuffleManager does not store merged shuffle blocks locally");
+        }
+
+        @Override
+        public MergedBlockMeta getMergedBlockMeta(
+            ShuffleMergedBlockId blockId, scala.Option<String[]> dirs) {
+          throw new RssException("RssShuffleManager does not store merged shuffle blocks locally");
+        }
+
+        @Override
+        public void stop() {}
+      };
 
   @Override
   public ShuffleBlockResolver shuffleBlockResolver() {
