@@ -22,12 +22,15 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 
+import scala.Option;
+
 import org.apache.spark.Partitioner;
 import org.apache.spark.ShuffleDependency;
 import org.apache.spark.SparkConf;
 import org.apache.spark.shuffle.handle.ShuffleHandleInfo;
 import org.apache.spark.shuffle.handle.SimpleShuffleHandleInfo;
 import org.apache.spark.sql.internal.SQLConf;
+import org.apache.spark.storage.ShuffleBlockId;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -175,6 +178,9 @@ public class RssShuffleManagerTest extends RssShuffleManagerTestBase {
     ShuffleBlockResolver blockResolver = shuffleManager.shuffleBlockResolver();
 
     assertTrue(blockResolver.getBlocksForShuffle(1, 1L).isEmpty());
+    assertThrowsExactly(
+        RssException.class,
+        () -> blockResolver.getBlockData(new ShuffleBlockId(0, 0L, 0), Option.empty()));
   }
 
   @ParameterizedTest
