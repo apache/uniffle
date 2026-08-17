@@ -217,6 +217,8 @@ public class HadoopShuffleReadHandler extends DataSkippableReadHandler {
   }
 
   public synchronized void close() {
+    super.close();
+
     try {
       dataReader.close();
     } catch (IOException ioe) {

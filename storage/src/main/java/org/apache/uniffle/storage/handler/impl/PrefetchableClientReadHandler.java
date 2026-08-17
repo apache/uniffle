@@ -31,6 +31,7 @@ import org.slf4j.LoggerFactory;
 
 import org.apache.uniffle.common.ShuffleDataResult;
 import org.apache.uniffle.common.exception.RssException;
+import org.apache.uniffle.common.util.ThreadUtils;
 import org.apache.uniffle.storage.handler.ClientReadHandlerMetric;
 
 public abstract class PrefetchableClientReadHandler extends AbstractClientReadHandler {
@@ -58,7 +59,9 @@ public abstract class PrefetchableClientReadHandler extends AbstractClientReadHa
       this.prefetchTimeoutSec = option.timeoutSec;
       this.prefetchResultQueue = new LinkedBlockingQueue<>(option.capacity);
       // todo: support multi threads to prefetch
-      this.prefetchExecutors = Executors.newFixedThreadPool(1);
+      this.prefetchExecutors =
+          Executors.newFixedThreadPool(
+              1, ThreadUtils.getThreadFactory("PrefetchableClientReadHandler"));
       this.abnormalFetchTag = new AtomicBoolean(false);
       this.finishedTag = new AtomicBoolean(false);
       this.queueingNumber = new AtomicInteger(0);

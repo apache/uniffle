@@ -101,6 +101,11 @@ public class MultiReplicaClientReadHandler extends AbstractClientReadHandler {
   }
 
   @Override
+  public void close() {
+    handlers.forEach(ClientReadHandler::close);
+  }
+
+  @Override
   public void updateConsumedBlockInfo(BufferSegment bs, boolean isSkippedMetrics) {
     super.updateConsumedBlockInfo(bs, isSkippedMetrics);
     handlers
