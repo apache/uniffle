@@ -18,21 +18,58 @@
 package org.apache.uniffle.client.response;
 
 import java.nio.ByteBuffer;
+import java.util.concurrent.atomic.AtomicBoolean;
 
-public abstract class ShuffleBlock {
-  private long taskAttemptId;
+public class ShuffleBlock implements AutoCloseable {
+  private final ByteBuffer byteBuffer;
+  private final int uncompressedLength;
+  private final int compressedLength;
+  private final long taskAttemptId;
+  private final Runnable releaseCallback;
+  private final AtomicBoolean closed = new AtomicBoolean(false);
 
-  public ShuffleBlock(long taskAttemptId) {
-    this.taskAttemptId = taskAttemptId;
+  public ShuffleBlock(ByteBuffer byteBuffer, int uncompressedLength, int compressedLength) {
+    this(byteBuffer, uncompressedLength, -1, compressedLength);
   }
 
-  public abstract int getCompressedLength();
+  public ShuffleBlock(
+      ByteBuffer byteBuffer, int uncompressedLength, long taskAttemptId, int compressedLength) {
+    this(byteBuffer, uncompressedLength, taskAttemptId, compressedLength, null);
+  }
 
-  public abstract int getUncompressLength();
+  public ShuffleBlock(
+      ByteBuffer byteBuffer,
+      int uncompressedLength,
+      long taskAttemptId,
+      int compressedLength,
+      Runnable releaseCallback) {
+    this.byteBuffer = byteBuffer;
+    this.uncompressedLength = uncompressedLength;
+    this.compressedLength = compressedLength;
+    this.taskAttemptId = taskAttemptId;
+    this.releaseCallback = releaseCallback;
+  }
 
-  public abstract ByteBuffer getByteBuffer();
+  public int getCompressedLength() {
+    return compressedLength;
+  }
+
+  public int getUncompressLength() {
+    return uncompressedLength;
+  }
+
+  public ByteBuffer getByteBuffer() {
+    return byteBuffer;
+  }
 
   public long getTaskAttemptId() {
     return taskAttemptId;
+  }
+
+  @Override
+  public void close() {
+    if (releaseCallback != null && closed.compareAndSet(false, true)) {
+      releaseCallback.run();
+    }
   }
 }
