@@ -40,18 +40,21 @@ jobs:
     with:
       maven-args: spotless:check
       cache-key: spotless
+      java-version: '17'
 
   checkstyle:
     uses: ./.github/workflows/sequential.yml
     with:
       maven-args: checkstyle:check
       cache-key: checkstyle
+      java-version: '17'
 
   license:
     uses: ./.github/workflows/sequential.yml
     with:
       maven-args: apache-rat:check
       cache-key: license
+      java-version: '17'
       summary: "grep -r '!?????' --include='rat.txt' | awk '{print $3}'"
 
   spotbugs:
@@ -60,6 +63,7 @@ jobs:
     with:
       maven-args: test-compile spotbugs:check
       cache-key: spotbugs
+      java-version: '17'
 
   java-11:
     needs: [spotbugs] # delay execution

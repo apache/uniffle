@@ -468,7 +468,8 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
     }
   }
 
-  // Required by ShuffleWriter interface; returns empty since RSS does not support push-based shuffle.
+  // Required by ShuffleWriter interface; returns empty since RSS does not support push-based
+  // shuffle.
   public long[] getPartitionLengths() {
     return new long[0];
   }
@@ -710,7 +711,8 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
 
         shuffleTaskStats.check();
 
-        // TODO: Use preferred shuffle server host/port instead of dummy values to optimize read locality
+        // TODO: Use preferred shuffle server host/port instead of dummy values to optimize read
+        // locality
         final BlockManagerId blockManagerId =
             BlockManagerId.apply(
                 appId + "_" + taskId,
