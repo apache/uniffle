@@ -26,4 +26,9 @@
     <Bug pattern="NM_METHOD_NAMING_CONVENTION"/>
     <Class name="org.apache.spark.ShuffleType"/>
   </Match>
+  <Match>
+    <!-- Synthetic accessor inherited from Spark 4's Logging trait. -->
+    <Bug pattern="NM_METHOD_NAMING_CONVENTION"/>
+    <Method name="LogStringContext"/>
+  </Match>
 </FindBugsFilter>

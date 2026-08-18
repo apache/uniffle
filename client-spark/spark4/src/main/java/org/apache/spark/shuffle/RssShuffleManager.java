@@ -102,7 +102,8 @@ public class RssShuffleManager extends RssShuffleManagerBase {
     super(conf, isDriver, dataPusher, taskToSuccessBlockIds, taskToFailedBlockSendTracker);
   }
 
-  // Called on the driver to assign shuffle servers via the coordinator and broadcast the handle to executors.
+  // Called on the driver to assign shuffle servers via the coordinator and broadcast the handle to
+  // executors.
   @Override
   public <K, V, C> ShuffleHandle registerShuffle(
       int shuffleId, ShuffleDependency<K, V, C> dependency) {
@@ -458,7 +459,8 @@ public class RssShuffleManager extends RssShuffleManagerBase {
     Iterator<Tuple2<BlockManagerId, Seq<Tuple3<BlockId, Object, Object>>>> mapStatusIter =
         SparkEnv.get()
             .mapOutputTracker()
-            .getMapSizesByExecutorId(shuffleId, startMapIndex, endMapIndex, startPartition, endPartition);
+            .getMapSizesByExecutorId(
+                shuffleId, startMapIndex, endMapIndex, startPartition, endPartition);
     final Iterator<Tuple2<BlockManagerId, Seq<Tuple3<BlockId, Object, Object>>>> immutableIter =
         mapStatusIter;
     Iterator<BlockManagerId> iter =
