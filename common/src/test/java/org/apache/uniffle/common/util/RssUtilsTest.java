@@ -25,6 +25,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -58,6 +59,32 @@ import static org.junit.jupiter.api.Assertions.fail;
 import static uk.org.webcompere.systemstubs.SystemStubs.withEnvironmentVariable;
 
 public class RssUtilsTest {
+
+  @Test
+  public void testCheckProcessedBlockIds() throws Exception {
+    Roaring64NavigableMap exceptedBlockIds = new Roaring64NavigableMap();
+    exceptedBlockIds.add(1);
+    exceptedBlockIds.add(2);
+
+    // case1: illegal should throw exception
+    Set<Long> processedBlockIds = new HashSet<>();
+    processedBlockIds.add(1L);
+    processedBlockIds.add(2L);
+    processedBlockIds.add(3L);
+
+    try {
+      RssUtils.checkProcessedBlockIds(exceptedBlockIds, processedBlockIds);
+      fail();
+    } catch (Exception e) {
+      // ignore
+    }
+
+    // case2: legal invoke
+    processedBlockIds = new HashSet<>();
+    processedBlockIds.add(1L);
+    processedBlockIds.add(2L);
+    RssUtils.checkProcessedBlockIds(exceptedBlockIds, processedBlockIds);
+  }
 
   @Test
   public void testGetPropertiesFromFile() {
