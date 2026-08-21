@@ -120,8 +120,8 @@ class ShufflePage(parent: ShuffleTab) extends WebUIPage("") with Logging {
       }
     }
     // compression ratio
-    val compressionRatio = if (taskInfo.shuffleBytes == 0) 0 else {
-      taskInfo.uncompressedShuffleBytes / taskInfo.shuffleBytes
+    val compressionRatio = if (taskInfo.shuffleBytes == 0) 0.0 else {
+      taskInfo.uncompressedShuffleBytes.toDouble / taskInfo.shuffleBytes
     }
 
     // speed unit is MB/sec
