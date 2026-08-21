@@ -242,8 +242,8 @@ object ShuffleType extends Enumeration {
 
 case class ShuffleTaskSummary(shuffleType: ShuffleType.Value,
                               var failureReasons: mutable.HashSet[String] = new mutable.HashSet[String](),
-                              var failedTaskNumber: Long = -1,
-                              var failedTaskMaxAttemptNumber: Long = -1) {
+                              var failedTaskNumber: Long = 0,
+                              var failedTaskMaxAttemptNumber: Long = 0) {
   @JsonIgnore
   @KVIndex
   def id: String = s"${classOf[ShuffleTaskSummary].getName}_${shuffleType.toString}"
