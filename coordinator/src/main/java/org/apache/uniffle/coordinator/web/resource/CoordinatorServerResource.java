@@ -116,4 +116,9 @@ public class CoordinatorServerResource extends BaseResource {
   public Class<ConfOpsResource> getConfOps() {
     return ConfOpsResource.class;
   }
+
+  @Path("/banned")
+  public Class<BannedResource> getBannedResource() {
+    return BannedResource.class;
+  }
 }
