@@ -78,7 +78,7 @@ jobs:
       shell: bash
     - name: Execute `./mvnw ${{ inputs.maven-args }} -Pspark4.2`
       if: inputs.java-version == '17'
-      run: ./mvnw -B -fae ${{ inputs.maven-args }} -Pspark4.2 | tee -a /tmp/maven.log;
+      run: ./mvnw -B -fae clean ${{ inputs.maven-args }} -Pspark4.2 | tee -a /tmp/maven.log;
       shell: bash
     - name: Execute `./mvnw ${{ inputs.maven-args }} -Pspark3`
       run: ./mvnw -B -fae clean ${{ inputs.maven-args }} -Pspark3 | tee -a /tmp/maven.log;
