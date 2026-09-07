@@ -39,12 +39,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.uniffle.client.api.ShuffleReadClient;
-import org.apache.uniffle.client.response.CompressedShuffleBlock;
-import org.apache.uniffle.client.response.ShuffleBlock;
 import org.apache.uniffle.common.ShuffleReadTimes;
 import org.apache.uniffle.common.compression.Codec;
 import org.apache.uniffle.common.config.RssConf;
-import org.apache.uniffle.common.util.RssUtils;
 import org.apache.uniffle.shuffle.ShuffleReadTaskStats;
 
 public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C>> {
@@ -55,15 +52,13 @@ public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C
   private SerializerInstance serializerInstance;
   private ShuffleReadClient shuffleReadClient;
   private ShuffleReadMetrics shuffleReadMetrics;
-  private long readTime = 0;
   private long serializeTime = 0;
-  private long decompressTime = 0;
   private DeserializationStream deserializationStream = null;
   private ByteBufInputStream byteBufInputStream = null;
   private long totalRawBytesLength = 0;
-  private long unCompressedBytesLength = 0;
-  private ByteBuffer uncompressedData;
   private Optional<Codec> codec;
+  private DecodedShuffleBlockIterator decodedBlockIterator;
+  private DecodedShuffleBlock currentDecodedBlock;
 
   private final int partitionId;
   private Optional<ShuffleReadTaskStats> shuffleReadTaskStats;
@@ -81,15 +76,9 @@ public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C
         shuffleReadClient,
         shuffleReadMetrics,
         rssConf,
-        Optional.empty(),
+        codecFromConf(rssConf),
         Optional.empty(),
         0);
-    boolean compress =
-        rssConf.getBoolean(
-            RssSparkConfig.SPARK_SHUFFLE_COMPRESS_KEY.substring(
-                RssSparkConfig.SPARK_RSS_CONFIG_PREFIX.length()),
-            RssSparkConfig.SPARK_SHUFFLE_COMPRESS_DEFAULT);
-    this.codec = compress ? Codec.newInstance(rssConf) : Optional.empty();
   }
 
   public RssShuffleDataIterator(
@@ -106,6 +95,12 @@ public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C
     this.codec = codec;
     this.shuffleReadTaskStats = shuffleReadTaskStats;
     this.partitionId = partitionId;
+    boolean overlappingDecompression =
+        codec.isPresent() && rssConf.get(RssSparkConfig.RSS_READ_OVERLAPPING_DECOMPRESSION_ENABLED);
+    this.decodedBlockIterator =
+        overlappingDecompression
+            ? new AsyncDecodedShuffleBlockIterator(shuffleReadClient, codec, rssConf)
+            : new SyncDecodedShuffleBlockIterator(shuffleReadClient, codec);
   }
 
   public Iterator<Tuple2<Object, Object>> createKVIterator(ByteBuffer data) {
@@ -140,46 +135,21 @@ public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C
   @Override
   public boolean hasNext() {
     if (recordsIterator == null || !recordsIterator.hasNext()) {
-      // read next segment
-      long startFetch = System.currentTimeMillis();
-      ShuffleBlock shuffleBlock = shuffleReadClient.readShuffleBlockData();
-      long fetchDuration = System.currentTimeMillis() - startFetch;
-
-      // get the buffer, if the block is the DecompressedShuffleBlock,
-      // the duration is the block wait decompression time.
-      long getBuffer = System.currentTimeMillis();
-      ByteBuffer rawData = shuffleBlock != null ? shuffleBlock.getByteBuffer() : null;
-      long getBufferDuration = System.currentTimeMillis() - getBuffer;
-
-      if (rawData != null) {
-        this.currentBlockTaskAttemptId = shuffleBlock.getTaskAttemptId();
+      clearCurrentBlock();
+      if (decodedBlockIterator.hasNext()) {
+        DecodedShuffleBlock decodedBlock = decodedBlockIterator.next();
+        this.currentDecodedBlock = decodedBlock;
+        this.currentBlockTaskAttemptId = decodedBlock.taskAttemptId();
         shuffleReadTaskStats.ifPresent(
-            stats -> stats.incPartitionBlock(partitionId, shuffleBlock.getTaskAttemptId()));
-        // collect metrics from raw data
-        totalRawBytesLength += shuffleBlock.getCompressedLength();
-        shuffleReadMetrics.incRemoteBytesRead(shuffleBlock.getCompressedLength());
+            stats -> stats.incPartitionBlock(partitionId, decodedBlock.taskAttemptId()));
+        totalRawBytesLength += decodedBlock.compressedLength();
+        shuffleReadMetrics.incRemoteBytesRead(decodedBlock.compressedLength());
 
-        long startUncompression = System.currentTimeMillis();
-        // get initial data
-        ByteBuffer decompressed = null;
-        if (shuffleBlock instanceof CompressedShuffleBlock) {
-          uncompress(shuffleBlock, rawData);
-          decompressed = uncompressedData;
-        } else {
-          decompressed = shuffleBlock.getByteBuffer();
-          unCompressedBytesLength += shuffleBlock.getUncompressLength();
-          decompressTime += getBufferDuration;
-        }
-        long uncompressionDuration = System.currentTimeMillis() - startUncompression;
-        uncompressionDuration += getBufferDuration;
-
-        // create new iterator for shuffle data
         long startSerialization = System.currentTimeMillis();
-        recordsIterator = createKVIterator(decompressed);
+        recordsIterator = createKVIterator(decodedBlock.data());
         long serializationDuration = System.currentTimeMillis() - startSerialization;
         shuffleReadMetrics.incFetchWaitTime(
-            serializationDuration + uncompressionDuration + fetchDuration);
-        readTime += fetchDuration;
+            serializationDuration + decodedBlock.decodeWaitMillis() + decodedBlock.readMillis());
         serializeTime += serializationDuration;
       } else {
         // finish reading records, check data consistent
@@ -190,70 +160,20 @@ public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C
             !codec.isPresent()
                 ? "."
                 : (", "
-                    + decompressTime
+                    + decodedBlockIterator.foregroundDecompressionMillis()
                     + " ms to decompress with unCompressionLength["
-                    + unCompressedBytesLength
+                    + decodedBlockIterator.uncompressedBytes()
                     + "]");
         LOG.info(
             "Fetched {} bytes cost {} ms and {} ms to serialize{}",
             totalRawBytesLength,
-            readTime,
+            decodedBlockIterator.readMillis(),
             serializeTime,
             decInfo);
         return false;
       }
     }
     return recordsIterator.hasNext();
-  }
-
-  private boolean isSameMemoryType(ByteBuffer left, ByteBuffer right) {
-    return left.isDirect() == right.isDirect();
-  }
-
-  private int uncompress(ShuffleBlock rawBlock, ByteBuffer rawData) {
-    int uncompressedLen = rawBlock.getUncompressLength();
-    if (uncompressedLen < 0) {
-      LOG.error("Uncompressed length is negative: {}", uncompressedLen);
-      throw new IllegalArgumentException("Uncompressed length is negative: " + uncompressedLen);
-    }
-    if (codec.isPresent()) {
-      if (uncompressedData == null
-          || uncompressedData.capacity() < uncompressedLen
-          || !isSameMemoryType(uncompressedData, rawData)) {
-
-        if (LOG.isDebugEnabled()) {
-          if (uncompressedData != null && !isSameMemoryType(uncompressedData, rawData)) {
-            LOG.debug(
-                "This should not happen that the temporary uncompressed data's memory type(isDirect:{}) "
-                    + "is not same with fetched data buffer(isDirect:{})",
-                uncompressedData.isDirect(),
-                rawData.isDirect());
-          }
-        }
-
-        if (uncompressedData != null) {
-          RssUtils.releaseByteBuffer(uncompressedData);
-        }
-        uncompressedData =
-            rawData.isDirect()
-                ? ByteBuffer.allocateDirect(uncompressedLen)
-                : ByteBuffer.allocate(uncompressedLen);
-      }
-      uncompressedData.clear();
-      long startDecompress = System.currentTimeMillis();
-      codec.get().decompress(rawData, uncompressedLen, uncompressedData, 0);
-      unCompressedBytesLength += uncompressedLen;
-      long decompressDuration = System.currentTimeMillis() - startDecompress;
-      decompressTime += decompressDuration;
-
-      // uncompressedData's limit is not updated by `codec.decompress`, however this information is
-      // used by `createKVIterator`. update position and limit
-      uncompressedData.position(0);
-      uncompressedData.limit(uncompressedLen);
-    } else {
-      uncompressedData = rawData;
-    }
-    return uncompressedLen;
   }
 
   @Override
@@ -265,18 +185,14 @@ public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C
   }
 
   public BoxedUnit cleanup() {
-    clearDeserializationStream();
-    // Uncompressed data is released in this class, Compressed data is release in the class
-    // ShuffleReadClientImpl
-    // So if codec is null, we don't release the data when the stream is closed
-    if (codec.isPresent()) {
-      RssUtils.releaseByteBuffer(uncompressedData);
+    clearCurrentBlock();
+    if (decodedBlockIterator != null) {
+      decodedBlockIterator.close();
     }
     if (shuffleReadClient != null) {
       shuffleReadClient.close();
     }
     shuffleReadClient = null;
-    uncompressedData = null;
     return BoxedUnit.UNIT;
   }
 
@@ -287,8 +203,26 @@ public class RssShuffleDataIterator<K, C> extends AbstractIterator<Product2<K, C
 
   public ShuffleReadTimes getReadTimes() {
     ShuffleReadTimes times = shuffleReadClient.getShuffleReadTimes();
-    times.withDecompressed(decompressTime);
+    times.withDecompressed(decodedBlockIterator.foregroundDecompressionMillis());
+    times.withBackgroundDecompressed(decodedBlockIterator.backgroundDecompressionMillis());
     times.withDeserialized(serializeTime);
     return times;
+  }
+
+  private void clearCurrentBlock() {
+    clearDeserializationStream();
+    if (currentDecodedBlock != null) {
+      currentDecodedBlock.close();
+      currentDecodedBlock = null;
+    }
+  }
+
+  private static Optional<Codec> codecFromConf(RssConf rssConf) {
+    boolean compress =
+        rssConf.getBoolean(
+            RssSparkConfig.SPARK_SHUFFLE_COMPRESS_KEY.substring(
+                RssSparkConfig.SPARK_RSS_CONFIG_PREFIX.length()),
+            RssSparkConfig.SPARK_SHUFFLE_COMPRESS_DEFAULT);
+    return compress ? Codec.newInstance(rssConf) : Optional.empty();
   }
 }

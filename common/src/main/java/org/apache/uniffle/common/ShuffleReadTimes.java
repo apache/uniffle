@@ -62,6 +62,10 @@ public class ShuffleReadTimes {
     this.decompress = decompressed;
   }
 
+  public void withBackgroundDecompressed(long backgroundDecompressed) {
+    this.backgroundDecompress = backgroundDecompressed;
+  }
+
   public long getDeserialize() {
     return deserialize;
   }
