@@ -44,6 +44,7 @@ public class CoordinatorMetrics {
   private static final String TOTAL_CANDIDATES_DENIED_REQUEST = "total_candidates_denied_request";
   private static final String TOTAL_LOAD_DENIED_REQUEST = "total_load_denied_request";
   private static final String TOTAL_QUOTA_DENIED_REQUEST = "total_quota_denied_request";
+  private static final String TOTAL_BANNED_DENIED_REQUEST = "total_banned_denied_request";
   public static final String REMOTE_STORAGE_IN_USED_PREFIX = "remote_storage_in_used_";
   public static final String APP_NUM_TO_USER = "app_num";
   public static final String USER_LABEL = "user_name";
@@ -59,6 +60,7 @@ public class CoordinatorMetrics {
   public static Counter counterTotalCandidatesDeniedRequest;
   public static Counter counterTotalQuotaDeniedRequest;
   public static Counter counterTotalLoadDeniedRequest;
+  public static Counter counterTotalBannedDeniedRequest;
   public static final Map<String, Gauge> GAUGE_USED_REMOTE_STORAGE = JavaUtils.newConcurrentMap();
 
   private static MetricsManager metricsManager;
@@ -122,5 +124,6 @@ public class CoordinatorMetrics {
         metricsManager.addCounter(TOTAL_CANDIDATES_DENIED_REQUEST);
     counterTotalQuotaDeniedRequest = metricsManager.addCounter(TOTAL_QUOTA_DENIED_REQUEST);
     counterTotalLoadDeniedRequest = metricsManager.addCounter(TOTAL_LOAD_DENIED_REQUEST);
+    counterTotalBannedDeniedRequest = metricsManager.addCounter(TOTAL_BANNED_DENIED_REQUEST);
   }
 }
