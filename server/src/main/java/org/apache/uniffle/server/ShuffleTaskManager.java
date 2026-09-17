@@ -629,34 +629,43 @@ public class ShuffleTaskManager {
   public byte[] getFinishedBlockIds(
       String appId, Integer shuffleId, Set<Integer> partitions, BlockIdLayout blockIdLayout)
       throws IOException {
-    refreshAppId(appId);
-    for (int partitionId : partitions) {
-      Map.Entry<Range<Integer>, ShuffleBuffer> entry =
-          shuffleBufferManager.getShuffleBufferEntry(appId, shuffleId, partitionId);
-      if (entry == null) {
-        LOG.error(
-            "The empty shuffle buffer, this should not happen. appId: {}, shuffleId: {}, partition: {}, layout: {}",
-            appId,
-            shuffleId,
-            partitionId,
-            blockIdLayout);
-        continue;
+    Lock readLock = getAppReadLock(appId);
+    readLock.lock();
+    try {
+      ShuffleTaskInfo taskInfo = getShuffleTaskInfo(appId);
+      if (taskInfo == null) {
+        throw new NoRegisterException("No such app is registered. appId: " + appId);
       }
-      Storage storage =
-          storageManager.selectStorage(
-              new ShuffleDataReadEvent(
-                  appId, shuffleId, partitionId, entry.getKey().lowerEndpoint()));
-      // update shuffle's timestamp that was recently read.
-      if (storage != null) {
-        storage.updateReadMetrics(new StorageReadMetrics(appId, shuffleId));
+      taskInfo.setCurrentTimes(System.currentTimeMillis());
+      for (int partitionId : partitions) {
+        Map.Entry<Range<Integer>, ShuffleBuffer> entry =
+            shuffleBufferManager.getShuffleBufferEntry(appId, shuffleId, partitionId);
+        if (entry == null) {
+          throw new NoRegisterException(
+              "No such shuffle is registered. appId: "
+                  + appId
+                  + ", shuffleId: "
+                  + shuffleId
+                  + ", partitionId: "
+                  + partitionId);
+        }
+        Storage storage =
+            storageManager.selectStorage(
+                new ShuffleDataReadEvent(
+                    appId, shuffleId, partitionId, entry.getKey().lowerEndpoint()));
+        // update shuffle's timestamp that was recently read.
+        if (storage != null) {
+          storage.updateReadMetrics(new StorageReadMetrics(appId, shuffleId));
+        }
       }
+      ShuffleBlockIdManager manager = taskInfo.getShuffleBlockIdManager();
+      if (manager == null) {
+        throw new NoRegisterException("No such app is registered. appId: " + appId);
+      }
+      return manager.getFinishedBlockIds(taskInfo, appId, shuffleId, partitions, blockIdLayout);
+    } finally {
+      readLock.unlock();
     }
-    ShuffleTaskInfo taskInfo = getShuffleTaskInfo(appId);
-    ShuffleBlockIdManager manager = taskInfo.getShuffleBlockIdManager();
-    if (manager == null) {
-      throw new RssException("appId[" + appId + "] is expired!");
-    }
-    return manager.getFinishedBlockIds(taskInfo, appId, shuffleId, partitions, blockIdLayout);
   }
 
   public ShuffleDataResult getInMemoryShuffleData(

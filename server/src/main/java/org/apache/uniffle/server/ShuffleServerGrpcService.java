@@ -928,6 +928,10 @@ public class ShuffleServerGrpcService extends ShuffleServerImplBase {
         } else {
           serializedBlockIdsBytes = UnsafeByteOperations.unsafeWrap(serializedBlockIds);
         }
+      } catch (NoRegisterException e) {
+        status = StatusCode.NO_REGISTER;
+        msg = e.getMessage();
+        LOG.warn("Failed to get shuffle result for {}: {}", requestInfo, msg);
       } catch (Exception e) {
         status = StatusCode.INTERNAL_ERROR;
         msg = e.getMessage();
@@ -1010,6 +1014,10 @@ public class ShuffleServerGrpcService extends ShuffleServerImplBase {
               .recordProcessTime(
                   ShuffleServerGrpcMetrics.GET_SHUFFLE_RESULT_FOR_MULTI_PART_METHOD, costTime);
         }
+      } catch (NoRegisterException e) {
+        status = StatusCode.NO_REGISTER;
+        msg = e.getMessage();
+        LOG.warn("Failed to get shuffle result for {}: {}", requestInfo, msg);
       } catch (Exception e) {
         status = StatusCode.INTERNAL_ERROR;
         msg = e.getMessage();

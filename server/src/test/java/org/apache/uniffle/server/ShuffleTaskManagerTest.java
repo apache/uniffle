@@ -957,6 +957,34 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
     } catch (InvalidRequestException e) {
       assertEquals(e.getMessage(), "Request expects 2 bitmaps, but there are 3 bitmaps!");
     }
+
+    shuffleTaskManager.removeResources(appId, false);
+    try {
+      shuffleTaskManager.getFinishedBlockIds(appId, shuffleId, requestPartitions, layout);
+      fail("NoRegisterException should be thrown");
+    } catch (NoRegisterException e) {
+      assertTrue(e.getMessage().contains("No such app is registered"));
+    }
+    assertNull(shuffleTaskManager.getShuffleTaskInfo(appId));
+
+    int newShuffleId = shuffleId + 1;
+    shuffleTaskManager.registerShuffle(
+        appId,
+        newShuffleId,
+        Lists.newArrayList(new PartitionRange(startPartition, endPartition)),
+        new RemoteStorageInfo(storageBasePath),
+        StringUtils.EMPTY);
+    assertTrue(
+        RssUtils.deserializeBitMap(
+                shuffleTaskManager.getFinishedBlockIds(
+                    appId, newShuffleId, requestPartitions, layout))
+            .isEmpty());
+    try {
+      shuffleTaskManager.getFinishedBlockIds(appId, shuffleId, requestPartitions, layout);
+      fail("NoRegisterException should be thrown");
+    } catch (NoRegisterException e) {
+      assertTrue(e.getMessage().contains("No such shuffle is registered"));
+    }
   }
 
   @Test
