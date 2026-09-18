@@ -18,14 +18,16 @@
 package org.apache.spark.shuffle.events;
 
 public class ShuffleReadMetric extends ShuffleMetric {
-  private final long memoryDurationMillis;
-  private final long memoryByteSize;
+  private long memoryDurationMillis;
+  private long memoryByteSize;
 
-  private final long localfileDurationMillis;
-  private final long localfileByteSize;
+  private long localfileDurationMillis;
+  private long localfileByteSize;
 
-  private final long hadoopDurationMillis;
-  private final long hadoopByteSize;
+  private long hadoopDurationMillis;
+  private long hadoopByteSize;
+
+  public ShuffleReadMetric() {}
 
   public ShuffleReadMetric(
       long durationMillis,
@@ -52,23 +54,47 @@ public class ShuffleReadMetric extends ShuffleMetric {
     return memoryDurationMillis;
   }
 
+  public void setMemoryDurationMillis(long memoryDurationMillis) {
+    this.memoryDurationMillis = memoryDurationMillis;
+  }
+
   public long getMemoryByteSize() {
     return memoryByteSize;
+  }
+
+  public void setMemoryByteSize(long memoryByteSize) {
+    this.memoryByteSize = memoryByteSize;
   }
 
   public long getLocalfileDurationMillis() {
     return localfileDurationMillis;
   }
 
+  public void setLocalfileDurationMillis(long localfileDurationMillis) {
+    this.localfileDurationMillis = localfileDurationMillis;
+  }
+
   public long getLocalfileByteSize() {
     return localfileByteSize;
+  }
+
+  public void setLocalfileByteSize(long localfileByteSize) {
+    this.localfileByteSize = localfileByteSize;
   }
 
   public long getHadoopDurationMillis() {
     return hadoopDurationMillis;
   }
 
+  public void setHadoopDurationMillis(long hadoopDurationMillis) {
+    this.hadoopDurationMillis = hadoopDurationMillis;
+  }
+
   public long getHadoopByteSize() {
     return hadoopByteSize;
+  }
+
+  public void setHadoopByteSize(long hadoopByteSize) {
+    this.hadoopByteSize = hadoopByteSize;
   }
 }

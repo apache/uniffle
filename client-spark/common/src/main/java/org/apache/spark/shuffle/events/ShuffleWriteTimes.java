@@ -45,28 +45,56 @@ public class ShuffleWriteTimes {
     return total;
   }
 
+  public void setTotal(long total) {
+    this.total = total;
+  }
+
   public long getCopy() {
     return copy;
+  }
+
+  public void setCopy(long copy) {
+    this.copy = copy;
   }
 
   public long getSerialize() {
     return serialize;
   }
 
+  public void setSerialize(long serialize) {
+    this.serialize = serialize;
+  }
+
   public long getCompress() {
     return compress;
+  }
+
+  public void setCompress(long compress) {
+    this.compress = compress;
   }
 
   public long getSort() {
     return sort;
   }
 
+  public void setSort(long sort) {
+    this.sort = sort;
+  }
+
   public long getRequireMemory() {
     return requireMemory;
   }
 
+  public void setRequireMemory(long requireMemory) {
+    this.requireMemory = requireMemory;
+  }
+
   public long getWaitFinish() {
     return waitFinish;
+  }
+
+  public void setWaitFinish(long waitFinish) {
+    this.waitFinish = waitFinish;
   }
 
   public void inc(ShuffleWriteTimes times) {

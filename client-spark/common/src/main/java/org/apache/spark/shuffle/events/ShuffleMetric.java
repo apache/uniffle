@@ -21,6 +21,8 @@ public class ShuffleMetric {
   private long durationMillis;
   private long byteSize;
 
+  public ShuffleMetric() {}
+
   public ShuffleMetric(long durationMillis, long byteSize) {
     this.durationMillis = durationMillis;
     this.byteSize = byteSize;
@@ -30,7 +32,15 @@ public class ShuffleMetric {
     return durationMillis;
   }
 
+  public void setDurationMillis(long durationMillis) {
+    this.durationMillis = durationMillis;
+  }
+
   public long getByteSize() {
     return byteSize;
+  }
+
+  public void setByteSize(long byteSize) {
+    this.byteSize = byteSize;
   }
 }

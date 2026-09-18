@@ -22,6 +22,8 @@ public class TaskReassignInfoEvent extends UniffleEvent {
   private boolean reassignTriggeredOnBlockSendFailure;
   private boolean reassignTriggeredOnStageRetry;
 
+  public TaskReassignInfoEvent() {}
+
   public TaskReassignInfoEvent(
       boolean reassignTriggeredOnPartitionSplit,
       boolean reassignTriggeredOnBlockSendFailure,
@@ -35,11 +37,23 @@ public class TaskReassignInfoEvent extends UniffleEvent {
     return reassignTriggeredOnPartitionSplit;
   }
 
+  public void setReassignTriggeredOnPartitionSplit(boolean reassignTriggeredOnPartitionSplit) {
+    this.reassignTriggeredOnPartitionSplit = reassignTriggeredOnPartitionSplit;
+  }
+
   public boolean isReassignTriggeredOnBlockSendFailure() {
     return reassignTriggeredOnBlockSendFailure;
   }
 
+  public void setReassignTriggeredOnBlockSendFailure(boolean reassignTriggeredOnBlockSendFailure) {
+    this.reassignTriggeredOnBlockSendFailure = reassignTriggeredOnBlockSendFailure;
+  }
+
   public boolean isReassignTriggeredOnStageRetry() {
     return reassignTriggeredOnStageRetry;
+  }
+
+  public void setReassignTriggeredOnStageRetry(boolean reassignTriggeredOnStageRetry) {
+    this.reassignTriggeredOnStageRetry = reassignTriggeredOnStageRetry;
   }
 }

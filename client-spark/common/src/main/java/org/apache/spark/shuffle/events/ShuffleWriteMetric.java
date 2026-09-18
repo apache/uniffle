@@ -20,9 +20,11 @@ package org.apache.spark.shuffle.events;
 import org.apache.uniffle.proto.RssProtos;
 
 public class ShuffleWriteMetric extends ShuffleMetric {
-  private final long requireBufferFailureNumber;
-  private final long pushFailureNumber;
-  private final String lastFailureReason;
+  private long requireBufferFailureNumber;
+  private long pushFailureNumber;
+  private String lastFailureReason;
+
+  public ShuffleWriteMetric() {}
 
   public ShuffleWriteMetric(
       long durationMillis,
@@ -40,12 +42,24 @@ public class ShuffleWriteMetric extends ShuffleMetric {
     return requireBufferFailureNumber;
   }
 
+  public void setRequireBufferFailureNumber(long requireBufferFailureNumber) {
+    this.requireBufferFailureNumber = requireBufferFailureNumber;
+  }
+
   public long getPushFailureNumber() {
     return pushFailureNumber;
   }
 
+  public void setPushFailureNumber(long pushFailureNumber) {
+    this.pushFailureNumber = pushFailureNumber;
+  }
+
   public String getLastFailureReason() {
     return lastFailureReason;
+  }
+
+  public void setLastFailureReason(String lastFailureReason) {
+    this.lastFailureReason = lastFailureReason;
   }
 
   public static ShuffleWriteMetric from(RssProtos.ShuffleWriteMetric proto) {
