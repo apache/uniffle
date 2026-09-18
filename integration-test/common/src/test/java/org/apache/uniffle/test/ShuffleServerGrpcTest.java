@@ -254,10 +254,38 @@ public class ShuffleServerGrpcTest extends IntegrationTestBase {
       assertTrue(e.getMessage().contains("NO_REGISTER"));
     }
 
-    RssRegisterShuffleRequest rrsr =
+    grpcShuffleServerClient.registerShuffle(
         new RssRegisterShuffleRequest(
-            "shuffleResultTest", 100, Lists.newArrayList(new PartitionRange(0, 1)), "");
-    grpcShuffleServerClient.registerShuffle(rrsr);
+            "shuffleResultTest", 0, Lists.newArrayList(new PartitionRange(1, 3)), ""));
+    grpcShuffleServerClient.registerShuffle(
+        new RssRegisterShuffleRequest(
+            "shuffleResultTest", 1, Lists.newArrayList(new PartitionRange(1, 1)), ""));
+    grpcShuffleServerClient.registerShuffle(
+        new RssRegisterShuffleRequest(
+            "shuffleResultTest", 2, Lists.newArrayList(new PartitionRange(1, 3)), ""));
+    grpcShuffleServerClient.registerShuffle(
+        new RssRegisterShuffleRequest(
+            "shuffleResultTest",
+            4,
+            Lists.newArrayList(
+                new PartitionRange(2, 3),
+                new PartitionRange(layout.maxPartitionId, layout.maxPartitionId)),
+            ""));
+
+    try {
+      grpcShuffleServerClient.getShuffleResult(
+          new RssGetShuffleResultRequest("shuffleResultTest", 3, 1, layout));
+      fail("Exception should be thrown");
+    } catch (Exception e) {
+      assertTrue(e.getMessage().contains("No such shuffle is registered"));
+    }
+    try {
+      grpcShuffleServerClient.getShuffleResult(
+          new RssGetShuffleResultRequest("shuffleResultTest", 0, 0, layout));
+      fail("Exception should be thrown");
+    } catch (Exception e) {
+      assertTrue(e.getMessage().contains("No such partition is registered"));
+    }
 
     req = new RssGetShuffleResultRequest("shuffleResultTest", 0, 1, layout);
     RssGetShuffleResultResponse result = grpcShuffleServerClient.getShuffleResult(req);
@@ -662,9 +690,9 @@ public class ShuffleServerGrpcTest extends IntegrationTestBase {
   public void multipleShuffleResultTest(BlockIdLayout layout) throws Exception {
     String appId = "multipleShuffleResultTest_" + layout.sequenceNoBits;
     Set<Long> expectedBlockIds = Sets.newConcurrentHashSet();
-    RssRegisterShuffleRequest rrsr =
-        new RssRegisterShuffleRequest(appId, 100, Lists.newArrayList(new PartitionRange(0, 1)), "");
-    grpcShuffleServerClient.registerShuffle(rrsr);
+    grpcShuffleServerClient.registerShuffle(
+        new RssRegisterShuffleRequest(
+            appId, 1, Lists.newArrayList(new PartitionRange(1, 1)), ""));
 
     Runnable r1 =
         () -> {

@@ -44,6 +44,7 @@ import org.apache.uniffle.common.ShuffleAssignmentsInfo;
 import org.apache.uniffle.common.ShuffleBlockInfo;
 import org.apache.uniffle.common.ShuffleDataDistributionType;
 import org.apache.uniffle.common.ShuffleServerInfo;
+import org.apache.uniffle.common.exception.RssFetchFailedException;
 import org.apache.uniffle.common.rpc.ServerType;
 import org.apache.uniffle.common.util.BlockIdLayout;
 import org.apache.uniffle.common.util.Constants;
@@ -56,6 +57,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ShuffleWithRssClientTest extends ShuffleReadWriteBase {
@@ -218,12 +220,13 @@ public class ShuffleWithRssClientTest extends ShuffleReadWriteBase {
     serverToPartitionToBlockIds.put(shuffleServerInfo1, partitionToBlocks);
     // case1
     shuffleWriteClientImpl.reportShuffleResult(serverToPartitionToBlockIds, testAppId, 1, 0, 1);
-    Roaring64NavigableMap bitmap =
-        shuffleWriteClientImpl.getShuffleResult(
-            "GRPC_NETTY", Sets.newHashSet(shuffleServerInfo1), testAppId, 1, 0);
-    assertTrue(bitmap.isEmpty());
+    assertThrows(
+        RssFetchFailedException.class,
+        () ->
+            shuffleWriteClientImpl.getShuffleResult(
+                "GRPC_NETTY", Sets.newHashSet(shuffleServerInfo1), testAppId, 1, 0));
 
-    bitmap =
+    Roaring64NavigableMap bitmap =
         shuffleWriteClientImpl.getShuffleResult(
             "GRPC_NETTY", Sets.newHashSet(shuffleServerInfo1), testAppId, 1, partitionIdx);
     assertEquals(5, bitmap.getLongCardinality());
@@ -277,12 +280,13 @@ public class ShuffleWithRssClientTest extends ShuffleReadWriteBase {
 
     shuffleWriteClientImpl.reportShuffleResult(serverToPartitionToBlockIds, testAppId, 1, 0, 1);
 
-    Roaring64NavigableMap bitmap =
-        shuffleWriteClientImpl.getShuffleResult(
-            "GRPC_NETTY", Sets.newHashSet(shuffleServerInfo1), testAppId, 1, 0);
-    assertTrue(bitmap.isEmpty());
+    assertThrows(
+        RssFetchFailedException.class,
+        () ->
+            shuffleWriteClientImpl.getShuffleResult(
+                "GRPC_NETTY", Sets.newHashSet(shuffleServerInfo1), testAppId, 1, 0));
 
-    bitmap =
+    Roaring64NavigableMap bitmap =
         shuffleWriteClientImpl.getShuffleResult(
             "GRPC_NETTY", Sets.newHashSet(shuffleServerInfo1), testAppId, 1, 1);
     assertEquals(5, bitmap.getLongCardinality());
@@ -290,20 +294,21 @@ public class ShuffleWithRssClientTest extends ShuffleReadWriteBase {
       assertTrue(bitmap.contains(b));
     }
 
-    bitmap =
-        shuffleWriteClientImpl.getShuffleResult(
-            "GRPC_NETTY", Sets.newHashSet(shuffleServerInfo1), testAppId, 1, 2);
-    assertTrue(bitmap.isEmpty());
-
-    bitmap =
-        shuffleWriteClientImpl.getShuffleResult(
-            "GRPC_NETTY", Sets.newHashSet(shuffleServerInfo2), testAppId, 1, 0);
-    assertTrue(bitmap.isEmpty());
-
-    bitmap =
-        shuffleWriteClientImpl.getShuffleResult(
-            "GRPC_NETTY", Sets.newHashSet(shuffleServerInfo2), testAppId, 1, 1);
-    assertTrue(bitmap.isEmpty());
+    assertThrows(
+        RssFetchFailedException.class,
+        () ->
+            shuffleWriteClientImpl.getShuffleResult(
+                "GRPC_NETTY", Sets.newHashSet(shuffleServerInfo1), testAppId, 1, 2));
+    assertThrows(
+        RssFetchFailedException.class,
+        () ->
+            shuffleWriteClientImpl.getShuffleResult(
+                "GRPC_NETTY", Sets.newHashSet(shuffleServerInfo2), testAppId, 1, 0));
+    assertThrows(
+        RssFetchFailedException.class,
+        () ->
+            shuffleWriteClientImpl.getShuffleResult(
+                "GRPC_NETTY", Sets.newHashSet(shuffleServerInfo2), testAppId, 1, 1));
 
     bitmap =
         shuffleWriteClientImpl.getShuffleResult(

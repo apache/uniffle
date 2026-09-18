@@ -371,6 +371,11 @@ public class ShuffleBufferManager {
         .addAndGet(blockCount);
   }
 
+  public boolean isShuffleRegistered(String appId, int shuffleId) {
+    Map<Integer, RangeMap<Integer, ShuffleBuffer>> shuffleIdToBuffers = bufferPool.get(appId);
+    return shuffleIdToBuffers != null && shuffleIdToBuffers.containsKey(shuffleId);
+  }
+
   public Entry<Range<Integer>, ShuffleBuffer> getShuffleBufferEntry(
       String appId, int shuffleId, int partitionId) {
     Map<Integer, RangeMap<Integer, ShuffleBuffer>> shuffleIdToBuffers = bufferPool.get(appId);

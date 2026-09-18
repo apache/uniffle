@@ -636,13 +636,16 @@ public class ShuffleTaskManager {
       if (taskInfo == null) {
         throw new NoRegisterException("No such app is registered. appId: " + appId);
       }
-      taskInfo.setCurrentTimes(System.currentTimeMillis());
+      if (!shuffleBufferManager.isShuffleRegistered(appId, shuffleId)) {
+        throw new NoRegisterException(
+            "No such shuffle is registered. appId: " + appId + ", shuffleId: " + shuffleId);
+      }
       for (int partitionId : partitions) {
         Map.Entry<Range<Integer>, ShuffleBuffer> entry =
             shuffleBufferManager.getShuffleBufferEntry(appId, shuffleId, partitionId);
         if (entry == null) {
           throw new NoRegisterException(
-              "No such shuffle is registered. appId: "
+              "No such partition is registered. appId: "
                   + appId
                   + ", shuffleId: "
                   + shuffleId
@@ -662,6 +665,7 @@ public class ShuffleTaskManager {
       if (manager == null) {
         throw new NoRegisterException("No such app is registered. appId: " + appId);
       }
+      taskInfo.setCurrentTimes(System.currentTimeMillis());
       return manager.getFinishedBlockIds(taskInfo, appId, shuffleId, partitions, blockIdLayout);
     } finally {
       readLock.unlock();

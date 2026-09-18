@@ -950,6 +950,17 @@ public class ShuffleTaskManagerTest extends HadoopTestBase {
     Roaring64NavigableMap resBlockIds = RssUtils.deserializeBitMap(serializeBitMap);
     assertEquals(expectedBlockIds, resBlockIds);
 
+    long lastActiveTime = System.currentTimeMillis() - 100;
+    shuffleTaskManager.getShuffleTaskInfo(appId).setCurrentTimes(lastActiveTime);
+    try {
+      shuffleTaskManager.getFinishedBlockIds(
+          appId, shuffleId, Sets.newHashSet(partitionNum), layout);
+      fail("NoRegisterException should be thrown");
+    } catch (NoRegisterException e) {
+      assertTrue(e.getMessage().contains("No such partition is registered"));
+    }
+    assertEquals(lastActiveTime, shuffleTaskManager.getShuffleTaskInfo(appId).getCurrentTimes());
+
     try {
       // calling with same appId and shuffleId but different bitmapNum should fail
       shuffleTaskManager.addFinishedBlockIds(appId, shuffleId, blockIdsToReport, bitNum - 1);
