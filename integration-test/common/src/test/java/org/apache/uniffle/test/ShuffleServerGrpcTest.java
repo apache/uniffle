@@ -691,8 +691,7 @@ public class ShuffleServerGrpcTest extends IntegrationTestBase {
     String appId = "multipleShuffleResultTest_" + layout.sequenceNoBits;
     Set<Long> expectedBlockIds = Sets.newConcurrentHashSet();
     grpcShuffleServerClient.registerShuffle(
-        new RssRegisterShuffleRequest(
-            appId, 1, Lists.newArrayList(new PartitionRange(1, 1)), ""));
+        new RssRegisterShuffleRequest(appId, 1, Lists.newArrayList(new PartitionRange(1, 1)), ""));
 
     Runnable r1 =
         () -> {
