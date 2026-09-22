@@ -464,6 +464,9 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
       if (readShuffleHandleCache != null) {
         readShuffleHandleCache.remove(shuffleId);
       }
+      if (shuffleHandleInfoManager != null) {
+        shuffleHandleInfoManager.remove(shuffleId);
+      }
       if (SparkEnv.get().executorId().equals("driver")) {
         shuffleWriteClient.unregisterShuffle(getAppId(), shuffleId);
         shuffleIdToPartitionNum.remove(shuffleId);
