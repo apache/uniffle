@@ -109,6 +109,7 @@ public class RssTezConfig {
   public static final String RSS_CLIENT_BATCH_TRIGGER_NUM =
       TEZ_RSS_CONFIG_PREFIX + "rss.client.batch.trigger.num";
   public static final int RSS_CLIENT_DEFAULT_BATCH_TRIGGER_NUM = 50;
+  public static final String RSS_DEFAULT_STORAGE_TYPE = "MEMORY";
   public static final String RSS_CLIENT_SEND_CHECK_INTERVAL_MS =
       TEZ_RSS_CONFIG_PREFIX + RssClientConf.RSS_CLIENT_SEND_CHECK_INTERVAL_MS.key();
   public static final long RSS_CLIENT_DEFAULT_SEND_CHECK_INTERVAL_MS =
@@ -126,6 +127,7 @@ public class RssTezConfig {
 
   public static final String RSS_STORAGE_TYPE =
       TEZ_RSS_CONFIG_PREFIX + RssClientConfig.RSS_STORAGE_TYPE;
+  public static final String RSS_STORAGE_TYPE_DEFAULT_VALUE = "MEMORY_LOCALFILE";
 
   public static final String RSS_DYNAMIC_CLIENT_CONF_ENABLED =
       TEZ_RSS_CONFIG_PREFIX + RssClientConfig.RSS_DYNAMIC_CLIENT_CONF_ENABLED;

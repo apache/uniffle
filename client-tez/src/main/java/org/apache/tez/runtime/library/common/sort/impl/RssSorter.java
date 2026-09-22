@@ -105,7 +105,8 @@ public class RssSorter extends ExternalSorter {
         conf.getInt(
             RssTezConfig.RSS_CLIENT_BATCH_TRIGGER_NUM,
             RssTezConfig.RSS_CLIENT_DEFAULT_BATCH_TRIGGER_NUM);
-    String storageType = conf.get(RssTezConfig.RSS_STORAGE_TYPE);
+    String storageType =
+        conf.get(RssTezConfig.RSS_STORAGE_TYPE, RssTezConfig.RSS_DEFAULT_STORAGE_TYPE);
     if (StringUtils.isEmpty(storageType)) {
       throw new RssException("storage type mustn't be empty");
     }

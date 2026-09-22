@@ -240,7 +240,8 @@ public class RssDAGAppMaster extends DAGAppMaster {
                 RssTezConfig.RSS_REMOTE_STORAGE_PATH,
                 RssClientConf.RSS_REMOTE_STORAGE_PATH.defaultValue()),
             mergedConf.get(RssTezConfig.RSS_REMOTE_STORAGE_CONF, ""));
-    String storageType = mergedConf.get(RssTezConfig.RSS_STORAGE_TYPE);
+    String storageType =
+        mergedConf.get(RssTezConfig.RSS_STORAGE_TYPE, RssTezConfig.RSS_STORAGE_TYPE_DEFAULT_VALUE);
     boolean testMode =
         mergedConf.getBoolean(
             RssTezConfig.RSS_TEST_MODE_ENABLE, RssBaseConf.RSS_TEST_MODE_ENABLE.defaultValue());
