@@ -31,11 +31,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import org.apache.uniffle.client.util.RssClientConfig;
+import org.apache.uniffle.common.config.RssBaseConf;
 import org.apache.uniffle.common.rpc.ServerType;
 import org.apache.uniffle.coordinator.CoordinatorConf;
 import org.apache.uniffle.server.MockedGrpcServer;
 import org.apache.uniffle.server.ShuffleServer;
 import org.apache.uniffle.storage.util.StorageType;
+
+import static org.apache.spark.shuffle.RssSparkConfig.toSparkConfKey;
 
 public class RSSStageResubmitTest extends SparkTaskFailureIntegrationTestBase {
 
@@ -44,10 +47,12 @@ public class RSSStageResubmitTest extends SparkTaskFailureIntegrationTestBase {
     final CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
     Map<String, String> dynamicConf = Maps.newHashMap();
     dynamicConf.put(CoordinatorConf.COORDINATOR_REMOTE_STORAGE_PATH.key(), HDFS_URI + "rss/test");
-    dynamicConf.put(RssSparkConfig.RSS_STORAGE_TYPE.key(), StorageType.MEMORY_LOCALFILE.name());
+    dynamicConf.put(
+        toSparkConfKey(RssBaseConf.RSS_STORAGE_TYPE), StorageType.MEMORY_LOCALFILE.name());
     dynamicConf.put(
         RssSparkConfig.SPARK_RSS_CONFIG_PREFIX + RssClientConfig.RSS_RESUBMIT_STAGE, "true");
-    dynamicConf.put(RssSparkConfig.RSS_STORAGE_TYPE.key(), StorageType.MEMORY_LOCALFILE.name());
+    dynamicConf.put(
+        toSparkConfKey(RssBaseConf.RSS_STORAGE_TYPE), StorageType.MEMORY_LOCALFILE.name());
     addDynamicConf(coordinatorConf, dynamicConf);
     storeCoordinatorConf(coordinatorConf);
 

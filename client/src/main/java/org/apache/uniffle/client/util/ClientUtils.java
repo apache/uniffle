@@ -95,6 +95,9 @@ public class ClientUtils {
   }
 
   public static void validateTestModeConf(boolean testMode, String storageType) {
+    if (storageType == null || storageType.isEmpty()) {
+      throw new IllegalArgumentException("rss.storage.type must be set");
+    }
     if (!testMode
         && (StorageType.LOCALFILE.name().equals(storageType)
             || (StorageType.HDFS.name()).equals(storageType))) {

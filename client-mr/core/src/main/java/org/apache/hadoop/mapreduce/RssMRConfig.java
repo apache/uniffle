@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.conf.Configuration;
 
 import org.apache.uniffle.client.util.RssClientConfig;
+import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.common.config.RssConf;
 
 public class RssMRConfig {
@@ -33,8 +34,9 @@ public class RssMRConfig {
   public static final String MR_RSS_CONFIG_PREFIX = "mapreduce.rss.";
 
   public static final String RSS_CLIENT_HEARTBEAT_THREAD_NUM =
-      MR_CONFIG_PREFIX + "rss.client.heartBeat.threadNum";
-  public static final int RSS_CLIENT_HEARTBEAT_THREAD_NUM_DEFAULT_VALUE = 4;
+      MR_CONFIG_PREFIX + RssClientConf.RSS_CLIENT_HEARTBEAT_THREAD_NUM.key();
+  public static final int RSS_CLIENT_HEARTBEAT_THREAD_NUM_DEFAULT_VALUE =
+      RssClientConf.RSS_CLIENT_HEARTBEAT_THREAD_NUM.defaultValue();
   public static final String RSS_CLIENT_TYPE = MR_CONFIG_PREFIX + RssClientConfig.RSS_CLIENT_TYPE;
   public static final String RSS_CLIENT_TYPE_DEFAULT_VALUE =
       RssClientConfig.RSS_CLIENT_TYPE_DEFAULT_VALUE;
@@ -93,7 +95,8 @@ public class RssMRConfig {
       MR_CONFIG_PREFIX + "rss.client.sort.memory.use.threshold";
   public static final String RSS_WRITER_BUFFER_SIZE =
       MR_CONFIG_PREFIX + RssClientConfig.RSS_WRITER_BUFFER_SIZE;
-  public static final long RSS_WRITER_BUFFER_SIZE_DEFAULT_VALUE = 1024 * 1024 * 14;
+  public static final long RSS_WRITER_BUFFER_SIZE_DEFAULT_VALUE =
+      RssClientConf.RSS_WRITER_BUFFER_SIZE.defaultValue();
   public static final double RSS_CLIENT_DEFAULT_SORT_MEMORY_USE_THRESHOLD = 0.9f;
   public static final String RSS_CLIENT_MEMORY_THRESHOLD =
       MR_CONFIG_PREFIX + "rss.client.memory.threshold";

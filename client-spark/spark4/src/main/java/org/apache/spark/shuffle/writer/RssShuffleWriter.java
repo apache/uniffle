@@ -76,6 +76,7 @@ import org.apache.uniffle.client.response.RssReportShuffleWriteFailureResponse;
 import org.apache.uniffle.client.response.RssReportShuffleWriteMetricResponse;
 import org.apache.uniffle.common.ShuffleBlockInfo;
 import org.apache.uniffle.common.ShuffleServerInfo;
+import org.apache.uniffle.common.config.RssBaseConf;
 import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.exception.RssException;
@@ -92,6 +93,7 @@ import static org.apache.spark.shuffle.RssSparkConfig.RSS_CLIENT_MAP_SIDE_COMBIN
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_PARTITION_REASSIGN_BLOCK_RETRY_MAX_TIMES;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_RESUBMIT_STAGE_WITH_WRITE_FAILURE_ENABLED;
 import static org.apache.spark.shuffle.RssSparkConfig.toRssConf;
+import static org.apache.spark.shuffle.RssSparkConfig.toSparkConfKey;
 
 public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
 
@@ -226,18 +228,18 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
     this.shuffleDependency = rssHandle.getDependency();
     this.partitioner = shuffleDependency.partitioner();
     this.shouldPartition = partitioner.numPartitions() > 1;
-    this.sendCheckTimeout = sparkConf.get(RssSparkConfig.RSS_CLIENT_SEND_CHECK_TIMEOUT_MS);
-    this.sendCheckInterval = sparkConf.get(RssSparkConfig.RSS_CLIENT_SEND_CHECK_INTERVAL_MS);
-    this.bitmapSplitNum = sparkConf.get(RssSparkConfig.RSS_CLIENT_BITMAP_SPLIT_NUM);
+    this.rssConf = toRssConf(sparkConf);
+    this.sendCheckTimeout = rssConf.get(RssClientConf.RSS_CLIENT_SEND_CHECK_TIMEOUT_MS);
+    this.sendCheckInterval = rssConf.get(RssClientConf.RSS_CLIENT_SEND_CHECK_INTERVAL_MS);
+    this.bitmapSplitNum = rssConf.get(RssSparkConfig.RSS_CLIENT_BITMAP_SPLIT_NUM);
     this.shuffleWriteClient = shuffleWriteClient;
     this.shuffleServersForData = shuffleHandleInfo.getServers();
     this.isMemoryShuffleEnabled =
-        isMemoryShuffleEnabled(sparkConf.get(RssSparkConfig.RSS_STORAGE_TYPE.key()));
+        isMemoryShuffleEnabled(sparkConf.get(toSparkConfKey(RssBaseConf.RSS_STORAGE_TYPE)));
     this.taskFailureCallback = taskFailureCallback;
     this.shuffleHandleInfo = shuffleHandleInfo;
     this.taskContext = context;
     this.sparkConf = sparkConf;
-    this.rssConf = toRssConf(sparkConf);
     this.managerClientSupplier = managerClientSupplier;
     this.blockFailSentRetryEnabled =
         sparkConf.getBoolean(
@@ -372,7 +374,7 @@ public class RssShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
 
     Iterator<? extends Product2<K, ?>> iterator = records;
     if (isCombine) {
-      if (RssSparkConfig.toRssConf(sparkConf).get(RSS_CLIENT_MAP_SIDE_COMBINE_ENABLED)) {
+      if (rssConf.get(RSS_CLIENT_MAP_SIDE_COMBINE_ENABLED)) {
         iterator = shuffleDependency.aggregator().get().combineValuesByKey(records, taskContext);
       } else {
         Function1<V, C> combiner = shuffleDependency.aggregator().get().createCombiner();

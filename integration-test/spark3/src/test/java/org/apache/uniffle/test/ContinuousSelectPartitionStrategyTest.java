@@ -39,6 +39,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import org.apache.uniffle.common.ClientType;
+import org.apache.uniffle.common.config.RssBaseConf;
+import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.common.rpc.ServerType;
 import org.apache.uniffle.coordinator.CoordinatorConf;
 import org.apache.uniffle.coordinator.strategy.assignment.AbstractAssignmentStrategy;
@@ -48,6 +50,7 @@ import org.apache.uniffle.server.ShuffleServer;
 import org.apache.uniffle.storage.util.StorageType;
 
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_BLOCK_ID_SELF_MANAGEMENT_ENABLED;
+import static org.apache.spark.shuffle.RssSparkConfig.toSparkConfKey;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -62,7 +65,7 @@ public class ContinuousSelectPartitionStrategyTest extends SparkIntegrationTestB
     Map<String, String> dynamicConf = Maps.newHashMap();
     dynamicConf.put(CoordinatorConf.COORDINATOR_REMOTE_STORAGE_PATH.key(), HDFS_URI + "rss/test");
     dynamicConf.put(
-        RssSparkConfig.RSS_STORAGE_TYPE.key(), StorageType.MEMORY_LOCALFILE_HDFS.name());
+        toSparkConfKey(RssBaseConf.RSS_STORAGE_TYPE), StorageType.MEMORY_LOCALFILE_HDFS.name());
 
     coordinatorConf.set(
         CoordinatorConf.COORDINATOR_SELECT_PARTITION_STRATEGY,
@@ -107,8 +110,8 @@ public class ContinuousSelectPartitionStrategyTest extends SparkIntegrationTestB
 
   @Override
   public void updateSparkConfCustomer(SparkConf sparkConf) {
-    sparkConf.set(RssSparkConfig.RSS_STORAGE_TYPE.key(), "HDFS");
-    sparkConf.set(RssSparkConfig.RSS_REMOTE_STORAGE_PATH.key(), HDFS_URI + "rss/test");
+    sparkConf.set(toSparkConfKey(RssBaseConf.RSS_STORAGE_TYPE), "HDFS");
+    sparkConf.set(toSparkConfKey(RssClientConf.RSS_REMOTE_STORAGE_PATH), HDFS_URI + "rss/test");
   }
 
   @Override
@@ -126,9 +129,11 @@ public class ContinuousSelectPartitionStrategyTest extends SparkIntegrationTestB
 
   private static void addMultiReplicaConf(SparkConf sparkConf) {
     // Add multi replica conf
-    sparkConf.set(RssSparkConfig.RSS_DATA_REPLICA.key(), String.valueOf(replicateWrite));
-    sparkConf.set(RssSparkConfig.RSS_DATA_REPLICA_WRITE.key(), String.valueOf(replicateWrite));
-    sparkConf.set(RssSparkConfig.RSS_DATA_REPLICA_READ.key(), String.valueOf(replicateRead));
+    sparkConf.set(toSparkConfKey(RssClientConf.RSS_DATA_REPLICA), String.valueOf(replicateWrite));
+    sparkConf.set(
+        toSparkConfKey(RssClientConf.RSS_DATA_REPLICA_WRITE), String.valueOf(replicateWrite));
+    sparkConf.set(
+        toSparkConfKey(RssClientConf.RSS_DATA_REPLICA_READ), String.valueOf(replicateRead));
     sparkConf.set(
         "spark.shuffle.manager",
         "org.apache.uniffle.test.GetShuffleReportForMultiPartTest$RssShuffleManagerWrapper");
@@ -209,7 +214,8 @@ public class ContinuousSelectPartitionStrategyTest extends SparkIntegrationTestB
               .sum();
       // Validate getShuffleResultForMultiPart is correct before return result
       ClientType clientType =
-          ClientType.valueOf(spark.sparkContext().getConf().get(RssSparkConfig.RSS_CLIENT_TYPE));
+          RssSparkConfig.toRssConf(spark.sparkContext().getConf())
+              .get(RssClientConf.RSS_CLIENT_TYPE);
       boolean blockIdSelfManagedEnabled =
           RssSparkConfig.toRssConf(spark.sparkContext().getConf())
               .get(RSS_BLOCK_ID_SELF_MANAGEMENT_ENABLED);

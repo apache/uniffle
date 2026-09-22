@@ -43,6 +43,7 @@ import org.apache.uniffle.common.ClientType;
 import org.apache.uniffle.common.ShufflePartitionedBlock;
 import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.compression.NoOpCodec;
+import org.apache.uniffle.common.config.RssBaseConf;
 import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.util.BlockId;
@@ -812,7 +813,7 @@ public class ShuffleReadClientImplTest extends HadoopTestBase {
 
     RssConf rssConf = new RssConf();
     // Provide required base configs to avoid reader treating this as "prod mode" with empty values.
-    rssConf.set(RssClientConf.RSS_STORAGE_TYPE, StorageType.HDFS.name());
+    rssConf.setString(RssBaseConf.RSS_STORAGE_TYPE.key(), StorageType.HDFS.name());
     rssConf.setInteger(RssClientConf.RSS_READ_OVERLAPPING_DECOMPRESSION_FETCH_SECONDS_THRESHOLD, 1);
     rssConf.setInteger(RssClientConf.RSS_READ_OVERLAPPING_DECOMPRESSION_MAX_CONCURRENT_SEGMENTS, 1);
 

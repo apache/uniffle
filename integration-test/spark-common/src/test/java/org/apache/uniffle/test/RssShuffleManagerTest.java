@@ -50,6 +50,7 @@ import org.apache.uniffle.client.factory.ShuffleClientFactory;
 import org.apache.uniffle.client.util.RssClientConfig;
 import org.apache.uniffle.common.ClientType;
 import org.apache.uniffle.common.ShuffleServerInfo;
+import org.apache.uniffle.common.config.RssBaseConf;
 import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.rpc.ServerType;
@@ -59,6 +60,7 @@ import org.apache.uniffle.coordinator.CoordinatorConf;
 import org.apache.uniffle.shuffle.manager.RssShuffleManagerBase;
 import org.apache.uniffle.storage.util.StorageType;
 
+import static org.apache.spark.shuffle.RssSparkConfig.toSparkConfKey;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -77,7 +79,8 @@ public class RssShuffleManagerTest extends SparkIntegrationTestBase {
   public static Map<String, String> startServers(BlockIdLayout dynamicConfLayout) throws Exception {
     Map<String, String> dynamicConf = Maps.newHashMap();
     dynamicConf.put(CoordinatorConf.COORDINATOR_REMOTE_STORAGE_PATH.key(), HDFS_URI + "rss/test");
-    dynamicConf.put(RssSparkConfig.RSS_STORAGE_TYPE.key(), StorageType.MEMORY_LOCALFILE.name());
+    dynamicConf.put(
+        toSparkConfKey(RssBaseConf.RSS_STORAGE_TYPE), StorageType.MEMORY_LOCALFILE.name());
     // configure block id layout (if set)
     if (dynamicConfLayout != null) {
       dynamicConf.put(
@@ -150,7 +153,9 @@ public class RssShuffleManagerTest extends SparkIntegrationTestBase {
     // enable stage recompute
     conf.set("spark." + RssClientConfig.RSS_RESUBMIT_STAGE, "true");
     // enable dynamic client conf
-    conf.set(RssSparkConfig.RSS_DYNAMIC_CLIENT_CONF_ENABLED, enableDynamicClientConf);
+    conf.set(
+        toSparkConfKey(RssClientConf.RSS_DYNAMIC_CLIENT_CONF_ENABLED),
+        String.valueOf(enableDynamicClientConf));
     // configure storage type
     conf.set("spark." + RssClientConfig.RSS_STORAGE_TYPE, StorageType.MEMORY_LOCALFILE.name());
     // restarting the coordinator may cause RssException: There aren't enough shuffle servers

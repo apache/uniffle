@@ -35,9 +35,12 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import org.apache.uniffle.common.StorageType;
+import org.apache.uniffle.common.config.RssBaseConf;
+import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.common.rpc.ServerType;
 import org.apache.uniffle.test.listener.WriteAndReadMetricsSparkListener;
 
+import static org.apache.spark.shuffle.RssSparkConfig.toSparkConfKey;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class MapSideCombineTest extends SparkIntegrationTestBase {
@@ -54,8 +57,9 @@ public class MapSideCombineTest extends SparkIntegrationTestBase {
 
   @Override
   public void updateSparkConfCustomer(SparkConf sparkConf) {
-    sparkConf.set(RssSparkConfig.RSS_STORAGE_TYPE.key(), StorageType.MEMORY_LOCALFILE_HDFS.name());
-    sparkConf.set(RssSparkConfig.RSS_REMOTE_STORAGE_PATH.key(), HDFS_URI + "rss/test");
+    sparkConf.set(
+        toSparkConfKey(RssBaseConf.RSS_STORAGE_TYPE), StorageType.MEMORY_LOCALFILE_HDFS.name());
+    sparkConf.set(toSparkConfKey(RssClientConf.RSS_REMOTE_STORAGE_PATH), HDFS_URI + "rss/test");
     sparkConf.set("spark." + RssSparkConfig.RSS_CLIENT_MAP_SIDE_COMBINE_ENABLED.key(), "true");
     sparkConf.set("spark." + RssSparkConfig.RSS_CLIENT_INTEGRITY_VALIDATION_ENABLED.key(), "true");
   }

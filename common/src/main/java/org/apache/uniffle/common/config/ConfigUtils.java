@@ -193,8 +193,7 @@ public class ConfigUtils {
   }
 
   @SuppressWarnings("unchecked")
-  public static List<ConfigOption<Object>> getAllConfigOptions(
-      Class<? extends RssBaseConf> confClass) {
+  public static List<ConfigOption<Object>> getAllConfigOptions(Class<?> confClass) {
     List<ConfigOption<Object>> configOptionList = Lists.newArrayList();
     try {
       Field[] fields = confClass.getFields();

@@ -35,7 +35,7 @@ public class RssShuffleDriverComponents extends LocalDiskShuffleDriverComponents
    * RssSparkConfig.RSS_ENABLED must be already set
    */
   public boolean supportsReliableStorage() {
-    return sparkConf.get(RssSparkConfig.RSS_ENABLED)
+    return RssSparkConfig.toRssConf(sparkConf).get(RssSparkConfig.RSS_ENABLED)
         || RssShuffleManager.class
             .getCanonicalName()
             .equals(sparkConf.get("spark.shuffle.manager"));

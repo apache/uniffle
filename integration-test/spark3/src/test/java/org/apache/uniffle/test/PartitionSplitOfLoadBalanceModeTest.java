@@ -31,18 +31,20 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.uniffle.common.PartitionSplitMode;
+import org.apache.uniffle.common.config.RssBaseConf;
 import org.apache.uniffle.common.rpc.ServerType;
 import org.apache.uniffle.coordinator.CoordinatorConf;
 import org.apache.uniffle.server.ShuffleServer;
 import org.apache.uniffle.server.ShuffleServerConf;
 import org.apache.uniffle.storage.util.StorageType;
 
-import static org.apache.spark.shuffle.RssSparkConfig.RSS_CLIENT_TYPE;
+import static org.apache.spark.shuffle.RssSparkConfig.toSparkConfKey;
 import static org.apache.uniffle.client.util.RssClientConfig.RSS_CLIENT_ASSIGNMENT_SHUFFLE_SERVER_NUMBER;
 import static org.apache.uniffle.client.util.RssClientConfig.RSS_CLIENT_RETRY_MAX;
 import static org.apache.uniffle.common.config.RssClientConf.RSS_CLIENT_PARTITION_SPLIT_LOAD_BALANCE_SERVER_NUMBER;
 import static org.apache.uniffle.common.config.RssClientConf.RSS_CLIENT_PARTITION_SPLIT_MODE;
 import static org.apache.uniffle.common.config.RssClientConf.RSS_CLIENT_REASSIGN_ENABLED;
+import static org.apache.uniffle.common.config.RssClientConf.RSS_CLIENT_TYPE;
 
 /** This class is to simulate test partition split on load balance mode. */
 public class PartitionSplitOfLoadBalanceModeTest extends SparkSQLTest {
@@ -57,7 +59,8 @@ public class PartitionSplitOfLoadBalanceModeTest extends SparkSQLTest {
     CoordinatorConf coordinatorConf = coordinatorConfWithoutPort();
     coordinatorConf.setLong("rss.coordinator.app.expired", 5000);
     Map<String, String> dynamicConf = Maps.newHashMap();
-    dynamicConf.put(RssSparkConfig.RSS_STORAGE_TYPE.key(), StorageType.MEMORY_LOCALFILE.name());
+    dynamicConf.put(
+        toSparkConfKey(RssBaseConf.RSS_STORAGE_TYPE), StorageType.MEMORY_LOCALFILE.name());
     addDynamicConf(coordinatorConf, dynamicConf);
     storeCoordinatorConf(coordinatorConf);
 
@@ -105,7 +108,7 @@ public class PartitionSplitOfLoadBalanceModeTest extends SparkSQLTest {
   public void checkRunState(SparkConf sparkConf) {
     if (sparkConf.getBoolean("spark." + RSS_CLIENT_REASSIGN_ENABLED.key(), false)) {
       // All servers will be assigned for one app due to the partition split
-      if (sparkConf.get(RSS_CLIENT_TYPE).equals("GRPC")) {
+      if (RssSparkConfig.toRssConf(sparkConf).get(RSS_CLIENT_TYPE).name().equals("GRPC")) {
         for (ShuffleServer shuffleServer : grpcShuffleServers) {
           Assertions.assertEquals(1, shuffleServer.getAppInfos().size());
         }

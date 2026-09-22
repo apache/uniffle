@@ -29,10 +29,13 @@ import org.apache.spark.shuffle.RssSparkConfig;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.io.TempDir;
 
+import org.apache.uniffle.common.config.RssBaseConf;
 import org.apache.uniffle.common.rpc.ServerType;
 import org.apache.uniffle.coordinator.CoordinatorConf;
 import org.apache.uniffle.server.ShuffleServerConf;
 import org.apache.uniffle.storage.util.StorageType;
+
+import static org.apache.spark.shuffle.RssSparkConfig.toSparkConfKey;
 
 public class SparkSQLWithDelegationShuffleManagerFallbackTest extends SparkSQLTest {
 
@@ -53,7 +56,8 @@ public class SparkSQLWithDelegationShuffleManagerFallbackTest extends SparkSQLTe
     coordinatorConf.set(CoordinatorConf.COORDINATOR_APP_EXPIRED, 5000L);
     coordinatorConf.set(CoordinatorConf.COORDINATOR_ACCESS_LOADCHECKER_SERVER_NUM_THRESHOLD, 1);
     Map<String, String> dynamicConf = Maps.newHashMap();
-    dynamicConf.put(RssSparkConfig.RSS_STORAGE_TYPE.key(), StorageType.MEMORY_LOCALFILE.name());
+    dynamicConf.put(
+        toSparkConfKey(RssBaseConf.RSS_STORAGE_TYPE), StorageType.MEMORY_LOCALFILE.name());
     addDynamicConf(coordinatorConf, dynamicConf);
     storeCoordinatorConf(coordinatorConf);
 
@@ -72,7 +76,7 @@ public class SparkSQLWithDelegationShuffleManagerFallbackTest extends SparkSQLTe
 
   @Override
   public void updateRssStorage(SparkConf sparkConf) {
-    sparkConf.set(RssSparkConfig.RSS_ACCESS_ID.key(), "wrong_id");
+    sparkConf.set(toSparkConfKey(RssSparkConfig.RSS_ACCESS_ID), "wrong_id");
     sparkConf.set("spark.shuffle.manager", "org.apache.spark.shuffle.DelegationRssShuffleManager");
   }
 

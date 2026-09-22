@@ -50,12 +50,15 @@ import org.apache.uniffle.client.util.ClientUtils;
 import org.apache.uniffle.common.ClientType;
 import org.apache.uniffle.common.RemoteStorageInfo;
 import org.apache.uniffle.common.ShuffleServerInfo;
+import org.apache.uniffle.common.config.RssBaseConf;
+import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.exception.RssFetchFailedException;
 import org.apache.uniffle.common.util.Constants;
 
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_RESUBMIT_STAGE_WITH_FETCH_FAILURE_ENABLED;
+import static org.apache.spark.shuffle.RssSparkConfig.toSparkConfKey;
 
 public class RssSparkShuffleUtils {
 
@@ -67,23 +70,24 @@ public class RssSparkShuffleUtils {
       scala.reflect.ClassTag$.MODULE$.apply(byte[].class);
 
   public static Configuration newHadoopConfiguration(SparkConf sparkConf) {
+    RssConf rssConf = RssSparkConfig.toRssConf(sparkConf);
     SparkHadoopUtil util = new SparkHadoopUtil();
     Configuration conf = util.newConfiguration(sparkConf);
 
-    boolean useOdfs = sparkConf.get(RssSparkConfig.RSS_OZONE_DFS_NAMENODE_ODFS_ENABLE);
+    boolean useOdfs = rssConf.get(RssSparkConfig.RSS_OZONE_DFS_NAMENODE_ODFS_ENABLE);
     if (useOdfs) {
-      final int OZONE_PREFIX_LEN = "spark.rss.ozone.".length();
+      final int OZONE_PREFIX_LEN = "rss.ozone.".length();
       conf.setBoolean(
           RssSparkConfig.RSS_OZONE_DFS_NAMENODE_ODFS_ENABLE.key().substring(OZONE_PREFIX_LEN),
           useOdfs);
       conf.set(
           RssSparkConfig.RSS_OZONE_FS_HDFS_IMPL.key().substring(OZONE_PREFIX_LEN),
-          sparkConf.get(RssSparkConfig.RSS_OZONE_FS_HDFS_IMPL));
+          rssConf.get(RssSparkConfig.RSS_OZONE_FS_HDFS_IMPL));
       conf.set(
           RssSparkConfig.RSS_OZONE_FS_ABSTRACT_FILE_SYSTEM_HDFS_IMPL
               .key()
               .substring(OZONE_PREFIX_LEN),
-          sparkConf.get(RssSparkConfig.RSS_OZONE_FS_ABSTRACT_FILE_SYSTEM_HDFS_IMPL));
+          rssConf.get(RssSparkConfig.RSS_OZONE_FS_ABSTRACT_FILE_SYSTEM_HDFS_IMPL));
     }
 
     return conf;
@@ -106,28 +110,30 @@ public class RssSparkShuffleUtils {
 
   public static CoordinatorGrpcRetryableClient createCoordinatorClientsWithoutHeartbeat(
       SparkConf sparkConf) {
-    String clientType = sparkConf.get(RssSparkConfig.RSS_CLIENT_TYPE);
+    RssConf rssConf = RssSparkConfig.toRssConf(sparkConf);
+    ClientType clientType = rssConf.get(RssClientConf.RSS_CLIENT_TYPE);
     String coordinators = getCoordinatorQuorumStr(sparkConf);
-    long retryIntervalMs = sparkConf.get(RssSparkConfig.RSS_CLIENT_RETRY_INTERVAL_MAX);
-    int retryTimes = sparkConf.get(RssSparkConfig.RSS_CLIENT_RETRY_MAX);
+    long retryIntervalMs = rssConf.get(RssClientConf.RSS_CLIENT_RETRY_INTERVAL_MAX);
+    int retryTimes = rssConf.get(RssClientConf.RSS_CLIENT_RETRY_MAX);
     CoordinatorClientFactory coordinatorClientFactory = CoordinatorClientFactory.getInstance();
     return coordinatorClientFactory.createCoordinatorClientWithoutHeartbeat(
-        ClientType.valueOf(clientType), coordinators, retryIntervalMs, retryTimes);
+        clientType, coordinators, retryIntervalMs, retryTimes);
   }
 
   public static CoordinatorGrpcRetryableClient createCoordinatorClientsForAccessCluster(
       SparkConf sparkConf) {
-    String clientType = sparkConf.get(RssSparkConfig.RSS_CLIENT_TYPE);
+    RssConf rssConf = RssSparkConfig.toRssConf(sparkConf);
+    ClientType clientType = rssConf.get(RssClientConf.RSS_CLIENT_TYPE);
     String coordinators = getCoordinatorQuorumStr(sparkConf);
-    long retryIntervalMs = sparkConf.get(RssSparkConfig.RSS_CLIENT_ACCESS_RETRY_INTERVAL_MS);
-    int retryTimes = sparkConf.get(RssSparkConfig.RSS_CLIENT_ACCESS_RETRY_TIMES);
+    long retryIntervalMs = rssConf.get(RssSparkConfig.RSS_CLIENT_ACCESS_RETRY_INTERVAL_MS);
+    int retryTimes = rssConf.get(RssSparkConfig.RSS_CLIENT_ACCESS_RETRY_TIMES);
     CoordinatorClientFactory coordinatorClientFactory = CoordinatorClientFactory.getInstance();
     return coordinatorClientFactory.createCoordinatorClientWithoutHeartbeat(
-        ClientType.valueOf(clientType), coordinators, retryIntervalMs, retryTimes);
+        clientType, coordinators, retryIntervalMs, retryTimes);
   }
 
   public static String getCoordinatorQuorumStr(SparkConf sparkConf) {
-    return sparkConf.get(RssSparkConfig.RSS_COORDINATOR_QUORUM);
+    return RssSparkConfig.toRssConf(sparkConf).get(RssBaseConf.RSS_COORDINATOR_QUORUM);
   }
 
   public static void applyDynamicClientConf(SparkConf sparkConf, Map<String, String> confItems) {
@@ -160,28 +166,29 @@ public class RssSparkShuffleUtils {
   }
 
   public static void validateRssClientConf(SparkConf sparkConf) {
+    RssConf rssConf = RssSparkConfig.toRssConf(sparkConf);
     String msgFormat = "%s must be set by the client or fetched from coordinators.";
-    if (!sparkConf.contains(RssSparkConfig.RSS_STORAGE_TYPE.key())) {
+    if (!sparkConf.contains(toSparkConfKey(RssBaseConf.RSS_STORAGE_TYPE))) {
       String msg = String.format(msgFormat, "Storage type");
       LOG.error(msg);
       throw new IllegalArgumentException(msg);
     }
 
-    String storageType = sparkConf.get(RssSparkConfig.RSS_STORAGE_TYPE.key());
-    boolean testMode = sparkConf.getBoolean(RssSparkConfig.RSS_TEST_MODE_ENABLE.key(), false);
+    String storageType = sparkConf.get(toSparkConfKey(RssBaseConf.RSS_STORAGE_TYPE));
+    boolean testMode = rssConf.get(RssBaseConf.RSS_TEST_MODE_ENABLE);
     ClientUtils.validateTestModeConf(testMode, storageType);
-    int retryMax = sparkConf.get(RssSparkConfig.RSS_CLIENT_RETRY_MAX);
-    long retryIntervalMax = sparkConf.get(RssSparkConfig.RSS_CLIENT_RETRY_INTERVAL_MAX);
-    long sendCheckTimeout = sparkConf.get(RssSparkConfig.RSS_CLIENT_SEND_CHECK_TIMEOUT_MS);
+    int retryMax = rssConf.get(RssClientConf.RSS_CLIENT_RETRY_MAX);
+    long retryIntervalMax = rssConf.get(RssClientConf.RSS_CLIENT_RETRY_INTERVAL_MAX);
+    long sendCheckTimeout = rssConf.get(RssClientConf.RSS_CLIENT_SEND_CHECK_TIMEOUT_MS);
     if (retryIntervalMax * retryMax > sendCheckTimeout) {
       throw new IllegalArgumentException(
           String.format(
               "%s(%s) * %s(%s) should not bigger than %s(%s)",
-              RssSparkConfig.RSS_CLIENT_RETRY_MAX.key(),
+              toSparkConfKey(RssClientConf.RSS_CLIENT_RETRY_MAX),
               retryMax,
-              RssSparkConfig.RSS_CLIENT_RETRY_INTERVAL_MAX.key(),
+              toSparkConfKey(RssClientConf.RSS_CLIENT_RETRY_INTERVAL_MAX),
               retryIntervalMax,
-              RssSparkConfig.RSS_CLIENT_SEND_CHECK_TIMEOUT_MS.key(),
+              toSparkConfKey(RssClientConf.RSS_CLIENT_SEND_CHECK_TIMEOUT_MS),
               sendCheckTimeout));
     }
   }
@@ -200,7 +207,8 @@ public class RssSparkShuffleUtils {
 
   public static Set<String> getAssignmentTags(SparkConf sparkConf) {
     Set<String> assignmentTags = new HashSet<>();
-    String rawTags = sparkConf.get(RssSparkConfig.RSS_CLIENT_ASSIGNMENT_TAGS.key(), "");
+    String rawTags =
+        RssSparkConfig.toRssConf(sparkConf).get(RssClientConf.RSS_CLIENT_ASSIGNMENT_TAGS);
     if (StringUtils.isNotEmpty(rawTags)) {
       rawTags = rawTags.trim();
       assignmentTags.addAll(Arrays.asList(rawTags.split(",")));
@@ -212,7 +220,8 @@ public class RssSparkShuffleUtils {
   public static int estimateTaskConcurrency(SparkConf sparkConf) {
     int taskConcurrency;
     double dynamicAllocationFactor =
-        sparkConf.get(RssSparkConfig.RSS_ESTIMATE_TASK_CONCURRENCY_DYNAMIC_FACTOR);
+        RssSparkConfig.toRssConf(sparkConf)
+            .get(RssClientConf.RSS_ESTIMATE_TASK_CONCURRENCY_DYNAMIC_FACTOR);
     if (dynamicAllocationFactor > 1 || dynamicAllocationFactor < 0) {
       throw new RssException("dynamicAllocationFactor is not valid: " + dynamicAllocationFactor);
     }
@@ -246,16 +255,17 @@ public class RssSparkShuffleUtils {
   }
 
   public static int getRequiredShuffleServerNumber(SparkConf sparkConf) {
+    RssConf rssConf = RssSparkConfig.toRssConf(sparkConf);
     boolean enabledEstimateServer =
-        sparkConf.get(RssSparkConfig.RSS_ESTIMATE_SERVER_ASSIGNMENT_ENABLED);
+        rssConf.get(RssClientConf.RSS_ESTIMATE_SERVER_ASSIGNMENT_ENABLED);
     int requiredShuffleServerNumber =
-        sparkConf.get(RssSparkConfig.RSS_CLIENT_ASSIGNMENT_SHUFFLE_SERVER_NUMBER);
+        rssConf.get(RssClientConf.RSS_CLIENT_ASSIGNMENT_SHUFFLE_SERVER_NUMBER);
     if (!enabledEstimateServer || requiredShuffleServerNumber > 0) {
       return requiredShuffleServerNumber;
     }
     int estimateTaskConcurrency = RssSparkShuffleUtils.estimateTaskConcurrency(sparkConf);
     int taskConcurrencyPerServer =
-        sparkConf.get(RssSparkConfig.RSS_ESTIMATE_TASK_CONCURRENCY_PER_SERVER);
+        rssConf.get(RssClientConf.RSS_ESTIMATE_TASK_CONCURRENCY_PER_SERVER);
     return (int) Math.ceil(estimateTaskConcurrency * 1.0 / taskConcurrencyPerServer);
   }
 

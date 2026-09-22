@@ -698,4 +698,12 @@ public class RssConf implements Cloneable {
     }
     return configMap;
   }
+
+  public Map<String, String> toMap() {
+    Map<String, String> map = new HashMap<>();
+    for (Map.Entry<String, Object> entry : settings.entrySet()) {
+      map.put(entry.getKey(), entry.getValue().toString());
+    }
+    return map;
+  }
 }

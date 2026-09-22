@@ -54,11 +54,14 @@ import org.apache.uniffle.client.api.ShuffleWriteClient;
 import org.apache.uniffle.client.impl.FailedBlockSendTracker;
 import org.apache.uniffle.common.ShuffleBlockInfo;
 import org.apache.uniffle.common.ShuffleServerInfo;
+import org.apache.uniffle.common.config.RssBaseConf;
+import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.rpc.StatusCode;
 import org.apache.uniffle.common.util.ExpiringCloseableSupplier;
 import org.apache.uniffle.storage.util.StorageType;
 
+import static org.apache.spark.shuffle.RssSparkConfig.toSparkConfKey;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -77,14 +80,14 @@ public class RssShuffleWriterTest {
     String taskId = "checkBlockSendResultTest_taskId";
     conf.setAppName("testApp")
         .setMaster("local[2]")
-        .set(RssSparkConfig.RSS_TEST_FLAG.key(), "true")
-        .set(RssSparkConfig.RSS_TEST_MODE_ENABLE.key(), "true")
-        .set(RssSparkConfig.RSS_CLIENT_SEND_CHECK_TIMEOUT_MS.key(), "10000")
-        .set(RssSparkConfig.RSS_CLIENT_RETRY_MAX.key(), "10")
-        .set(RssSparkConfig.RSS_CLIENT_RETRY_INTERVAL_MAX.key(), "1000")
-        .set(RssSparkConfig.RSS_CLIENT_SEND_CHECK_INTERVAL_MS.key(), "1000")
-        .set(RssSparkConfig.RSS_STORAGE_TYPE.key(), StorageType.LOCALFILE.name())
-        .set(RssSparkConfig.RSS_COORDINATOR_QUORUM.key(), "127.0.0.1:12345,127.0.0.1:12346");
+        .set(toSparkConfKey(RssSparkConfig.RSS_TEST_FLAG), "true")
+        .set(toSparkConfKey(RssBaseConf.RSS_TEST_MODE_ENABLE), "true")
+        .set(toSparkConfKey(RssClientConf.RSS_CLIENT_SEND_CHECK_TIMEOUT_MS), "10000")
+        .set(toSparkConfKey(RssClientConf.RSS_CLIENT_RETRY_MAX), "10")
+        .set(toSparkConfKey(RssClientConf.RSS_CLIENT_RETRY_INTERVAL_MAX), "1000")
+        .set(toSparkConfKey(RssClientConf.RSS_CLIENT_SEND_CHECK_INTERVAL_MS), "1000")
+        .set(toSparkConfKey(RssBaseConf.RSS_STORAGE_TYPE), StorageType.LOCALFILE.name())
+        .set(toSparkConfKey(RssBaseConf.RSS_COORDINATOR_QUORUM), "127.0.0.1:12345,127.0.0.1:12346");
     // init SparkContext
     final SparkContext sc = SparkContext.getOrCreate(conf);
     RssShuffleManager manager = new RssShuffleManager(conf, false);
@@ -206,15 +209,15 @@ public class RssShuffleWriterTest {
     SparkConf conf = new SparkConf();
     conf.setAppName("testApp")
         .setMaster("local[2]")
-        .set(RssSparkConfig.RSS_TEST_FLAG.key(), "true")
-        .set(RssSparkConfig.RSS_TEST_MODE_ENABLE.key(), "true")
-        .set(RssSparkConfig.RSS_WRITER_BUFFER_SIZE.key(), "32")
-        .set(RssSparkConfig.RSS_WRITER_SERIALIZER_BUFFER_SIZE.key(), "32")
-        .set(RssSparkConfig.RSS_WRITER_BUFFER_SEGMENT_SIZE.key(), "64")
-        .set(RssSparkConfig.RSS_WRITER_BUFFER_SPILL_SIZE.key(), "128")
-        .set(RssSparkConfig.RSS_CLIENT_SEND_CHECK_INTERVAL_MS.key(), "1000")
-        .set(RssSparkConfig.RSS_STORAGE_TYPE.key(), StorageType.LOCALFILE.name())
-        .set(RssSparkConfig.RSS_COORDINATOR_QUORUM.key(), "127.0.0.1:12345,127.0.0.1:12346");
+        .set(toSparkConfKey(RssSparkConfig.RSS_TEST_FLAG), "true")
+        .set(toSparkConfKey(RssBaseConf.RSS_TEST_MODE_ENABLE), "true")
+        .set(toSparkConfKey(RssClientConf.RSS_WRITER_BUFFER_SIZE), "32")
+        .set(toSparkConfKey(RssSparkConfig.RSS_WRITER_SERIALIZER_BUFFER_SIZE), "32")
+        .set(toSparkConfKey(RssSparkConfig.RSS_WRITER_BUFFER_SEGMENT_SIZE), "64")
+        .set(toSparkConfKey(RssSparkConfig.RSS_WRITER_BUFFER_SPILL_SIZE), "128")
+        .set(toSparkConfKey(RssClientConf.RSS_CLIENT_SEND_CHECK_INTERVAL_MS), "1000")
+        .set(toSparkConfKey(RssBaseConf.RSS_STORAGE_TYPE), StorageType.LOCALFILE.name())
+        .set(toSparkConfKey(RssBaseConf.RSS_COORDINATOR_QUORUM), "127.0.0.1:12345,127.0.0.1:12346");
     // init SparkContext
     final SparkContext sc = SparkContext.getOrCreate(conf);
     RssShuffleManager manager = new RssShuffleManager(conf, false);
@@ -366,20 +369,20 @@ public class RssShuffleWriterTest {
     SparkConf conf = new SparkConf();
     conf.setAppName("postBlockEventTest")
         .setMaster("local[2]")
-        .set(RssSparkConfig.RSS_TEST_FLAG.key(), "true")
-        .set(RssSparkConfig.RSS_TEST_MODE_ENABLE.key(), "true")
-        .set(RssSparkConfig.RSS_WRITER_BUFFER_SIZE.key(), "32")
-        .set(RssSparkConfig.RSS_WRITER_SERIALIZER_BUFFER_SIZE.key(), "32")
-        .set(RssSparkConfig.RSS_WRITER_BUFFER_SEGMENT_SIZE.key(), "64")
-        .set(RssSparkConfig.RSS_WRITER_BUFFER_SPILL_SIZE.key(), "128")
-        .set(RssSparkConfig.RSS_CLIENT_SEND_CHECK_INTERVAL_MS.key(), "1000")
-        .set(RssSparkConfig.RSS_STORAGE_TYPE.key(), StorageType.LOCALFILE.name())
-        .set(RssSparkConfig.RSS_COORDINATOR_QUORUM.key(), "127.0.0.1:12345,127.0.0.1:12346")
+        .set(toSparkConfKey(RssSparkConfig.RSS_TEST_FLAG), "true")
+        .set(toSparkConfKey(RssBaseConf.RSS_TEST_MODE_ENABLE), "true")
+        .set(toSparkConfKey(RssClientConf.RSS_WRITER_BUFFER_SIZE), "32")
+        .set(toSparkConfKey(RssSparkConfig.RSS_WRITER_SERIALIZER_BUFFER_SIZE), "32")
+        .set(toSparkConfKey(RssSparkConfig.RSS_WRITER_BUFFER_SEGMENT_SIZE), "64")
+        .set(toSparkConfKey(RssSparkConfig.RSS_WRITER_BUFFER_SPILL_SIZE), "128")
+        .set(toSparkConfKey(RssClientConf.RSS_CLIENT_SEND_CHECK_INTERVAL_MS), "1000")
+        .set(toSparkConfKey(RssBaseConf.RSS_STORAGE_TYPE), StorageType.LOCALFILE.name())
+        .set(toSparkConfKey(RssBaseConf.RSS_COORDINATOR_QUORUM), "127.0.0.1:12345,127.0.0.1:12346")
         .set(
             RssSparkConfig.SPARK_RSS_CONFIG_PREFIX
                 + RssSparkConfig.RSS_CLIENT_SEND_SIZE_LIMITATION.key(),
             "64")
-        .set(RssSparkConfig.RSS_STORAGE_TYPE.key(), StorageType.LOCALFILE.name());
+        .set(toSparkConfKey(RssBaseConf.RSS_STORAGE_TYPE), StorageType.LOCALFILE.name());
 
     TaskMemoryManager mockTaskMemoryManager = mock(TaskMemoryManager.class);
     BufferManagerOptions bufferOptions = new BufferManagerOptions(conf);

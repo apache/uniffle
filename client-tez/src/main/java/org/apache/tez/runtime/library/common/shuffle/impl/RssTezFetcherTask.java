@@ -123,8 +123,7 @@ public class RssTezFetcherTask extends CallableWithNdc<FetchResult> {
         vertexIndex,
         reduceId);
     clientType = conf.get(RssTezConfig.RSS_CLIENT_TYPE, RssTezConfig.RSS_CLIENT_TYPE_DEFAULT_VALUE);
-    this.storageType =
-        conf.get(RssTezConfig.RSS_STORAGE_TYPE, RssTezConfig.RSS_STORAGE_TYPE_DEFAULT_VALUE);
+    this.storageType = conf.get(RssTezConfig.RSS_STORAGE_TYPE);
     LOG.info("RssTezFetcherTask storageType:{}", storageType);
     this.basePath = this.conf.get(RssTezConfig.RSS_REMOTE_STORAGE_PATH);
     String remoteStorageConf = this.conf.get(RssTezConfig.RSS_REMOTE_STORAGE_CONF);

@@ -20,6 +20,7 @@ package org.apache.hadoop.mapreduce;
 import java.util.Map;
 
 import com.google.common.collect.Maps;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.mapred.JobConf;
 import org.junit.jupiter.api.Test;
 
@@ -34,6 +35,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 public class RssMRUtilsTest {
+  @Test
+  public void testSharedWriterBufferDefault() {
+    Configuration conf = new Configuration(false);
+    assertEquals(
+        3 * 1024 * 1024L,
+        conf.getLong(
+            RssMRConfig.RSS_WRITER_BUFFER_SIZE, RssMRConfig.RSS_WRITER_BUFFER_SIZE_DEFAULT_VALUE));
+    conf.setLong(RssMRConfig.RSS_WRITER_BUFFER_SIZE, 4 * 1024 * 1024L);
+    assertEquals(
+        4 * 1024 * 1024L,
+        conf.getLong(
+            RssMRConfig.RSS_WRITER_BUFFER_SIZE, RssMRConfig.RSS_WRITER_BUFFER_SIZE_DEFAULT_VALUE));
+  }
 
   private static final String EXPECTED_EXCEPTION_MESSAGE = "Exception should be thrown";
 

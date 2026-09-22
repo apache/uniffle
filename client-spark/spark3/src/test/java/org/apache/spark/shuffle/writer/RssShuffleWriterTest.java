@@ -64,11 +64,14 @@ import org.apache.uniffle.client.impl.FailedBlockSendTracker;
 import org.apache.uniffle.common.RemoteStorageInfo;
 import org.apache.uniffle.common.ShuffleBlockInfo;
 import org.apache.uniffle.common.ShuffleServerInfo;
+import org.apache.uniffle.common.config.RssBaseConf;
+import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.common.rpc.StatusCode;
 import org.apache.uniffle.common.util.ExpiringCloseableSupplier;
 import org.apache.uniffle.common.util.JavaUtils;
 import org.apache.uniffle.storage.util.StorageType;
 
+import static org.apache.spark.shuffle.RssSparkConfig.toSparkConfKey;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -118,14 +121,14 @@ public class RssShuffleWriterTest {
     SparkConf conf = new SparkConf();
     conf.setAppName("testApp")
         .setMaster("local[2]")
-        .set(RssSparkConfig.RSS_WRITER_SERIALIZER_BUFFER_SIZE.key(), "32")
-        .set(RssSparkConfig.RSS_WRITER_BUFFER_SIZE.key(), "32")
-        .set(RssSparkConfig.RSS_TEST_FLAG.key(), "true")
-        .set(RssSparkConfig.RSS_TEST_MODE_ENABLE.key(), "true")
-        .set(RssSparkConfig.RSS_WRITER_BUFFER_SEGMENT_SIZE.key(), "64")
-        .set(RssSparkConfig.RSS_CLIENT_SEND_CHECK_INTERVAL_MS.key(), "1000")
-        .set(RssSparkConfig.RSS_WRITER_BUFFER_SPILL_SIZE.key(), "128")
-        .set(RssSparkConfig.RSS_STORAGE_TYPE.key(), StorageType.LOCALFILE.name());
+        .set(toSparkConfKey(RssSparkConfig.RSS_WRITER_SERIALIZER_BUFFER_SIZE), "32")
+        .set(toSparkConfKey(RssClientConf.RSS_WRITER_BUFFER_SIZE), "32")
+        .set(toSparkConfKey(RssSparkConfig.RSS_TEST_FLAG), "true")
+        .set(toSparkConfKey(RssBaseConf.RSS_TEST_MODE_ENABLE), "true")
+        .set(toSparkConfKey(RssSparkConfig.RSS_WRITER_BUFFER_SEGMENT_SIZE), "64")
+        .set(toSparkConfKey(RssClientConf.RSS_CLIENT_SEND_CHECK_INTERVAL_MS), "1000")
+        .set(toSparkConfKey(RssSparkConfig.RSS_WRITER_BUFFER_SPILL_SIZE), "128")
+        .set(toSparkConfKey(RssBaseConf.RSS_STORAGE_TYPE), StorageType.LOCALFILE.name());
 
     Map<String, Set<Long>> successBlockIds = JavaUtils.newConcurrentMap();
     Map<String, FailedBlockSendTracker> taskToFailedBlockSendTracker = JavaUtils.newConcurrentMap();
@@ -349,14 +352,14 @@ public class RssShuffleWriterTest {
     SparkConf conf = new SparkConf();
     conf.setAppName("testApp")
         .setMaster("local[2]")
-        .set(RssSparkConfig.RSS_WRITER_SERIALIZER_BUFFER_SIZE.key(), "32")
-        .set(RssSparkConfig.RSS_WRITER_BUFFER_SIZE.key(), "32")
-        .set(RssSparkConfig.RSS_TEST_FLAG.key(), "true")
-        .set(RssSparkConfig.RSS_TEST_MODE_ENABLE.key(), "true")
-        .set(RssSparkConfig.RSS_WRITER_BUFFER_SEGMENT_SIZE.key(), "64")
-        .set(RssSparkConfig.RSS_CLIENT_SEND_CHECK_INTERVAL_MS.key(), "1000")
-        .set(RssSparkConfig.RSS_WRITER_BUFFER_SPILL_SIZE.key(), "128")
-        .set(RssSparkConfig.RSS_STORAGE_TYPE.key(), StorageType.LOCALFILE.name());
+        .set(toSparkConfKey(RssSparkConfig.RSS_WRITER_SERIALIZER_BUFFER_SIZE), "32")
+        .set(toSparkConfKey(RssClientConf.RSS_WRITER_BUFFER_SIZE), "32")
+        .set(toSparkConfKey(RssSparkConfig.RSS_TEST_FLAG), "true")
+        .set(toSparkConfKey(RssBaseConf.RSS_TEST_MODE_ENABLE), "true")
+        .set(toSparkConfKey(RssSparkConfig.RSS_WRITER_BUFFER_SEGMENT_SIZE), "64")
+        .set(toSparkConfKey(RssClientConf.RSS_CLIENT_SEND_CHECK_INTERVAL_MS), "1000")
+        .set(toSparkConfKey(RssSparkConfig.RSS_WRITER_BUFFER_SPILL_SIZE), "128")
+        .set(toSparkConfKey(RssBaseConf.RSS_STORAGE_TYPE), StorageType.LOCALFILE.name());
 
     List<ShuffleBlockInfo> shuffleBlockInfos = Lists.newArrayList();
     Map<String, Set<Long>> successBlockIds = JavaUtils.newConcurrentMap();
@@ -540,13 +543,13 @@ public class RssShuffleWriterTest {
     SparkConf conf = new SparkConf();
     conf.setAppName("testApp")
         .setMaster("local[2]")
-        .set(RssSparkConfig.RSS_TEST_FLAG.key(), "true")
-        .set(RssSparkConfig.RSS_TEST_MODE_ENABLE.key(), "true")
-        .set(RssSparkConfig.RSS_CLIENT_SEND_CHECK_TIMEOUT_MS.key(), "10000")
-        .set(RssSparkConfig.RSS_CLIENT_RETRY_MAX.key(), "10")
-        .set(RssSparkConfig.RSS_CLIENT_SEND_CHECK_INTERVAL_MS.key(), "1000")
-        .set(RssSparkConfig.RSS_STORAGE_TYPE.key(), StorageType.LOCALFILE.name())
-        .set(RssSparkConfig.RSS_COORDINATOR_QUORUM.key(), "127.0.0.1:12345,127.0.0.1:12346");
+        .set(toSparkConfKey(RssSparkConfig.RSS_TEST_FLAG), "true")
+        .set(toSparkConfKey(RssBaseConf.RSS_TEST_MODE_ENABLE), "true")
+        .set(toSparkConfKey(RssClientConf.RSS_CLIENT_SEND_CHECK_TIMEOUT_MS), "10000")
+        .set(toSparkConfKey(RssClientConf.RSS_CLIENT_RETRY_MAX), "10")
+        .set(toSparkConfKey(RssClientConf.RSS_CLIENT_SEND_CHECK_INTERVAL_MS), "1000")
+        .set(toSparkConfKey(RssBaseConf.RSS_STORAGE_TYPE), StorageType.LOCALFILE.name())
+        .set(toSparkConfKey(RssBaseConf.RSS_COORDINATOR_QUORUM), "127.0.0.1:12345,127.0.0.1:12346");
     Map<String, Set<Long>> successBlocks = JavaUtils.newConcurrentMap();
     Map<String, FailedBlockSendTracker> taskToFailedBlockSendTracker = JavaUtils.newConcurrentMap();
     Map<String, Map<Long, BlockingQueue<ShuffleServerInfo>>> taskToFailedBlockIdsAndServer =
@@ -668,16 +671,16 @@ public class RssShuffleWriterTest {
     conf.set("spark.rss.client.memory.spill.enabled", "true");
     conf.setAppName("dataConsistencyWhenSpillTriggeredTest_app")
         .setMaster("local[2]")
-        .set(RssSparkConfig.RSS_WRITER_SERIALIZER_BUFFER_SIZE.key(), "32")
-        .set(RssSparkConfig.RSS_WRITER_BUFFER_SIZE.key(), "32")
-        .set(RssSparkConfig.RSS_WRITER_PRE_ALLOCATED_BUFFER_SIZE.key(), "32")
-        .set(RssSparkConfig.RSS_TEST_FLAG.key(), "true")
-        .set(RssSparkConfig.RSS_TEST_MODE_ENABLE.key(), "true")
-        .set(RssSparkConfig.RSS_WRITER_BUFFER_SEGMENT_SIZE.key(), "32")
-        .set(RssSparkConfig.RSS_CLIENT_SEND_CHECK_INTERVAL_MS.key(), "1000")
-        .set(RssSparkConfig.RSS_WRITER_BUFFER_SPILL_SIZE.key(), "100000")
-        .set(RssSparkConfig.RSS_STORAGE_TYPE.key(), StorageType.MEMORY.name())
-        .set(RssSparkConfig.RSS_COORDINATOR_QUORUM.key(), "127.0.0.1:12345,127.0.0.1:12346");
+        .set(toSparkConfKey(RssSparkConfig.RSS_WRITER_SERIALIZER_BUFFER_SIZE), "32")
+        .set(toSparkConfKey(RssClientConf.RSS_WRITER_BUFFER_SIZE), "32")
+        .set(toSparkConfKey(RssSparkConfig.RSS_WRITER_PRE_ALLOCATED_BUFFER_SIZE), "32")
+        .set(toSparkConfKey(RssSparkConfig.RSS_TEST_FLAG), "true")
+        .set(toSparkConfKey(RssBaseConf.RSS_TEST_MODE_ENABLE), "true")
+        .set(toSparkConfKey(RssSparkConfig.RSS_WRITER_BUFFER_SEGMENT_SIZE), "32")
+        .set(toSparkConfKey(RssClientConf.RSS_CLIENT_SEND_CHECK_INTERVAL_MS), "1000")
+        .set(toSparkConfKey(RssSparkConfig.RSS_WRITER_BUFFER_SPILL_SIZE), "100000")
+        .set(toSparkConfKey(RssBaseConf.RSS_STORAGE_TYPE), StorageType.MEMORY.name())
+        .set(toSparkConfKey(RssBaseConf.RSS_COORDINATOR_QUORUM), "127.0.0.1:12345,127.0.0.1:12346");
 
     Map<String, Set<Long>> successBlockIds = Maps.newConcurrentMap();
 
@@ -770,15 +773,15 @@ public class RssShuffleWriterTest {
     SparkConf conf = new SparkConf();
     conf.setAppName("testApp")
         .setMaster("local[2]")
-        .set(RssSparkConfig.RSS_WRITER_SERIALIZER_BUFFER_SIZE.key(), "32")
-        .set(RssSparkConfig.RSS_WRITER_BUFFER_SIZE.key(), "32")
-        .set(RssSparkConfig.RSS_TEST_FLAG.key(), "true")
-        .set(RssSparkConfig.RSS_TEST_MODE_ENABLE.key(), "true")
-        .set(RssSparkConfig.RSS_WRITER_BUFFER_SEGMENT_SIZE.key(), "64")
-        .set(RssSparkConfig.RSS_CLIENT_SEND_CHECK_INTERVAL_MS.key(), "1000")
-        .set(RssSparkConfig.RSS_WRITER_BUFFER_SPILL_SIZE.key(), "128")
-        .set(RssSparkConfig.RSS_STORAGE_TYPE.key(), StorageType.LOCALFILE.name())
-        .set(RssSparkConfig.RSS_COORDINATOR_QUORUM.key(), "127.0.0.1:12345,127.0.0.1:12346");
+        .set(toSparkConfKey(RssSparkConfig.RSS_WRITER_SERIALIZER_BUFFER_SIZE), "32")
+        .set(toSparkConfKey(RssClientConf.RSS_WRITER_BUFFER_SIZE), "32")
+        .set(toSparkConfKey(RssSparkConfig.RSS_TEST_FLAG), "true")
+        .set(toSparkConfKey(RssBaseConf.RSS_TEST_MODE_ENABLE), "true")
+        .set(toSparkConfKey(RssSparkConfig.RSS_WRITER_BUFFER_SEGMENT_SIZE), "64")
+        .set(toSparkConfKey(RssClientConf.RSS_CLIENT_SEND_CHECK_INTERVAL_MS), "1000")
+        .set(toSparkConfKey(RssSparkConfig.RSS_WRITER_BUFFER_SPILL_SIZE), "128")
+        .set(toSparkConfKey(RssBaseConf.RSS_STORAGE_TYPE), StorageType.LOCALFILE.name())
+        .set(toSparkConfKey(RssBaseConf.RSS_COORDINATOR_QUORUM), "127.0.0.1:12345,127.0.0.1:12346");
     List<ShuffleBlockInfo> shuffleBlockInfos = Lists.newArrayList();
     Map<String, Set<Long>> successBlockIds = Maps.newConcurrentMap();
 
@@ -926,7 +929,7 @@ public class RssShuffleWriterTest {
             RssSparkConfig.SPARK_RSS_CONFIG_PREFIX
                 + RssSparkConfig.RSS_CLIENT_SEND_SIZE_LIMITATION.key(),
             "64")
-        .set(RssSparkConfig.RSS_STORAGE_TYPE.key(), StorageType.MEMORY_LOCALFILE.name());
+        .set(toSparkConfKey(RssBaseConf.RSS_STORAGE_TYPE), StorageType.MEMORY_LOCALFILE.name());
 
     BufferManagerOptions bufferOptions = new BufferManagerOptions(conf);
     WriteBufferManager bufferManager =

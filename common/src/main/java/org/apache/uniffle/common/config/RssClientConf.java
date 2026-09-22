@@ -29,6 +29,128 @@ import org.apache.uniffle.common.util.BlockIdLayout;
 import static org.apache.uniffle.common.compression.Codec.Type.LZ4;
 
 public class RssClientConf {
+
+  public static final ConfigOption<Long> RSS_WRITER_BUFFER_SIZE =
+      ConfigOptions.key("rss.writer.buffer.size")
+          .longType()
+          .defaultValue(3 * 1024 * 1024L)
+          .withDescription("Buffer size in bytes for a single partition.");
+
+  public static final ConfigOption<Integer> RSS_PARTITION_NUM_PER_RANGE =
+      ConfigOptions.key("rss.partitionNum.per.range").intType().defaultValue(1);
+
+  public static final ConfigOption<Long> RSS_CLIENT_SEND_CHECK_TIMEOUT_MS =
+      ConfigOptions.key("rss.client.send.check.timeout.ms")
+          .longType()
+          .defaultValue(60 * 1000 * 10L);
+
+  public static final ConfigOption<Long> RSS_CLIENT_SEND_CHECK_INTERVAL_MS =
+      ConfigOptions.key("rss.client.send.check.interval.ms").longType().defaultValue(500L);
+
+  public static final ConfigOption<String> RSS_REMOTE_STORAGE_PATH =
+      ConfigOptions.key("rss.remote.storage.path").stringType().defaultValue("");
+
+  public static final ConfigOption<Integer> RSS_CLIENT_RETRY_MAX =
+      ConfigOptions.key("rss.client.retry.max").intType().defaultValue(50);
+
+  public static final ConfigOption<Long> RSS_CLIENT_RETRY_INTERVAL_MAX =
+      ConfigOptions.key("rss.client.retry.interval.max").longType().defaultValue(10000L);
+
+  public static final ConfigOption<Integer> RSS_CLIENT_HEARTBEAT_THREAD_NUM =
+      ConfigOptions.key("rss.client.heartBeat.threadNum").intType().defaultValue(4);
+
+  public static final ConfigOption<Long> RSS_HEARTBEAT_INTERVAL =
+      ConfigOptions.key("rss.heartbeat.interval").longType().defaultValue(10 * 1000L);
+
+  public static final ConfigOption<Long> RSS_HEARTBEAT_TIMEOUT =
+      ConfigOptions.key("rss.heartbeat.timeout")
+          .longType()
+          .noDefaultValue()
+          .withDescription(
+              "Heartbeat timeout in milliseconds. When unset, clients use half of rss.heartbeat.interval.");
+
+  public static final ConfigOption<Integer> RSS_DATA_REPLICA =
+      ConfigOptions.key("rss.data.replica")
+          .intType()
+          .defaultValue(1)
+          .withDescription(
+              "The max server number that each block can be send by client in quorum protocol");
+
+  public static final ConfigOption<Integer> RSS_DATA_REPLICA_WRITE =
+      ConfigOptions.key("rss.data.replica.write")
+          .intType()
+          .defaultValue(1)
+          .withDescription(
+              "The min server number that each block should be send by client successfully");
+
+  public static final ConfigOption<Integer> RSS_DATA_REPLICA_READ =
+      ConfigOptions.key("rss.data.replica.read")
+          .intType()
+          .defaultValue(1)
+          .withDescription(
+              "The min server number that metadata should be fetched by client successfully");
+
+  public static final ConfigOption<Boolean> RSS_DATA_REPLICA_SKIP_ENABLED =
+      ConfigOptions.key("rss.data.replica.skip.enabled").booleanType().defaultValue(true);
+
+  public static final ConfigOption<Integer> RSS_DATA_TRANSFER_POOL_SIZE =
+      ConfigOptions.key("rss.client.data.transfer.pool.size")
+          .intType()
+          .defaultValue(Runtime.getRuntime().availableProcessors());
+
+  public static final ConfigOption<Integer> RSS_DATA_COMMIT_POOL_SIZE =
+      ConfigOptions.key("rss.client.data.commit.pool.size")
+          .intType()
+          .defaultValue(-1)
+          .withDescription("The thread size for sending commit to shuffle servers");
+
+  public static final ConfigOption<Integer> RSS_ACCESS_TIMEOUT_MS =
+      ConfigOptions.key("rss.access.timeout.ms").intType().defaultValue(10000);
+
+  public static final ConfigOption<Boolean> RSS_DYNAMIC_CLIENT_CONF_ENABLED =
+      ConfigOptions.key("rss.dynamicClientConf.enabled").booleanType().defaultValue(true);
+
+  public static final ConfigOption<String> RSS_CLIENT_ASSIGNMENT_TAGS =
+      ConfigOptions.key("rss.client.assignment.tags")
+          .stringType()
+          .defaultValue("")
+          .withDescription(
+              "The comma-separated list of tags for deciding assignment shuffle servers. "
+                  + "Notice that the SHUFFLE_SERVER_VERSION will always as the assignment tag "
+                  + "whether this conf is set or not");
+
+  public static final ConfigOption<Integer> RSS_CLIENT_ASSIGNMENT_SHUFFLE_SERVER_NUMBER =
+      ConfigOptions.key("rss.client.assignment.shuffle.nodes.max").intType().defaultValue(-1);
+
+  public static final ConfigOption<Long> RSS_CLIENT_ASSIGNMENT_RETRY_INTERVAL =
+      ConfigOptions.key("rss.client.assignment.retry.interval").longType().defaultValue(65000L);
+
+  public static final ConfigOption<Integer> RSS_CLIENT_ASSIGNMENT_RETRY_TIMES =
+      ConfigOptions.key("rss.client.assignment.retry.times").intType().defaultValue(3);
+
+  public static final ConfigOption<Double> RSS_ESTIMATE_TASK_CONCURRENCY_DYNAMIC_FACTOR =
+      ConfigOptions.key("rss.estimate.task.concurrency.dynamic.factor")
+          .doubleType()
+          .defaultValue(1.0)
+          .withDescription(
+              "Fraction of dynamically allocated resources used to estimate task concurrency.");
+
+  public static final ConfigOption<Boolean> RSS_ESTIMATE_SERVER_ASSIGNMENT_ENABLED =
+      ConfigOptions.key("rss.estimate.server.assignment.enabled")
+          .booleanType()
+          .defaultValue(false)
+          .withDescription(
+              "Whether to estimate the number of ShuffleServers to be allocated based on the number"
+                  + " of concurrent tasks.");
+
+  public static final ConfigOption<Integer> RSS_ESTIMATE_TASK_CONCURRENCY_PER_SERVER =
+      ConfigOptions.key("rss.estimate.task.concurrency.per.server")
+          .intType()
+          .defaultValue(80)
+          .withDescription(
+              "How many tasks concurrency to allocate a ShuffleServer, you need to enable"
+                  + " rss.estimate.server.assignment.enabled");
+
   /**
    * The prefix key for Hadoop conf. For Spark like that:
    *
@@ -243,12 +365,6 @@ public class RssClientConf {
 
   public static final ConfigOption<Integer> RSS_INDEX_READ_LIMIT =
       ConfigOptions.key("rss.index.read.limit").intType().defaultValue(500);
-
-  public static final ConfigOption<String> RSS_STORAGE_TYPE =
-      ConfigOptions.key("rss.storage.type")
-          .stringType()
-          .defaultValue("")
-          .withDescription("Supports MEMORY_LOCALFILE, MEMORY_HDFS, MEMORY_LOCALFILE_HDFS");
 
   public static final ConfigOption<String> RSS_CLIENT_READ_BUFFER_SIZE =
       ConfigOptions.key("rss.client.read.buffer.size")

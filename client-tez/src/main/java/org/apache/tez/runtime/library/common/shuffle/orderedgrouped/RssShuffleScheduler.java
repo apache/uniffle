@@ -528,8 +528,7 @@ class RssShuffleScheduler extends ShuffleScheduler {
 
     pipelinedShuffleInfoEventsMap = Maps.newConcurrentMap();
 
-    this.storageType =
-        conf.get(RssTezConfig.RSS_STORAGE_TYPE, RssTezConfig.RSS_STORAGE_TYPE_DEFAULT_VALUE);
+    this.storageType = conf.get(RssTezConfig.RSS_STORAGE_TYPE);
     String readBufferSize =
         conf.get(
             RssTezConfig.RSS_CLIENT_READ_BUFFER_SIZE,

@@ -29,9 +29,12 @@ import org.apache.spark.shuffle.RssShuffleManager;
 import org.apache.spark.shuffle.RssSparkConfig;
 import org.junit.jupiter.api.Test;
 
+import org.apache.uniffle.common.config.RssBaseConf;
+import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.coordinator.CoordinatorConf;
 import org.apache.uniffle.storage.util.StorageType;
 
+import static org.apache.spark.shuffle.RssSparkConfig.toSparkConfKey;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -53,7 +56,7 @@ public class DynamicFetchClientConfTest extends IntegrationTestBase {
     printWriter.println(" spark.mock.2 overwrite-conf ");
     printWriter.println(" spark.mock.3 true ");
     printWriter.println("spark.rss.storage.type " + StorageType.MEMORY_LOCALFILE_HDFS.name());
-    printWriter.println(RssSparkConfig.RSS_REMOTE_STORAGE_PATH.key() + " expectedPath");
+    printWriter.println(toSparkConfKey(RssClientConf.RSS_REMOTE_STORAGE_PATH) + " expectedPath");
     printWriter.flush();
     printWriter.close();
     for (String k : RssSparkConfig.RSS_MANDATORY_CLUSTER_CONF) {
@@ -69,17 +72,17 @@ public class DynamicFetchClientConfTest extends IntegrationTestBase {
     startServersWithRandomPorts();
 
     Uninterruptibles.sleepUninterruptibly(3, TimeUnit.SECONDS);
-    sparkConf.set(RssSparkConfig.RSS_COORDINATOR_QUORUM.key(), getQuorum());
+    sparkConf.set(toSparkConfKey(RssBaseConf.RSS_COORDINATOR_QUORUM), getQuorum());
 
     assertFalse(sparkConf.contains("spark.mock.1"));
     assertEquals("no-overwrite-conf", sparkConf.get("spark.mock.2"));
     assertFalse(sparkConf.contains("spark.mock.3"));
     assertEquals(
-        "Dummy-" + RssSparkConfig.RSS_STORAGE_TYPE.key(),
-        sparkConf.get(RssSparkConfig.RSS_STORAGE_TYPE.key()));
+        "Dummy-" + toSparkConfKey(RssBaseConf.RSS_STORAGE_TYPE),
+        sparkConf.get(toSparkConfKey(RssBaseConf.RSS_STORAGE_TYPE)));
     assertEquals(
-        "Dummy-" + RssSparkConfig.RSS_REMOTE_STORAGE_PATH.key(),
-        sparkConf.get(RssSparkConfig.RSS_REMOTE_STORAGE_PATH.key()));
+        "Dummy-" + toSparkConfKey(RssClientConf.RSS_REMOTE_STORAGE_PATH),
+        sparkConf.get(toSparkConfKey(RssClientConf.RSS_REMOTE_STORAGE_PATH)));
     assertTrue(sparkConf.getBoolean("spark.shuffle.service.enabled", true));
 
     RssShuffleManager rssShuffleManager = new RssShuffleManager(sparkConf, true);
@@ -88,7 +91,8 @@ public class DynamicFetchClientConfTest extends IntegrationTestBase {
     assertEquals(1234, sparkConf1.getInt("spark.mock.1", 0));
     assertEquals("no-overwrite-conf", sparkConf1.get("spark.mock.2"));
     assertEquals(StorageType.MEMORY_LOCALFILE_HDFS.name(), sparkConf.get("spark.rss.storage.type"));
-    assertEquals("expectedPath", sparkConf.get(RssSparkConfig.RSS_REMOTE_STORAGE_PATH.key()));
+    assertEquals(
+        "expectedPath", sparkConf.get(toSparkConfKey(RssClientConf.RSS_REMOTE_STORAGE_PATH)));
     assertFalse(sparkConf1.getBoolean("spark.shuffle.service.enabled", true));
 
     fs.delete(path, true);
@@ -112,7 +116,7 @@ public class DynamicFetchClientConfTest extends IntegrationTestBase {
     storeCoordinatorConf(coordinatorConf);
     startServersWithRandomPorts();
     Uninterruptibles.sleepUninterruptibly(3, TimeUnit.SECONDS);
-    sparkConf.set(RssSparkConfig.RSS_COORDINATOR_QUORUM.key(), getQuorum());
+    sparkConf.set(toSparkConfKey(RssBaseConf.RSS_COORDINATOR_QUORUM), getQuorum());
 
     Exception expectException = null;
     try {

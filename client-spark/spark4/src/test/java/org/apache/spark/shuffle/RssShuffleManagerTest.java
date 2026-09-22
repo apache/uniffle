@@ -39,6 +39,7 @@ import org.apache.uniffle.client.impl.FailedBlockSendTracker;
 import org.apache.uniffle.client.util.RssClientConfig;
 import org.apache.uniffle.common.RemoteStorageInfo;
 import org.apache.uniffle.common.ShuffleDataDistributionType;
+import org.apache.uniffle.common.config.RssBaseConf;
 import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.rpc.StatusCode;
@@ -47,7 +48,8 @@ import org.apache.uniffle.common.util.JavaUtils;
 import org.apache.uniffle.storage.util.StorageType;
 
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_RESUBMIT_STAGE_WITH_FETCH_FAILURE_ENABLED;
-import static org.apache.spark.shuffle.RssSparkConfig.RSS_SHUFFLE_MANAGER_GRPC_PORT;
+import static org.apache.spark.shuffle.RssSparkConfig.toSparkConfKey;
+import static org.apache.uniffle.common.config.RssClientConf.SHUFFLE_MANAGER_GRPC_PORT;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -114,11 +116,11 @@ public class RssShuffleManagerTest extends RssShuffleManagerTestBase {
     setupMockedRssShuffleUtils(StatusCode.SUCCESS);
 
     SparkConf conf = new SparkConf();
-    conf.set(RssSparkConfig.RSS_DYNAMIC_CLIENT_CONF_ENABLED.key(), "false");
-    conf.set(RssSparkConfig.RSS_COORDINATOR_QUORUM.key(), "m1:8001,m2:8002");
+    conf.set(toSparkConfKey(RssClientConf.RSS_DYNAMIC_CLIENT_CONF_ENABLED), "false");
+    conf.set(toSparkConfKey(RssBaseConf.RSS_COORDINATOR_QUORUM), "m1:8001,m2:8002");
     conf.set("spark.driver.host", "localhost");
     conf.set("spark.rss.storage.type", StorageType.LOCALFILE.name());
-    conf.set(RssSparkConfig.RSS_TEST_MODE_ENABLE, true);
+    conf.set(toSparkConfKey(RssBaseConf.RSS_TEST_MODE_ENABLE), "true");
 
     // inject some hadoop configs
     conf.set("spark.rss.hadoop.k1", "v1");
@@ -134,17 +136,17 @@ public class RssShuffleManagerTest extends RssShuffleManagerTestBase {
     setupMockedRssShuffleUtils(StatusCode.SUCCESS);
 
     SparkConf conf = new SparkConf();
-    conf.set(RssSparkConfig.RSS_DYNAMIC_CLIENT_CONF_ENABLED.key(), "false");
-    conf.set(RssSparkConfig.RSS_COORDINATOR_QUORUM.key(), "m1:8001,m2:8002");
+    conf.set(toSparkConfKey(RssClientConf.RSS_DYNAMIC_CLIENT_CONF_ENABLED), "false");
+    conf.set(toSparkConfKey(RssBaseConf.RSS_COORDINATOR_QUORUM), "m1:8001,m2:8002");
     conf.set("spark.driver.host", "localhost");
     conf.set("spark.rss.storage.type", StorageType.LOCALFILE.name());
-    conf.set(RssSparkConfig.RSS_TEST_MODE_ENABLE, true);
+    conf.set(toSparkConfKey(RssBaseConf.RSS_TEST_MODE_ENABLE), "true");
     // enable stage recompute
     conf.set("spark." + RssClientConfig.RSS_RESUBMIT_STAGE, "true");
 
     RssShuffleManager shuffleManager = new RssShuffleManager(conf, true);
 
-    assertTrue(conf.get(RSS_SHUFFLE_MANAGER_GRPC_PORT) > 0);
+    assertTrue(RssSparkConfig.toRssConf(conf).get(SHUFFLE_MANAGER_GRPC_PORT) > 0);
   }
 
   @Test
@@ -152,10 +154,10 @@ public class RssShuffleManagerTest extends RssShuffleManagerTestBase {
     setupMockedRssShuffleUtils(StatusCode.SUCCESS);
 
     SparkConf conf = new SparkConf();
-    conf.set(RssSparkConfig.RSS_DYNAMIC_CLIENT_CONF_ENABLED.key(), "false");
-    conf.set(RssSparkConfig.RSS_COORDINATOR_QUORUM.key(), "m1:8001,m2:8002");
+    conf.set(toSparkConfKey(RssClientConf.RSS_DYNAMIC_CLIENT_CONF_ENABLED), "false");
+    conf.set(toSparkConfKey(RssBaseConf.RSS_COORDINATOR_QUORUM), "m1:8001,m2:8002");
     conf.set("spark.rss.storage.type", StorageType.LOCALFILE.name());
-    conf.set(RssSparkConfig.RSS_TEST_MODE_ENABLE, true);
+    conf.set(toSparkConfKey(RssBaseConf.RSS_TEST_MODE_ENABLE), "true");
 
     conf.set("spark.task.maxFailures", "3");
     RssShuffleManager shuffleManager = new RssShuffleManager(conf, true);
@@ -169,10 +171,10 @@ public class RssShuffleManagerTest extends RssShuffleManagerTestBase {
     setupMockedRssShuffleUtils(StatusCode.SUCCESS);
 
     SparkConf conf = new SparkConf();
-    conf.set(RssSparkConfig.RSS_DYNAMIC_CLIENT_CONF_ENABLED.key(), "false");
-    conf.set(RssSparkConfig.RSS_COORDINATOR_QUORUM.key(), "m1:8001,m2:8002");
+    conf.set(toSparkConfKey(RssClientConf.RSS_DYNAMIC_CLIENT_CONF_ENABLED), "false");
+    conf.set(toSparkConfKey(RssBaseConf.RSS_COORDINATOR_QUORUM), "m1:8001,m2:8002");
     conf.set("spark.rss.storage.type", StorageType.LOCALFILE.name());
-    conf.set(RssSparkConfig.RSS_TEST_MODE_ENABLE, true);
+    conf.set(toSparkConfKey(RssBaseConf.RSS_TEST_MODE_ENABLE), "true");
 
     RssShuffleManager shuffleManager = new RssShuffleManager(conf, true);
     ShuffleBlockResolver blockResolver = shuffleManager.shuffleBlockResolver();
@@ -191,10 +193,10 @@ public class RssShuffleManagerTest extends RssShuffleManagerTestBase {
             63 - partitionIdBits - partitionIdBits - 2, partitionIdBits, partitionIdBits + 2);
 
     SparkConf conf = new SparkConf();
-    conf.set(RssSparkConfig.RSS_DYNAMIC_CLIENT_CONF_ENABLED.key(), "false");
-    conf.set(RssSparkConfig.RSS_COORDINATOR_QUORUM.key(), "m1:8001,m2:8002");
+    conf.set(toSparkConfKey(RssClientConf.RSS_DYNAMIC_CLIENT_CONF_ENABLED), "false");
+    conf.set(toSparkConfKey(RssBaseConf.RSS_COORDINATOR_QUORUM), "m1:8001,m2:8002");
     conf.set("spark.rss.storage.type", StorageType.LOCALFILE.name());
-    conf.set(RssSparkConfig.RSS_TEST_MODE_ENABLE, true);
+    conf.set(toSparkConfKey(RssBaseConf.RSS_TEST_MODE_ENABLE), "true");
     conf.set("spark.task.maxFailures", "4");
 
     conf.set(
@@ -273,10 +275,10 @@ public class RssShuffleManagerTest extends RssShuffleManagerTestBase {
 
   private SparkConf createSparkConf() {
     SparkConf conf = new SparkConf();
-    conf.set(RssSparkConfig.RSS_DYNAMIC_CLIENT_CONF_ENABLED.key(), "false");
-    conf.set(RssSparkConfig.RSS_COORDINATOR_QUORUM.key(), "m1:8001,m2:8002");
+    conf.set(toSparkConfKey(RssClientConf.RSS_DYNAMIC_CLIENT_CONF_ENABLED), "false");
+    conf.set(toSparkConfKey(RssBaseConf.RSS_COORDINATOR_QUORUM), "m1:8001,m2:8002");
     conf.set("spark.rss.storage.type", StorageType.LOCALFILE.name());
-    conf.set(RssSparkConfig.RSS_TEST_MODE_ENABLE, true);
+    conf.set(toSparkConfKey(RssBaseConf.RSS_TEST_MODE_ENABLE), "true");
     conf.set("spark.task.maxFailures", "4");
     conf.set("spark.driver.host", "localhost");
     return conf;
@@ -287,13 +289,13 @@ public class RssShuffleManagerTest extends RssShuffleManagerTestBase {
     SparkConf conf = new SparkConf();
     conf.setAppName("testApp")
         .setMaster("local[2]")
-        .set(RssSparkConfig.RSS_TEST_FLAG.key(), "true")
-        .set(RssSparkConfig.RSS_TEST_MODE_ENABLE.key(), "true")
-        .set(RssSparkConfig.RSS_CLIENT_SEND_CHECK_TIMEOUT_MS.key(), "10000")
-        .set(RssSparkConfig.RSS_CLIENT_RETRY_MAX.key(), "10")
-        .set(RssSparkConfig.RSS_CLIENT_SEND_CHECK_INTERVAL_MS.key(), "1000")
-        .set(RssSparkConfig.RSS_STORAGE_TYPE.key(), StorageType.LOCALFILE.name())
-        .set(RssSparkConfig.RSS_COORDINATOR_QUORUM.key(), "127.0.0.1:12345,127.0.0.1:12346");
+        .set(toSparkConfKey(RssSparkConfig.RSS_TEST_FLAG), "true")
+        .set(toSparkConfKey(RssBaseConf.RSS_TEST_MODE_ENABLE), "true")
+        .set(toSparkConfKey(RssClientConf.RSS_CLIENT_SEND_CHECK_TIMEOUT_MS), "10000")
+        .set(toSparkConfKey(RssClientConf.RSS_CLIENT_RETRY_MAX), "10")
+        .set(toSparkConfKey(RssClientConf.RSS_CLIENT_SEND_CHECK_INTERVAL_MS), "1000")
+        .set(toSparkConfKey(RssBaseConf.RSS_STORAGE_TYPE), StorageType.LOCALFILE.name())
+        .set(toSparkConfKey(RssBaseConf.RSS_COORDINATOR_QUORUM), "127.0.0.1:12345,127.0.0.1:12346");
     Map<String, Set<Long>> successBlocks = JavaUtils.newConcurrentMap();
     Map<String, FailedBlockSendTracker> taskToFailedBlockSendTracker = JavaUtils.newConcurrentMap();
     RssShuffleManager manager =

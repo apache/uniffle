@@ -44,6 +44,19 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class RssTezUtilsTest {
+  @Test
+  public void testSharedWriterBufferDefault() {
+    Configuration conf = new Configuration(false);
+    assertEquals(
+        3 * 1024 * 1024L,
+        conf.getLong(
+            RssTezConfig.RSS_WRITER_BUFFER_SIZE, RssTezConfig.RSS_DEFAULT_WRITER_BUFFER_SIZE));
+    conf.setLong(RssTezConfig.RSS_WRITER_BUFFER_SIZE, 4 * 1024 * 1024L);
+    assertEquals(
+        4 * 1024 * 1024L,
+        conf.getLong(
+            RssTezConfig.RSS_WRITER_BUFFER_SIZE, RssTezConfig.RSS_DEFAULT_WRITER_BUFFER_SIZE));
+  }
 
   @Test
   public void baskAttemptIdTest() {

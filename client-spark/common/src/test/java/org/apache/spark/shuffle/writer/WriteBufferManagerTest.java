@@ -52,6 +52,7 @@ import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.util.BlockIdLayout;
 
+import static org.apache.spark.shuffle.RssSparkConfig.toSparkConfKey;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -84,11 +85,11 @@ public class WriteBufferManagerTest {
 
   private SparkConf getConf() {
     SparkConf conf = new SparkConf(false);
-    conf.set(RssSparkConfig.RSS_WRITER_BUFFER_SIZE.key(), "64")
-        .set(RssSparkConfig.RSS_WRITER_BUFFER_SEGMENT_SIZE.key(), "32")
-        .set(RssSparkConfig.RSS_WRITER_SERIALIZER_BUFFER_SIZE.key(), "128")
-        .set(RssSparkConfig.RSS_WRITER_PRE_ALLOCATED_BUFFER_SIZE.key(), "512")
-        .set(RssSparkConfig.RSS_WRITER_BUFFER_SPILL_SIZE.key(), "190");
+    conf.set(toSparkConfKey(RssClientConf.RSS_WRITER_BUFFER_SIZE), "64")
+        .set(toSparkConfKey(RssSparkConfig.RSS_WRITER_BUFFER_SEGMENT_SIZE), "32")
+        .set(toSparkConfKey(RssSparkConfig.RSS_WRITER_SERIALIZER_BUFFER_SIZE), "128")
+        .set(toSparkConfKey(RssSparkConfig.RSS_WRITER_PRE_ALLOCATED_BUFFER_SIZE), "512")
+        .set(toSparkConfKey(RssSparkConfig.RSS_WRITER_BUFFER_SPILL_SIZE), "190");
     return conf;
   }
 
@@ -125,7 +126,7 @@ public class WriteBufferManagerTest {
             + RssSparkConfig.RSS_WRITE_OVERLAPPING_COMPRESSION_ENABLED.key(),
         "false");
     if (!compress) {
-      conf.set(RssSparkConfig.SPARK_SHUFFLE_COMPRESS_KEY, String.valueOf(false));
+      conf.set(RssSparkConfig.SPARK_SHUFFLE_COMPRESS_KEY, "false");
     }
     WriteBufferManager wbm = createManager(conf);
     Optional<Codec> codec = (Optional<Codec>) FieldUtils.readField(wbm, "codec", true);
@@ -561,7 +562,7 @@ public class WriteBufferManagerTest {
   @Test
   public void spillByOwnWithSparkTaskMemoryManagerTest() {
     SparkConf conf = getConf();
-    conf.set(RssSparkConfig.RSS_WRITER_PRE_ALLOCATED_BUFFER_SIZE.key(), "32");
+    conf.set(toSparkConfKey(RssSparkConfig.RSS_WRITER_PRE_ALLOCATED_BUFFER_SIZE), "32");
     conf.set("spark.rss.client.send.size.limit", "1000");
     conf.set("spark.rss.client.memory.spill.enabled", "true");
     FakedTaskMemoryManager fakedTaskMemoryManager = new FakedTaskMemoryManager();

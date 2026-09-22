@@ -18,6 +18,7 @@
 package org.apache.uniffle.shuffle.manager;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -40,10 +41,12 @@ import org.apache.uniffle.client.request.RssFetchClientConfRequest;
 import org.apache.uniffle.client.response.RssFetchClientConfResponse;
 import org.apache.uniffle.common.ClientType;
 import org.apache.uniffle.common.RemoteStorageInfo;
+import org.apache.uniffle.common.config.RssBaseConf;
 import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.exception.RssException;
 
+import static org.apache.spark.shuffle.RssSparkConfig.toSparkConfKey;
 import static org.apache.uniffle.common.rpc.StatusCode.INVALID_REQUEST;
 import static org.apache.uniffle.common.rpc.StatusCode.SUCCESS;
 import static org.apache.uniffle.shuffle.manager.RssShuffleManagerBase.getTaskAttemptIdForBlockId;
@@ -51,6 +54,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrowsExactly;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -58,8 +62,30 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 
 public class RssShuffleManagerBaseTest {
+
+  @Test
+  void testHeartbeatTimeoutDefaultAndOverride() {
+    SparkConf conf = new SparkConf(false).set("spark.rss.heartbeat.interval", "12000");
+    RssShuffleManagerBase manager =
+        mock(
+            RssShuffleManagerBase.class,
+            withSettings()
+                .useConstructor(conf, false, null, new HashMap<>(), new HashMap<>())
+                .defaultAnswer(CALLS_REAL_METHODS));
+    assertEquals(6000L, manager.heartbeatTimeout);
+
+    conf.set("spark.rss.heartbeat.timeout", "3000");
+    manager =
+        mock(
+            RssShuffleManagerBase.class,
+            withSettings()
+                .useConstructor(conf, false, null, new HashMap<>(), new HashMap<>())
+                .defaultAnswer(CALLS_REAL_METHODS));
+    assertEquals(3000L, manager.heartbeatTimeout);
+  }
 
   @Test
   public void testGetDefaultRemoteStorageInfo() {
@@ -136,17 +162,18 @@ public class RssShuffleManagerBaseTest {
       int expectedTaskAttemptIdBits) {
     SparkConf sparkConf = new SparkConf();
     if (setMaxPartitions != null) {
-      sparkConf.set(RssSparkConfig.RSS_MAX_PARTITIONS.key(), setMaxPartitions);
+      sparkConf.set(toSparkConfKey(RssSparkConfig.RSS_MAX_PARTITIONS), setMaxPartitions);
     }
     RssConf rssConf = RssSparkConfig.toRssConf(sparkConf);
 
     RssShuffleManagerBase.configureBlockIdLayout(sparkConf, rssConf, setMaxFailure, setSpeculation);
 
     if (expectedMaxPartitions == null) {
-      assertFalse(sparkConf.contains(RssSparkConfig.RSS_MAX_PARTITIONS.key()));
+      assertFalse(sparkConf.contains(toSparkConfKey(RssSparkConfig.RSS_MAX_PARTITIONS)));
     } else {
-      assertTrue(sparkConf.contains(RssSparkConfig.RSS_MAX_PARTITIONS.key()));
-      assertEquals(expectedMaxPartitions, sparkConf.get(RssSparkConfig.RSS_MAX_PARTITIONS.key()));
+      assertTrue(sparkConf.contains(toSparkConfKey(RssSparkConfig.RSS_MAX_PARTITIONS)));
+      assertEquals(
+          expectedMaxPartitions, sparkConf.get(toSparkConfKey(RssSparkConfig.RSS_MAX_PARTITIONS)));
     }
 
     String key;
@@ -183,29 +210,29 @@ public class RssShuffleManagerBaseTest {
     String sparkTaskIdBitsKey = sparkPrefix + RssClientConf.BLOCKID_TASK_ATTEMPT_ID_BITS.key();
 
     // SparkConf populates RssConf
-    sparkConf.set(RssSparkConfig.RSS_MAX_PARTITIONS.key(), "131072");
+    sparkConf.set(toSparkConfKey(RssSparkConfig.RSS_MAX_PARTITIONS), "131072");
     RssShuffleManagerBase.configureBlockIdLayout(sparkConf, rssConf, maxFailures, speculation);
     assertEquals(27, rssConf.get(RssClientConf.BLOCKID_SEQUENCE_NO_BITS));
     assertEquals(17, rssConf.get(RssClientConf.BLOCKID_PARTITION_ID_BITS));
     assertEquals(19, rssConf.get(RssClientConf.BLOCKID_TASK_ATTEMPT_ID_BITS));
-    assertEquals(131072, sparkConf.getInt(RssSparkConfig.RSS_MAX_PARTITIONS.key(), -1));
+    assertEquals(131072, sparkConf.getInt(toSparkConfKey(RssSparkConfig.RSS_MAX_PARTITIONS), -1));
     assertEquals(27, sparkConf.getInt(sparkSeqNoBitsKey, -1));
     assertEquals(17, sparkConf.getInt(sparkPartIdBitsKey, -1));
     assertEquals(19, sparkConf.getInt(sparkTaskIdBitsKey, -1));
 
     // SparkConf overrides RssConf
-    sparkConf.set(RssSparkConfig.RSS_MAX_PARTITIONS.key(), "131073");
+    sparkConf.set(toSparkConfKey(RssSparkConfig.RSS_MAX_PARTITIONS), "131073");
     RssShuffleManagerBase.configureBlockIdLayout(sparkConf, rssConf, maxFailures, speculation);
     assertEquals(25, rssConf.get(RssClientConf.BLOCKID_SEQUENCE_NO_BITS));
     assertEquals(18, rssConf.get(RssClientConf.BLOCKID_PARTITION_ID_BITS));
     assertEquals(20, rssConf.get(RssClientConf.BLOCKID_TASK_ATTEMPT_ID_BITS));
-    assertEquals(131073, sparkConf.getInt(RssSparkConfig.RSS_MAX_PARTITIONS.key(), -1));
+    assertEquals(131073, sparkConf.getInt(toSparkConfKey(RssSparkConfig.RSS_MAX_PARTITIONS), -1));
     assertEquals(25, sparkConf.getInt(sparkSeqNoBitsKey, -1));
     assertEquals(18, sparkConf.getInt(sparkPartIdBitsKey, -1));
     assertEquals(20, sparkConf.getInt(sparkTaskIdBitsKey, -1));
 
     // SparkConf block id config overrides RssConf
-    sparkConf.remove(RssSparkConfig.RSS_MAX_PARTITIONS.key());
+    sparkConf.remove(toSparkConfKey(RssSparkConfig.RSS_MAX_PARTITIONS));
     sparkConf.set(sparkSeqNoBitsKey, "22");
     sparkConf.set(sparkPartIdBitsKey, "21");
     sparkConf.set(sparkTaskIdBitsKey, "20");
@@ -213,7 +240,7 @@ public class RssShuffleManagerBaseTest {
     assertEquals(22, rssConf.get(RssClientConf.BLOCKID_SEQUENCE_NO_BITS));
     assertEquals(21, rssConf.get(RssClientConf.BLOCKID_PARTITION_ID_BITS));
     assertEquals(20, rssConf.get(RssClientConf.BLOCKID_TASK_ATTEMPT_ID_BITS));
-    assertFalse(sparkConf.contains(RssSparkConfig.RSS_MAX_PARTITIONS.key()));
+    assertFalse(sparkConf.contains(toSparkConfKey(RssSparkConfig.RSS_MAX_PARTITIONS)));
     assertEquals(22, sparkConf.getInt(sparkSeqNoBitsKey, -1));
     assertEquals(21, sparkConf.getInt(sparkPartIdBitsKey, -1));
     assertEquals(20, sparkConf.getInt(sparkTaskIdBitsKey, -1));
@@ -224,7 +251,7 @@ public class RssShuffleManagerBaseTest {
     assertEquals(22, rssConf.get(RssClientConf.BLOCKID_SEQUENCE_NO_BITS));
     assertEquals(21, rssConf.get(RssClientConf.BLOCKID_PARTITION_ID_BITS));
     assertEquals(20, rssConf.get(RssClientConf.BLOCKID_TASK_ATTEMPT_ID_BITS));
-    assertFalse(sparkConf.contains(RssSparkConfig.RSS_MAX_PARTITIONS.key()));
+    assertFalse(sparkConf.contains(toSparkConfKey(RssSparkConfig.RSS_MAX_PARTITIONS)));
     assertEquals(22, sparkConf.getInt(sparkSeqNoBitsKey, -1));
     assertEquals(21, sparkConf.getInt(sparkPartIdBitsKey, -1));
     assertEquals(20, sparkConf.getInt(sparkTaskIdBitsKey, -1));
@@ -252,7 +279,7 @@ public class RssShuffleManagerBaseTest {
       String setMaxPartitions, int setMaxFailure, boolean setSpeculation) {
     SparkConf sparkConf = new SparkConf();
     if (setMaxPartitions != null) {
-      sparkConf.set(RssSparkConfig.RSS_MAX_PARTITIONS.key(), setMaxPartitions);
+      sparkConf.set(toSparkConfKey(RssSparkConfig.RSS_MAX_PARTITIONS), setMaxPartitions);
     }
     RssConf rssConf = RssSparkConfig.toRssConf(sparkConf);
 
@@ -291,7 +318,7 @@ public class RssShuffleManagerBaseTest {
       String setMaxPartitions, int setMaxFailure, boolean setSpeculation, String atMost) {
     SparkConf sparkConf = new SparkConf();
     if (setMaxPartitions != null) {
-      sparkConf.set(RssSparkConfig.RSS_MAX_PARTITIONS.key(), setMaxPartitions);
+      sparkConf.set(toSparkConfKey(RssSparkConfig.RSS_MAX_PARTITIONS), setMaxPartitions);
     }
     RssConf rssConf = RssSparkConfig.toRssConf(sparkConf);
 
@@ -615,12 +642,12 @@ public class RssShuffleManagerBaseTest {
   void testFetchAndApplyDynamicConf() {
     ClientType clientType = ClientType.GRPC;
     String coordinators = "host1,host2,host3";
-    int timeout = RssSparkConfig.RSS_ACCESS_TIMEOUT_MS.defaultValue().get() / 10;
+    int timeout = RssClientConf.RSS_ACCESS_TIMEOUT_MS.defaultValue() / 10;
 
     SparkConf conf = new SparkConf();
-    conf.set(RssSparkConfig.RSS_CLIENT_TYPE, clientType.toString());
-    conf.set(RssSparkConfig.RSS_COORDINATOR_QUORUM, coordinators);
-    conf.set(RssSparkConfig.RSS_ACCESS_TIMEOUT_MS, timeout);
+    conf.set(toSparkConfKey(RssClientConf.RSS_CLIENT_TYPE), clientType.toString());
+    conf.set(toSparkConfKey(RssBaseConf.RSS_COORDINATOR_QUORUM), coordinators);
+    conf.set(toSparkConfKey(RssClientConf.RSS_ACCESS_TIMEOUT_MS), String.valueOf(timeout));
 
     CoordinatorClientFactory mockFactoryInstance = mock(CoordinatorClientFactory.class);
     CoordinatorClient mockClient1 = mock(CoordinatorClient.class);
@@ -648,9 +675,10 @@ public class RssShuffleManagerBaseTest {
     try (MockedStatic<CoordinatorClientFactory> mockFactoryStatic =
         mockStatic(CoordinatorClientFactory.class)) {
       mockFactoryStatic.when(CoordinatorClientFactory::getInstance).thenReturn(mockFactoryInstance);
-      long interval = conf.get(RssSparkConfig.RSS_CLIENT_RETRY_INTERVAL_MAX);
-      int retry = conf.get(RssSparkConfig.RSS_CLIENT_RETRY_MAX);
-      int num = conf.get(RssSparkConfig.RSS_CLIENT_HEARTBEAT_THREAD_NUM);
+      long interval =
+          RssSparkConfig.toRssConf(conf).get(RssClientConf.RSS_CLIENT_RETRY_INTERVAL_MAX);
+      int retry = RssSparkConfig.toRssConf(conf).get(RssClientConf.RSS_CLIENT_RETRY_MAX);
+      int num = RssSparkConfig.toRssConf(conf).get(RssClientConf.RSS_CLIENT_HEARTBEAT_THREAD_NUM);
       when(mockFactoryInstance.createCoordinatorClient(
               clientType, coordinators, interval, retry, num))
           .thenReturn(new CoordinatorGrpcRetryableClient(mockClients, interval, retry, num));

@@ -40,12 +40,21 @@ import static org.apache.uniffle.client.util.ClientUtils.getMaxAttemptNo;
 import static org.apache.uniffle.client.util.ClientUtils.getNumberOfSignificantBits;
 import static org.apache.uniffle.client.util.ClientUtils.waitUntilDoneOrFail;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 
 public class ClientUtilsTest {
   private static final Logger LOGGER = LoggerFactory.getLogger(ClientUtilsTest.class);
 
   private ExecutorService executorService = Executors.newFixedThreadPool(10);
+
+  @Test
+  public void testStorageTypeMustBeConfigured() {
+    assertThrows(
+        IllegalArgumentException.class, () -> ClientUtils.validateTestModeConf(false, null));
+    assertThrows(IllegalArgumentException.class, () -> ClientUtils.validateTestModeConf(true, ""));
+    ClientUtils.validateTestModeConf(false, "MEMORY_LOCALFILE");
+  }
 
   @Test
   public void testGenerateTaskIdBitMap() {

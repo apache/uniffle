@@ -44,6 +44,7 @@ import org.apache.uniffle.common.ShuffleDataDistributionType;
 import org.apache.uniffle.common.ShuffleDataResult;
 import org.apache.uniffle.common.ShuffleReadTimes;
 import org.apache.uniffle.common.ShuffleServerInfo;
+import org.apache.uniffle.common.config.RssBaseConf;
 import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.exception.RssException;
@@ -109,7 +110,7 @@ public class ShuffleReadClientImpl implements ShuffleReadClient {
                     RssClientConf.BLOCKID_PARTITION_ID_BITS.key(),
                     RssClientConf.BLOCKID_TASK_ATTEMPT_ID_BITS.key()))) {
       final int indexReadLimit = builder.getRssConf().get(RssClientConf.RSS_INDEX_READ_LIMIT);
-      final String storageType = builder.getRssConf().get(RssClientConf.RSS_STORAGE_TYPE);
+      final String storageType = builder.getRssConf().getValue(RssBaseConf.RSS_STORAGE_TYPE);
       long readBufferSize =
           builder
               .getRssConf()
@@ -131,7 +132,7 @@ public class ShuffleReadClientImpl implements ShuffleReadClient {
     } else {
       // most for test
       RssConf rssConf = (builder.getRssConf() == null) ? new RssConf() : builder.getRssConf();
-      rssConf.set(RssClientConf.RSS_STORAGE_TYPE, builder.getStorageType());
+      rssConf.setString(RssBaseConf.RSS_STORAGE_TYPE.key(), builder.getStorageType());
       rssConf.set(RssClientConf.RSS_INDEX_READ_LIMIT, builder.getIndexReadLimit());
       rssConf.set(
           RssClientConf.RSS_CLIENT_READ_BUFFER_SIZE, String.valueOf(builder.getReadBufferSize()));

@@ -76,6 +76,8 @@ import org.apache.uniffle.common.RemoteStorageInfo;
 import org.apache.uniffle.common.ShuffleAssignmentsInfo;
 import org.apache.uniffle.common.ShuffleDataDistributionType;
 import org.apache.uniffle.common.ShuffleServerInfo;
+import org.apache.uniffle.common.config.RssBaseConf;
+import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.util.Constants;
 import org.apache.uniffle.common.util.RetryUtils;
@@ -196,12 +198,19 @@ public class RssMRAppMaster extends MRAppMaster {
       assignmentTags.add(clientType);
 
       String storageType = RssMRUtils.getString(extraConf, RssMRConfig.RSS_STORAGE_TYPE);
-      boolean testMode = RssMRUtils.getBoolean(extraConf, RssMRConfig.RSS_TEST_MODE_ENABLE, false);
+      boolean testMode =
+          RssMRUtils.getBoolean(
+              extraConf,
+              RssMRConfig.RSS_TEST_MODE_ENABLE,
+              RssBaseConf.RSS_TEST_MODE_ENABLE.defaultValue());
       ClientUtils.validateTestModeConf(testMode, storageType);
       ApplicationAttemptId applicationAttemptId = RssMRUtils.getApplicationAttemptId();
       String appId = applicationAttemptId.toString();
       RemoteStorageInfo defaultRemoteStorage =
-          new RemoteStorageInfo(extraConf.get(RssMRConfig.RSS_REMOTE_STORAGE_PATH, ""));
+          new RemoteStorageInfo(
+              extraConf.get(
+                  RssMRConfig.RSS_REMOTE_STORAGE_PATH,
+                  RssClientConf.RSS_REMOTE_STORAGE_PATH.defaultValue()));
       RemoteStorageInfo remoteStorage =
           ClientUtils.fetchRemoteStorage(
               appId, defaultRemoteStorage, dynamicConfEnabled, storageType, client);

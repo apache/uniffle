@@ -252,7 +252,7 @@ public class RssBaseConf extends RssConf {
       ConfigOptions.key("rss.test.mode.enable")
           .booleanType()
           .defaultValue(false)
-          .withDescription("Whether enable test mode for the shuffle server.");
+          .withDescription("Whether to enable test mode for shuffle clients and servers.");
 
   public static final ConfigOption<String> RSS_METRICS_REPORTER_CLASS =
       ConfigOptions.key("rss.metrics.reporter.class")

@@ -60,6 +60,9 @@ public class CoordinatorClientFactory {
       ClientType clientType, String coordinators) {
     LOG.info("Start to create coordinator clients from {}", coordinators);
 
+    if (coordinators == null) {
+      throw new RssException("rss.coordinator.quorum must be set");
+    }
     String[] coordinatorList = coordinators.trim().split(",");
     if (coordinatorList.length == 0) {
       String msg = "Invalid " + coordinators;

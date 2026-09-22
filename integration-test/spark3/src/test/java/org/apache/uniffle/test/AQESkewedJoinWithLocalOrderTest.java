@@ -18,17 +18,20 @@
 package org.apache.uniffle.test;
 
 import org.apache.spark.SparkConf;
-import org.apache.spark.shuffle.RssSparkConfig;
 
 import org.apache.uniffle.common.ShuffleDataDistributionType;
+import org.apache.uniffle.common.config.RssBaseConf;
 import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.storage.util.StorageType;
+
+import static org.apache.spark.shuffle.RssSparkConfig.toSparkConfKey;
 
 public class AQESkewedJoinWithLocalOrderTest extends AQESkewedJoinTest {
 
   @Override
   public void updateSparkConfCustomer(SparkConf sparkConf) {
-    sparkConf.set(RssSparkConfig.RSS_STORAGE_TYPE.key(), StorageType.MEMORY_LOCALFILE.name());
+    sparkConf.set(
+        toSparkConfKey(RssBaseConf.RSS_STORAGE_TYPE), StorageType.MEMORY_LOCALFILE.name());
     sparkConf.set(
         "spark." + RssClientConf.DATA_DISTRIBUTION_TYPE.key(),
         ShuffleDataDistributionType.LOCAL_ORDER.name());

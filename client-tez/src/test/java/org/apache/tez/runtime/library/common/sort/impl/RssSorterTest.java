@@ -55,6 +55,7 @@ public class RssSorterTest {
   @BeforeEach
   public void setup() throws Exception {
     conf = new Configuration();
+    conf.set("tez.rss.storage.type", "MEMORY");
     localFs = FileSystem.getLocal(conf);
     workingDir =
         new Path(

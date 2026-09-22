@@ -34,7 +34,7 @@ public class RssShuffleDriverComponents extends LocalDiskShuffleDriverComponents
    */
   @Override
   public boolean supportsReliableStorage() {
-    return sparkConf.get(RssSparkConfig.RSS_ENABLED)
+    return RssSparkConfig.toRssConf(sparkConf).get(RssSparkConfig.RSS_ENABLED)
         || RssShuffleManager.class
             .getCanonicalName()
             .equals(sparkConf.get("spark.shuffle.manager"));

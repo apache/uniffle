@@ -24,14 +24,16 @@ import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.conf.Configuration;
 
 import org.apache.uniffle.client.util.RssClientConfig;
+import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.common.config.RssConf;
 
 public class RssTezConfig {
 
   public static final String TEZ_RSS_CONFIG_PREFIX = "tez.";
   public static final String RSS_CLIENT_HEARTBEAT_THREAD_NUM =
-      TEZ_RSS_CONFIG_PREFIX + "rss.client.heartBeat.threadNum";
-  public static final int RSS_CLIENT_HEARTBEAT_THREAD_NUM_DEFAULT_VALUE = 4;
+      TEZ_RSS_CONFIG_PREFIX + RssClientConf.RSS_CLIENT_HEARTBEAT_THREAD_NUM.key();
+  public static final int RSS_CLIENT_HEARTBEAT_THREAD_NUM_DEFAULT_VALUE =
+      RssClientConf.RSS_CLIENT_HEARTBEAT_THREAD_NUM.defaultValue();
   public static final String RSS_CLIENT_TYPE =
       TEZ_RSS_CONFIG_PREFIX + RssClientConfig.RSS_CLIENT_TYPE;
   public static final String RSS_CLIENT_TYPE_DEFAULT_VALUE =
@@ -91,8 +93,9 @@ public class RssTezConfig {
       TEZ_RSS_CONFIG_PREFIX + "rss.client.max.buffer.size";
   public static final long RSS_CLIENT_DEFAULT_MAX_BUFFER_SIZE = 3 * 1024;
   public static final String RSS_WRITER_BUFFER_SIZE =
-      TEZ_RSS_CONFIG_PREFIX + "rss.writer.buffer.size";
-  public static final long RSS_DEFAULT_WRITER_BUFFER_SIZE = 1024 * 1024 * 14;
+      TEZ_RSS_CONFIG_PREFIX + RssClientConf.RSS_WRITER_BUFFER_SIZE.key();
+  public static final long RSS_DEFAULT_WRITER_BUFFER_SIZE =
+      RssClientConf.RSS_WRITER_BUFFER_SIZE.defaultValue();
   public static final String RSS_CLIENT_MEMORY_THRESHOLD =
       TEZ_RSS_CONFIG_PREFIX + "rss.client.memory.threshold";
   public static final double RSS_CLIENT_DEFAULT_MEMORY_THRESHOLD = 0.8f;
@@ -106,13 +109,14 @@ public class RssTezConfig {
   public static final String RSS_CLIENT_BATCH_TRIGGER_NUM =
       TEZ_RSS_CONFIG_PREFIX + "rss.client.batch.trigger.num";
   public static final int RSS_CLIENT_DEFAULT_BATCH_TRIGGER_NUM = 50;
-  public static final String RSS_DEFAULT_STORAGE_TYPE = "MEMORY";
   public static final String RSS_CLIENT_SEND_CHECK_INTERVAL_MS =
-      TEZ_RSS_CONFIG_PREFIX + "rss.client.send.check.interval.ms";
-  public static final long RSS_CLIENT_DEFAULT_SEND_CHECK_INTERVAL_MS = 500L;
+      TEZ_RSS_CONFIG_PREFIX + RssClientConf.RSS_CLIENT_SEND_CHECK_INTERVAL_MS.key();
+  public static final long RSS_CLIENT_DEFAULT_SEND_CHECK_INTERVAL_MS =
+      RssClientConf.RSS_CLIENT_SEND_CHECK_INTERVAL_MS.defaultValue();
   public static final String RSS_CLIENT_SEND_CHECK_TIMEOUT_MS =
-      TEZ_RSS_CONFIG_PREFIX + "rss.client.send.check.timeout.ms";
-  public static final long RSS_CLIENT_DEFAULT_SEND_CHECK_TIMEOUT_MS = 60 * 1000 * 10L;
+      TEZ_RSS_CONFIG_PREFIX + RssClientConf.RSS_CLIENT_SEND_CHECK_TIMEOUT_MS.key();
+  public static final long RSS_CLIENT_DEFAULT_SEND_CHECK_TIMEOUT_MS =
+      RssClientConf.RSS_CLIENT_SEND_CHECK_TIMEOUT_MS.defaultValue();
   public static final String RSS_CLIENT_BITMAP_NUM =
       TEZ_RSS_CONFIG_PREFIX + "rss.client.bitmap.num";
   public static final int RSS_CLIENT_DEFAULT_BITMAP_NUM = 1;
@@ -122,7 +126,6 @@ public class RssTezConfig {
 
   public static final String RSS_STORAGE_TYPE =
       TEZ_RSS_CONFIG_PREFIX + RssClientConfig.RSS_STORAGE_TYPE;
-  public static final String RSS_STORAGE_TYPE_DEFAULT_VALUE = "MEMORY_LOCALFILE";
 
   public static final String RSS_DYNAMIC_CLIENT_CONF_ENABLED =
       TEZ_RSS_CONFIG_PREFIX + RssClientConfig.RSS_DYNAMIC_CLIENT_CONF_ENABLED;

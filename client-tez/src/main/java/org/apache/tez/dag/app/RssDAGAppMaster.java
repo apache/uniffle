@@ -80,6 +80,8 @@ import org.slf4j.LoggerFactory;
 import org.apache.uniffle.client.api.ShuffleWriteClient;
 import org.apache.uniffle.client.util.ClientUtils;
 import org.apache.uniffle.common.RemoteStorageInfo;
+import org.apache.uniffle.common.config.RssBaseConf;
+import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.util.ThreadUtils;
 
@@ -234,11 +236,14 @@ public class RssDAGAppMaster extends DAGAppMaster {
     // get remote storage from coordinator if necessary
     RemoteStorageInfo defaultRemoteStorage =
         new RemoteStorageInfo(
-            mergedConf.get(RssTezConfig.RSS_REMOTE_STORAGE_PATH, ""),
+            mergedConf.get(
+                RssTezConfig.RSS_REMOTE_STORAGE_PATH,
+                RssClientConf.RSS_REMOTE_STORAGE_PATH.defaultValue()),
             mergedConf.get(RssTezConfig.RSS_REMOTE_STORAGE_CONF, ""));
-    String storageType =
-        mergedConf.get(RssTezConfig.RSS_STORAGE_TYPE, RssTezConfig.RSS_STORAGE_TYPE_DEFAULT_VALUE);
-    boolean testMode = mergedConf.getBoolean(RssTezConfig.RSS_TEST_MODE_ENABLE, false);
+    String storageType = mergedConf.get(RssTezConfig.RSS_STORAGE_TYPE);
+    boolean testMode =
+        mergedConf.getBoolean(
+            RssTezConfig.RSS_TEST_MODE_ENABLE, RssBaseConf.RSS_TEST_MODE_ENABLE.defaultValue());
     ClientUtils.validateTestModeConf(testMode, storageType);
     RemoteStorageInfo remoteStorage =
         ClientUtils.fetchRemoteStorage(

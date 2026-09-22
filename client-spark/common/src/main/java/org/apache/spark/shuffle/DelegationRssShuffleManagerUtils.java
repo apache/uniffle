@@ -22,13 +22,16 @@ import org.apache.spark.SparkConf;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.uniffle.common.config.RssConf;
+
 public class DelegationRssShuffleManagerUtils {
   private static final Logger LOG = LoggerFactory.getLogger(DelegationRssShuffleManagerUtils.class);
 
   public static String acquireAccessId(SparkConf sparkConf) {
-    String accessId = sparkConf.get(RssSparkConfig.RSS_ACCESS_ID.key(), "").trim();
+    RssConf rssConf = RssSparkConfig.toRssConf(sparkConf);
+    String accessId = rssConf.get(RssSparkConfig.RSS_ACCESS_ID).trim();
     if (StringUtils.isEmpty(accessId)) {
-      String providerKey = sparkConf.get(RssSparkConfig.RSS_ACCESS_ID_PROVIDER_KEY.key(), "");
+      String providerKey = rssConf.get(RssSparkConfig.RSS_ACCESS_ID_PROVIDER_KEY);
       if (StringUtils.isNotEmpty(providerKey)) {
         accessId = sparkConf.get(providerKey, "");
         LOG.info("Get access id {} from provider key: {}", accessId, providerKey);

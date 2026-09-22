@@ -71,6 +71,7 @@ import org.apache.uniffle.client.util.RssClientConfig;
 import org.apache.uniffle.common.RemoteStorageInfo;
 import org.apache.uniffle.common.ShuffleDataDistributionType;
 import org.apache.uniffle.common.ShuffleServerInfo;
+import org.apache.uniffle.common.config.RssBaseConf;
 import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.exception.RssException;
@@ -79,6 +80,8 @@ import org.apache.uniffle.common.util.RssUtils;
 import org.apache.uniffle.shuffle.RssShuffleClientFactory;
 import org.apache.uniffle.shuffle.ShuffleWriteTaskStats;
 import org.apache.uniffle.shuffle.manager.RssShuffleManagerBase;
+
+import static org.apache.spark.shuffle.RssSparkConfig.toSparkConfKey;
 
 public class RssShuffleManager extends RssShuffleManagerBase {
   private static final Logger LOG = LoggerFactory.getLogger(RssShuffleManager.class);
@@ -172,7 +175,7 @@ public class RssShuffleManager extends RssShuffleManagerBase {
           shuffleId, id.get(), dependency.rdd().getNumPartitions(), dependency, hdlInfoBd);
     }
 
-    String storageType = sparkConf.get(RssSparkConfig.RSS_STORAGE_TYPE.key());
+    String storageType = sparkConf.get(toSparkConfKey(RssBaseConf.RSS_STORAGE_TYPE));
     RemoteStorageInfo defaultRemoteStorage = getDefaultRemoteStorageInfo(sparkConf);
     RemoteStorageInfo remoteStorage =
         ClientUtils.fetchRemoteStorage(
@@ -682,14 +685,14 @@ public class RssShuffleManager extends RssShuffleManagerBase {
   @Override
   protected ShuffleWriteClient createShuffleWriteClient() {
     int unregisterThreadPoolSize =
-        sparkConf.get(RssSparkConfig.RSS_CLIENT_UNREGISTER_THREAD_POOL_SIZE);
-    int unregisterTimeoutSec = sparkConf.get(RssSparkConfig.RSS_CLIENT_UNREGISTER_TIMEOUT_SEC);
+        rssConf.get(RssSparkConfig.RSS_CLIENT_UNREGISTER_THREAD_POOL_SIZE);
+    int unregisterTimeoutSec = rssConf.get(RssSparkConfig.RSS_CLIENT_UNREGISTER_TIMEOUT_SEC);
     int unregisterRequestTimeoutSec =
-        sparkConf.get(RssSparkConfig.RSS_CLIENT_UNREGISTER_REQUEST_TIMEOUT_SEC);
-    long retryIntervalMax = sparkConf.get(RssSparkConfig.RSS_CLIENT_RETRY_INTERVAL_MAX);
-    int heartBeatThreadNum = sparkConf.get(RssSparkConfig.RSS_CLIENT_HEARTBEAT_THREAD_NUM);
+        rssConf.get(RssSparkConfig.RSS_CLIENT_UNREGISTER_REQUEST_TIMEOUT_SEC);
+    long retryIntervalMax = rssConf.get(RssClientConf.RSS_CLIENT_RETRY_INTERVAL_MAX);
+    int heartBeatThreadNum = rssConf.get(RssClientConf.RSS_CLIENT_HEARTBEAT_THREAD_NUM);
 
-    final int retryMax = sparkConf.get(RssSparkConfig.RSS_CLIENT_RETRY_MAX);
+    final int retryMax = rssConf.get(RssClientConf.RSS_CLIENT_RETRY_MAX);
     return RssShuffleClientFactory.getInstance()
         .createShuffleWriteClient(
             RssShuffleClientFactory.newWriteBuilder()
