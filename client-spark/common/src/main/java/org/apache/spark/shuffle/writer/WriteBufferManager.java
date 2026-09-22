@@ -59,6 +59,7 @@ import org.apache.uniffle.common.config.RssConf;
 import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.util.BlockIdLayout;
 import org.apache.uniffle.common.util.ChecksumUtils;
+import org.apache.uniffle.common.util.ThreadUtils;
 
 public class WriteBufferManager extends MemoryConsumer {
 
@@ -113,6 +114,10 @@ public class WriteBufferManager extends MemoryConsumer {
   private ShuffleServerPushCostTracker shuffleServerPushCostTracker;
   // whether to use deferred compression for shuffle blocks
   private final boolean isDeferredCompression;
+  /** Long.MAX_VALUE disables the cap. */
+  private final long maxAllocatedBytesLimit;
+
+  private final long maxAllocatedWaitTimeoutMs;
 
   public WriteBufferManager(
       int shuffleId,
@@ -210,6 +215,8 @@ public class WriteBufferManager extends MemoryConsumer {
     this.partitionAssignmentRetrieveFunc = partitionAssignmentRetrieveFunc;
     this.stageAttemptNumber = stageAttemptNumber;
     this.shuffleServerPushCostTracker = new ShuffleServerPushCostTracker();
+    this.maxAllocatedBytesLimit = bufferManagerOptions.getMaxAllocatedBytesLimit();
+    this.maxAllocatedWaitTimeoutMs = bufferManagerOptions.getMaxAllocatedWaitTimeoutMs();
   }
 
   public WriteBufferManager(
@@ -530,10 +537,34 @@ public class WriteBufferManager extends MemoryConsumer {
   }
 
   private void requestExecutorMemory(long leastMem) {
-    long gotMem = acquireMemory(askExecutorMemory);
-    allocatedBytes.addAndGet(gotMem);
     int retry = 0;
-    while (allocatedBytes.get() - usedBytes.get() < leastMem) {
+    long gotMem = 0;
+    long maxAllocatedTimeoutStarted = System.currentTimeMillis();
+    while (retry <= requireMemoryRetryMax) {
+      // limit the max bytes requested to avoid OOM, and the max wait time to avoid waiting too long
+      while (allocatedBytes.get() >= maxAllocatedBytesLimit) {
+        // trigger push to remote shuffle server
+        spillFunc.apply(clear(bufferSpillRatio));
+        LOG.info(
+            "Allocated memory[{}] has reached the limit[{}], sleep and wait for memory to be released.",
+            allocatedBytes.get(),
+            maxAllocatedBytesLimit);
+        ThreadUtils.sleep(
+            requireMemoryInterval, "Interrupted when waiting for allocated memory to be released.");
+        if (System.currentTimeMillis() - maxAllocatedTimeoutStarted >= maxAllocatedWaitTimeoutMs) {
+          String errorMsg =
+              String.format(
+                  "Waiting timeout due to the allocated memory has reached the limit, allocatedBytes: %d, maxAllocatedBytesLimit: %d",
+                  allocatedBytes.get(), maxAllocatedBytesLimit);
+          throw new RssException(errorMsg);
+        }
+      }
+
+      gotMem = acquireMemory(askExecutorMemory);
+      allocatedBytes.addAndGet(gotMem);
+      if (allocatedBytes.get() - usedBytes.get() >= leastMem) {
+        return;
+      }
       LOG.info(
           "Can't get memory for now, sleep and try["
               + retry
@@ -543,33 +574,27 @@ public class WriteBufferManager extends MemoryConsumer {
               + gotMem
               + "] less than "
               + leastMem);
-      try {
-        Thread.sleep(requireMemoryInterval);
-      } catch (InterruptedException ie) {
-        throw new RssException("Interrupted when waiting for memory.", ie);
-      }
-      gotMem = acquireMemory(askExecutorMemory);
-      allocatedBytes.addAndGet(gotMem);
-      retry++;
-      if (retry > requireMemoryRetryMax) {
-        taskMemoryManager.showMemoryUsage();
-        String message =
-            "Can't get memory to cache shuffle data, request["
-                + askExecutorMemory
-                + "], got["
-                + gotMem
-                + "],"
-                + " WriteBufferManager allocated["
-                + allocatedBytes
-                + "] task used["
-                + used
-                + "]. It may be caused by shuffle server is full of data"
-                + " or consider to optimize 'spark.executor.memory',"
-                + " 'spark.rss.writer.buffer.spill.size'.";
-        LOG.error(message);
-        throw new RssException(message);
-      }
+      retry += 1;
+      ThreadUtils.sleep(requireMemoryInterval, "Interrupted when waiting for memory.");
     }
+
+    // retry exceeded, still can't get enough memory, log error and throw exception
+    taskMemoryManager.showMemoryUsage();
+    String message =
+        "Can't get memory to cache shuffle data, request["
+            + askExecutorMemory
+            + "], got["
+            + gotMem
+            + "],"
+            + " WriteBufferManager allocated["
+            + allocatedBytes
+            + "] task used["
+            + used
+            + "]. It may be caused by shuffle server is full of data"
+            + " or consider to optimize 'spark.executor.memory',"
+            + " 'spark.rss.writer.buffer.spill.size'.";
+    LOG.error(message);
+    throw new RssException(message);
   }
 
   public void releaseBlockResource(ShuffleBlockInfo block) {
@@ -808,5 +833,17 @@ public class WriteBufferManager extends MemoryConsumer {
 
   public long getUncompressedDataLen() {
     return uncompressedDataLen;
+  }
+
+  public Optional<Codec> getCodec() {
+    return codec;
+  }
+
+  public void setAllocatedBytes(long allocatedBytes) {
+    this.allocatedBytes.set(allocatedBytes);
+  }
+
+  public void setUsedBytes(long usedBytes) {
+    this.usedBytes.set(usedBytes);
   }
 }

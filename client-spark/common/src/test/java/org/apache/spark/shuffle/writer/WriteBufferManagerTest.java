@@ -20,6 +20,7 @@ package org.apache.spark.shuffle.writer;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -28,7 +29,6 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 
 import com.google.common.collect.Maps;
-import org.apache.commons.lang3.reflect.FieldUtils;
 import org.apache.spark.SparkConf;
 import org.apache.spark.executor.ShuffleWriteMetrics;
 import org.apache.spark.memory.MemoryConsumer;
@@ -50,6 +50,7 @@ import org.apache.uniffle.common.ShuffleBlockInfo;
 import org.apache.uniffle.common.compression.Codec;
 import org.apache.uniffle.common.config.RssClientConf;
 import org.apache.uniffle.common.config.RssConf;
+import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.util.BlockIdLayout;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -128,7 +129,7 @@ public class WriteBufferManagerTest {
       conf.set(RssSparkConfig.SPARK_SHUFFLE_COMPRESS_KEY, String.valueOf(false));
     }
     WriteBufferManager wbm = createManager(conf);
-    Optional<Codec> codec = (Optional<Codec>) FieldUtils.readField(wbm, "codec", true);
+    Optional<Codec> codec = wbm.getCodec();
     if (compress) {
       Assertions.assertTrue(codec.isPresent());
     } else {
@@ -618,6 +619,58 @@ public class WriteBufferManagerTest {
 
     assertEquals(3, fakedTaskMemoryManager.getInvokedCnt());
     assertEquals(2, fakedTaskMemoryManager.getSpilledCnt());
+  }
+
+  /**
+   * When {@code allocatedBytes} is already at the configured cap and spill does not release memory
+   * (e.g. remote push never completes), {@link WriteBufferManager} should time out waiting instead
+   * of blocking forever.
+   */
+  @Test
+  public void requestMemoryThrowsWhenAllocatedOverCapAndNotReleased() throws Exception {
+    SparkConf conf = getConf();
+    conf.set("spark.executor.memory", "20k");
+    conf.set(RssSparkConfig.RSS_WRITER_MAX_ALLOCATED_MEMORY_RATIO.key(), "0.5");
+    conf.set(RssSparkConfig.RSS_WRITER_MAX_ALLOCATED_WAIT_TIMEOUT_MS.key(), "1");
+    conf.set(RssSparkConfig.RSS_WRITER_REQUIRE_MEMORY_INTERVAL.key(), "1");
+
+    TaskMemoryManager mockTaskMemoryManager = mock(TaskMemoryManager.class);
+    BufferManagerOptions bufferOptions = new BufferManagerOptions(conf);
+    long cap = bufferOptions.getMaxAllocatedBytesLimit();
+    Assertions.assertTrue(
+        cap > 0 && cap < Long.MAX_VALUE, "max allocated cap must be enabled and finite");
+
+    Function<List<ShuffleBlockInfo>, List<CompletableFuture<Long>>> spillWithoutReleasingMemory =
+        blocks -> Collections.singletonList(CompletableFuture.completedFuture(0L));
+
+    WriteBufferManager wbm =
+        new WriteBufferManager(
+            0,
+            "taskId_maxAllocatedCapTimeoutTest",
+            0,
+            bufferOptions,
+            new KryoSerializer(conf),
+            Maps.newHashMap(),
+            mockTaskMemoryManager,
+            new ShuffleWriteMetrics(),
+            RssSparkConfig.toRssConf(conf),
+            spillWithoutReleasingMemory,
+            0);
+
+    wbm.setAllocatedBytes(cap);
+    wbm.setUsedBytes(cap - 20L);
+
+    RssException thrown =
+        Assertions.assertThrows(
+            RssException.class,
+            () -> wbm.addRecord(0, "Key", "Value"),
+            "expected timeout while waiting for allocated memory to drop below cap");
+    Assertions.assertTrue(
+        thrown.getMessage().contains("Waiting timeout"),
+        "message should describe wait timeout: " + thrown.getMessage());
+    Assertions.assertTrue(
+        thrown.getMessage().contains("maxAllocatedBytesLimit"),
+        "message should include limit context: " + thrown.getMessage());
   }
 
   @Test
