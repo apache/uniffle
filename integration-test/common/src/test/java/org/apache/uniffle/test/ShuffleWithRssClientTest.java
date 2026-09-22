@@ -21,11 +21,13 @@ import java.io.File;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,6 +52,7 @@ import org.apache.uniffle.common.util.BlockIdLayout;
 import org.apache.uniffle.common.util.Constants;
 import org.apache.uniffle.common.util.RetryUtils;
 import org.apache.uniffle.coordinator.CoordinatorConf;
+import org.apache.uniffle.server.ShuffleServer;
 import org.apache.uniffle.server.ShuffleServerConf;
 import org.apache.uniffle.storage.util.StorageType;
 
@@ -454,18 +457,30 @@ public class ShuffleWithRssClientTest extends ShuffleReadWriteBase {
     String appId = "app-1";
     RemoteStorageInfo remoteStorage = new RemoteStorageInfo("");
     ShuffleAssignmentsInfo response = null;
-    ShuffleServerConf shuffleServerConf =
-        shuffleServerConfWithoutPort(0, null, ServerType.GRPC_NETTY);
-    int heartbeatInterval = shuffleServerConf.getInteger("rss.server.heartbeat.interval", 1000);
-    Thread.sleep(heartbeatInterval * 2);
+    long heartbeatInterval =
+        nettyShuffleServers
+            .get(0)
+            .getShuffleServerConf()
+            .get(ShuffleServerConf.SERVER_HEARTBEAT_INTERVAL);
+    Set<String> requiredTags = Sets.newHashSet(Constants.SHUFFLE_SERVER_VERSION);
+    // Both servers must be assignable before stopping the first assigned server.
+    Awaitility.await()
+        .atMost(10, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> {
+              nettyShuffleServers.forEach(ShuffleServer::sendHeartbeat);
+              coordinators.forEach(
+                  c ->
+                      assertEquals(
+                          maxTryTime, c.getClusterManager().getServerList(requiredTags).size()));
+            });
     shuffleWriteClientImpl.registerCoordinators(getQuorum());
     response =
         RetryUtils.retry(
             () -> {
               int currentTryTime = tryTime.incrementAndGet();
               ShuffleAssignmentsInfo shuffleAssignments =
-                  shuffleWriteClientImpl.getShuffleAssignments(
-                      appId, 1, 1, 1, Sets.newHashSet(Constants.SHUFFLE_SERVER_VERSION), 1, -1);
+                  shuffleWriteClientImpl.getShuffleAssignments(appId, 1, 1, 1, requiredTags, 1, -1);
 
               Map<ShuffleServerInfo, List<PartitionRange>> serverToPartitionRanges =
                   shuffleAssignments.getServerToPartitionRanges();
@@ -505,5 +520,6 @@ public class ShuffleWithRssClientTest extends ShuffleReadWriteBase {
             maxTryTime);
 
     assertNotNull(response);
+    assertEquals(maxTryTime, tryTime.get());
   }
 }
