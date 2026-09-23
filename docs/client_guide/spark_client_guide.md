@@ -234,7 +234,7 @@ This mechanism allows decompression to overlap with downstream data processing, 
 
 | Property Name                                          | Default | Description                                                         |
 |--------------------------------------------------------|---------|---------------------------------------------------------------------|
-| spark.rss.client.read.overlappingDecompressionEnable   | false   | Whether to overlapping decompress shuffle blocks.                   |
+| spark.rss.client.read.overlappingDecompressionEnable   | true    | Whether to overlapping decompress shuffle blocks.                   |
 | spark.rss.client.read.overlappingDecompressionThreads  | 1       | Number of threads to use for overlapping decompress shuffle blocks  | 
 
 ### Prefetch for shuffle read
