@@ -243,7 +243,7 @@ This mechanism allows prefetching shuffle data before it is needed, reducing wai
 
 | Property Name                                 | Default | Description                                         |
 |-----------------------------------------------|---------|-----------------------------------------------------|
-| spark.rss.client.read.prefetch.enabled        | false   | Whether to enable prefetch for shuffle read.        |
+| spark.rss.client.read.prefetch.enabled        | true    | Whether to enable prefetch for shuffle read.        |
 
 ### Integrity validation for shuffle write and read processing 
 

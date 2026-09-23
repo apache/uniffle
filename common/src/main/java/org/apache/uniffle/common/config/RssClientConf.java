@@ -470,7 +470,7 @@ public class RssClientConf {
   public static final ConfigOption<Boolean> RSS_CLIENT_PREFETCH_ENABLED =
       ConfigOptions.key("rss.client.read.prefetch.enabled")
           .booleanType()
-          .defaultValue(false)
+          .defaultValue(true)
           .withDescription("Read prefetch switch that will be disabled by default");
 
   public static final ConfigOption<Integer> RSS_CLIENT_PREFETCH_CAPACITY =
