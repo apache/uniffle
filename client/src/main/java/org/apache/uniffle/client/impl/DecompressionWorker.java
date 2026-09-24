@@ -41,10 +41,10 @@ import org.apache.uniffle.common.util.ThreadUtils;
 public class DecompressionWorker {
   private static final Logger LOG = LoggerFactory.getLogger(DecompressionWorker.class);
 
-  private final ExecutorService executorService;
   private final ConcurrentHashMap<Integer, ConcurrentHashMap<Integer, DecompressedShuffleBlock>>
       tasks;
   private final Codec codec;
+  private final int executorThreadCount;
 
   private final AtomicLong decompressionMillis = new AtomicLong(0);
   private final AtomicLong decompressionBytes = new AtomicLong(0);
@@ -64,6 +64,9 @@ public class DecompressionWorker {
   private int nextBatchToClean = 0;
   private int nextSegmentToClean = 0;
 
+  // lazily initialize
+  private volatile ExecutorService executorService;
+
   public DecompressionWorker(
       Codec codec, int threads, int fetchSecondsThreshold, int maxConcurrentDecompressionSegments) {
     if (codec == null) {
@@ -73,8 +76,7 @@ public class DecompressionWorker {
       throw new IllegalArgumentException("Threads must be greater than 0");
     }
     this.tasks = JavaUtils.newConcurrentMap();
-    this.executorService =
-        Executors.newFixedThreadPool(threads, ThreadUtils.getThreadFactory("decompressionWorker"));
+    this.executorThreadCount = threads;
     this.codec = codec;
     this.fetchSecondsThreshold = fetchSecondsThreshold;
 
@@ -87,6 +89,17 @@ public class DecompressionWorker {
     } else {
       this.segmentPermits = Optional.of(new Semaphore(maxConcurrentDecompressionSegments));
     }
+  }
+
+  private ExecutorService getOrCreateExecutor() {
+    if (executorService == null) {
+      synchronized (executorService) {
+        if (executorService == null) {
+          executorService = Executors.newFixedThreadPool(executorThreadCount, ThreadUtils.getThreadFactory("decompressionWorker"));
+        }
+      }
+    }
+    return executorService;
   }
 
   public void add(int batchIndex, ShuffleDataResult shuffleDataResult) {
@@ -137,7 +150,7 @@ public class DecompressionWorker {
 
                     return dst;
                   },
-                  executorService)
+                  getOrCreateExecutor())
               .exceptionally(
                   ex -> {
                     LOG.error("Errors on decompressing shuffle block", ex);
@@ -207,15 +220,19 @@ public class DecompressionWorker {
     long decompressionMillis = this.decompressionMillis.get();
     long wait = waitMillis.get();
     long decompressionBytes = this.decompressionBytes.get() / 1024 / 1024;
-    LOG.info(
-        "Overlapping decompression stats: bufferAllocation={}ms, decompression={}ms, getWait={}ms, peekMemoryUsed={}MB, decompressionBytes={}MB, decompressionThroughput={}MB/s",
-        bufferAllocation,
-        decompressionMillis,
-        wait,
-        peekMemoryUsed.get() / 1024 / 1024,
-        decompressionBytes,
-        decompressionMillis == 0 ? 0 : (decompressionBytes * 1000L) / decompressionMillis);
-    executorService.shutdown();
+    if (decompressionBytes > 0) {
+      LOG.info(
+              "Overlapping decompression stats: bufferAllocation={}ms, decompression={}ms, getWait={}ms, peekMemoryUsed={}MB, decompressionBytes={}MB, decompressionThroughput={}MB/s",
+              bufferAllocation,
+              decompressionMillis,
+              wait,
+              peekMemoryUsed.get() / 1024 / 1024,
+              decompressionBytes,
+              decompressionMillis == 0 ? 0 : (decompressionBytes * 1000L) / decompressionMillis);
+    }
+    if (executorService != null) {
+      executorService.shutdown();
+    }
   }
 
   public long decompressionMillis() {
