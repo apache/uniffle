@@ -95,7 +95,9 @@ public class DecompressionWorker {
     if (executorService == null) {
       synchronized (this) {
         if (executorService == null) {
-          executorService = Executors.newFixedThreadPool(executorThreadCount, ThreadUtils.getThreadFactory("decompressionWorker"));
+          executorService =
+              Executors.newFixedThreadPool(
+                  executorThreadCount, ThreadUtils.getThreadFactory("decompressionWorker"));
         }
       }
     }
@@ -222,13 +224,13 @@ public class DecompressionWorker {
     long decompressionBytes = this.decompressionBytes.get() / 1024 / 1024;
     if (decompressionBytes > 0) {
       LOG.info(
-              "Overlapping decompression stats: bufferAllocation={}ms, decompression={}ms, getWait={}ms, peekMemoryUsed={}MB, decompressionBytes={}MB, decompressionThroughput={}MB/s",
-              bufferAllocation,
-              decompressionMillis,
-              wait,
-              peekMemoryUsed.get() / 1024 / 1024,
-              decompressionBytes,
-              decompressionMillis == 0 ? 0 : (decompressionBytes * 1000L) / decompressionMillis);
+          "Overlapping decompression stats: bufferAllocation={}ms, decompression={}ms, getWait={}ms, peekMemoryUsed={}MB, decompressionBytes={}MB, decompressionThroughput={}MB/s",
+          bufferAllocation,
+          decompressionMillis,
+          wait,
+          peekMemoryUsed.get() / 1024 / 1024,
+          decompressionBytes,
+          decompressionMillis == 0 ? 0 : (decompressionBytes * 1000L) / decompressionMillis);
     }
     if (executorService != null) {
       executorService.shutdown();
