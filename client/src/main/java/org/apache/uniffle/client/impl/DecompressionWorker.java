@@ -93,7 +93,7 @@ public class DecompressionWorker {
 
   private ExecutorService getOrCreateExecutor() {
     if (executorService == null) {
-      synchronized (executorService) {
+      synchronized (this) {
         if (executorService == null) {
           executorService = Executors.newFixedThreadPool(executorThreadCount, ThreadUtils.getThreadFactory("decompressionWorker"));
         }
