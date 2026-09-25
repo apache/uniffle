@@ -109,6 +109,7 @@ import org.apache.uniffle.shuffle.ShuffleIdMappingManager;
 
 import static org.apache.spark.launcher.SparkLauncher.EXECUTOR_CORES;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_BLOCK_ID_SELF_MANAGEMENT_ENABLED;
+import static org.apache.spark.shuffle.RssSparkConfig.RSS_EAGER_SHUFFLE_DELETION_ENABLED;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_PARTITION_REASSIGN_MAX_REASSIGNMENT_SERVER_NUM;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_READ_SHUFFLE_HANDLE_CACHE_ENABLED;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_RESUBMIT_STAGE_WITH_FETCH_FAILURE_ENABLED;
@@ -193,6 +194,8 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
   private Map<Integer, ShuffleHandleInfo> readShuffleHandleCache = Maps.newConcurrentMap();
 
   private boolean isDriver = false;
+
+  private Optional<StageDependencyTracker> stageDependencyTracker = Optional.empty();
 
   public RssShuffleManagerBase(SparkConf conf, boolean isDriver) {
     LOG.info(
@@ -330,6 +333,13 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
         } catch (Exception e) {
           LOG.error("Failed to start shuffle manager server", e);
           throw new RssException(e);
+        }
+
+        if (rssConf.get(RSS_EAGER_SHUFFLE_DELETION_ENABLED)) {
+          LOG.info("Eager shuffle deletion is enabled, initializing stage dependency tracker...");
+          this.stageDependencyTracker =
+              Optional.of(
+                  new StageDependencyTracker(rssConf, shuffleId -> unregisterShuffle(shuffleId)));
         }
       }
     }
@@ -475,6 +485,7 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
         shuffleWriteClient.unregisterShuffle(getAppId(), shuffleId);
         shuffleIdToPartitionNum.remove(shuffleId);
         shuffleIdToNumMapTasks.remove(shuffleId);
+        shuffleHandleInfoManager.remove(shuffleId);
         if (service != null) {
           service.unregisterShuffle(shuffleId);
         }
@@ -1645,5 +1656,9 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
       throw new RssException("Shuffle handle id " + shuffleId + " not found");
     }
     return handle;
+  }
+
+  public Optional<StageDependencyTracker> getStageDependencyTracker() {
+    return stageDependencyTracker;
   }
 }
