@@ -98,9 +98,16 @@ public abstract class AbstractSegmentSplitter implements SegmentSplitter {
 
         boolean storageChanged = preStorageId != -1 && currentStorageId != preStorageId;
 
-        if (bufferOffset >= readBufferSize
-            || storageChanged
-            || (taskFilter != null && !taskFilter.test(taskAttemptId))) {
+        boolean taskExpected = taskFilter == null || taskFilter.test(taskAttemptId);
+        // A filtered read may include gaps between expected blocks so that one contiguous read can
+        // replace several small RPCs. Keep the complete file span within the read buffer limit.
+        boolean filteredSegmentTooLarge =
+            taskFilter != null
+                && taskExpected
+                && fileOffset != -1
+                && offset - fileOffset >= readBufferSize;
+
+        if (bufferOffset >= readBufferSize || storageChanged || filteredSegmentTooLarge) {
           if (bufferOffset > 0) {
             ShuffleDataSegment sds =
                 new ShuffleDataSegment(fileOffset, bufferOffset, preStorageId, bufferSegments);
@@ -111,15 +118,17 @@ public abstract class AbstractSegmentSplitter implements SegmentSplitter {
           }
         }
 
-        if (taskFilter == null || taskFilter.test(taskAttemptId)) {
+        if (taskExpected) {
           if (fileOffset == -1) {
             fileOffset = offset;
           }
+          int segmentOffset =
+              taskFilter == null ? bufferOffset : Math.toIntExact(offset - fileOffset);
           bufferSegments.add(
               new BufferSegment(
-                  blockId, bufferOffset, length, uncompressLength, crc, taskAttemptId));
+                  blockId, segmentOffset, length, uncompressLength, crc, taskAttemptId));
           preStorageId = currentStorageId;
-          bufferOffset += length;
+          bufferOffset = segmentOffset + length;
         }
       } catch (BufferUnderflowException ue) {
         throw new RssException("Read index data under flow", ue);
