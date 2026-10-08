@@ -30,11 +30,15 @@ import org.apache.uniffle.client.response.DecompressedShuffleBlock;
 import org.apache.uniffle.common.BufferSegment;
 import org.apache.uniffle.common.ShuffleDataResult;
 import org.apache.uniffle.common.compression.Codec;
+import org.apache.uniffle.common.compression.NoOpCodec;
 import org.apache.uniffle.common.config.RssConf;
+import org.apache.uniffle.common.exception.RssException;
 
 import static org.apache.uniffle.common.config.RssClientConf.COMPRESSION_TYPE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class DecompressionWorkerTest {
@@ -78,6 +82,28 @@ public class DecompressionWorkerTest {
     DecompressionWorker worker =
         new DecompressionWorker(Codec.newInstance(new RssConf()).get(), 1, 10, 10000);
     assertNull(worker.get(1, 1));
+  }
+
+  @Test
+  public void testDecompressionFailureIsPropagated() {
+    IllegalStateException failure = new IllegalStateException("decompression failed");
+    Codec codec =
+        new NoOpCodec() {
+          @Override
+          public void decompress(
+              ByteBuffer src, int uncompressedLen, ByteBuffer dest, int destOffset) {
+            throw failure;
+          }
+        };
+    DecompressionWorker worker = new DecompressionWorker(codec, 1, 10, 0);
+    try {
+      worker.add(0, createShuffleDataResult(1, codec, 100));
+      RssException exception =
+          assertThrows(RssException.class, () -> worker.get(0, 0).getByteBuffer());
+      assertSame(failure, exception.getCause().getCause());
+    } finally {
+      worker.close();
+    }
   }
 
   private ByteBuffer createByteBuffer(int size) {

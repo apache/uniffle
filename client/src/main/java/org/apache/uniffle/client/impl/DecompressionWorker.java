@@ -152,12 +152,7 @@ public class DecompressionWorker {
 
                     return dst;
                   },
-                  getOrCreateExecutor())
-              .exceptionally(
-                  ex -> {
-                    LOG.error("Errors on decompressing shuffle block", ex);
-                    return null;
-                  });
+                  getOrCreateExecutor());
       ConcurrentHashMap<Integer, DecompressedShuffleBlock> blocks =
           tasks.computeIfAbsent(batchIndex, k -> new ConcurrentHashMap<>());
       blocks.put(
