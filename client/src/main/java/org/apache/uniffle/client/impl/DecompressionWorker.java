@@ -115,44 +115,44 @@ public class DecompressionWorker {
     for (BufferSegment bufferSegment : bufferSegments) {
       CompletableFuture<ByteBuffer> f =
           CompletableFuture.supplyAsync(
-                  () -> {
-                    try {
-                      if (segmentPermits.isPresent()) {
-                        segmentPermits.get().acquire();
-                      }
-                    } catch (InterruptedException e) {
-                      Thread.currentThread().interrupt();
-                      LOG.warn("Interrupted while acquiring segment permit", e);
-                      return null;
-                    }
+              () -> {
+                try {
+                  if (segmentPermits.isPresent()) {
+                    segmentPermits.get().acquire();
+                  }
+                } catch (InterruptedException e) {
+                  Thread.currentThread().interrupt();
+                  LOG.warn("Interrupted while acquiring segment permit", e);
+                  return null;
+                }
 
-                    int offset = bufferSegment.getOffset();
-                    int length = bufferSegment.getLength();
-                    ByteBuffer buffer = sharedByteBuffer.duplicate();
-                    buffer.position(offset);
-                    buffer.limit(offset + length);
+                int offset = bufferSegment.getOffset();
+                int length = bufferSegment.getLength();
+                ByteBuffer buffer = sharedByteBuffer.duplicate();
+                buffer.position(offset);
+                buffer.limit(offset + length);
 
-                    int uncompressedLen = bufferSegment.getUncompressLength();
+                int uncompressedLen = bufferSegment.getUncompressLength();
 
-                    long startBufferAllocation = System.currentTimeMillis();
-                    ByteBuffer dst =
-                        buffer.isDirect()
-                            ? ByteBuffer.allocateDirect(uncompressedLen)
-                            : ByteBuffer.allocate(uncompressedLen);
-                    decompressionBufferAllocationMillis.addAndGet(
-                        System.currentTimeMillis() - startBufferAllocation);
+                long startBufferAllocation = System.currentTimeMillis();
+                ByteBuffer dst =
+                    buffer.isDirect()
+                        ? ByteBuffer.allocateDirect(uncompressedLen)
+                        : ByteBuffer.allocate(uncompressedLen);
+                decompressionBufferAllocationMillis.addAndGet(
+                    System.currentTimeMillis() - startBufferAllocation);
 
-                    long startDecompression = System.currentTimeMillis();
-                    codec.decompress(buffer, uncompressedLen, dst, 0);
-                    decompressionMillis.addAndGet(System.currentTimeMillis() - startDecompression);
-                    decompressionBytes.addAndGet(length);
+                long startDecompression = System.currentTimeMillis();
+                codec.decompress(buffer, uncompressedLen, dst, 0);
+                decompressionMillis.addAndGet(System.currentTimeMillis() - startDecompression);
+                decompressionBytes.addAndGet(length);
 
-                    nowMemoryUsed.addAndGet(uncompressedLen);
-                    resetPeekMemoryUsed();
+                nowMemoryUsed.addAndGet(uncompressedLen);
+                resetPeekMemoryUsed();
 
-                    return dst;
-                  },
-                  getOrCreateExecutor());
+                return dst;
+              },
+              getOrCreateExecutor());
       ConcurrentHashMap<Integer, DecompressedShuffleBlock> blocks =
           tasks.computeIfAbsent(batchIndex, k -> new ConcurrentHashMap<>());
       blocks.put(
