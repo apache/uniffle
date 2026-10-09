@@ -18,6 +18,7 @@
 package org.apache.uniffle.client.impl;
 
 import java.nio.ByteBuffer;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -943,6 +944,37 @@ public class ShuffleReadClientImplTest extends HadoopTestBase {
     }
   }
 
+  @ParameterizedTest
+  @MethodSource("clientBuilderProvider")
+  public void readUnexpectedTaskAttemptForExpectedBlockTest(
+      Supplier<ShuffleClientFactory.ReadClientBuilder> builderSupplier) throws Exception {
+    String basePath = uniq(HDFS_URI + "readUnexpectedTaskAttemptForExpectedBlockTest");
+    HadoopShuffleWriteHandler writeHandler =
+        new HadoopShuffleWriteHandler("appId", 0, 1, 1, basePath, ssi1.getId(), conf);
+    long blockId = BlockIdLayout.DEFAULT.getBlockId(0, 1, 0);
+    byte[] expectedData = new byte[] {1};
+    long crc = ChecksumUtils.getCrc32(expectedData);
+    writeHandler.write(
+        Lists.newArrayList(
+            new ShufflePartitionedBlock(1, 1, crc, blockId, 1, expectedData),
+            new ShufflePartitionedBlock(1, 1, crc, blockId, 0, expectedData)));
+    ShuffleReadClientImpl readClient =
+        builderSupplier
+            .get()
+            .basePath(basePath)
+            .readBufferSize(1)
+            .blockIdBitmap(Roaring64NavigableMap.bitmapOf(blockId))
+            .taskIdBitmap(Roaring64NavigableMap.bitmapOf(0))
+            .build();
+    try {
+      // Skipping invalid task metadata must leave the required block pending for the next batch.
+      TestUtils.validateResult(readClient, Collections.singletonMap(blockId, expectedData));
+      readClient.checkProcessedBlockIds();
+    } finally {
+      readClient.close();
+    }
+  }
+
   /**
    * A fully filtered batch must never reach overlapping decompression: the next read releases its
    * buffer while skipped background tasks could still be using it.
@@ -996,7 +1028,11 @@ public class ShuffleReadClientImplTest extends HadoopTestBase {
         assertArrayEquals(expectedData, actualData);
         assertNull(readClient.readShuffleBlockData());
         readClient.checkProcessedBlockIds();
+        assertEquals(3, readClient.getProcessedBlockIds().size());
         verify(readHandler, times(2)).readShuffleData();
+        verify(readHandler, times(2))
+            .updateConsumedBlockInfo(any(BufferSegment.class), Mockito.eq(true));
+        verify(readHandler).updateConsumedBlockInfo(any(BufferSegment.class), Mockito.eq(false));
         // One worker completes earlier tasks before the valid block, making this check
         // deterministic.
         // Only the valid block may reach the codec; skipped tasks could access a released buffer.

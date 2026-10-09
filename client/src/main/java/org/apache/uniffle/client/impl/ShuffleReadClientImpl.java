@@ -23,7 +23,6 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
@@ -247,6 +246,14 @@ public class ShuffleReadClientImpl implements ShuffleReadClient {
         && taskIdBitmap.contains(segment.getTaskAttemptId());
   }
 
+  private void recordSkippedSegment(BufferSegment segment) {
+    clientReadHandler.updateConsumedBlockInfo(segment, true);
+    // A required block with invalid task metadata must remain pending for another copy.
+    if (!blockIdBitmap.contains(segment.getBlockId())) {
+      processedBlockIds.add(segment.getBlockId());
+    }
+  }
+
   @Override
   public ShuffleBlock readShuffleBlockData() {
     while (true) {
@@ -321,10 +328,7 @@ public class ShuffleReadClientImpl implements ShuffleReadClient {
           clientReadHandler.updateConsumedBlockInfo(bs, false);
           break;
         }
-        clientReadHandler.updateConsumedBlockInfo(bs, true);
-        // mark block as processed
-        processedBlockIds.add(bs.getBlockId());
-        pendingBlockIds.removeLong(bs.getBlockId());
+        recordSkippedSegment(bs);
 
         // update the segment index to skip the unnecessary block in overlapping decompression mode.
         // In overlapping decompression mode, decompression tasks for the whole batch have already
@@ -385,11 +389,20 @@ public class ShuffleReadClientImpl implements ShuffleReadClient {
     }
     // filter out illegal or any invalid segments
     Set<Long> seenBlockIds = Sets.newHashSet();
-    List<BufferSegment> segments =
-        sdr.getBufferSegments().stream()
-            .filter(x -> isValidSegment(x))
-            .filter(x -> seenBlockIds.add(x.getBlockId()))
-            .collect(Collectors.toList());
+    List<BufferSegment> segments = Lists.newArrayList();
+    long pendingBlockCount = pendingBlockIds.getLongCardinality();
+    for (BufferSegment segment : sdr.getBufferSegments()) {
+      if (!isValidSegment(segment) || !seenBlockIds.add(segment.getBlockId())) {
+        recordSkippedSegment(segment);
+      } else {
+        segments.add(segment);
+        // The consumer stops after the last required block, so do not account for trailing
+        // segments.
+        if (segments.size() == pendingBlockCount) {
+          break;
+        }
+      }
+    }
     // push the valid segments into the overlapping decompression queue
     if (decompressionWorker != null) {
       decompressionWorker.add(
