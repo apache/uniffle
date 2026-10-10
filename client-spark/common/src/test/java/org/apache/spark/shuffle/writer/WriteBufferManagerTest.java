@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -43,6 +44,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,31 +59,35 @@ import static org.apache.spark.shuffle.RssSparkConfig.toSparkConfKey;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.same;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 public class WriteBufferManagerTest {
 
   private WriteBufferManager createManager(SparkConf conf) {
-    Serializer kryoSerializer = new KryoSerializer(conf);
     TaskMemoryManager mockTaskMemoryManager = mock(TaskMemoryManager.class);
-
-    BufferManagerOptions bufferOptions = new BufferManagerOptions(conf);
-    WriteBufferManager wbm =
-        new WriteBufferManager(
-            0,
-            0,
-            bufferOptions,
-            kryoSerializer,
-            Maps.newHashMap(),
-            mockTaskMemoryManager,
-            new ShuffleWriteMetrics(),
-            RssSparkConfig.toRssConf(conf));
-    WriteBufferManager spyManager = spy(wbm);
+    WriteBufferManager spyManager = spy(createManager(conf, mockTaskMemoryManager));
     doReturn(512L).when(spyManager).acquireMemory(anyLong());
     return spyManager;
+  }
+
+  private WriteBufferManager createManager(SparkConf conf, TaskMemoryManager taskMemoryManager) {
+    Serializer kryoSerializer = new KryoSerializer(conf);
+    BufferManagerOptions bufferOptions = new BufferManagerOptions(conf);
+    return new WriteBufferManager(
+        0,
+        0,
+        bufferOptions,
+        kryoSerializer,
+        Maps.newHashMap(),
+        taskMemoryManager,
+        new ShuffleWriteMetrics(),
+        RssSparkConfig.toRssConf(conf));
   }
 
   private SparkConf getConf() {
@@ -197,6 +204,103 @@ public class WriteBufferManagerTest {
     assertEquals(224, wbm.getAllocatedBytes());
     assertEquals(96, wbm.getUsedBytes());
     assertEquals(96, wbm.getInSendListBytes());
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  public void freeAllMemoryWithPendingCallbacksTest(boolean cleanupFirst) {
+    SparkConf conf = getConf();
+    TaskMemoryManager taskMemoryManager = mock(TaskMemoryManager.class);
+    WriteBufferManager wbm = createManager(conf, taskMemoryManager);
+    when(taskMemoryManager.acquireExecutionMemory(anyLong(), same(wbm))).thenReturn(512L);
+
+    wbm.addRecord(0, "Key", "Value");
+    wbm.addRecord(1, "Key", "Value");
+    List<ShuffleBlockInfo> blocks = wbm.clear();
+    wbm.buildBlockEvents(blocks);
+    wbm.addRecord(2, "Key", "Value");
+    assertEquals(512, wbm.getAllocatedBytes());
+    assertEquals(512, wbm.getUsed());
+    assertEquals(96, wbm.getUsedBytes());
+    assertEquals(64, wbm.getInSendListBytes());
+    blocks.forEach(block -> assertEquals(1, block.getData().refCnt()));
+
+    if (!cleanupFirst) {
+      blocks.get(0).executeCompletionCallback(true);
+      assertEquals(480, wbm.getAllocatedBytes());
+      assertEquals(64, wbm.getUsedBytes());
+      assertEquals(32, wbm.getInSendListBytes());
+    }
+    wbm.freeAllMemory();
+    wbm.freeAllMemory();
+    if (cleanupFirst) {
+      blocks.get(0).executeCompletionCallback(true);
+    }
+    blocks.get(1).executeCompletionCallback(false);
+    wbm.freeAllMemory();
+
+    assertEquals(0, wbm.getAllocatedBytes());
+    assertEquals(0, wbm.getUsed());
+    assertEquals(0, wbm.getUsedBytes());
+    assertEquals(0, wbm.getInSendListBytes());
+    blocks.forEach(block -> assertEquals(0, block.getData().refCnt()));
+    ArgumentCaptor<Long> releasedBytes = ArgumentCaptor.forClass(Long.class);
+    verify(taskMemoryManager, atLeastOnce())
+        .releaseExecutionMemory(releasedBytes.capture(), same(wbm));
+    assertEquals(512, releasedBytes.getAllValues().stream().mapToLong(Long::longValue).sum());
+  }
+
+  @Test
+  public void freeAllMemoryWithConcurrentCallbacksTest() throws Exception {
+    SparkConf conf = getConf();
+    conf.set(toSparkConfKey(RssSparkConfig.RSS_WRITER_BUFFER_SPILL_SIZE), "1024");
+    TaskMemoryManager taskMemoryManager = mock(TaskMemoryManager.class);
+    WriteBufferManager wbm = createManager(conf, taskMemoryManager);
+    when(taskMemoryManager.acquireExecutionMemory(anyLong(), same(wbm))).thenReturn(512L);
+
+    for (int partition = 0; partition < 16; partition++) {
+      wbm.addRecord(partition, "Key", "Value");
+    }
+    List<ShuffleBlockInfo> blocks = wbm.clear();
+    wbm.buildBlockEvents(blocks);
+    CountDownLatch start = new CountDownLatch(1);
+    List<CompletableFuture<Void>> futures = new ArrayList<>();
+    for (ShuffleBlockInfo block : blocks) {
+      futures.add(
+          CompletableFuture.runAsync(
+              () -> {
+                awaitLatch(start);
+                block.executeCompletionCallback(false);
+              }));
+    }
+    futures.add(
+        CompletableFuture.runAsync(
+            () -> {
+              awaitLatch(start);
+              wbm.freeAllMemory();
+              wbm.freeAllMemory();
+            }));
+    start.countDown();
+    CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).get(10, TimeUnit.SECONDS);
+
+    assertEquals(0, wbm.getAllocatedBytes());
+    assertEquals(0, wbm.getUsed());
+    assertEquals(0, wbm.getUsedBytes());
+    assertEquals(0, wbm.getInSendListBytes());
+    blocks.forEach(block -> assertEquals(0, block.getData().refCnt()));
+    ArgumentCaptor<Long> releasedBytes = ArgumentCaptor.forClass(Long.class);
+    verify(taskMemoryManager, atLeastOnce())
+        .releaseExecutionMemory(releasedBytes.capture(), same(wbm));
+    assertEquals(512, releasedBytes.getAllValues().stream().mapToLong(Long::longValue).sum());
+  }
+
+  private static void awaitLatch(CountDownLatch latch) {
+    try {
+      assertTrue(latch.await(10, TimeUnit.SECONDS));
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new AssertionError(e);
+    }
   }
 
   @Test
