@@ -110,6 +110,9 @@ public class LocalStorageChecker extends Checker {
                 if (!storageInfo.checkStorageReadAndWrite()) {
                   storageInfo.markCorrupted();
                   corruptedDirs.incrementAndGet();
+                  ShuffleServerMetrics.gaugeLocalStorageIsHealthy
+                      .labels(storageInfo.storage.getBasePath())
+                      .set(1);
                   return null;
                 }
 
@@ -131,7 +134,11 @@ public class LocalStorageChecker extends Checker {
                     .labels(storageInfo.storage.getBasePath())
                     .set(0);
 
-                if (storageInfo.checkIsSpaceEnough(total, availableBytes)) {
+                boolean isSpaceEnough = storageInfo.checkIsSpaceEnough(total, availableBytes);
+                ShuffleServerMetrics.gaugeLocalStorageIsHealthy
+                    .labels(storageInfo.storage.getBasePath())
+                    .set(isSpaceEnough ? 0 : 1);
+                if (isSpaceEnough) {
                   num.incrementAndGet();
                 }
                 return null;
@@ -157,6 +164,9 @@ public class LocalStorageChecker extends Checker {
                 "Timeout of checking local storage: {}. The current disk's IO load may be very high.",
                 storageInfo.storage.getBasePath());
             ShuffleServerMetrics.gaugeLocalStorageIsTimeout
+                .labels(storageInfo.storage.getBasePath())
+                .set(1);
+            ShuffleServerMetrics.gaugeLocalStorageIsHealthy
                 .labels(storageInfo.storage.getBasePath())
                 .set(1);
             continue;
