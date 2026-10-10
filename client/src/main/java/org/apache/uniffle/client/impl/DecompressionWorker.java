@@ -240,7 +240,7 @@ public class DecompressionWorker {
           decompressionMillis == 0 ? 0 : (decompressionBytes * 1000L) / decompressionMillis);
     }
     if (executorService != null) {
-      executorService.shutdown();
+      executorService.shutdownNow();
     }
   }
 
