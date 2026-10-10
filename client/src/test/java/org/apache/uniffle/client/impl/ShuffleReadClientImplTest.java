@@ -18,6 +18,7 @@
 package org.apache.uniffle.client.impl;
 
 import java.nio.ByteBuffer;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,8 +29,12 @@ import java.util.stream.Stream;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.fs.Path;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.MockedStatic;
@@ -39,7 +44,10 @@ import org.roaringbitmap.longlong.Roaring64NavigableMap;
 
 import org.apache.uniffle.client.TestUtils;
 import org.apache.uniffle.client.factory.ShuffleClientFactory;
+import org.apache.uniffle.client.response.ShuffleBlock;
+import org.apache.uniffle.common.BufferSegment;
 import org.apache.uniffle.common.ClientType;
+import org.apache.uniffle.common.ShuffleDataResult;
 import org.apache.uniffle.common.ShufflePartitionedBlock;
 import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.compression.NoOpCodec;
@@ -50,9 +58,12 @@ import org.apache.uniffle.common.util.BlockId;
 import org.apache.uniffle.common.util.BlockIdLayout;
 import org.apache.uniffle.common.util.ChecksumUtils;
 import org.apache.uniffle.storage.HadoopTestBase;
+import org.apache.uniffle.storage.factory.ShuffleHandlerFactory;
+import org.apache.uniffle.storage.handler.api.ClientReadHandler;
 import org.apache.uniffle.storage.handler.impl.HadoopShuffleWriteHandler;
 import org.apache.uniffle.storage.util.StorageType;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -61,6 +72,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 public class ShuffleReadClientImplTest extends HadoopTestBase {
 
@@ -902,5 +915,139 @@ public class ShuffleReadClientImplTest extends HadoopTestBase {
       blockIdBitmap.addLong(blockId);
     }
     writeHandler.write(blocks);
+  }
+
+  @ParameterizedTest
+  @MethodSource("clientBuilderProvider")
+  public void readDuplicateSegmentsTest(
+      Supplier<ShuffleClientFactory.ReadClientBuilder> builderSupplier) throws Exception {
+    String basePath = uniq(HDFS_URI + "readDuplicateSegmentsTest");
+    HadoopShuffleWriteHandler writeHandler =
+        new HadoopShuffleWriteHandler("appId", 0, 1, 1, basePath, ssi1.getId(), conf);
+    Map<Long, byte[]> expectedData = Maps.newHashMap();
+    Roaring64NavigableMap blockIdBitmap = Roaring64NavigableMap.bitmapOf();
+    writeDuplicatedData(writeHandler, 5, 30, 1, 0, expectedData, blockIdBitmap);
+
+    ShuffleReadClientImpl readClient =
+        builderSupplier
+            .get()
+            .basePath(basePath)
+            .blockIdBitmap(blockIdBitmap)
+            .taskIdBitmap(Roaring64NavigableMap.bitmapOf(0))
+            .build();
+    try {
+      TestUtils.validateResult(readClient, expectedData);
+      assertEquals(5, readClient.getProcessedBlockIds().size());
+      readClient.checkProcessedBlockIds();
+    } finally {
+      readClient.close();
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource("clientBuilderProvider")
+  public void readUnexpectedTaskAttemptForExpectedBlockTest(
+      Supplier<ShuffleClientFactory.ReadClientBuilder> builderSupplier) throws Exception {
+    String basePath = uniq(HDFS_URI + "readUnexpectedTaskAttemptForExpectedBlockTest");
+    HadoopShuffleWriteHandler writeHandler =
+        new HadoopShuffleWriteHandler("appId", 0, 1, 1, basePath, ssi1.getId(), conf);
+    long blockId = BlockIdLayout.DEFAULT.getBlockId(0, 1, 0);
+    byte[] expectedData = new byte[] {1};
+    long crc = ChecksumUtils.getCrc32(expectedData);
+    writeHandler.write(
+        Lists.newArrayList(
+            new ShufflePartitionedBlock(1, 1, crc, blockId, 1, expectedData),
+            new ShufflePartitionedBlock(1, 1, crc, blockId, 0, expectedData)));
+    ShuffleReadClientImpl readClient =
+        builderSupplier
+            .get()
+            .basePath(basePath)
+            .readBufferSize(1)
+            .blockIdBitmap(Roaring64NavigableMap.bitmapOf(blockId))
+            .taskIdBitmap(Roaring64NavigableMap.bitmapOf(0))
+            .build();
+    try {
+      // Skipping invalid task metadata must leave the required block pending for the next batch.
+      TestUtils.validateResult(readClient, Collections.singletonMap(blockId, expectedData));
+      readClient.checkProcessedBlockIds();
+    } finally {
+      readClient.close();
+    }
+  }
+
+  /**
+   * A fully filtered batch must never reach overlapping decompression: the next read releases its
+   * buffer while skipped background tasks could still be using it.
+   */
+  @Test
+  @Timeout(10)
+  public void readAllFilteredBatchWithOverlappingDecompressionTest() {
+    long blockId = BlockIdLayout.DEFAULT.getBlockId(3, 1, 0);
+    byte[] expectedData = new byte[] {3};
+    ByteBuf skippedBuffer = Unpooled.buffer(2).writeBytes(new byte[] {1, 2});
+    ByteBuf validBuffer = Unpooled.buffer(1).writeBytes(expectedData);
+    ShuffleDataResult skippedResult =
+        new ShuffleDataResult(
+            skippedBuffer,
+            Lists.newArrayList(
+                new BufferSegment(BlockIdLayout.DEFAULT.getBlockId(1, 1, 0), 0, 1, 1, 0, 0),
+                new BufferSegment(BlockIdLayout.DEFAULT.getBlockId(2, 1, 0), 1, 1, 1, 0, 0)));
+    ShuffleDataResult validResult =
+        new ShuffleDataResult(
+            validBuffer,
+            Lists.newArrayList(
+                new BufferSegment(blockId, 0, 1, 1, ChecksumUtils.getCrc32(expectedData), 0)));
+    NoOpCodec codec = Mockito.spy(new NoOpCodec());
+    ClientReadHandler readHandler = Mockito.mock(ClientReadHandler.class);
+    Mockito.when(readHandler.readShuffleData())
+        .thenReturn(skippedResult)
+        .thenAnswer(
+            invocation -> {
+              // The fully filtered batch must be released before fetching the next batch.
+              assertEquals(0, skippedBuffer.refCnt());
+              return validResult;
+            })
+        .thenReturn(null);
+    ShuffleHandlerFactory factory = Mockito.mock(ShuffleHandlerFactory.class);
+    Mockito.when(factory.createShuffleReadHandler(any())).thenReturn(readHandler);
+
+    try (MockedStatic<ShuffleHandlerFactory> factoryMock =
+        Mockito.mockStatic(ShuffleHandlerFactory.class)) {
+      factoryMock.when(ShuffleHandlerFactory::getInstance).thenReturn(factory);
+      ShuffleReadClientImpl readClient =
+          overlappingDecompressionReadBuilder()
+              .codec(codec)
+              .blockIdBitmap(Roaring64NavigableMap.bitmapOf(blockId))
+              .taskIdBitmap(Roaring64NavigableMap.bitmapOf(0))
+              .build();
+      try {
+        ShuffleBlock block = assertDoesNotThrow(readClient::readShuffleBlockData);
+        ByteBuffer data = assertDoesNotThrow(block::getByteBuffer);
+        byte[] actualData = new byte[data.remaining()];
+        data.get(actualData);
+        assertArrayEquals(expectedData, actualData);
+        assertNull(readClient.readShuffleBlockData());
+        readClient.checkProcessedBlockIds();
+        assertEquals(3, readClient.getProcessedBlockIds().size());
+        verify(readHandler, times(2)).readShuffleData();
+        verify(readHandler, times(2))
+            .updateConsumedBlockInfo(any(BufferSegment.class), Mockito.eq(true));
+        verify(readHandler).updateConsumedBlockInfo(any(BufferSegment.class), Mockito.eq(false));
+        // One worker completes earlier tasks before the valid block, making this check
+        // deterministic.
+        // Only the valid block may reach the codec; skipped tasks could access a released buffer.
+        verify(codec, times(1)).decompress(any(ByteBuffer.class), anyInt(), any(), anyInt());
+      } finally {
+        readClient.close();
+      }
+      assertEquals(0, validBuffer.refCnt());
+    } finally {
+      if (skippedBuffer.refCnt() > 0) {
+        skippedBuffer.release();
+      }
+      if (validBuffer.refCnt() > 0) {
+        validBuffer.release();
+      }
+    }
   }
 }
