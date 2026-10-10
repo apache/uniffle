@@ -36,6 +36,7 @@ import org.apache.uniffle.common.BufferSegment;
 import org.apache.uniffle.common.ShuffleDataResult;
 import org.apache.uniffle.common.compression.Codec;
 import org.apache.uniffle.common.util.JavaUtils;
+import org.apache.uniffle.common.util.RssUtils;
 import org.apache.uniffle.common.util.ThreadUtils;
 
 public class DecompressionWorker {
@@ -143,7 +144,13 @@ public class DecompressionWorker {
                         System.currentTimeMillis() - startBufferAllocation);
 
                     long startDecompression = System.currentTimeMillis();
-                    codec.decompress(buffer, uncompressedLen, dst, 0);
+                    try {
+                      codec.decompress(buffer, uncompressedLen, dst, 0);
+                    } catch (Throwable t) {
+                      // Failed destinations are never handed to the consumer for cleanup.
+                      RssUtils.releaseByteBuffer(dst);
+                      throw t;
+                    }
                     decompressionMillis.addAndGet(System.currentTimeMillis() - startDecompression);
                     decompressionBytes.addAndGet(length);
 
@@ -233,7 +240,7 @@ public class DecompressionWorker {
           decompressionMillis == 0 ? 0 : (decompressionBytes * 1000L) / decompressionMillis);
     }
     if (executorService != null) {
-      executorService.shutdown();
+      executorService.shutdownNow();
     }
   }
 
