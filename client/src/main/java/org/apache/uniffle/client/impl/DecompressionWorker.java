@@ -21,6 +21,7 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -124,7 +125,7 @@ public class DecompressionWorker {
                     } catch (InterruptedException e) {
                       Thread.currentThread().interrupt();
                       LOG.warn("Interrupted while acquiring segment permit", e);
-                      return null;
+                      throw new CompletionException(e);
                     }
 
                     int offset = bufferSegment.getOffset();
@@ -160,10 +161,11 @@ public class DecompressionWorker {
                     return dst;
                   },
                   getOrCreateExecutor())
-              .exceptionally(
-                  ex -> {
-                    LOG.error("Errors on decompressing shuffle block", ex);
-                    return null;
+              .whenComplete(
+                  (buffer, ex) -> {
+                    if (ex != null) {
+                      LOG.error("Errors on decompressing shuffle block", ex);
+                    }
                   });
       ConcurrentHashMap<Integer, DecompressedShuffleBlock> blocks =
           tasks.computeIfAbsent(batchIndex, k -> new ConcurrentHashMap<>());
