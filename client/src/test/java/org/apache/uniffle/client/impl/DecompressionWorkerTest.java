@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Test;
@@ -30,14 +31,70 @@ import org.apache.uniffle.client.response.DecompressedShuffleBlock;
 import org.apache.uniffle.common.BufferSegment;
 import org.apache.uniffle.common.ShuffleDataResult;
 import org.apache.uniffle.common.compression.Codec;
+import org.apache.uniffle.common.compression.NoOpCodec;
 import org.apache.uniffle.common.config.RssConf;
+import org.apache.uniffle.common.exception.RssException;
 
 import static org.apache.uniffle.common.config.RssClientConf.COMPRESSION_TYPE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class DecompressionWorkerTest {
+
+  @Test
+  public void testDecompressionFailureIsPropagated() {
+    RuntimeException failure = new IllegalStateException("Decompression failed");
+    Codec codec =
+        new NoOpCodec() {
+          @Override
+          public void decompress(
+              ByteBuffer src, int uncompressedLen, ByteBuffer dest, int destOffset) {
+            throw failure;
+          }
+        };
+    DecompressionWorker worker = new DecompressionWorker(codec, 1, 5, 1);
+    try {
+      worker.add(0, createShuffleDataResult(1, codec, 100));
+      RssException exception =
+          assertThrows(RssException.class, () -> worker.get(0, 0).getByteBuffer());
+      assertSame(failure, exception.getCause().getCause());
+    } finally {
+      worker.close();
+    }
+  }
+
+  @Test
+  public void testInterruptedPermitAcquisitionIsPropagated() {
+    AtomicReference<Thread> decompressionThread = new AtomicReference<>();
+    Codec codec =
+        new NoOpCodec() {
+          @Override
+          public void decompress(
+              ByteBuffer src, int uncompressedLen, ByteBuffer dest, int destOffset) {
+            decompressionThread.set(Thread.currentThread());
+            super.decompress(src, uncompressedLen, dest, destOffset);
+          }
+        };
+    DecompressionWorker worker = new DecompressionWorker(codec, 1, 5, 1);
+    try {
+      worker.add(0, createShuffleDataResult(2, codec, 100));
+      Awaitility.await()
+          .atMost(5, TimeUnit.SECONDS)
+          .until(
+              () ->
+                  worker.getPeekMemoryUsed() == 100
+                      && decompressionThread.get().getState() == Thread.State.WAITING);
+      decompressionThread.get().interrupt();
+      RssException exception =
+          assertThrows(RssException.class, () -> worker.get(0, 1).getByteBuffer());
+      assertTrue(exception.getCause().getCause() instanceof InterruptedException);
+    } finally {
+      worker.close();
+    }
+  }
 
   @Test
   public void testBackpressure() throws Exception {
