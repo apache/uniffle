@@ -57,7 +57,8 @@ public class DecompressionWorkerTest {
         };
     DecompressionWorker worker = new DecompressionWorker(codec, 1, 5, 1);
     try {
-      worker.add(0, createShuffleDataResult(1, codec, 100));
+      ShuffleDataResult shuffleDataResult = createShuffleDataResult(1, codec, 100);
+      worker.add(0, shuffleDataResult.getBufferSegments(), shuffleDataResult.getDataBuffer());
       RssException exception =
           assertThrows(RssException.class, () -> worker.get(0, 0).getByteBuffer());
       assertSame(failure, exception.getCause().getCause());
@@ -80,7 +81,8 @@ public class DecompressionWorkerTest {
         };
     DecompressionWorker worker = new DecompressionWorker(codec, 1, 5, 1);
     try {
-      worker.add(0, createShuffleDataResult(2, codec, 100));
+      ShuffleDataResult shuffleDataResult = createShuffleDataResult(2, codec, 100);
+      worker.add(0, shuffleDataResult.getBufferSegments(), shuffleDataResult.getDataBuffer());
       Awaitility.await()
           .atMost(5, TimeUnit.SECONDS)
           .until(
