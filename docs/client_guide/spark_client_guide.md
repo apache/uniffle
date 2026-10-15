@@ -249,10 +249,11 @@ This mechanism allows prefetching shuffle data before it is needed, reducing wai
 
 To ensure the data consistency between Spark client and shuffle server, integrity validation has been introduced for shuffle write and read processing.
 This feature can detect data corruption during transmission and storage, and take corresponding measures to ensure data consistency.
-We will track the upstream writers' partitions record number, and validate it with the downstream readers' partitions record number, these metadata will be stored in the Spark driver side.
-(attention: if having many tasks, this mechanism will slow down the driver and cause more GC pressure)
+We track the upstream writers' partition record counts and validate them against the downstream readers' record counts. By default, this metadata is stored in the Spark driver; jobs with many tasks can increase driver memory use and GC pressure.
+Set `spark.rss.client.integrityValidation.serverManagementEnabled=true` to store the counts in shuffle server memory and retrieve them together with block IDs. Integrity validation requires Spark 3.5 or later and a single replica. Enable server management only after all assigned shuffle servers support partition stats. The metadata is removed when the shuffle or application is removed and is not persisted across server restarts.
 
-| Property Name                                               | Default | Description                                                             |
-|-------------------------------------------------------------|---------|-------------------------------------------------------------------------|
-| spark.rss.client.integrityValidation.enabled                | false   | Whether to enable integrity validation                                  |
-| spark.rss.client.integrityValidation.failureAnalysisEnabled | false   | Whether to print out the detailed failure if having data inconsistency  |
+| Property Name                                                | Default | Description                                                             |
+|--------------------------------------------------------------|---------|-------------------------------------------------------------------------|
+| spark.rss.client.integrityValidation.enabled                 | false   | Whether to enable integrity validation                                  |
+| spark.rss.client.integrityValidation.failureAnalysisEnabled  | false   | Whether to print out the detailed failure if having data inconsistency  |
+| spark.rss.client.integrityValidation.serverManagementEnabled | false   | Store partition record counts on shuffle servers instead of the Spark driver; requires integrity validation to be enabled |

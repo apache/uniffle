@@ -19,6 +19,7 @@ package org.apache.uniffle.test;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -42,6 +43,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.roaringbitmap.longlong.Roaring64NavigableMap;
 
 import org.apache.uniffle.client.api.ShuffleWriteClient;
@@ -52,6 +54,7 @@ import org.apache.uniffle.client.request.RssAppHeartBeatRequest;
 import org.apache.uniffle.client.request.RssFinishShuffleRequest;
 import org.apache.uniffle.client.request.RssGetShuffleDataRequest;
 import org.apache.uniffle.client.request.RssGetShuffleIndexRequest;
+import org.apache.uniffle.client.request.RssGetShuffleResultForMultiPartRequest;
 import org.apache.uniffle.client.request.RssGetShuffleResultRequest;
 import org.apache.uniffle.client.request.RssRegisterShuffleRequest;
 import org.apache.uniffle.client.request.RssReportShuffleResultRequest;
@@ -67,6 +70,7 @@ import org.apache.uniffle.common.ShuffleBlockInfo;
 import org.apache.uniffle.common.ShuffleDataDistributionType;
 import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.config.RssBaseConf;
+import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.metrics.TestUtils;
 import org.apache.uniffle.common.rpc.ServerType;
 import org.apache.uniffle.common.rpc.StatusCode;
@@ -84,6 +88,7 @@ import org.apache.uniffle.storage.util.StorageType;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -140,6 +145,171 @@ public class ShuffleServerGrpcTest extends IntegrationTestBase {
   public void closeClient() {
     grpcShuffleServerClient.close();
     nettyShuffleServerClient.close();
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  public void partitionStatsTest(boolean isNettyMode) throws Exception {
+    ShuffleServerGrpcClient client =
+        isNettyMode ? nettyShuffleServerClient : grpcShuffleServerClient;
+    String appId = "partitionStatsTest_" + isNettyMode;
+    for (int shuffleId = 0; shuffleId < 2; shuffleId++) {
+      assertEquals(
+          StatusCode.SUCCESS,
+          client
+              .registerShuffle(
+                  new RssRegisterShuffleRequest(
+                      appId, shuffleId, Lists.newArrayList(new PartitionRange(1, 3)), ""))
+              .getStatusCode());
+    }
+    Map<Integer, List<Long>> blockIds = Maps.newHashMap();
+    blockIds.put(1, Lists.newArrayList(layout.getBlockId(0, 1, 1)));
+    blockIds.put(2, Lists.newArrayList(layout.getBlockId(0, 2, 1)));
+    Map<Integer, Long> recordNumbers = Maps.newHashMap();
+    recordNumbers.put(1, 10L);
+    recordNumbers.put(2, 20L);
+    RssReportShuffleResultRequest report =
+        new RssReportShuffleResultRequest(appId, 0, 1L, blockIds, 1, recordNumbers);
+    assertEquals(StatusCode.SUCCESS, client.reportShuffleResult(report).getStatusCode());
+    assertEquals(StatusCode.SUCCESS, client.reportShuffleResult(report).getStatusCode());
+    assertEquals(
+        StatusCode.SUCCESS,
+        client
+            .reportShuffleResult(
+                new RssReportShuffleResultRequest(
+                    appId, 1, 1L, blockIds, 1, Collections.singletonMap(1, 99L)))
+            .getStatusCode());
+    long secondBlock = layout.getBlockId(0, 1, 2);
+    assertEquals(
+        StatusCode.SUCCESS,
+        client
+            .reportShuffleResult(
+                new RssReportShuffleResultRequest(
+                    appId,
+                    0,
+                    2L,
+                    Collections.singletonMap(1, Lists.newArrayList(secondBlock)),
+                    1,
+                    Collections.singletonMap(1, 30L)))
+            .getStatusCode());
+    // Legacy reports have no stats and must preserve previously reported totals.
+    assertEquals(
+        StatusCode.SUCCESS,
+        client
+            .reportShuffleResult(new RssReportShuffleResultRequest(appId, 0, 1L, blockIds, 1))
+            .getStatusCode());
+
+    RssGetShuffleResultForMultiPartRequest get =
+        new RssGetShuffleResultForMultiPartRequest(appId, 0, Sets.newHashSet(1, 3), layout);
+    RssGetShuffleResultResponse result = client.getShuffleResultForMultiPart(get);
+    assertEquals(StatusCode.SUCCESS, result.getStatusCode());
+    assertEquals(
+        Roaring64NavigableMap.bitmapOf(layout.getBlockId(0, 1, 1), secondBlock),
+        result.getBlockIdBitmap());
+    Map<Integer, Map<Long, Long>> expected = Maps.newHashMap();
+    Map<Long, Long> expectedRecords = Maps.newHashMap();
+    expectedRecords.put(1L, 10L);
+    expectedRecords.put(2L, 30L);
+    expected.put(1, expectedRecords);
+    assertEquals(expected, result.getPartitionToTaskAttemptIdToRecordNumbers());
+    assertEquals(
+        Collections.singletonMap(2, Collections.singletonMap(1L, 20L)),
+        client
+            .getShuffleResultForMultiPart(
+                new RssGetShuffleResultForMultiPartRequest(appId, 0, Sets.newHashSet(2), layout))
+            .getPartitionToTaskAttemptIdToRecordNumbers());
+    assertEquals(
+        Collections.singletonMap(1, Collections.singletonMap(1L, 99L)),
+        client
+            .getShuffleResultForMultiPart(
+                new RssGetShuffleResultForMultiPartRequest(appId, 1, Sets.newHashSet(1), layout))
+            .getPartitionToTaskAttemptIdToRecordNumbers());
+
+    Map<Integer, Long> invalidRecordNumbers = Maps.newLinkedHashMap();
+    invalidRecordNumbers.put(1, 40L);
+    invalidRecordNumbers.put(2, -1L);
+    RssException invalidRecords =
+        assertThrows(
+            RssException.class,
+            () ->
+                client.reportShuffleResult(
+                    new RssReportShuffleResultRequest(
+                        appId,
+                        0,
+                        4L,
+                        Collections.singletonMap(1, Lists.newArrayList(layout.getBlockId(0, 1, 4))),
+                        1,
+                        invalidRecordNumbers)));
+    assertTrue(invalidRecords.getMessage().contains("record number must be nonnegative"));
+    RssException invalidTask =
+        assertThrows(
+            RssException.class,
+            () ->
+                client.reportShuffleResult(
+                    new RssReportShuffleResultRequest(
+                        appId,
+                        0,
+                        -1L,
+                        Collections.emptyMap(),
+                        1,
+                        Collections.singletonMap(1, 40L))));
+    assertTrue(invalidTask.getMessage().contains("Task attempt ID"));
+    RssException invalidBitmap =
+        assertThrows(
+            RssException.class,
+            () ->
+                client.reportShuffleResult(
+                    new RssReportShuffleResultRequest(
+                        appId,
+                        0,
+                        4L,
+                        Collections.singletonMap(1, Lists.newArrayList(layout.getBlockId(0, 1, 4))),
+                        2,
+                        Collections.singletonMap(1, 40L))));
+    assertTrue(invalidBitmap.getMessage().contains("Request expects 2 bitmaps"));
+    assertEquals(
+        result.getBlockIdBitmap(), client.getShuffleResultForMultiPart(get).getBlockIdBitmap());
+    assertEquals(
+        expected,
+        client.getShuffleResultForMultiPart(get).getPartitionToTaskAttemptIdToRecordNumbers());
+    RssException invalidPartition =
+        assertThrows(
+            RssException.class,
+            () ->
+                client.reportShuffleResult(
+                    new RssReportShuffleResultRequest(
+                        appId,
+                        0,
+                        4L,
+                        Collections.emptyMap(),
+                        1,
+                        Collections.singletonMap(4, 10L))));
+    assertTrue(invalidPartition.getMessage().contains("unregistered partition: 4"));
+
+    ShuffleServer server = (isNettyMode ? nettyShuffleServers : grpcShuffleServers).get(0);
+    server.getShuffleTaskManager().removeShuffleDataSync(appId, 0);
+    client.registerShuffle(
+        new RssRegisterShuffleRequest(appId, 0, Lists.newArrayList(new PartitionRange(1, 3)), ""));
+    assertTrue(
+        client
+            .getShuffleResultForMultiPart(get)
+            .getPartitionToTaskAttemptIdToRecordNumbers()
+            .isEmpty());
+    assertEquals(
+        Collections.singletonMap(1, Collections.singletonMap(1L, 99L)),
+        client
+            .getShuffleResultForMultiPart(
+                new RssGetShuffleResultForMultiPartRequest(appId, 1, Sets.newHashSet(1), layout))
+            .getPartitionToTaskAttemptIdToRecordNumbers());
+    server.getShuffleTaskManager().removeResources(appId, false);
+    client.registerShuffle(
+        new RssRegisterShuffleRequest(appId, 1, Lists.newArrayList(new PartitionRange(1, 3)), ""));
+    assertTrue(
+        client
+            .getShuffleResultForMultiPart(
+                new RssGetShuffleResultForMultiPartRequest(appId, 1, Sets.newHashSet(1), layout))
+            .getPartitionToTaskAttemptIdToRecordNumbers()
+            .isEmpty());
   }
 
   @Test

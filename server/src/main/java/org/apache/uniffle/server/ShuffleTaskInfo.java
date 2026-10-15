@@ -81,6 +81,8 @@ public class ShuffleTaskInfo {
   /** shuffleId -> shuffleDetailInfo */
   private final Map<Integer, ShuffleDetailInfo> shuffleDetailInfos;
 
+  private final PartitionStatsManager partitionStatsManager = new PartitionStatsManager();
+
   private final Map<Integer, Integer> latestStageAttemptNumbers;
   private Map<String, String> properties;
   private ShuffleBlockIdManager shuffleBlockIdManager;
@@ -119,6 +121,10 @@ public class ShuffleTaskInfo {
 
   public Map<Integer, AtomicLong> getCachedBlockCount() {
     return cachedBlockCount;
+  }
+
+  public PartitionStatsManager getPartitionStatsManager() {
+    return partitionStatsManager;
   }
 
   public String getUser() {

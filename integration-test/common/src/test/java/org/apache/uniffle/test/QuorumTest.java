@@ -129,22 +129,6 @@ public class QuorumTest extends ShuffleReadWriteBase {
         new ShuffleServerInfo(
             "127.0.0.1-20005", grpcShuffleServers.get(2).getIp(), fakePortList.get(4));
 
-    // spark.rss.data.replica=3
-    // spark.rss.data.replica.write=2
-    // spark.rss.data.replica.read=2
-    ((ShuffleServerGrpcClient)
-            ShuffleServerClientFactory.getInstance()
-                .getShuffleServerClient("GRPC", shuffleServerInfo0))
-        .adjustTimeout(300);
-    ((ShuffleServerGrpcClient)
-            ShuffleServerClientFactory.getInstance()
-                .getShuffleServerClient("GRPC", shuffleServerInfo1))
-        .adjustTimeout(300);
-    ((ShuffleServerGrpcClient)
-            ShuffleServerClientFactory.getInstance()
-                .getShuffleServerClient("GRPC", shuffleServerInfo2))
-        .adjustTimeout(300);
-
     Thread.sleep(2000);
   }
 
@@ -307,6 +291,12 @@ public class QuorumTest extends ShuffleReadWriteBase {
           new RemoteStorageInfo(""),
           ShuffleDataDistributionType.NORMAL,
           1);
+    }
+    // Apply the short deadline after registration has established the connections.
+    for (ShuffleServerInfo server : allServers.subList(0, 3)) {
+      ((ShuffleServerGrpcClient)
+              ShuffleServerClientFactory.getInstance().getShuffleServerClient("GRPC", server))
+          .adjustTimeout(300);
     }
   }
 
