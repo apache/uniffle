@@ -24,6 +24,9 @@ import moment from 'moment'
  * @returns {string}
  */
 const memFormatter = (row, column, cellValue) => {
+  if (cellValue == null || isNaN(cellValue)) {
+    return '-'
+  }
   const arrUnit = ['B', 'K', 'M', 'G', 'T', 'P']
   const baseStep = 1024
   const unitCount = arrUnit.length
@@ -43,6 +46,9 @@ const memFormatter = (row, column, cellValue) => {
  * @returns {string}
  */
 const dateFormatter = (row, column, cellValue) => {
+  if (cellValue == null) {
+    return '-'
+  }
   return moment(cellValue).format('YYYY-MM-DD HH:mm:ss')
 }
 
