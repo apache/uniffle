@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
@@ -72,6 +73,7 @@ import org.apache.uniffle.common.util.JavaUtils;
 import org.apache.uniffle.common.util.OutputUtils;
 import org.apache.uniffle.common.util.ThreadUtils;
 import org.apache.uniffle.common.util.UnitConverter;
+import org.apache.uniffle.proto.RssProtos;
 import org.apache.uniffle.server.block.ShuffleBlockIdManager;
 import org.apache.uniffle.server.block.ShuffleBlockIdManagerFactory;
 import org.apache.uniffle.server.buffer.PreAllocatedBufferInfo;
@@ -447,17 +449,50 @@ public class ShuffleTaskManager {
    */
   public int addFinishedBlockIds(
       String appId, Integer shuffleId, Map<Integer, long[]> partitionToBlockIds, int bitmapNum) {
-    refreshAppId(appId);
-    ShuffleTaskInfo taskInfo = getShuffleTaskInfo(appId);
-    if (taskInfo == null) {
-      throw new InvalidRequestException(
-          "ShuffleTaskInfo is not found that should not happen for appId: " + appId);
+    return addFinishedBlockIdsAndPartitionStats(
+        appId, shuffleId, partitionToBlockIds, bitmapNum, Collections.emptyList());
+  }
+
+  public int addFinishedBlockIdsAndPartitionStats(
+      String appId,
+      Integer shuffleId,
+      Map<Integer, long[]> partitionToBlockIds,
+      int bitmapNum,
+      List<RssProtos.PartitionStats> partitionStats) {
+    Lock readLock = getAppReadLock(appId);
+    readLock.lock();
+    try {
+      for (RssProtos.PartitionStats partition : partitionStats) {
+        if (shuffleBufferManager.getShuffleBufferEntry(appId, shuffleId, partition.getPartitionId())
+            == null) {
+          throw new InvalidRequestException(
+              "Partition stats refer to an unregistered partition: " + partition.getPartitionId());
+        }
+        for (RssProtos.TaskAttemptIdToRecords record : partition.getTaskAttemptIdToRecordsList()) {
+          if (record.getTaskAttemptId() < 0 || record.getRecordNumber() < 0) {
+            throw new InvalidRequestException(
+                "Task attempt ID and record number must be nonnegative");
+          }
+        }
+      }
+      refreshAppId(appId);
+      ShuffleTaskInfo taskInfo = getShuffleTaskInfo(appId);
+      if (taskInfo == null) {
+        throw new InvalidRequestException(
+            "ShuffleTaskInfo is not found that should not happen for appId: " + appId);
+      }
+      Supplier throwFunc = () -> new RssException("appId[" + appId + "] is expired!");
+      int updatedBlockCount =
+          Optional.ofNullable(taskInfo.getShuffleBlockIdManager())
+              .orElseThrow(throwFunc)
+              .addFinishedBlockIds(taskInfo, appId, shuffleId, partitionToBlockIds, bitmapNum);
+      Optional.ofNullable(taskInfo.getPartitionStatsManager())
+          .orElseThrow(throwFunc)
+          .add(shuffleId, partitionStats);
+      return updatedBlockCount;
+    } finally {
+      readLock.unlock();
     }
-    ShuffleBlockIdManager manager = taskInfo.getShuffleBlockIdManager();
-    if (manager == null) {
-      throw new RssException("appId[" + appId + "] is expired!");
-    }
-    return manager.addFinishedBlockIds(taskInfo, appId, shuffleId, partitionToBlockIds, bitmapNum);
   }
 
   public int updateAndGetCommitCount(String appId, int shuffleId) {
@@ -818,6 +853,7 @@ public class ShuffleTaskManager {
           taskInfo.getCachedBlockCount().remove(shuffleId);
           taskInfo.getCommitCounts().remove(shuffleId);
           taskInfo.getCommitLocks().remove(shuffleId);
+          taskInfo.getPartitionStatsManager().remove(shuffleId);
         }
         ShuffleBlockIdManager manager = taskInfo.getShuffleBlockIdManager();
         if (manager == null) {

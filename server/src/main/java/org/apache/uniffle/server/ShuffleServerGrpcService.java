@@ -24,6 +24,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.locks.Lock;
 import java.util.stream.Collectors;
 
 import com.google.common.collect.Lists;
@@ -55,6 +57,7 @@ import org.apache.uniffle.common.audit.RpcAuditContext;
 import org.apache.uniffle.common.config.RssBaseConf;
 import org.apache.uniffle.common.exception.ExceedHugePartitionHardLimitException;
 import org.apache.uniffle.common.exception.FileNotFoundException;
+import org.apache.uniffle.common.exception.InvalidRequestException;
 import org.apache.uniffle.common.exception.NoBufferException;
 import org.apache.uniffle.common.exception.NoBufferForHugePartitionException;
 import org.apache.uniffle.common.exception.NoRegisterException;
@@ -806,6 +809,7 @@ public class ShuffleServerGrpcService extends ShuffleServerImplBase {
       int bitmapNum = request.getBitmapNum();
       Map<Integer, long[]> partitionToBlockIds =
           toPartitionBlocksMap(request.getPartitionToBlockIdsList());
+      List<RssProtos.PartitionStats> partitionStats = request.getPartitionStatsList();
       auditContext.withAppId(appId).withShuffleId(shuffleId);
       auditContext.withArgs(
           "taskAttemptId="
@@ -851,7 +855,8 @@ public class ShuffleServerGrpcService extends ShuffleServerImplBase {
         int updatedBlockCount =
             shuffleServer
                 .getShuffleTaskManager()
-                .addFinishedBlockIds(appId, shuffleId, partitionToBlockIds, bitmapNum);
+                .addFinishedBlockIdsAndPartitionStats(
+                    appId, shuffleId, partitionToBlockIds, bitmapNum, partitionStats);
         long costTime = System.currentTimeMillis() - start;
         shuffleServer
             .getGrpcMetrics()
@@ -863,6 +868,10 @@ public class ShuffleServerGrpcService extends ShuffleServerImplBase {
               appId,
               shuffleId);
         }
+      } catch (InvalidRequestException e) {
+        status = StatusCode.INVALID_REQUEST;
+        msg = e.getMessage();
+        LOG.warn("Invalid shuffle result report for {}: {}", requestInfo, msg);
       } catch (Exception e) {
         status = StatusCode.INTERNAL_ERROR;
         msg = "error happened when report shuffle result, check shuffle server for detail";
@@ -989,25 +998,31 @@ public class ShuffleServerGrpcService extends ShuffleServerImplBase {
       }
 
       String msg = "OK";
-      GetShuffleResultForMultiPartResponse reply;
       byte[] serializedBlockIds = null;
       String requestInfo =
           "appId[" + appId + "], shuffleId[" + shuffleId + "], partitions=" + partitionIdsOutput;
       ByteString serializedBlockIdsBytes = ByteString.EMPTY;
+      List<RssProtos.PartitionStats> partitionStats = Collections.emptyList();
+      ShuffleTaskManager taskManager = shuffleServer.getShuffleTaskManager();
+      Set<Integer> partitions = Sets.newHashSet(partitionsList);
+      Lock readLock = taskManager.getAppReadLock(appId);
 
+      readLock.lock();
       try {
         long start = System.currentTimeMillis();
         serializedBlockIds =
-            shuffleServer
-                .getShuffleTaskManager()
-                .getFinishedBlockIds(
-                    appId, shuffleId, Sets.newHashSet(partitionsList), blockIdLayout);
+            taskManager.getFinishedBlockIds(appId, shuffleId, partitions, blockIdLayout);
         if (serializedBlockIds == null) {
           status = StatusCode.INTERNAL_ERROR;
           msg = "Can't get shuffle result for " + requestInfo;
           LOG.warn(msg);
         } else {
           serializedBlockIdsBytes = UnsafeByteOperations.unsafeWrap(serializedBlockIds);
+          partitionStats =
+              taskManager
+                  .getShuffleTaskInfo(appId)
+                  .getPartitionStatsManager()
+                  .get(shuffleId, partitions);
           long costTime = System.currentTimeMillis() - start;
           shuffleServer
               .getGrpcMetrics()
@@ -1022,14 +1037,17 @@ public class ShuffleServerGrpcService extends ShuffleServerImplBase {
         status = StatusCode.INTERNAL_ERROR;
         msg = e.getMessage();
         LOG.error("Error happened when get shuffle result for {}", requestInfo, e);
+      } finally {
+        readLock.unlock();
       }
 
       auditContext.withStatusCode(status);
-      reply =
+      GetShuffleResultForMultiPartResponse reply =
           GetShuffleResultForMultiPartResponse.newBuilder()
               .setStatus(status.toProto())
               .setRetMsg(msg)
               .setSerializedBitmap(serializedBlockIdsBytes)
+              .addAllPartitionStats(partitionStats)
               .build();
       responseObserver.onNext(reply);
       responseObserver.onCompleted();
