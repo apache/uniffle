@@ -16,108 +16,51 @@
   -->
 
 <template>
-  <div>
-    <el-row :gutter="20">
-      <el-col :span="4">
-        <el-card class="box-card" shadow="hover">
-          <template #header>
-            <div class="card-header">
-              <span class="cardtile">APPS TOTAL</span>
-            </div>
-          </template>
-          <div class="appcnt">{{ pageData.apptotal.appTotality }}</div>
-        </el-card>
-      </el-col>
-      <el-col :span="4">
-        <el-card class="box-card" shadow="hover">
-          <template #header>
-            <div class="card-header">
-              <span class="cardtile">APPS CURRENT TOTAL</span>
-            </div>
-          </template>
-          <div class="appcnt">{{ pageData.apptotal.appCurrent }}</div>
-        </el-card>
-      </el-col>
-    </el-row>
-    <el-divider />
-    <el-tag>User App ranking</el-tag>
-    <div>
-      <el-table
-        :data="pageData.userAppCount"
-        height="250"
-        style="width: 100%"
-        :default-sort="sortAppCollect"
-        @sort-change="sortAppCollectChangeEvent"
-      >
+  <div class="page-wrap">
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">Apps Total</div>
+        <div class="stat-value sv-primary">{{ pageData.apptotal.appTotality ?? '-' }}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Apps Current</div>
+        <div class="stat-value sv-success">{{ pageData.apptotal.appCurrent ?? '-' }}</div>
+      </div>
+    </div>
+
+    <div class="table-section user-rank-section">
+      <div class="table-section-bar">
+        <el-icon :size="14" class="page-section-icon"><User /></el-icon>
+        <span class="table-section-title">User App Ranking</span>
+      </div>
+      <el-table :data="pageData.userAppCount" height="100%" :default-sort="sortAppCollect" @sort-change="sortAppCollectChangeEvent">
         <el-table-column prop="userName" label="UserName" min-width="180" sortable fixed />
         <el-table-column prop="appNum" label="Totality" min-width="180" sortable />
       </el-table>
     </div>
-    <el-divider />
-    <el-tag>Apps</el-tag>
-    <div>
-      <el-table
-        :data="pageData.appInfoData"
-        height="700"
-        style="width: 100%"
-        :default-sort="sortApp"
-        @sort-change="sortAppChangeEvent"
-      >
+
+    <div class="table-section flex-fill">
+      <div class="table-section-bar">
+        <el-icon :size="14" class="page-section-icon"><Coin /></el-icon>
+        <span class="table-section-title">Apps</span>
+      </div>
+      <el-table :data="pageData.appInfoData" height="100%" :default-sort="sortApp" @sort-change="sortAppChangeEvent">
         <el-table-column prop="appId" label="AppId" min-width="180" sortable fixed />
         <el-table-column prop="userName" label="UserName" min-width="180" sortable />
-        <el-table-column
-          prop="registrationTime"
-          label="Registration Time"
-          min-width="180"
-          :formatter="dateFormatter"
-          sortable
-        />
-        <el-table-column
-          prop="updateTime"
-          label="Update Time"
-          min-width="180"
-          :formatter="dateFormatter"
-          sortable
-        />
+        <el-table-column prop="registrationTime" label="Registration Time" min-width="180" :formatter="dateFormatter" sortable />
+        <el-table-column prop="updateTime" label="Update Time" min-width="180" :formatter="dateFormatter" sortable />
         <el-table-column label="Version" min-width="180">
-          <template v-slot="{ row }">
-            <div class="version">
-              {{ row.version }}_{{ row.gitCommitId }}
-            </div>
-          </template>
+          <template v-slot="{ row }">{{ row.version }}_{{ row.gitCommitId }}</template>
         </el-table-column>
         <el-table-column prop="partitionNum" label="PartitionNum" min-width="180" sortable />
-        <el-table-column
-            prop="memorySize"
-            label="MemorySize"
-            min-width="180"
-            :formatter="memFormatter"
-        />
+        <el-table-column prop="memorySize" label="MemorySize" min-width="180" :formatter="memFormatter" />
         <el-table-column label="LocalFile" min-width="180">
-          <template v-slot="{ row }">
-            <div class="mb-4">
-              {{ row.localFileNum }}({{
-                memFormatter(null, null, row.localTotalSize)
-              }})
-            </div>
-          </template>
+          <template v-slot="{ row }">{{ row.localFileNum }}({{ memFormatter(null, null, row.localTotalSize) }})</template>
         </el-table-column>
         <el-table-column label="HadoopFile" min-width="180">
-          <template v-slot="{ row }">
-            <div class="mb-4">
-              {{ row.hadoopFileNum }}({{
-                memFormatter(null, null, row.hadoopTotalSize)
-              }})
-            </div>
-          </template>
+          <template v-slot="{ row }">{{ row.hadoopFileNum }}({{ memFormatter(null, null, row.hadoopTotalSize) }})</template>
         </el-table-column>
-        <el-table-column
-            prop="totalSize"
-            label="TotalSize"
-            min-width="180"
-            :formatter="memFormatter"
-            sortable
-        />
+        <el-table-column prop="totalSize" label="TotalSize" min-width="180" :formatter="memFormatter" sortable />
       </el-table>
     </div>
   </div>
@@ -131,80 +74,28 @@ import { useCurrentServerStore } from '@/store/useCurrentServerStore'
 
 export default {
   setup() {
-    const pageData = reactive({
-      apptotal: {},
-      userAppCount: [{}],
-      appInfoData: [{ appId: '', userName: '', registrationTime: '', updateTime: '' }]
-    })
+    const pageData = reactive({ apptotal: {}, userAppCount: [], appInfoData: [] })
     const currentServerStore = useCurrentServerStore()
 
     async function getApplicationInfoListPage() {
-      const res = await getApplicationInfoList()
-      pageData.appInfoData = res.data.data
+      try { const res = await getApplicationInfoList(); pageData.appInfoData = res?.data?.data || [] } catch (e) { console.warn('Failed to fetch application info:', e) }
     }
-
     async function getTotalForUserPage() {
-      const res = await getTotalForUser()
-      pageData.userAppCount = res.data.data
+      try { const res = await getTotalForUser(); pageData.userAppCount = res?.data?.data || [] } catch (e) { console.warn('Failed to fetch user app count:', e) }
     }
-
     async function getAppTotalPage() {
-      const res = await getAppTotal()
-      pageData.apptotal = res.data.data
+      try { const res = await getAppTotal(); pageData.apptotal = res?.data?.data || {} } catch (e) { console.warn('Failed to fetch app total:', e) }
     }
 
-    // The system obtains data from global variables and requests the interface to obtain new data after data changes.
-    currentServerStore.$subscribe((mutable, state) => {
-      if (state.currentServer) {
-        getApplicationInfoListPage()
-        getTotalForUserPage()
-        getAppTotalPage()
-      }
-    })
-
-    onMounted(() => {
-      // If the coordinator address to request is not found in the global variable, the request is not initiated.
-      if (currentServerStore.currentServer) {
-        getApplicationInfoListPage()
-        getTotalForUserPage()
-        getAppTotalPage()
-      }
-    })
+    currentServerStore.$subscribe((mutable, state) => { if (state.currentServer) { getApplicationInfoListPage(); getTotalForUserPage(); getAppTotalPage() } })
+    onMounted(() => { if (currentServerStore.currentServer) { getApplicationInfoListPage(); getTotalForUserPage(); getAppTotalPage() } })
 
     const sortAppCollect = reactive({})
-    const sortAppCollectChangeEvent = (sortInfo) => {
-      for (const sortColumnKey in sortAppCollect) {
-        delete sortAppCollect[sortColumnKey]
-      }
-      sortAppCollect[sortInfo.prop] = sortInfo.order
-    }
-
+    const sortAppCollectChangeEvent = (sortInfo) => { for (const k in sortAppCollect) delete sortAppCollect[k]; sortAppCollect[sortInfo.prop] = sortInfo.order }
     const sortApp = reactive({})
-    const sortAppChangeEvent = (sortInfo) => {
-      for (const sortColumnKey in sortApp) {
-        delete sortApp[sortColumnKey]
-      }
-      sortApp[sortInfo.prop] = sortInfo.order
-    }
+    const sortAppChangeEvent = (sortInfo) => { for (const k in sortApp) delete sortApp[k]; sortApp[sortInfo.prop] = sortInfo.order }
 
-    return {
-      pageData,
-      sortAppCollect,
-      sortAppCollectChangeEvent,
-      sortApp,
-      sortAppChangeEvent,
-      dateFormatter,
-      memFormatter
-    }
+    return { pageData, sortAppCollect, sortAppCollectChangeEvent, sortApp, sortAppChangeEvent, dateFormatter, memFormatter }
   }
 }
 </script>
-
-<style>
-.appcnt {
-  font-family: 'Lantinghei SC';
-  font-style: normal;
-  font-weight: bolder;
-  font-size: 30px;
-}
-</style>
