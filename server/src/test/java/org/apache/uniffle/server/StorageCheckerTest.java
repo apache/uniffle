@@ -73,6 +73,9 @@ public class StorageCheckerTest {
     assertEquals(0.2, ShuffleServerMetrics.gaugeLocalStorageUsedSpaceRatio.get());
     assertEquals(3, ShuffleServerMetrics.gaugeLocalStorageTotalDirsNum.get());
     assertEquals(0, ShuffleServerMetrics.gaugeLocalStorageCorruptedDirsNum.get());
+    assertEquals(0, ShuffleServerMetrics.gaugeLocalStorageIsHealthy.labels(st1).get());
+    assertEquals(0, ShuffleServerMetrics.gaugeLocalStorageIsHealthy.labels(st2).get());
+    assertEquals(0, ShuffleServerMetrics.gaugeLocalStorageIsHealthy.labels(st3).get());
 
     callTimes++;
     assertTrue(checker.checkIsHealthy());
@@ -80,6 +83,9 @@ public class StorageCheckerTest {
     assertEquals(1400, ShuffleServerMetrics.gaugeLocalStorageWholeDiskUsedSpace.get());
     assertEquals(3, ShuffleServerMetrics.gaugeLocalStorageTotalDirsNum.get());
     assertEquals(0, ShuffleServerMetrics.gaugeLocalStorageCorruptedDirsNum.get());
+    assertEquals(1, ShuffleServerMetrics.gaugeLocalStorageIsHealthy.labels(st1).get());
+    assertEquals(0, ShuffleServerMetrics.gaugeLocalStorageIsHealthy.labels(st2).get());
+    assertEquals(0, ShuffleServerMetrics.gaugeLocalStorageIsHealthy.labels(st3).get());
 
     callTimes++;
     assertFalse(checker.checkIsHealthy());
@@ -87,6 +93,9 @@ public class StorageCheckerTest {
     assertEquals(2100, ShuffleServerMetrics.gaugeLocalStorageWholeDiskUsedSpace.get());
     assertEquals(3, ShuffleServerMetrics.gaugeLocalStorageTotalDirsNum.get());
     assertEquals(0, ShuffleServerMetrics.gaugeLocalStorageCorruptedDirsNum.get());
+    assertEquals(1, ShuffleServerMetrics.gaugeLocalStorageIsHealthy.labels(st1).get());
+    assertEquals(1, ShuffleServerMetrics.gaugeLocalStorageIsHealthy.labels(st2).get());
+    assertEquals(0, ShuffleServerMetrics.gaugeLocalStorageIsHealthy.labels(st3).get());
 
     callTimes++;
     assertTrue(checker.checkIsHealthy());
