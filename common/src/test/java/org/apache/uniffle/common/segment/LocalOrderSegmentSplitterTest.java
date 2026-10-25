@@ -56,14 +56,11 @@ public class LocalOrderSegmentSplitterTest {
         new LocalOrderSegmentSplitter(taskIds, 1000)
             .split(new ShuffleIndexResult(ByteBuffer.wrap(data), -1));
 
-    assertEquals(2, dataSegments1.size());
+    assertEquals(1, dataSegments1.size());
     assertEquals(16, dataSegments1.get(0).getOffset());
-    assertEquals(16, dataSegments1.get(0).getLength());
-    assertEquals(40, dataSegments1.get(1).getOffset());
-    assertEquals(24, dataSegments1.get(1).getLength());
+    assertEquals(48, dataSegments1.get(0).getLength());
 
-    assertEquals(2, dataSegments1.get(0).getBufferSegments().size());
-    assertEquals(3, dataSegments1.get(1).getBufferSegments().size());
+    assertEquals(5, dataSegments1.get(0).getBufferSegments().size());
 
     BufferSegment bufferSegment = dataSegments1.get(0).getBufferSegments().get(0);
     assertEquals(0, bufferSegment.getOffset());
@@ -71,15 +68,14 @@ public class LocalOrderSegmentSplitterTest {
     bufferSegment = dataSegments1.get(0).getBufferSegments().get(1);
     assertEquals(8, bufferSegment.getOffset());
     assertEquals(8, bufferSegment.getLength());
-
-    bufferSegment = dataSegments1.get(1).getBufferSegments().get(0);
-    assertEquals(0, bufferSegment.getOffset());
+    bufferSegment = dataSegments1.get(0).getBufferSegments().get(2);
+    assertEquals(24, bufferSegment.getOffset());
     assertEquals(8, bufferSegment.getLength());
-    bufferSegment = dataSegments1.get(1).getBufferSegments().get(1);
-    assertEquals(8, bufferSegment.getOffset());
+    bufferSegment = dataSegments1.get(0).getBufferSegments().get(3);
+    assertEquals(32, bufferSegment.getOffset());
     assertEquals(8, bufferSegment.getLength());
-    bufferSegment = dataSegments1.get(1).getBufferSegments().get(2);
-    assertEquals(16, bufferSegment.getOffset());
+    bufferSegment = dataSegments1.get(0).getBufferSegments().get(4);
+    assertEquals(40, bufferSegment.getOffset());
     assertEquals(8, bufferSegment.getLength());
 
     // case2
@@ -88,14 +84,11 @@ public class LocalOrderSegmentSplitterTest {
     List<ShuffleDataSegment> dataSegments2 =
         new LocalOrderSegmentSplitter(taskIds, 32)
             .split(new ShuffleIndexResult(ByteBuffer.wrap(data), -1));
-    assertEquals(2, dataSegments2.size());
+    assertEquals(1, dataSegments2.size());
     assertEquals(0, dataSegments2.get(0).getOffset());
-    assertEquals(2, dataSegments2.get(0).getLength());
-    assertEquals(2, dataSegments2.get(0).getBufferSegments().size());
-
-    assertEquals(3, dataSegments2.get(1).getOffset());
-    assertEquals(1, dataSegments2.get(1).getLength());
-    assertEquals(1, dataSegments2.get(1).getBufferSegments().size());
+    assertEquals(4, dataSegments2.get(0).getLength());
+    assertEquals(3, dataSegments2.get(0).getBufferSegments().size());
+    assertEquals(3, dataSegments2.get(0).getBufferSegments().get(2).getOffset());
 
     // case3
     taskIds = Roaring64NavigableMap.bitmapOf(1, 2, 4);
@@ -117,12 +110,13 @@ public class LocalOrderSegmentSplitterTest {
     assertEquals(3, dataSegments3.get(0).getBufferSegments().size());
 
     assertEquals(3, dataSegments3.get(1).getOffset());
-    assertEquals(1, dataSegments3.get(1).getLength());
-    assertEquals(1, dataSegments3.get(1).getBufferSegments().size());
+    assertEquals(3, dataSegments3.get(1).getLength());
+    assertEquals(2, dataSegments3.get(1).getBufferSegments().size());
+    assertEquals(2, dataSegments3.get(1).getBufferSegments().get(1).getOffset());
 
-    assertEquals(5, dataSegments3.get(2).getOffset());
-    assertEquals(2, dataSegments3.get(2).getLength());
-    assertEquals(2, dataSegments3.get(2).getBufferSegments().size());
+    assertEquals(6, dataSegments3.get(2).getOffset());
+    assertEquals(1, dataSegments3.get(2).getLength());
+    assertEquals(1, dataSegments3.get(2).getBufferSegments().size());
 
     // case4
     taskIds = Roaring64NavigableMap.bitmapOf(1, 3);
@@ -130,7 +124,10 @@ public class LocalOrderSegmentSplitterTest {
     List<ShuffleDataSegment> dataSegments4 =
         new LocalOrderSegmentSplitter(taskIds, 3)
             .split(new ShuffleIndexResult(ByteBuffer.wrap(data), -1));
-    assertEquals(2, dataSegments4.size());
+    assertEquals(1, dataSegments4.size());
+    assertEquals(3, dataSegments4.get(0).getLength());
+    assertEquals(2, dataSegments4.get(0).getBufferSegments().size());
+    assertEquals(2, dataSegments4.get(0).getBufferSegments().get(1).getOffset());
   }
 
   /**
@@ -200,8 +197,8 @@ public class LocalOrderSegmentSplitterTest {
     /**
      * case1: (32, 5) (16, 1) (10, 1) (16, 2) (6, 1) (8, 1) (10, 3) (9, 1)
      *
-     * <p>It will skip the (32, 5) and merge others into one dataSegment when no exceeding the read
-     * buffer size.
+     * <p>It will skip the (32, 5), include the gap occupied by (10, 3), and merge the expected
+     * blocks into one dataSegment when not exceeding the read buffer size.
      */
     Roaring64NavigableMap taskIds = Roaring64NavigableMap.bitmapOf(1, 2);
     LocalOrderSegmentSplitter splitter = new LocalOrderSegmentSplitter(taskIds, 1000);
@@ -217,9 +214,9 @@ public class LocalOrderSegmentSplitterTest {
             Pair.of(9, 1));
     List<ShuffleDataSegment> dataSegments =
         splitter.split(new ShuffleIndexResult(ByteBuffer.wrap(data), -1));
-    assertEquals(2, dataSegments.size());
+    assertEquals(1, dataSegments.size());
     assertEquals(32, dataSegments.get(0).getOffset());
-    assertEquals(56, dataSegments.get(0).getLength());
+    assertEquals(75, dataSegments.get(0).getLength());
 
     List<BufferSegment> bufferSegments = dataSegments.get(0).getBufferSegments();
     assertEquals(0, bufferSegments.get(0).getOffset());
@@ -237,12 +234,8 @@ public class LocalOrderSegmentSplitterTest {
     assertEquals(48, bufferSegments.get(4).getOffset());
     assertEquals(8, bufferSegments.get(4).getLength());
 
-    assertEquals(98, dataSegments.get(1).getOffset());
-    assertEquals(9, dataSegments.get(1).getLength());
-    bufferSegments = dataSegments.get(1).getBufferSegments();
-    assertEquals(1, bufferSegments.size());
-    assertEquals(0, bufferSegments.get(0).getOffset());
-    assertEquals(9, bufferSegments.get(0).getLength());
+    assertEquals(66, bufferSegments.get(5).getOffset());
+    assertEquals(9, bufferSegments.get(5).getLength());
 
     /**
      * case2: (16, 1) (16, 2) (6, 1)
@@ -258,6 +251,50 @@ public class LocalOrderSegmentSplitterTest {
     assertEquals(32, dataSegments.get(0).getLength());
     assertEquals(32, dataSegments.get(1).getOffset());
     assertEquals(6, dataSegments.get(1).getLength());
+  }
+
+  @Test
+  public void testGroupSmallFilteredSegmentsIntoOneRead() {
+    Roaring64NavigableMap taskIds = Roaring64NavigableMap.bitmapOf(1);
+    byte[] data = generateData(Pair.of(8, 1), Pair.of(8, 2), Pair.of(8, 1), Pair.of(16, 2));
+
+    List<ShuffleDataSegment> dataSegments =
+        new LocalOrderSegmentSplitter(taskIds, 64)
+            .split(new ShuffleIndexResult(ByteBuffer.wrap(data), -1));
+
+    assertEquals(1, dataSegments.size());
+    ShuffleDataSegment segment = dataSegments.get(0);
+    // The trailing filtered block is not part of the read span.
+    assertSegment(segment, 0, 24, 2, 0);
+    assertEquals(0, segment.getBufferSegments().get(0).getOffset());
+    assertEquals(16, segment.getBufferSegments().get(1).getOffset());
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {24, 32})
+  public void testFilteredGapAtOrBeyondReadBufferBoundaryStartsNewSegment(int filteredLength) {
+    Roaring64NavigableMap taskIds = Roaring64NavigableMap.bitmapOf(1);
+    byte[] data = generateData(Pair.of(8, 1), Pair.of(filteredLength, 2), Pair.of(8, 1));
+
+    List<ShuffleDataSegment> dataSegments =
+        new LocalOrderSegmentSplitter(taskIds, 32)
+            .split(new ShuffleIndexResult(ByteBuffer.wrap(data), -1));
+
+    assertEquals(2, dataSegments.size());
+    assertSegment(dataSegments.get(0), 0, 8, 1, 0);
+    assertSegment(dataSegments.get(1), 8 + filteredLength, 8, 1, 0);
+  }
+
+  @Test
+  public void testFixedSizeSplitterStillUsesContiguousBlocks() {
+    byte[] data = generateData(Pair.of(8, 1), Pair.of(24, 2), Pair.of(8, 1));
+
+    List<ShuffleDataSegment> dataSegments =
+        new FixedSizeSegmentSplitter(32).split(new ShuffleIndexResult(ByteBuffer.wrap(data), -1));
+
+    assertEquals(2, dataSegments.size());
+    assertSegment(dataSegments.get(0), 0, 32, 2, 0);
+    assertSegment(dataSegments.get(1), 32, 8, 1, 0);
   }
 
   @Test
@@ -283,10 +320,10 @@ public class LocalOrderSegmentSplitterTest {
     assertEquals(32, dataSegments.get(0).getLength());
 
     assertEquals(32, dataSegments.get(1).getOffset());
-    assertEquals(16, dataSegments.get(1).getLength());
+    assertEquals(42, dataSegments.get(1).getLength());
 
-    assertEquals(58, dataSegments.get(2).getOffset());
-    assertEquals(22, dataSegments.get(2).getLength());
+    assertEquals(74, dataSegments.get(2).getOffset());
+    assertEquals(6, dataSegments.get(2).getLength());
 
     /**
      * case2: (32, 2) (16, 1) (10, 1) (16, 2) (6, 1)
@@ -334,11 +371,12 @@ public class LocalOrderSegmentSplitterTest {
     dataSegments =
         new LocalOrderSegmentSplitter(taskIds, 10000)
             .split(new ShuffleIndexResult(ByteBuffer.wrap(data), -1));
-    assertEquals(2, dataSegments.size());
+    assertEquals(1, dataSegments.size());
     assertEquals(16, dataSegments.get(0).getOffset());
-    assertEquals(16, dataSegments.get(0).getLength());
-    assertEquals(64, dataSegments.get(1).getOffset());
-    assertEquals(16, dataSegments.get(1).getLength());
+    assertEquals(64, dataSegments.get(0).getLength());
+    assertEquals(2, dataSegments.get(0).getBufferSegments().size());
+    assertEquals(0, dataSegments.get(0).getBufferSegments().get(0).getOffset());
+    assertEquals(48, dataSegments.get(0).getBufferSegments().get(1).getOffset());
 
     /** case5 */
     data =
@@ -355,11 +393,11 @@ public class LocalOrderSegmentSplitterTest {
     dataSegments =
         new LocalOrderSegmentSplitter(taskIds, 10000)
             .split(new ShuffleIndexResult(ByteBuffer.wrap(data), -1));
-    assertEquals(2, dataSegments.size());
+    assertEquals(1, dataSegments.size());
     assertEquals(0, dataSegments.get(0).getOffset());
-    assertEquals(3, dataSegments.get(0).getLength());
-    assertEquals(5, dataSegments.get(1).getOffset());
-    assertEquals(1, dataSegments.get(1).getLength());
+    assertEquals(6, dataSegments.get(0).getLength());
+    assertEquals(4, dataSegments.get(0).getBufferSegments().size());
+    assertEquals(5, dataSegments.get(0).getBufferSegments().get(3).getOffset());
   }
 
   @SafeVarargs
@@ -403,7 +441,7 @@ public class LocalOrderSegmentSplitterTest {
         splitter.split(
             new ShuffleIndexResult(
                 new NettyManagedBuffer(Unpooled.wrappedBuffer(dataCombined)), -1L, "", storageIds));
-    assertEquals(4, shuffleDataSegments.size(), "Expected 3 segments");
+    assertEquals(3, shuffleDataSegments.size(), "Expected 3 segments");
     assertEquals(
         5,
         shuffleDataSegments.stream().mapToInt(s -> s.getBufferSegments().size()).sum(),
@@ -411,14 +449,11 @@ public class LocalOrderSegmentSplitterTest {
     // First data segment come from the 0,1 part of data1 since first data array contains none with
     // taskId 1.
     assertSegment(shuffleDataSegments.get(0), 0, 58, 2, storageIds[1]);
-    // This data segment come from the No.3 part of data1 since No.4 part is not belong to taskId 1,
-    // close this data segment cause discontinuous block.
-    assertSegment(shuffleDataSegments.get(1), 58, 10, 1, storageIds[1]);
-    // This data segment come from the No.5 part of data1 since storage id changed.
-    assertSegment(shuffleDataSegments.get(2), 100, 6, 1, storageIds[1]);
+    // This data segment includes the No.4 filtered gap and ends with the No.5 expected block.
+    assertSegment(shuffleDataSegments.get(1), 58, 48, 2, storageIds[1]);
     // This data segment come from the No.1 part of data2 since other parts are not belong to taskId
     // 1.
-    assertSegment(shuffleDataSegments.get(3), 0, 32, 1, storageIds[2]);
+    assertSegment(shuffleDataSegments.get(2), 0, 32, 1, storageIds[2]);
   }
 
   private void assertSegment(
