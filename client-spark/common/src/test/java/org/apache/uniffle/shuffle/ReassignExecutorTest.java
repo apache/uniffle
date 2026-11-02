@@ -106,7 +106,7 @@ public class ReassignExecutorTest {
             PartitionSplitMode.LOAD_BALANCE);
     handle.updateAssignmentOnPartitionSplit(132, original.getId(), Collections.singleton(failed));
     handle.updateAssignmentOnPartitionSplit(
-            132, failed.getId(), Collections.singleton(replacement));
+        132, failed.getId(), Collections.singleton(replacement));
 
     when(taskContext.taskAttemptId()).thenReturn(72602L);
     try (MockedStatic<TaskContext> tasks = mockStatic(TaskContext.class)) {
