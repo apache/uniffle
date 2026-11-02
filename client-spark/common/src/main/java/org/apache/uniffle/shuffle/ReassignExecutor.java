@@ -410,6 +410,9 @@ public class ReassignExecutor {
               .collect(
                   Collectors.toMap(
                       Map.Entry::getKey, x -> x.getValue().stream().findFirst().get()));
+      // Try existing split servers before requesting a new assignment from the Driver.
+      taskAttemptAssignment.tryNextServerForSplitPartition(
+          partitionId, new ArrayList<>(serverBlocks.keySet()));
       for (Map.Entry<ShuffleServerInfo, TrackingBlockStatus> blockStatusEntry :
           serverBlocks.entrySet()) {
         String serverId = blockStatusEntry.getKey().getId();
