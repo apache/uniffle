@@ -317,7 +317,7 @@ public class RssDAGAppMasterForWordCountWithFailures extends RssDAGAppMaster {
         if (attempt.getState() == TaskAttemptState.SUCCEEDED
             && event.getType() == TaskAttemptEventType.TA_NODE_FAILED) {
           LOG.info(
-              "We should not recompute the succeeded task attempt, though taskattempt {} recieved event {}",
+              "We should not recompute the succeeded task attempt, though taskattempt {} received event {}",
               attempt,
               event);
           return;
