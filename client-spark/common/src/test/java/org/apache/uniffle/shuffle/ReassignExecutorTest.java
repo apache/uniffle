@@ -27,23 +27,31 @@ import java.util.function.Consumer;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.spark.TaskContext;
+import org.apache.spark.shuffle.handle.MutableShuffleHandleInfo;
 import org.apache.spark.shuffle.writer.TaskAttemptAssignment;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 
 import org.apache.uniffle.client.api.ShuffleManagerClient;
 import org.apache.uniffle.client.impl.FailedBlockSendTracker;
 import org.apache.uniffle.client.impl.TrackingBlockStatus;
+import org.apache.uniffle.client.response.RssReassignOnBlockSendFailureResponse;
+import org.apache.uniffle.common.PartitionSplitMode;
+import org.apache.uniffle.common.RemoteStorageInfo;
 import org.apache.uniffle.common.ShuffleBlockInfo;
 import org.apache.uniffle.common.ShuffleServerInfo;
 import org.apache.uniffle.common.exception.RssSendFailedException;
 import org.apache.uniffle.common.rpc.StatusCode;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -83,6 +91,67 @@ public class ReassignExecutorTest {
             taskContext,
             1,
             3);
+  }
+
+  @Test
+  void testSendFailureSwitchesToExistingSplitServer() {
+    ShuffleServerInfo original = new ShuffleServerInfo("original", 1000);
+    ShuffleServerInfo failed = new ShuffleServerInfo("failed", 1001);
+    ShuffleServerInfo replacement = new ShuffleServerInfo("replacement", 1002);
+    MutableShuffleHandleInfo handle =
+        new MutableShuffleHandleInfo(
+            1,
+            Collections.singletonMap(132, Collections.singletonList(original)),
+            new RemoteStorageInfo(""),
+            PartitionSplitMode.LOAD_BALANCE);
+    handle.updateAssignmentOnPartitionSplit(132, original.getId(), Collections.singleton(failed));
+    handle.updateAssignmentOnPartitionSplit(
+        132, failed.getId(), Collections.singleton(replacement));
+
+    when(taskContext.taskAttemptId()).thenReturn(72602L);
+    try (MockedStatic<TaskContext> tasks = mockStatic(TaskContext.class)) {
+      tasks.when(TaskContext::get).thenReturn(taskContext);
+      TaskAttemptAssignment assignment = new TaskAttemptAssignment(72602L, handle);
+      assertEquals(Collections.singletonList(failed), assignment.retrieve(132));
+
+      ShuffleBlockInfo block = mock(ShuffleBlockInfo.class);
+      when(block.getPartitionId()).thenReturn(132);
+      when(failedBlockSendTracker.getFailedBlockIds()).thenReturn(Collections.singleton(1L));
+      when(failedBlockSendTracker.getFailedBlockStatus(1L))
+          .thenReturn(
+              Collections.singletonList(
+                  new TrackingBlockStatus(block, failed, StatusCode.NO_BUFFER)));
+
+      // Reproduce a Driver response that leaves the split assignment unchanged.
+      when(shuffleManagerClient.reassignOnBlockSendFailure(any()))
+          .thenReturn(
+              new RssReassignOnBlockSendFailureResponse(
+                  StatusCode.SUCCESS, "", MutableShuffleHandleInfo.toProto(handle)));
+
+      executor =
+          new ReassignExecutor(
+              Collections.singletonMap("task1", failedBlockSendTracker),
+              "task1",
+              assignment,
+              removeBlockStatsFunction,
+              resendBlocksFunction,
+              () -> shuffleManagerClient,
+              taskContext,
+              1,
+              3);
+      executor.reassign();
+
+      verify(block).reassignShuffleServers(Collections.singletonList(replacement));
+      verify(block).incrRetryCnt();
+      verify(resendBlocksFunction).accept(Collections.singletonList(block));
+      verifyNoInteractions(shuffleManagerClient);
+      // Exclusions survive handle refresh, but do not affect other tasks sharing the handle.
+      assignment.update(handle);
+      assertEquals(Collections.singletonList(replacement), assignment.retrieve(132));
+      assertEquals(
+          Collections.singletonList(failed),
+          new TaskAttemptAssignment(72602L, handle).retrieve(132));
+    }
   }
 
   @Test
