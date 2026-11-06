@@ -156,7 +156,7 @@ Other configuration:
 ### Partition reassign in one shuffle attempt
 
 To achieve better task stability, the partition reassignment mechanism has been introduced, which requests new replacement shuffle servers to overcome server instability caused by unhealthy conditions or high memory pressure in a single shuffle attempt. 
-Currently, this feature is not compatible with stage retry and multiple replica mechanisms (additional testing is required).
+This feature is not compatible with multiple replicas: the client refuses to start with it when `spark.rss.data.replica` is above 1. It works together with stage retry since 0.10.0 (#1783): a reassignment updates the current stage attempt's servers, and a retried stage is assigned servers afresh.
 
 Using the following configs to enable this feature 
 

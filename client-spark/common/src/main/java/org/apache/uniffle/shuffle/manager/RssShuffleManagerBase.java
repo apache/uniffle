@@ -292,7 +292,7 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
     }
 
     this.partitionReassignEnabled = rssConf.get(RssClientConf.RSS_CLIENT_REASSIGN_ENABLED);
-    // The feature of partition reassign is exclusive with multiple replicas and stage retry.
+    // The feature of partition reassign is exclusive with multiple replicas.
     if (partitionReassignEnabled) {
       if (dataReplica > 1) {
         throw new RssException(
