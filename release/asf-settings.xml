@@ -29,8 +29,8 @@
             <id>apache.releases.https</id>
             <username>${env.ASF_USERNAME}</username>
             <password>${env.ASF_PASSWORD}</password>
-            <!-- Maven's default User-Agent includes the Java version. Nexus opens a separate
-                 staging repository per User-Agent, and the Spark 4 client is deployed with JDK 17. -->
+            <!-- Maven's default User-Agent includes the Java version. Nexus opens a separate staging
+                 repository per user, IP and User-Agent, and the Spark 4 client is deployed with JDK 17. -->
             <configuration>
                 <httpHeaders>
                     <property>

@@ -25,6 +25,11 @@ ASF_USERNAME=${ASF_USERNAME:?"ASF_USERNAME is required"}
 ASF_PASSWORD=${ASF_PASSWORD:?"ASF_PASSWORD is required"}
 # The Spark 4 client requires JDK 17, the other clients are built with JAVA_HOME.
 JAVA17_HOME=${JAVA17_HOME:?"JAVA17_HOME is required, e.g. /path/to/jdk-17"}
+if [[ ! -x "${JAVA17_HOME}/bin/javac" || "$("${JAVA17_HOME}/bin/java" -version 2>&1)" != *'version "17'* ]]; then
+  echo "JAVA17_HOME must point to a JDK 17: ${JAVA17_HOME}"
+  exit 1
+fi
+JAVA17_HOME="$(cd "${JAVA17_HOME}" && pwd)"
 
 PROJECT_DIR="$(cd "$(dirname "$0")"/..; pwd)"
 cd $PROJECT_DIR
