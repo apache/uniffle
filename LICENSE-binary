@@ -273,6 +273,7 @@ io.prometheus:simpleclient_servlet
 jakarta.validation:jakarta.validation-api
 javax.inject:javax.inject
 org.lz4:lz4-java
+org.apache.commons:commons-collections4
 org.apache.commons:commons-lang3
 org.apache.httpcomponents:httpclient
 org.apache.httpcomponents:httpcore
@@ -287,6 +288,8 @@ org.eclipse.jetty:jetty-security
 org.eclipse.jetty:jetty-server
 org.eclipse.jetty:jetty-servlet
 org.eclipse.jetty:jetty-util
+org.eclipse.jetty:jetty-util-ajax
+org.jctools:jctools-core
 org.roaringbitmap:RoaringBitmap
 org.roaringbitmap:shims
 org.xerial.snappy:snappy-java

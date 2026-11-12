@@ -1219,29 +1219,6 @@
         <artifactId>maven-surefire-plugin</artifactId>
       </plugin>
 
-      <!-- Override this plugin with parent POM to add DISCLAIMER file to artifacts. -->
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-remote-resources-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>process-resource-bundles</id>
-            <goals>
-              <goal>process</goal>
-            </goals>
-            <configuration>
-              <resourceBundles>
-                <resourceBundle>org.apache:apache-jar-resource-bundle:1.4
-                </resourceBundle>
-                <resourceBundle>
-                  org.apache.apache.resources:apache-incubator-disclaimer-resource-bundle:1.2-SNAPSHOT
-                </resourceBundle>
-              </resourceBundles>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-
       <plugin>
         <groupId>org.jacoco</groupId>
         <artifactId>jacoco-maven-plugin</artifactId>
@@ -1271,7 +1248,6 @@
         <configuration>
           <excludes>
             <exclude>LICENSE</exclude>
-            <exclude>DISCLAIMER</exclude>
             <exclude>NOTICE</exclude>
             <exclude>**/target/**</exclude>
             <exclude>**/src/main/resources/META-INF/services/*</exclude>

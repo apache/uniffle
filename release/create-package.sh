@@ -85,7 +85,6 @@ package_binary() {
   tar -zxf $BIN_ORIGIN_NAME
   cp "${PROJECT_DIR}/LICENSE-binary" "${BIN_DIR_NAME}/LICENSE"
   cp "${PROJECT_DIR}/NOTICE-binary" "${BIN_DIR_NAME}/NOTICE"
-  cp "${PROJECT_DIR}/DISCLAIMER" ${BIN_DIR_NAME}
   cp -r "${PROJECT_DIR}/licenses-binary" "${BIN_DIR_NAME}/licenses"
   tar -zcf $BIN_TGZ_FILE $BIN_DIR_NAME
 
