@@ -82,8 +82,8 @@ public class RssSparkConfig {
           .defaultValue(false)
           .withDescription("Whether or not to read shuffle handle cache enabled");
 
-  public static final ConfigOption<Integer> RSS_READ_SHUFFLE_HANDLE_CACHE_MAX_SIZE =
-      ConfigOptions.key("rss.client.read.shuffleHandleCacheMaxSize")
+  public static final ConfigOption<Integer> RSS_READ_SHUFFLE_HANDLE_CACHE_MAX_COUNT =
+      ConfigOptions.key("rss.client.read.shuffleHandleCacheMaxCount")
           .intType()
           .defaultValue(10)
           .withDescription(

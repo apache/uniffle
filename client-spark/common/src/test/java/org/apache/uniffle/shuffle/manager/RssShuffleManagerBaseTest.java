@@ -716,7 +716,7 @@ public class RssShuffleManagerBaseTest {
   void testReadShuffleHandleCacheEviction() {
     SparkConf conf =
         new SparkConf(false)
-            .set(toSparkConfKey(RssSparkConfig.RSS_READ_SHUFFLE_HANDLE_CACHE_MAX_SIZE), "1");
+            .set(toSparkConfKey(RssSparkConfig.RSS_READ_SHUFFLE_HANDLE_CACHE_MAX_COUNT), "1");
     RssShuffleManagerBase manager =
         mock(
             RssShuffleManagerBase.class,

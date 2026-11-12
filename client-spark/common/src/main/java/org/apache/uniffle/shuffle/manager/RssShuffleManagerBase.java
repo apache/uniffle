@@ -115,7 +115,7 @@ import static org.apache.spark.launcher.SparkLauncher.EXECUTOR_CORES;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_BLOCK_ID_SELF_MANAGEMENT_ENABLED;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_PARTITION_REASSIGN_MAX_REASSIGNMENT_SERVER_NUM;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_READ_SHUFFLE_HANDLE_CACHE_ENABLED;
-import static org.apache.spark.shuffle.RssSparkConfig.RSS_READ_SHUFFLE_HANDLE_CACHE_MAX_SIZE;
+import static org.apache.spark.shuffle.RssSparkConfig.RSS_READ_SHUFFLE_HANDLE_CACHE_MAX_COUNT;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_RESUBMIT_STAGE_WITH_FETCH_FAILURE_ENABLED;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_RESUBMIT_STAGE_WITH_WRITE_FAILURE_ENABLED;
 import static org.apache.spark.shuffle.RssSparkConfig.toSparkConfKey;
@@ -400,7 +400,7 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
     this.readShuffleHandleCacheEnabled = rssConf.get(RSS_READ_SHUFFLE_HANDLE_CACHE_ENABLED);
     this.readShuffleHandleCache =
         CacheBuilder.newBuilder()
-            .maximumSize(rssConf.get(RSS_READ_SHUFFLE_HANDLE_CACHE_MAX_SIZE))
+            .maximumSize(rssConf.get(RSS_READ_SHUFFLE_HANDLE_CACHE_MAX_COUNT))
             .build();
   }
 
@@ -456,7 +456,7 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
     this.readShuffleHandleCacheEnabled = rssConf.get(RSS_READ_SHUFFLE_HANDLE_CACHE_ENABLED);
     this.readShuffleHandleCache =
         CacheBuilder.newBuilder()
-            .maximumSize(rssConf.get(RSS_READ_SHUFFLE_HANDLE_CACHE_MAX_SIZE))
+            .maximumSize(rssConf.get(RSS_READ_SHUFFLE_HANDLE_CACHE_MAX_COUNT))
             .build();
   }
 
