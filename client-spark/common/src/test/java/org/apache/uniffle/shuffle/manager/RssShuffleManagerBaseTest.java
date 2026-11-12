@@ -21,11 +21,14 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import com.google.common.collect.ImmutableMap;
 import org.apache.spark.SparkConf;
 import org.apache.spark.shuffle.RssSparkConfig;
+import org.apache.spark.shuffle.handle.ShuffleHandleInfo;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -52,6 +55,7 @@ import static org.apache.uniffle.common.rpc.StatusCode.SUCCESS;
 import static org.apache.uniffle.shuffle.manager.RssShuffleManagerBase.getTaskAttemptIdForBlockId;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrowsExactly;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
@@ -706,5 +710,37 @@ public class RssShuffleManagerBaseTest {
     verify(mockClient1, times(1)).close();
     verify(mockClient2, times(1)).close();
     verify(mockClient3, times(1)).close();
+  }
+
+  @Test
+  void testReadShuffleHandleCacheEviction() {
+    SparkConf conf =
+        new SparkConf(false)
+            .set(toSparkConfKey(RssSparkConfig.RSS_READ_SHUFFLE_HANDLE_CACHE_MAX_SIZE), "1");
+    RssShuffleManagerBase manager =
+        mock(
+            RssShuffleManagerBase.class,
+            withSettings()
+                .useConstructor(conf, false, null, new HashMap<>(), new HashMap<>())
+                .defaultAnswer(CALLS_REAL_METHODS));
+    AtomicInteger fetchCount = new AtomicInteger();
+    ShuffleHandleInfo handle = mock(ShuffleHandleInfo.class);
+    Supplier<ShuffleHandleInfo> fetch =
+        () -> {
+          fetchCount.incrementAndGet();
+          return handle;
+        };
+
+    assertSame(handle, manager.getOrFetchShuffleHandle(1, fetch));
+    assertSame(handle, manager.getOrFetchShuffleHandle(1, fetch));
+    assertEquals(1, fetchCount.get());
+
+    manager.getOrFetchShuffleHandle(2, () -> mock(ShuffleHandleInfo.class));
+    assertSame(handle, manager.getOrFetchShuffleHandle(1, fetch));
+    assertEquals(2, fetchCount.get());
+
+    manager.clearShuffleHandleCache();
+    assertSame(handle, manager.getOrFetchShuffleHandle(1, fetch));
+    assertEquals(3, fetchCount.get());
   }
 }

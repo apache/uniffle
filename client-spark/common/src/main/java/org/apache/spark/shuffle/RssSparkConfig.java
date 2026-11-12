@@ -82,6 +82,13 @@ public class RssSparkConfig {
           .defaultValue(false)
           .withDescription("Whether or not to read shuffle handle cache enabled");
 
+  public static final ConfigOption<Integer> RSS_READ_SHUFFLE_HANDLE_CACHE_MAX_SIZE =
+      ConfigOptions.key("rss.client.read.shuffleHandleCacheMaxSize")
+          .intType()
+          .defaultValue(10)
+          .withDescription(
+              "Maximum number of read shuffle handles to cache. Must be non-negative; zero disables caching.");
+
   public static final ConfigOption<Boolean> RSS_READ_OVERLAPPING_DECOMPRESSION_ENABLED =
       ConfigOptions.key("rss.client.read.overlappingDecompressionEnable")
           .booleanType()
