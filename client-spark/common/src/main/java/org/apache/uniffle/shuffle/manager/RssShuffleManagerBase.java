@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -41,8 +42,11 @@ import java.util.stream.Collectors;
 import scala.Tuple2;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
@@ -111,6 +115,7 @@ import static org.apache.spark.launcher.SparkLauncher.EXECUTOR_CORES;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_BLOCK_ID_SELF_MANAGEMENT_ENABLED;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_PARTITION_REASSIGN_MAX_REASSIGNMENT_SERVER_NUM;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_READ_SHUFFLE_HANDLE_CACHE_ENABLED;
+import static org.apache.spark.shuffle.RssSparkConfig.RSS_READ_SHUFFLE_HANDLE_CACHE_MAX_COUNT;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_RESUBMIT_STAGE_WITH_FETCH_FAILURE_ENABLED;
 import static org.apache.spark.shuffle.RssSparkConfig.RSS_RESUBMIT_STAGE_WITH_WRITE_FAILURE_ENABLED;
 import static org.apache.spark.shuffle.RssSparkConfig.toSparkConfKey;
@@ -190,7 +195,7 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
   // cache to shuffle handle info to reduce the RPC cost when getting the reader.
   // this is only valid when the partition reassign is enabled.
   protected final boolean readShuffleHandleCacheEnabled;
-  private Map<Integer, ShuffleHandleInfo> readShuffleHandleCache = Maps.newConcurrentMap();
+  private final Cache<Integer, ShuffleHandleInfo> readShuffleHandleCache;
 
   private boolean isDriver = false;
 
@@ -393,6 +398,10 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
     this.shuffleIdMappingManager = new ShuffleIdMappingManager();
 
     this.readShuffleHandleCacheEnabled = rssConf.get(RSS_READ_SHUFFLE_HANDLE_CACHE_ENABLED);
+    this.readShuffleHandleCache =
+        CacheBuilder.newBuilder()
+            .maximumSize(rssConf.get(RSS_READ_SHUFFLE_HANDLE_CACHE_MAX_COUNT))
+            .build();
   }
 
   @VisibleForTesting
@@ -445,6 +454,10 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
     this.rssStageResubmitManager = new RssStageResubmitManager();
     this.shuffleIdMappingManager = new ShuffleIdMappingManager();
     this.readShuffleHandleCacheEnabled = rssConf.get(RSS_READ_SHUFFLE_HANDLE_CACHE_ENABLED);
+    this.readShuffleHandleCache =
+        CacheBuilder.newBuilder()
+            .maximumSize(rssConf.get(RSS_READ_SHUFFLE_HANDLE_CACHE_MAX_COUNT))
+            .build();
   }
 
   public BlockIdManager getBlockIdManager() {
@@ -466,7 +479,7 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
         blockIdManager.remove(shuffleId);
       }
       if (readShuffleHandleCache != null) {
-        readShuffleHandleCache.remove(shuffleId);
+        readShuffleHandleCache.invalidate(shuffleId);
       }
       if (shuffleHandleInfoManager != null) {
         shuffleHandleInfoManager.remove(shuffleId);
@@ -1619,31 +1632,32 @@ public abstract class RssShuffleManagerBase implements RssShuffleManagerInterfac
 
   // only for tests
   public void clearShuffleHandleCache() {
-    readShuffleHandleCache.clear();
+    readShuffleHandleCache.invalidateAll();
   }
 
   public ShuffleHandleInfo getOrFetchShuffleHandle(
       int shuffleId, Supplier<ShuffleHandleInfo> func) {
-    ShuffleHandleInfo handle =
-        readShuffleHandleCache.computeIfAbsent(
-            shuffleId,
-            integer -> {
-              long start = System.currentTimeMillis();
-              try {
-                return func.get();
-              } catch (Exception e) {
-                LOG.error("Fail to get the shuffle handle for {}", shuffleId, e);
-              } finally {
-                LOG.info(
-                    "Gotten the shuffle handle for shuffle: {} that costs {} ms",
-                    shuffleId,
-                    System.currentTimeMillis() - start);
+    try {
+      return readShuffleHandleCache.get(
+          shuffleId,
+          () -> {
+            long start = System.currentTimeMillis();
+            try {
+              ShuffleHandleInfo handle = func.get();
+              if (handle == null) {
+                throw new RssException("Shuffle handle id " + shuffleId + " not found");
               }
-              return null;
-            });
-    if (handle == null) {
-      throw new RssException("Shuffle handle id " + shuffleId + " not found");
+              return handle;
+            } finally {
+              LOG.info(
+                  "Gotten the shuffle handle for shuffle: {} that costs {} ms",
+                  shuffleId,
+                  System.currentTimeMillis() - start);
+            }
+          });
+    } catch (ExecutionException | UncheckedExecutionException e) {
+      LOG.error("Fail to get the shuffle handle for {}", shuffleId, e.getCause());
+      throw new RssException("Shuffle handle id " + shuffleId + " not found", e.getCause());
     }
-    return handle;
   }
 }
