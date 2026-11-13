@@ -27,8 +27,9 @@ import org.apache.uniffle.common.ShuffleIndexResult;
 /**
  * {@class LocalOrderSegmentSplitter} will be initialized only when the {@class
  * ShuffleDataDistributionType} is LOCAL_ORDER, which means the index file will be split into
- * several segments according to its locally ordered properties. And it will skip some blocks, but
- * the remaining blocks in a segment are continuous.
+ * several segments according to its locally ordered properties. A read segment may span filtered
+ * blocks to group nearby expected blocks into one local-data request; each expected block's {@link
+ * org.apache.uniffle.common.BufferSegment} offset identifies its position in that span.
  *
  * <p>This strategy will be useful for Spark AQE skew optimization, it will split the single
  * partition into multiple shuffle readers, and each one will fetch partial single partition data
