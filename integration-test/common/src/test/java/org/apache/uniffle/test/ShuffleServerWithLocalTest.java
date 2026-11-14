@@ -57,8 +57,7 @@ import org.apache.uniffle.server.ShuffleServerConf;
 import org.apache.uniffle.storage.util.StorageType;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -109,7 +108,7 @@ public class ShuffleServerWithLocalTest extends ShuffleReadWriteBase {
 
   @ParameterizedTest
   @MethodSource("localWriteReadTestProvider")
-  private void localWriteReadTest(boolean isNettyMode) throws Exception {
+  public void localWriteReadTest(boolean isNettyMode) throws Exception {
     ShuffleServerGrpcClient shuffleServerClient =
         isNettyMode ? nettyShuffleServerClient : grpcShuffleServerClient;
     String testAppId = "localWriteReadTest";
@@ -161,14 +160,14 @@ public class ShuffleServerWithLocalTest extends ShuffleReadWriteBase {
     validateResult(sdr, expectedBlockIds4, expectedData, 3);
 
     List<ShuffleServer> shuffleServers = isNettyMode ? nettyShuffleServers : grpcShuffleServers;
-    assertNotNull(
+    assertTrue(
         shuffleServers
             .get(0)
             .getShuffleTaskManager()
             .getShuffleBlockIdManager()
             .contains(testAppId));
     Thread.sleep(8000);
-    assertNull(
+    assertFalse(
         shuffleServers
             .get(0)
             .getShuffleTaskManager()

@@ -227,7 +227,7 @@ public class ShuffleServerWithKerberizedHadoopTest extends KerberizedHadoopBase 
 
   @ParameterizedTest
   @MethodSource("hadoopWriteReadTestProvider")
-  private void hadoopWriteReadTest(boolean isNettyMode) throws Exception {
+  public void hadoopWriteReadTest(boolean isNettyMode) throws Exception {
     ShuffleServerGrpcClient shuffleServerClient =
         isNettyMode ? nettyShuffleServerClient : grpcShuffleServerClient;
     String alexDir = kerberizedHadoop.getSchemeAndAuthorityPrefix() + "/alex/";
@@ -274,7 +274,7 @@ public class ShuffleServerWithKerberizedHadoopTest extends KerberizedHadoopBase 
     RssSendShuffleDataResponse response = shuffleServerClient.sendShuffleData(rssdr);
     assertSame(StatusCode.SUCCESS, response.getStatusCode());
 
-    ShuffleServer shuffleServer = isNettyMode ? grpcShuffleServer : nettyShuffleServer;
+    ShuffleServer shuffleServer = isNettyMode ? nettyShuffleServer : grpcShuffleServer;
     assertEquals(456, shuffleServer.getShuffleBufferManager().getUsedMemory());
     assertEquals(0, shuffleServer.getShuffleBufferManager().getPreAllocatedSize());
     RssSendCommitRequest rscr = new RssSendCommitRequest(appId, 0);
