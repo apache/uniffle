@@ -59,30 +59,31 @@
     <commons-collections4.version>4.4</commons-collections4.version>
     <commons-io.version>2.16.1</commons-io.version>
     <commons-logging.version>1.2</commons-logging.version>
-    <commons-lang3.version>3.10</commons-lang3.version>
-    <commons-codec.version>1.9</commons-codec.version>
+    <commons-lang3.version>3.20.0</commons-lang3.version>
+    <commons-codec.version>1.11</commons-codec.version>
     <codehaus.jackson.version>1.9.13</codehaus.jackson.version>
-    <error_prone_annotations.version>2.23.0</error_prone_annotations.version>
+    <error_prone_annotations.version>2.52.0</error_prone_annotations.version>
     <execution.root>${user.dir}</execution.root>
     <fasterxml.jackson.version>2.10.0</fasterxml.jackson.version>
     <grpc.version>1.64.0</grpc.version>
     <gson.version>2.10.1</gson.version>
-    <guava.version>32.1.3-jre</guava.version>
+    <guava.version>33.8.0-jre</guava.version>
     <hadoop.scope>provided</hadoop.scope>
     <hadoop.version>2.8.5</hadoop.version>
     <hadoop.artifact.core>hadoop-common</hadoop.artifact.core>
     <hadoop.artifact.client>hadoop-client</hadoop.artifact.client>
     <hadoop.artifact.minicluster>hadoop-minicluster</hadoop.artifact.minicluster>
-    <httpclient.version>4.5.3</httpclient.version>
+    <httpclient.version>4.5.14</httpclient.version>
     <httpcore.version>4.4.4</httpcore.version>
     <java.version>1.8</java.version>
     <javax.annotation.version>1.3.2</javax.annotation.version>
+    <j2objc-annotations.version>3.1</j2objc-annotations.version>
     <jetty.version>9.3.24.v20180605</jetty.version>
     <hbase.thirdparty.version>4.1.4</hbase.thirdparty.version>
     <junit.jupiter.version>5.8.2</junit.jupiter.version>
     <junit.platform.version>1.8.2</junit.platform.version>
     <system.stubs.version>2.0.1</system.stubs.version>
-    <log4j.version>2.23.0</log4j.version>
+    <log4j.version>2.25.5</log4j.version>
     <lombok.version>1.18.34</lombok.version>
     <maven-checkstyle-plugin.version>3.1.2</maven-checkstyle-plugin.version>
     <maven.compiler.source>${java.version}</maven.compiler.source>
@@ -115,7 +116,7 @@
     <spotbugs-maven-plugin.version>4.7.0.0</spotbugs-maven-plugin.version>
     <system-rules.version>1.19.0</system-rules.version>
     <zstd-jni.version>1.5.2-3</zstd-jni.version>
-    <snappy-java.version>1.1.8.4</snappy-java.version>
+    <snappy-java.version>1.1.10.12</snappy-java.version>
     <test.redirectToFile>true</test.redirectToFile>
     <trimStackTrace>false</trimStackTrace>
     <skipUTs>${skipTests}</skipUTs>
@@ -593,6 +594,12 @@
         <artifactId>error_prone_annotations</artifactId>
         <version>${error_prone_annotations.version}
         </version> <!-- prefer to use 2.3.3 or later -->
+      </dependency>
+      <!-- protobuf-java-util declares j2objc-annotations 2.8, while guava needs a newer one -->
+      <dependency>
+        <groupId>com.google.j2objc</groupId>
+        <artifactId>j2objc-annotations</artifactId>
+        <version>${j2objc-annotations.version}</version>
       </dependency>
 
       <dependency>
@@ -2003,7 +2010,6 @@
         <java.version>17</java.version>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
-        <commons-lang3.version>3.17.0</commons-lang3.version>
         <extraJavaTestArgs>
           -XX:+IgnoreUnrecognizedVMOptions
           --add-opens=java.base/java.lang=ALL-UNNAMED
@@ -2178,7 +2184,6 @@
         <java.version>17</java.version>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
-        <commons-lang3.version>3.17.0</commons-lang3.version>
         <extraJavaTestArgs>
           -XX:+IgnoreUnrecognizedVMOptions
           --add-opens=java.base/java.lang=ALL-UNNAMED
@@ -2366,7 +2371,6 @@
         <java.version>17</java.version>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
-        <commons-lang3.version>3.17.0</commons-lang3.version>
         <extraJavaTestArgs>
           -XX:+IgnoreUnrecognizedVMOptions
           --add-opens=java.base/java.lang=ALL-UNNAMED
@@ -2937,7 +2941,6 @@
           Bouncy Castle classes required by the Kerberos MiniDFS tests.
         -->
         <hadoop.artifact.minicluster>hadoop-minicluster</hadoop.artifact.minicluster>
-        <commons-codec.version>1.11</commons-codec.version>
         <metrics.version>3.2.4</metrics.version>
       </properties>
       <dependencies>
