@@ -89,6 +89,9 @@ public class TopNShuffleDataSizeOfAppCalcTaskTest {
 
   @BeforeAll
   public static void setupServers(@TempDir File tmpDir) throws Exception {
+    // An earlier test may leave ShuffleServerMetrics registered on the default registry, which
+    // cleanMetrics() clears after the first case. Start the servers with their own registry.
+    ShuffleServerMetrics.clear();
     File dataDir1 = new File(tmpDir, "data1");
     String grpcBasePath = dataDir1.getAbsolutePath();
     ShuffleServerConf grpcShuffleServerConf = buildShuffleServerConf(ServerType.GRPC, grpcBasePath);
