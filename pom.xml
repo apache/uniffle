@@ -456,6 +456,16 @@
         <artifactId>hadoop-minikdc</artifactId>
         <version>${hadoop.version}</version>
         <scope>test</scope>
+        <exclusions>
+          <!--
+            Hadoop 3.2's minikdc pulls bcprov-jdk15on 1.52 through Kerby's nimbus-jose-jwt.
+            The hadoop3.2 profile adds bcprov-jdk18on instead.
+          -->
+          <exclusion>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcprov-jdk15on</artifactId>
+          </exclusion>
+        </exclusions>
       </dependency>
       <dependency>
         <groupId>org.apache.hadoop</groupId>
@@ -2943,14 +2953,14 @@
       <dependencies>
         <dependency>
           <groupId>org.bouncycastle</groupId>
-          <artifactId>bcprov-jdk15on</artifactId>
-          <version>1.60</version>
+          <artifactId>bcprov-jdk18on</artifactId>
+          <version>1.87</version>
           <scope>test</scope>
         </dependency>
         <dependency>
           <groupId>junit</groupId>
           <artifactId>junit</artifactId>
-          <version>4.11</version>
+          <version>4.13.2</version>
           <scope>test</scope>
         </dependency>
       </dependencies>
