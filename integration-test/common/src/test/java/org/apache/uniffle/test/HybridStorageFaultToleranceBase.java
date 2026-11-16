@@ -86,7 +86,7 @@ public abstract class HybridStorageFaultToleranceBase extends ShuffleReadWriteBa
     return Stream.of(Arguments.of(true), Arguments.of(false));
   }
 
-  @Disabled("Fails since it was made public, tracked in #ISSUE")
+  @Disabled("Fails since it was made public, tracked in #2830")
   @ParameterizedTest
   @MethodSource("fallbackTestProvider")
   public void fallbackTest(boolean isNettyMode) throws Exception {

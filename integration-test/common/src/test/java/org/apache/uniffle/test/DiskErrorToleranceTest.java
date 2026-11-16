@@ -124,7 +124,7 @@ public class DiskErrorToleranceTest extends ShuffleReadWriteBase {
     return Stream.of(Arguments.of(true), Arguments.of(false));
   }
 
-  @Disabled("Fails since it was made public, tracked in #ISSUE")
+  @Disabled("Fails since it was made public, tracked in #2830")
   @ParameterizedTest
   @MethodSource("diskErrorTestProvider")
   public void diskErrorTest(boolean isNettyMode) throws Exception {

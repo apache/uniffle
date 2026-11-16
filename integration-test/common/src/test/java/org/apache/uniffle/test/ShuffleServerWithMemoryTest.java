@@ -126,7 +126,7 @@ public class ShuffleServerWithMemoryTest extends ShuffleReadWriteBase {
     return Stream.of(Arguments.of(true), Arguments.of(false));
   }
 
-  @Disabled("Fails since it was made public, tracked in #ISSUE")
+  @Disabled("Fails since it was made public, tracked in #2830")
   @ParameterizedTest
   @MethodSource("memoryWriteReadTestProvider")
   public void memoryWriteReadTestProvider(boolean isNettyMode) throws Exception {
@@ -371,7 +371,7 @@ public class ShuffleServerWithMemoryTest extends ShuffleReadWriteBase {
     return Stream.of(Arguments.of(true), Arguments.of(false));
   }
 
-  @Disabled("Fails since it was made public, tracked in #ISSUE")
+  @Disabled("Fails since it was made public, tracked in #2830")
   @ParameterizedTest
   @MethodSource("memoryAndLocalFileReadWithFilterTestProvider")
   public void memoryAndLocalFileReadWithFilterTest(boolean isNettyMode) throws Exception {

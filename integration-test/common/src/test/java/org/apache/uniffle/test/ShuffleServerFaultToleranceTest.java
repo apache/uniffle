@@ -113,7 +113,7 @@ public class ShuffleServerFaultToleranceTest extends ShuffleReadWriteBase {
     return Stream.of(Arguments.of(true), Arguments.of(false));
   }
 
-  @Disabled("Fails since it was made public, tracked in #ISSUE")
+  @Disabled("Fails since it was made public, tracked in #2830")
   @ParameterizedTest
   @MethodSource("testReadFaultToleranceProvider")
   public void testReadFaultTolerance(boolean isNettyMode) throws Exception {

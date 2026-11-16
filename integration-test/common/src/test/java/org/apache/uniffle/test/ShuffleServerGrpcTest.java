@@ -665,7 +665,7 @@ public class ShuffleServerGrpcTest extends IntegrationTestBase {
     return Stream.of(Arguments.of(true), Arguments.of(false));
   }
 
-  @Disabled("Fails since it was made public, tracked in #ISSUE")
+  @Disabled("Fails since it was made public, tracked in #2830")
   @ParameterizedTest
   @MethodSource("sendDataAndRequireBufferTestProvider")
   public void sendDataAndRequireBufferTest(boolean isNettyMode) throws IOException {
