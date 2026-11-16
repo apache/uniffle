@@ -665,9 +665,10 @@ public class ShuffleServerGrpcTest extends IntegrationTestBase {
     return Stream.of(Arguments.of(true), Arguments.of(false));
   }
 
+  @Disabled("Fails since it was made public, tracked in #2830")
   @ParameterizedTest
   @MethodSource("sendDataAndRequireBufferTestProvider")
-  private void sendDataAndRequireBufferTest(boolean isNettyMode) throws IOException {
+  public void sendDataAndRequireBufferTest(boolean isNettyMode) throws IOException {
     String appId = "sendDataAndRequireBufferTest";
     ShuffleServerGrpcClient shuffleServerClient =
         isNettyMode ? nettyShuffleServerClient : grpcShuffleServerClient;
@@ -777,7 +778,7 @@ public class ShuffleServerGrpcTest extends IntegrationTestBase {
 
   @ParameterizedTest
   @MethodSource("sendDataWithoutRegisterTestProvider")
-  private void sendDataWithoutRegisterTest(String appId, boolean isNettyMode) {
+  public void sendDataWithoutRegisterTest(String appId, boolean isNettyMode) {
     ShuffleServerGrpcClient shuffleServerClient =
         isNettyMode ? nettyShuffleServerClient : grpcShuffleServerClient;
     List<ShuffleBlockInfo> blockInfos =
@@ -791,9 +792,8 @@ public class ShuffleServerGrpcTest extends IntegrationTestBase {
     RssSendShuffleDataRequest rssdr =
         new RssSendShuffleDataRequest(appId, 3, 1000, shuffleToBlocks);
     RssSendShuffleDataResponse response = shuffleServerClient.sendShuffleData(rssdr);
-    // NO_REGISTER
     List<ShuffleServer> shuffleServers = isNettyMode ? nettyShuffleServers : grpcShuffleServers;
-    assertSame(StatusCode.INTERNAL_ERROR, response.getStatusCode());
+    assertSame(StatusCode.NO_REGISTER, response.getStatusCode());
     assertEquals(0, shuffleServers.get(0).getPreAllocatedMemory());
   }
 

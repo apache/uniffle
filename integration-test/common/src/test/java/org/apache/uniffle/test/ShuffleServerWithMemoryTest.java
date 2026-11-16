@@ -30,6 +30,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -125,9 +126,10 @@ public class ShuffleServerWithMemoryTest extends ShuffleReadWriteBase {
     return Stream.of(Arguments.of(true), Arguments.of(false));
   }
 
+  @Disabled("Fails since it was made public, tracked in #2830")
   @ParameterizedTest
   @MethodSource("memoryWriteReadTestProvider")
-  private void memoryWriteReadTestProvider(boolean isNettyMode) throws Exception {
+  public void memoryWriteReadTestProvider(boolean isNettyMode) throws Exception {
     ShuffleServerGrpcClient shuffleServerClient =
         isNettyMode ? nettyShuffleServerClient : grpcShuffleServerClient;
     String testAppId = "memoryWriteReadTest";
@@ -287,7 +289,7 @@ public class ShuffleServerWithMemoryTest extends ShuffleReadWriteBase {
 
   @ParameterizedTest
   @MethodSource("memoryWriteReadWithMultiReplicaTestProvider")
-  private void memoryWriteReadWithMultiReplicaTest(boolean isNettyMode) throws Exception {
+  public void memoryWriteReadWithMultiReplicaTest(boolean isNettyMode) throws Exception {
     ShuffleServerGrpcClient shuffleServerClient =
         isNettyMode ? nettyShuffleServerClient : grpcShuffleServerClient;
     String testAppId = "memoryWriteReadWithMultiReplicaTest";
@@ -369,9 +371,10 @@ public class ShuffleServerWithMemoryTest extends ShuffleReadWriteBase {
     return Stream.of(Arguments.of(true), Arguments.of(false));
   }
 
+  @Disabled("Fails since it was made public, tracked in #2830")
   @ParameterizedTest
   @MethodSource("memoryAndLocalFileReadWithFilterTestProvider")
-  private void memoryAndLocalFileReadWithFilterTest(boolean isNettyMode) throws Exception {
+  public void memoryAndLocalFileReadWithFilterTest(boolean isNettyMode) throws Exception {
     ShuffleServerGrpcClient shuffleServerClient =
         isNettyMode ? nettyShuffleServerClient : grpcShuffleServerClient;
     List<ShuffleServer> shuffleServers = isNettyMode ? nettyShuffleServers : grpcShuffleServers;

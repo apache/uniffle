@@ -157,7 +157,7 @@ public class ShuffleServerWithLocalOfLocalOrderTest extends ShuffleReadWriteBase
 
   @ParameterizedTest
   @MethodSource("testWriteAndReadWithSpecifiedMapRangeProvider")
-  private void testWriteAndReadWithSpecifiedMapRange(boolean isNettyMode) throws Exception {
+  public void testWriteAndReadWithSpecifiedMapRange(boolean isNettyMode) throws Exception {
     ShuffleServerGrpcClient shuffleServerClient =
         isNettyMode ? nettyShuffleServerClient : grpcShuffleServerClient;
     String testAppId = "testWriteAndReadWithSpecifiedMapRange";

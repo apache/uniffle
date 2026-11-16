@@ -18,6 +18,7 @@
 package org.apache.uniffle.server;
 
 import java.io.File;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -32,6 +33,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -39,8 +41,6 @@ import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import org.apache.uniffle.client.impl.grpc.ShuffleServerGrpcClient;
 import org.apache.uniffle.client.impl.grpc.ShuffleServerGrpcNettyClient;
@@ -56,12 +56,10 @@ import org.apache.uniffle.common.rpc.StatusCode;
 import org.apache.uniffle.common.util.RssUtils;
 import org.apache.uniffle.storage.util.StorageType;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TopNShuffleDataSizeOfAppCalcTaskTest {
-  private static final Logger LOG =
-      LoggerFactory.getLogger(TopNShuffleDataSizeOfAppCalcTaskTest.class);
 
   protected static List<ShuffleServer> shuffleServers = Lists.newArrayList();
   private static ShuffleServerConf grpcShuffleServerConfig;
@@ -91,6 +89,9 @@ public class TopNShuffleDataSizeOfAppCalcTaskTest {
 
   @BeforeAll
   public static void setupServers(@TempDir File tmpDir) throws Exception {
+    // An earlier test may leave ShuffleServerMetrics registered on the default registry, which
+    // cleanMetrics() clears after the first case. Start the servers with their own registry.
+    ShuffleServerMetrics.clear();
     File dataDir1 = new File(tmpDir, "data1");
     String grpcBasePath = dataDir1.getAbsolutePath();
     ShuffleServerConf grpcShuffleServerConf = buildShuffleServerConf(ServerType.GRPC, grpcBasePath);
@@ -216,7 +217,7 @@ public class TopNShuffleDataSizeOfAppCalcTaskTest {
 
   @ParameterizedTest
   @MethodSource("testTopNShuffleDataSizeOfAppCalcTaskProvider")
-  private void testTopNShuffleDataSizeOfAppCalcTask(boolean isNettyMode) throws Exception {
+  public void testTopNShuffleDataSizeOfAppCalcTask(boolean isNettyMode) throws Exception {
     // Here is 6 app, but config max top n number is 5
     registerAndRequireBuffer("application_id_1", 1000, isNettyMode);
     registerAndRequireBuffer("application_id_2", 2000, isNettyMode);
@@ -225,42 +226,10 @@ public class TopNShuffleDataSizeOfAppCalcTaskTest {
     registerAndRequireBuffer("application_id_5", 5000, isNettyMode);
     registerAndRequireBuffer("application_id_6", 6000, isNettyMode);
 
-    Thread.sleep(500);
     int jettyPort =
         isNettyMode
             ? nettyShuffleServerConfig.getInteger(ShuffleServerConf.JETTY_HTTP_PORT)
             : grpcShuffleServerConfig.getInteger(ShuffleServerConf.JETTY_HTTP_PORT);
-    String content =
-        TestUtils.httpGet(String.format("http://127.0.0.1:%s/metrics/server", jettyPort));
-    LOG.info(content);
-    ObjectMapper mapper = new ObjectMapper();
-    JsonNode actualObj = mapper.readTree(content);
-    JsonNode metricsNode = actualObj.get("metrics");
-    Set<String> topNTotalDataSizeApps = new HashSet<>();
-    Set<String> topNInMemoryDataSizeApps = new HashSet<>();
-    for (int i = 0; i < metricsNode.size(); i++) {
-      JsonNode metricsName = metricsNode.get(i).get("name");
-      if (ShuffleServerMetrics.TOPN_OF_TOTAL_DATA_SIZE_FOR_APP.equals(metricsName.textValue())) {
-        Iterator<Map.Entry<String, JsonNode>> it = metricsNode.get(i).fields();
-        while (it.hasNext()) {
-          Map.Entry<String, JsonNode> entry = it.next();
-          if ("labelValues".equalsIgnoreCase(entry.getKey())) {
-            topNTotalDataSizeApps.add(entry.getValue().toString());
-          }
-        }
-      }
-      if (ShuffleServerMetrics.TOPN_OF_IN_MEMORY_DATA_SIZE_FOR_APP.equals(
-          metricsName.textValue())) {
-        Iterator<Map.Entry<String, JsonNode>> it = metricsNode.get(i).fields();
-        while (it.hasNext()) {
-          Map.Entry<String, JsonNode> entry = it.next();
-          if ("labelValues".equalsIgnoreCase(entry.getKey())) {
-            topNInMemoryDataSizeApps.add(entry.getValue().toString());
-          }
-        }
-      }
-    }
-
     Set<String> expectedTopNApps =
         Sets.newHashSet(
             "[\"application_id_6\"]",
@@ -268,12 +237,39 @@ public class TopNShuffleDataSizeOfAppCalcTaskTest {
             "[\"application_id_4\"]",
             "[\"application_id_3\"]",
             "[\"application_id_2\"]");
-    assertTrue(
-        expectedTopNApps.containsAll(topNTotalDataSizeApps)
-            && expectedTopNApps.size() == topNTotalDataSizeApps.size());
-    assertTrue(
-        expectedTopNApps.containsAll(topNInMemoryDataSizeApps)
-            && expectedTopNApps.size() == topNInMemoryDataSizeApps.size());
+    // Both shuffle servers in this JVM share the static TopN gauges, and each server's TopN task
+    // clears them before writing its own result, so poll until this server's result is visible.
+    Awaitility.await()
+        .timeout(Duration.ofSeconds(10))
+        .untilAsserted(
+            () -> {
+              String content =
+                  TestUtils.httpGet(String.format("http://127.0.0.1:%s/metrics/server", jettyPort));
+              JsonNode metricsNode = new ObjectMapper().readTree(content).get("metrics");
+              assertEquals(
+                  expectedTopNApps,
+                  labelValuesOf(metricsNode, ShuffleServerMetrics.TOPN_OF_TOTAL_DATA_SIZE_FOR_APP));
+              assertEquals(
+                  expectedTopNApps,
+                  labelValuesOf(
+                      metricsNode, ShuffleServerMetrics.TOPN_OF_IN_MEMORY_DATA_SIZE_FOR_APP));
+            });
+  }
+
+  private static Set<String> labelValuesOf(JsonNode metricsNode, String metricName) {
+    Set<String> labelValues = new HashSet<>();
+    for (int i = 0; i < metricsNode.size(); i++) {
+      if (metricName.equals(metricsNode.get(i).get("name").textValue())) {
+        Iterator<Map.Entry<String, JsonNode>> it = metricsNode.get(i).fields();
+        while (it.hasNext()) {
+          Map.Entry<String, JsonNode> entry = it.next();
+          if ("labelValues".equalsIgnoreCase(entry.getKey())) {
+            labelValues.add(entry.getValue().toString());
+          }
+        }
+      }
+    }
+    return labelValues;
   }
 
   @AfterEach

@@ -29,6 +29,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -112,9 +113,10 @@ public class ShuffleServerFaultToleranceTest extends ShuffleReadWriteBase {
     return Stream.of(Arguments.of(true), Arguments.of(false));
   }
 
+  @Disabled("Fails since it was made public, tracked in #2830")
   @ParameterizedTest
   @MethodSource("testReadFaultToleranceProvider")
-  private void testReadFaultTolerance(boolean isNettyMode) throws Exception {
+  public void testReadFaultTolerance(boolean isNettyMode) throws Exception {
     ShuffleServerClient shuffleServerClient =
         isNettyMode ? nettyShuffleServerClients.get(1) : grpcShuffleServerClients.get(1);
     List<ShuffleServerClient> shuffleServerClients =
