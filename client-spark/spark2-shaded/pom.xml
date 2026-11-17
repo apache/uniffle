@@ -213,6 +213,10 @@
                   <shadedPattern>${rss.shade.packageName}.org.checkerframework</shadedPattern>
                 </relocation>
                 <relocation>
+                  <pattern>org.jspecify</pattern>
+                  <shadedPattern>${rss.shade.packageName}.org.jspecify</shadedPattern>
+                </relocation>
+                <relocation>
                   <pattern>org.eclipse</pattern>
                   <shadedPattern>${rss.shade.packageName}.org.eclipse</shadedPattern>
                 </relocation>

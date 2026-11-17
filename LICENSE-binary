@@ -290,6 +290,7 @@ org.eclipse.jetty:jetty-servlet
 org.eclipse.jetty:jetty-util
 org.eclipse.jetty:jetty-util-ajax
 org.jctools:jctools-core
+org.jspecify:jspecify
 org.roaringbitmap:RoaringBitmap
 org.roaringbitmap:shims
 org.xerial.snappy:snappy-java
@@ -316,7 +317,6 @@ MIT License
 org.slf4j:slf4j-api
 org.slf4j:slf4j-reload4j
 org.codehaus.mojo:animal-sniffer-annotations
-org.checkerframework:checker-qual
 
 axios
 core-js

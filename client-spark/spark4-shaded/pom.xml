@@ -220,6 +220,10 @@
                   <shadedPattern>${rss.shade.packageName}.org.checkerframework</shadedPattern>
                 </relocation>
                 <relocation>
+                  <pattern>org.jspecify</pattern>
+                  <shadedPattern>${rss.shade.packageName}.org.jspecify</shadedPattern>
+                </relocation>
+                <relocation>
                   <!--
                       Spark 4.1's hadoop 3.4.1 pulls bcprov-jdk18on transitively,
                       and netty 4.2 stopped internally shading jctools. Both leak
