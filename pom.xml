@@ -64,7 +64,8 @@
     <codehaus.jackson.version>1.9.13</codehaus.jackson.version>
     <error_prone_annotations.version>2.52.0</error_prone_annotations.version>
     <execution.root>${user.dir}</execution.root>
-    <fasterxml.jackson.version>2.10.0</fasterxml.jackson.version>
+    <fasterxml.jackson.version>2.18.12</fasterxml.jackson.version>
+    <fasterxml.jackson.annotations.version>${fasterxml.jackson.version}</fasterxml.jackson.annotations.version>
     <grpc.version>1.64.0</grpc.version>
     <gson.version>2.10.1</gson.version>
     <guava.version>33.8.0-jre</guava.version>
@@ -587,6 +588,17 @@
         <groupId>com.fasterxml.jackson.core</groupId>
         <artifactId>jackson-databind</artifactId>
         <version>${fasterxml.jackson.version}</version>
+      </dependency>
+      <!--
+          The server and coordinator jars shade jackson-databind and jackson-core but not
+          jackson-annotations, so the annotations on their classpath must be at least as new
+          as that databind. Without this entry the Spark integration tests, which run the
+          servers next to Spark, get Spark's older annotations.
+      -->
+      <dependency>
+        <groupId>com.fasterxml.jackson.core</groupId>
+        <artifactId>jackson-annotations</artifactId>
+        <version>${fasterxml.jackson.annotations.version}</version>
       </dependency>
       <dependency>
         <groupId>com.google.errorprone</groupId>
@@ -1998,7 +2010,6 @@
           is not compatible with JDK 17+.
         -->
         <hadoop.artifact.minicluster>hadoop-client-minicluster</hadoop.artifact.minicluster>
-        <fasterxml.jackson.version>2.12.7</fasterxml.jackson.version>
         <jetty.version>9.4.53.v20231009</jetty.version>
         <enforcer.skip>true</enforcer.skip>
         <jackson.version>2.18.2</jackson.version>
@@ -2166,7 +2177,6 @@
           is not compatible with JDK 17+.
         -->
         <hadoop.artifact.minicluster>hadoop-client-minicluster</hadoop.artifact.minicluster>
-        <fasterxml.jackson.version>2.12.7</fasterxml.jackson.version>
         <jetty.version>9.4.53.v20231009</jetty.version>
         <enforcer.skip>true</enforcer.skip>
         <!--
@@ -2176,6 +2186,8 @@
             on a shared ObjectMapper) doesn't blow up under -Pspark4.1.
         -->
         <jackson.version>2.20.0</jackson.version>
+        <!-- Spark's databind 2.20 needs annotations 2.20; older databind works with them too -->
+        <fasterxml.jackson.annotations.version>2.20</fasterxml.jackson.annotations.version>
         <log4j.version>2.24.3</log4j.version>
         <slf4j.version>2.0.16</slf4j.version>
         <java.version>17</java.version>
@@ -2344,7 +2356,6 @@
           is not compatible with JDK 17+.
         -->
         <hadoop.artifact.minicluster>hadoop-client-minicluster</hadoop.artifact.minicluster>
-        <fasterxml.jackson.version>2.12.7</fasterxml.jackson.version>
         <jetty.version>9.4.53.v20231009</jetty.version>
         <enforcer.skip>true</enforcer.skip>
         <!--
@@ -2354,6 +2365,8 @@
             on a shared ObjectMapper) doesn't blow up under -Pspark4.2.
         -->
         <jackson.version>2.21.2</jackson.version>
+        <!-- Spark's databind 2.21 needs annotations 2.21; older databind works with them too -->
+        <fasterxml.jackson.annotations.version>2.21</fasterxml.jackson.annotations.version>
         <log4j.version>2.24.3</log4j.version>
         <slf4j.version>2.0.16</slf4j.version>
         <java.version>17</java.version>
