@@ -205,6 +205,7 @@
 This project bundles some components that are also licensed under the Apache
 License Version 2.0:
 
+at.yawk.lz4:lz4-java
 com.fasterxml.jackson.core:jackson-annotations
 com.fasterxml.jackson.core:jackson-core
 com.fasterxml.jackson.core:jackson-databind
@@ -272,7 +273,6 @@ io.prometheus:simpleclient_pushgateway
 io.prometheus:simpleclient_servlet
 jakarta.validation:jakarta.validation-api
 javax.inject:javax.inject
-org.lz4:lz4-java
 org.apache.commons:commons-collections4
 org.apache.commons:commons-lang3
 org.apache.httpcomponents:httpclient
