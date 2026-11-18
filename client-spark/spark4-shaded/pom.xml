@@ -219,7 +219,8 @@
                 <relocation>
                   <!--
                       Spark 4.1's hadoop 3.4.1 pulls bcprov-jdk18on transitively,
-                      and netty 4.2 stopped internally shading jctools. Both leak
+                      and some netty 4.2 releases (4.2.7, 4.2.13) depend on jctools
+                      instead of shading it internally. Both leak
                       into the shaded jar; relocate them so checkshade.sh stays
                       happy and we don't conflict with users' classpath.
                   -->
