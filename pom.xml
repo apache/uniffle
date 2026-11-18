@@ -91,18 +91,7 @@
     <spotless-maven-plugin.version>2.30.0</spotless-maven-plugin.version>
     <metrics.version>3.1.0</metrics.version>
     <mockito.version>3.12.4</mockito.version>
-    <!--
-        lz4-java relocated its Maven coordinates from org.lz4 to at.yawk.lz4 after
-        1.8.1: org.lz4 ships real jars through 1.8.0 and a 1.8.1 relocation stub,
-        while at.yawk.lz4 hosts 1.8.1 onward. Spark 4.2 needs at.yawk.lz4:1.11.0
-        (LZ4BlockInputStream.newBuilder). Modules that must follow Spark's lz4
-        declare ${lz4.groupId}:lz4-java at ${lz4.version}; the spark4.2 profile
-        flips these to at.yawk.lz4 / 1.11.0, every other profile keeps
-        org.lz4 / 1.8.1. Both coordinates are version-managed in the root
-        dependencyManagement below.
-    -->
-    <lz4.groupId>org.lz4</lz4.groupId>
-    <lz4.version>1.8.1</lz4.version>
+    <lz4.version>1.12.1</lz4.version>
     <netty.version>4.1.109.Final</netty.version>
     <picocli.version>4.5.2</picocli.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -742,25 +731,23 @@
       </dependency>
 
       <dependency>
-        <groupId>org.lz4</groupId>
-        <artifactId>lz4-java</artifactId>
-        <version>1.8.1</version>
-      </dependency>
-
-      <!--
-          lz4-java relocated org.lz4 -> at.yawk.lz4 after 1.8.1 (org.lz4 real jars
-          stop at 1.8.0, 1.8.1 is a relocation stub; at.yawk.lz4 hosts 1.8.1 onward).
-          Everything that pulls lz4 transitively resolves the relocated at.yawk.lz4
-          coordinate, so this entry governs it. Version comes from ${lz4.version}:
-          1.8.1 by default (matches org.lz4:1.8.1 below), bumped to 1.11.0 only by
-          the spark4.2 profile, which needs LZ4BlockInputStream.newBuilder(). Kept
-          here (not in the profile) so flatten-maven-plugin always resolves a version
-          for the ${lz4.groupId}-declared modules.
-      -->
-      <dependency>
         <groupId>at.yawk.lz4</groupId>
         <artifactId>lz4-java</artifactId>
         <version>${lz4.version}</version>
+      </dependency>
+
+      <!--
+          lz4-java moved from org.lz4 to at.yawk.lz4 after 1.8.0; org.lz4:1.8.1 is
+          only a relocation stub. Declare at.yawk.lz4 in Uniffle modules: the Spark
+          shaded poms exclude lz4 by its declared coordinate. This entry exists for
+          Spark 4.1 and earlier, which pull org.lz4:lz4-java 1.4.0 to 1.8.0: pinning
+          it to the stub makes Maven relocate it to at.yawk.lz4, so the classpath
+          gets one lz4 jar instead of two copies of net.jpountz.
+      -->
+      <dependency>
+        <groupId>org.lz4</groupId>
+        <artifactId>lz4-java</artifactId>
+        <version>1.8.1</version>
       </dependency>
 
       <dependency>
@@ -2333,9 +2320,8 @@
           sequential.yml run them in separate invocations.
 
           Structurally a clone of the spark4.1 profile: only spark.version,
-          scala.version, netty.version, jackson.version, and the lz4 coordinate
-          (lz4.groupId + lz4.version) differ. Keep the three spark4.x profiles in
-          lock-step when editing.
+          scala.version, netty.version and jackson.version differ. Keep the three
+          spark4.x profiles in lock-step when editing.
       -->
       <properties>
         <scala.binary.version>2.13</scala.binary.version>
@@ -2370,14 +2356,6 @@
         <jackson.version>2.21.2</jackson.version>
         <log4j.version>2.24.3</log4j.version>
         <slf4j.version>2.0.16</slf4j.version>
-        <!--
-            Spark 4.2 needs at.yawk.lz4:lz4-java:1.11.0 (LZ4BlockInputStream.newBuilder).
-            Flip both the coordinate (org.lz4 -> at.yawk.lz4) and the version
-            (1.8.1 -> 1.11.0) the spark modules declare; the default build and every
-            other profile keep org.lz4 / 1.8.1.
-        -->
-        <lz4.groupId>at.yawk.lz4</lz4.groupId>
-        <lz4.version>1.11.0</lz4.version>
         <java.version>17</java.version>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>

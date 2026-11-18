@@ -172,7 +172,7 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>${lz4.groupId}</groupId>
+      <groupId>at.yawk.lz4</groupId>
       <artifactId>lz4-java</artifactId>
       <scope>test</scope>
     </dependency>
