@@ -22,8 +22,16 @@ import org.apache.uniffle.coordinator.AccessManager;
 /** Abstract class for checking the access info from the client-side. */
 public abstract class AbstractAccessChecker implements AccessChecker {
 
-  protected AbstractAccessChecker(AccessManager accessManager) throws Exception {}
+  private final AccessManager accessManager;
+
+  protected AbstractAccessChecker(AccessManager accessManager) throws Exception {
+    this.accessManager = accessManager;
+  }
 
   @Override
   public void refreshAccessChecker() {}
+
+  public AccessManager getAccessManager() {
+    return accessManager;
+  }
 }
