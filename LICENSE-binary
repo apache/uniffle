@@ -209,7 +209,6 @@ at.yawk.lz4:lz4-java
 com.fasterxml.jackson.core:jackson-annotations
 com.fasterxml.jackson.core:jackson-core
 com.fasterxml.jackson.core:jackson-databind
-com.fasterxml.jackson.module:jackson-module-scala_2.12
 com.google.android:annotations
 com.google.api.grpc:proto-google-common-protos
 com.google.code.findbugs:jsr305
@@ -221,7 +220,7 @@ com.google.guava:listenablefuture
 com.google.j2objc:j2objc-annotations
 commons-cli:commons-cli
 commons-codec:commons-codec
-commons-collections:commons-collections
+commons-io:commons-io
 commons-logging:commons-logging
 info.picocli:picocli
 io.grpc:grpc-api
@@ -232,6 +231,7 @@ io.grpc:grpc-protobuf
 io.grpc:grpc-protobuf-lite
 io.grpc:grpc-stub
 io.grpc:grpc-util
+io.netty:netty
 io.netty:netty-all
 io.netty:netty-buffer
 io.netty:netty-codec
@@ -272,7 +272,6 @@ io.prometheus:simpleclient_jetty
 io.prometheus:simpleclient_pushgateway
 io.prometheus:simpleclient_servlet
 jakarta.validation:jakarta.validation-api
-javax.inject:javax.inject
 org.apache.commons:commons-collections4
 org.apache.commons:commons-lang3
 org.apache.httpcomponents:httpclient
@@ -293,21 +292,18 @@ org.jctools:jctools-core
 org.jspecify:jspecify
 org.roaringbitmap:RoaringBitmap
 org.roaringbitmap:shims
-org.xerial.snappy:snappy-java
 org.yaml:snakeyaml
 
 -----------------------------------------------------------------------------------
 This product bundles various third-party components under other open source licenses.
 This section summarizes those components and their licenses.
 
-BSD 2-Clause
-------------
-
-com.github.luben:zstd-jni
-
 BSD 3-Clause
 ------------
 
+com.esotericsoftware:kryo-shaded
+com.esotericsoftware:minlog
+com.esotericsoftware:reflectasm
 com.google.protobuf:protobuf-java
 com.google.protobuf:protobuf-java-util
 
@@ -315,7 +311,6 @@ MIT License
 -----------
 
 org.slf4j:slf4j-api
-org.slf4j:slf4j-reload4j
 org.codehaus.mojo:animal-sniffer-annotations
 
 axios
