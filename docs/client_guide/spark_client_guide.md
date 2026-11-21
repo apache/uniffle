@@ -24,8 +24,6 @@ license: |
 
 1. Add client jar to Spark classpath, e.g. SPARK_HOME/jars/
 
-   The jar for Spark2 is located in <RSS_HOME>/jars/client/spark2/rss-client-spark2-shaded-${version}.jar
-
    The jar for Spark3 is located in <RSS_HOME>/jars/client/spark3/rss-client-spark3-shaded-${version}.jar
 
 2. Update Spark conf to enable Uniffle, e.g.
@@ -36,13 +34,12 @@ license: |
    spark.serializer org.apache.spark.serializer.KryoSerializer # this could also be in the spark-defaults.conf
    spark.shuffle.manager org.apache.spark.shuffle.RssShuffleManager
    spark.rss.coordinator.quorum <coordinatorIp1>:19999,<coordinatorIp2>:19999
-   # Note: For Spark2, spark.sql.adaptive.enabled should be false because Spark2 doesn't support AQE.
    ```
 
 ### Support Spark Dynamic Allocation
 
 To support spark dynamic allocation with Uniffle, spark code should be updated.
-There are 2 patches for spark-2.4.6 and spark-3.1.2 in spark-patches folder for reference.
+There are 5 patches for spark (3.0.1/3.1.2/3.2.1/3.3.1/3.4.1) in patch/spark folder for reference.
 
 After apply the patch and rebuild spark, add following configuration in spark conf to enable dynamic allocation:
   ```

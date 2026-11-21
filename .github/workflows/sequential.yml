@@ -83,9 +83,6 @@ jobs:
     - name: Execute `./mvnw ${{ inputs.maven-args }} -Pspark3`
       run: ./mvnw -B -fae clean ${{ inputs.maven-args }} -Pspark3 | tee -a /tmp/maven.log;
       shell: bash
-    - name: Execute `./mvnw ${{ inputs.maven-args }} -Pspark2`
-      run: ./mvnw -B -fae clean ${{ inputs.maven-args }} -Pspark2 | tee -a /tmp/maven.log;
-      shell: bash
     - name: Execute `./mvnw ${{ inputs.maven-args }} -Pmr,hadoop2.8`
       run: ./mvnw -B -fae clean ${{ inputs.maven-args }} -Pmr,hadoop2.8 | tee -a /tmp/maven.log;
       shell: bash

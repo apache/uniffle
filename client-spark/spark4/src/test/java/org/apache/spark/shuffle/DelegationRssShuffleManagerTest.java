@@ -36,6 +36,8 @@ import static org.apache.uniffle.common.rpc.StatusCode.SUCCESS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 public class DelegationRssShuffleManagerTest extends RssShuffleManagerTestBase {
@@ -126,6 +128,20 @@ public class DelegationRssShuffleManagerTest extends RssShuffleManagerTestBase {
     conf.set("spark.rss.storage.type", StorageType.LOCALFILE.name());
     conf.set(toSparkConfKey(RssBaseConf.RSS_TEST_MODE_ENABLE), "true");
     assertCreateRssShuffleManager(conf);
+
+    // Denied twice, then accepted on the third and last attempt.
+    final CoordinatorClient retriedClient =
+        setupMockedRssShuffleUtils(ACCESS_DENIED, ACCESS_DENIED, SUCCESS);
+    SparkConf retryConf = new SparkConf();
+    retryConf.set(toSparkConfKey(RssSparkConfig.RSS_CLIENT_ACCESS_RETRY_INTERVAL_MS), "10");
+    retryConf.set(toSparkConfKey(RssSparkConfig.RSS_CLIENT_ACCESS_RETRY_TIMES), "3");
+    retryConf.set(toSparkConfKey(RssClientConf.RSS_DYNAMIC_CLIENT_CONF_ENABLED), "false");
+    retryConf.set(toSparkConfKey(RssSparkConfig.RSS_ACCESS_ID), "mockId");
+    retryConf.set(toSparkConfKey(RssBaseConf.RSS_COORDINATOR_QUORUM), "m1:8001,m2:8002");
+    retryConf.set("spark.rss.storage.type", StorageType.LOCALFILE.name());
+    retryConf.set(toSparkConfKey(RssBaseConf.RSS_TEST_MODE_ENABLE), "true");
+    assertCreateRssShuffleManager(retryConf);
+    verify(retriedClient, times(3)).accessCluster(any());
 
     setupMockedRssShuffleUtils(ACCESS_DENIED);
     SparkConf secondConf = new SparkConf();
