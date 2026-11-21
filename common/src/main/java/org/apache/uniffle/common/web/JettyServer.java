@@ -122,7 +122,7 @@ public class JettyServer {
       throw new FileNotFoundException(keystorePath.toString());
     }
 
-    SslContextFactory sslContextFactory = new SslContextFactory();
+    SslContextFactory.Server sslContextFactory = new SslContextFactory.Server();
     sslContextFactory.setKeyStorePath(keystorePath.toString());
     sslContextFactory.setKeyStorePassword(conf.get(RssBaseConf.JETTY_SSL_KEYSTORE_PASSWORD));
     sslContextFactory.setKeyManagerPassword(conf.get(RssBaseConf.JETTY_SSL_KEYMANAGER_PASSWORD));

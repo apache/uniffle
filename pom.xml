@@ -79,7 +79,7 @@
     <java.version>1.8</java.version>
     <javax.annotation.version>1.3.2</javax.annotation.version>
     <j2objc-annotations.version>3.1</j2objc-annotations.version>
-    <jetty.version>9.3.24.v20180605</jetty.version>
+    <jetty.version>9.4.58.v20250814</jetty.version>
     <hbase.thirdparty.version>4.1.4</hbase.thirdparty.version>
     <junit.jupiter.version>5.8.2</junit.jupiter.version>
     <junit.platform.version>1.8.2</junit.platform.version>
@@ -439,6 +439,15 @@
           <exclusion>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-log4j12</artifactId>
+          </exclusion>
+          <!--
+              Hadoop 2.x brings the Servlet 2.5 API. On a test classpath it comes before the
+              Servlet 3.1 API that Jetty 9.4 needs, which fails with NoSuchMethodError on
+              ServletContext.createServlet.
+          -->
+          <exclusion>
+            <groupId>javax.servlet</groupId>
+            <artifactId>servlet-api</artifactId>
           </exclusion>
         </exclusions>
       </dependency>
@@ -2010,7 +2019,6 @@
           is not compatible with JDK 17+.
         -->
         <hadoop.artifact.minicluster>hadoop-client-minicluster</hadoop.artifact.minicluster>
-        <jetty.version>9.4.53.v20231009</jetty.version>
         <enforcer.skip>true</enforcer.skip>
         <jackson.version>2.18.2</jackson.version>
         <log4j.version>2.24.3</log4j.version>
@@ -2177,7 +2185,6 @@
           is not compatible with JDK 17+.
         -->
         <hadoop.artifact.minicluster>hadoop-client-minicluster</hadoop.artifact.minicluster>
-        <jetty.version>9.4.53.v20231009</jetty.version>
         <enforcer.skip>true</enforcer.skip>
         <!--
             Spark 4.1.1 ships jackson-module-scala_2.13 2.20.0, which requires
@@ -2356,7 +2363,6 @@
           is not compatible with JDK 17+.
         -->
         <hadoop.artifact.minicluster>hadoop-client-minicluster</hadoop.artifact.minicluster>
-        <jetty.version>9.4.53.v20231009</jetty.version>
         <enforcer.skip>true</enforcer.skip>
         <!--
             Spark 4.2.0 ships jackson-module-scala_2.13 2.21.2, which requires
@@ -2810,6 +2816,18 @@
                 <groupId>org.apache.hadoop</groupId>
                 <artifactId>hadoop-yarn-server-web-proxy</artifactId>
               </exclusion>
+              <!--
+                  Servlet 2.5 API from Tez's Jetty 6. Hadoop 3's HttpServer2 runs on Jetty 9.4,
+                  which needs the Servlet 3.1 API, and fails if a 2.5 copy comes first.
+              -->
+              <exclusion>
+                <groupId>org.mortbay.jetty</groupId>
+                <artifactId>servlet-api</artifactId>
+              </exclusion>
+              <exclusion>
+                <groupId>javax.servlet</groupId>
+                <artifactId>servlet-api</artifactId>
+              </exclusion>
             </exclusions>
           </dependency>
           <dependency>
@@ -2874,6 +2892,11 @@
                 <groupId>org.slf4j</groupId>
                 <artifactId>slf4j-log4j12</artifactId>
               </exclusion>
+              <!-- Same as the root dependencyManagement: Jetty 9.4 needs the Servlet 3.1 API -->
+              <exclusion>
+                <groupId>javax.servlet</groupId>
+                <artifactId>servlet-api</artifactId>
+              </exclusion>
             </exclusions>
           </dependency>
           <dependency>
@@ -2935,7 +2958,12 @@
     <profile>
       <id>hadoop3.2</id>
       <properties>
-        <hadoop.version>3.2.1</hadoop.version>
+        <!--
+            The MiniDFSCluster in tests runs on Uniffle's Jetty, so it needs a Hadoop built
+            against Jetty 9.4 (3.2.2+). 3.2.4 switched its SLF4J binding to slf4j-reload4j,
+            which this build does not exclude, so stay on 3.2.3.
+        -->
+        <hadoop.version>3.2.3</hadoop.version>
         <hadoop.short.version>3.2</hadoop.short.version>
         <!--
           HADOOP-17324: Hadoop 3.2.x hadoop-client-minicluster does not include the shaded

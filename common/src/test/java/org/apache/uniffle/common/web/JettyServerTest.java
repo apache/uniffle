@@ -17,12 +17,18 @@
 
 package org.apache.uniffle.common.web;
 
+import java.io.File;
+
+import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.Handler;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
+import org.eclipse.jetty.server.SslConnectionFactory;
 import org.eclipse.jetty.servlet.ServletContextHandler;
+import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.eclipse.jetty.util.thread.ExecutorThreadPool;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import org.apache.uniffle.common.config.RssBaseConf;
 import org.apache.uniffle.common.util.ExitUtils;
@@ -30,6 +36,8 @@ import org.apache.uniffle.common.util.ExitUtils.ExitException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class JettyServerTest {
@@ -57,6 +65,31 @@ public class JettyServerTest {
     Handler handler = server.getHandler();
     assertTrue(handler instanceof ServletContextHandler);
     jettyServer.stop();
+  }
+
+  @Test
+  public void httpsConnectorUsesServerSslContextFactory(@TempDir File tmpDir) throws Exception {
+    File keystore = new File(tmpDir, "keystore.jks");
+    assertTrue(keystore.createNewFile());
+    RssBaseConf conf = new RssBaseConf();
+    conf.setInteger("rss.jetty.http.port", 0);
+    conf.setBoolean(RssBaseConf.JETTY_SSL_ENABLE, true);
+    conf.setInteger(RssBaseConf.JETTY_HTTPS_PORT, 0);
+    conf.setString(RssBaseConf.JETTY_SSL_KEYSTORE_PATH, keystore.getAbsolutePath());
+    Server server = new JettyServer(conf).getServer();
+
+    SslConnectionFactory sslConnectionFactory = null;
+    for (Connector connector : server.getConnectors()) {
+      if (connector.getConnectionFactory(SslConnectionFactory.class) != null) {
+        sslConnectionFactory = connector.getConnectionFactory(SslConnectionFactory.class);
+      }
+    }
+    assertNotNull(sslConnectionFactory);
+    SslContextFactory sslContextFactory = sslConnectionFactory.getSslContextFactory();
+    // The base SslContextFactory in Jetty 9.4 turns on HTTPS endpoint identification and rejects
+    // keystores with several certificates; the server variant keeps the Jetty 9.3 behavior.
+    assertTrue(sslContextFactory instanceof SslContextFactory.Server);
+    assertNull(sslContextFactory.getEndpointIdentificationAlgorithm());
   }
 
   @Test
