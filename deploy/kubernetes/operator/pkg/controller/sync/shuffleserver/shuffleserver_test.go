@@ -151,7 +151,7 @@ var (
 				AccessModes: []corev1.PersistentVolumeAccessMode{
 					"ReadWriteOnce",
 				},
-				Resources: corev1.ResourceRequirements{
+				Resources: corev1.VolumeResourceRequirements{
 					Requests: corev1.ResourceList{
 						"storage": *resource.NewQuantity(5*1000*1000*1000, resource.DecimalSI),
 					},
