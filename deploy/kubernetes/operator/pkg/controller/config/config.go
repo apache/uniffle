@@ -74,8 +74,8 @@ func (c *Config) Complete() {
 	c.completeManagerOptions()
 }
 
-// completeManagerOptions copies the manager flags into ManagerOptions. Since
-// controller-runtime v0.15 the sync period and namespace are cache options.
+// completeManagerOptions copies the manager flags into ManagerOptions. The sync
+// period and namespace are cache options in controller-runtime.
 func (c *Config) completeManagerOptions() {
 	c.ManagerOptions.Cache.SyncPeriod = &c.syncPeriod
 	if c.namespace != "" {
