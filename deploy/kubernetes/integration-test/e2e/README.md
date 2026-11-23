@@ -36,5 +36,5 @@ $ TEST_REGISTRY=${users-registry-url} sh start-e2e.sh
 
 ## Dependence
 
-We need to install [golang 1.17+](https://go.dev/doc/install), [docker](https://www.docker.com/get-started/) and 
+We need to install [golang 1.25+](https://go.dev/doc/install), [docker](https://www.docker.com/get-started/) and 
 [kind](https://github.com/kubernetes-sigs/kind) first.

@@ -20,125 +20,35 @@
 package fake
 
 import (
-	"context"
-
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	gentype "k8s.io/client-go/gentype"
 
 	v1alpha1 "github.com/apache/incubator-uniffle/deploy/kubernetes/operator/api/uniffle/v1alpha1"
+	unifflev1alpha1 "github.com/apache/incubator-uniffle/deploy/kubernetes/operator/pkg/generated/clientset/versioned/typed/uniffle/v1alpha1"
 )
 
-// FakeRemoteShuffleServices implements RemoteShuffleServiceInterface
-type FakeRemoteShuffleServices struct {
+// fakeRemoteShuffleServices implements RemoteShuffleServiceInterface
+type fakeRemoteShuffleServices struct {
+	*gentype.FakeClientWithList[*v1alpha1.RemoteShuffleService, *v1alpha1.RemoteShuffleServiceList]
 	Fake *FakeUniffleV1alpha1
-	ns   string
 }
 
-var remoteshuffleservicesResource = schema.GroupVersionResource{Group: "uniffle.apache.org", Version: "v1alpha1", Resource: "remoteshuffleservices"}
-
-var remoteshuffleservicesKind = schema.GroupVersionKind{Group: "uniffle.apache.org", Version: "v1alpha1", Kind: "RemoteShuffleService"}
-
-// Get takes name of the remoteShuffleService, and returns the corresponding remoteShuffleService object, and an error if there is any.
-func (c *FakeRemoteShuffleServices) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.RemoteShuffleService, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(remoteshuffleservicesResource, c.ns, name), &v1alpha1.RemoteShuffleService{})
-
-	if obj == nil {
-		return nil, err
+func newFakeRemoteShuffleServices(fake *FakeUniffleV1alpha1, namespace string) unifflev1alpha1.RemoteShuffleServiceInterface {
+	return &fakeRemoteShuffleServices{
+		gentype.NewFakeClientWithList[*v1alpha1.RemoteShuffleService, *v1alpha1.RemoteShuffleServiceList](
+			fake.Fake,
+			namespace,
+			v1alpha1.SchemeGroupVersion.WithResource("remoteshuffleservices"),
+			v1alpha1.SchemeGroupVersion.WithKind("RemoteShuffleService"),
+			func() *v1alpha1.RemoteShuffleService { return &v1alpha1.RemoteShuffleService{} },
+			func() *v1alpha1.RemoteShuffleServiceList { return &v1alpha1.RemoteShuffleServiceList{} },
+			func(dst, src *v1alpha1.RemoteShuffleServiceList) { dst.ListMeta = src.ListMeta },
+			func(list *v1alpha1.RemoteShuffleServiceList) []*v1alpha1.RemoteShuffleService {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1alpha1.RemoteShuffleServiceList, items []*v1alpha1.RemoteShuffleService) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1alpha1.RemoteShuffleService), err
-}
-
-// List takes label and field selectors, and returns the list of RemoteShuffleServices that match those selectors.
-func (c *FakeRemoteShuffleServices) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.RemoteShuffleServiceList, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewListAction(remoteshuffleservicesResource, remoteshuffleservicesKind, c.ns, opts), &v1alpha1.RemoteShuffleServiceList{})
-
-	if obj == nil {
-		return nil, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1alpha1.RemoteShuffleServiceList{ListMeta: obj.(*v1alpha1.RemoteShuffleServiceList).ListMeta}
-	for _, item := range obj.(*v1alpha1.RemoteShuffleServiceList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested remoteShuffleServices.
-func (c *FakeRemoteShuffleServices) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(remoteshuffleservicesResource, c.ns, opts))
-
-}
-
-// Create takes the representation of a remoteShuffleService and creates it.  Returns the server's representation of the remoteShuffleService, and an error, if there is any.
-func (c *FakeRemoteShuffleServices) Create(ctx context.Context, remoteShuffleService *v1alpha1.RemoteShuffleService, opts v1.CreateOptions) (result *v1alpha1.RemoteShuffleService, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(remoteshuffleservicesResource, c.ns, remoteShuffleService), &v1alpha1.RemoteShuffleService{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha1.RemoteShuffleService), err
-}
-
-// Update takes the representation of a remoteShuffleService and updates it. Returns the server's representation of the remoteShuffleService, and an error, if there is any.
-func (c *FakeRemoteShuffleServices) Update(ctx context.Context, remoteShuffleService *v1alpha1.RemoteShuffleService, opts v1.UpdateOptions) (result *v1alpha1.RemoteShuffleService, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(remoteshuffleservicesResource, c.ns, remoteShuffleService), &v1alpha1.RemoteShuffleService{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha1.RemoteShuffleService), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeRemoteShuffleServices) UpdateStatus(ctx context.Context, remoteShuffleService *v1alpha1.RemoteShuffleService, opts v1.UpdateOptions) (*v1alpha1.RemoteShuffleService, error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceAction(remoteshuffleservicesResource, "status", c.ns, remoteShuffleService), &v1alpha1.RemoteShuffleService{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha1.RemoteShuffleService), err
-}
-
-// Delete takes name of the remoteShuffleService and deletes it. Returns an error if one occurs.
-func (c *FakeRemoteShuffleServices) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(remoteshuffleservicesResource, c.ns, name, opts), &v1alpha1.RemoteShuffleService{})
-
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeRemoteShuffleServices) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(remoteshuffleservicesResource, c.ns, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1alpha1.RemoteShuffleServiceList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched remoteShuffleService.
-func (c *FakeRemoteShuffleServices) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.RemoteShuffleService, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(remoteshuffleservicesResource, c.ns, name, pt, data, subresources...), &v1alpha1.RemoteShuffleService{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha1.RemoteShuffleService), err
 }

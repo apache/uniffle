@@ -20,8 +20,8 @@
 package versioned
 
 import (
-	"fmt"
-	"net/http"
+	fmt "fmt"
+	http "net/http"
 
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
@@ -35,8 +35,7 @@ type Interface interface {
 	UniffleV1alpha1() unifflev1alpha1.UniffleV1alpha1Interface
 }
 
-// Clientset contains the clients for groups. Each group has exactly one
-// version included in a Clientset.
+// Clientset contains the clients for groups.
 type Clientset struct {
 	*discovery.DiscoveryClient
 	uniffleV1alpha1 *unifflev1alpha1.UniffleV1alpha1Client

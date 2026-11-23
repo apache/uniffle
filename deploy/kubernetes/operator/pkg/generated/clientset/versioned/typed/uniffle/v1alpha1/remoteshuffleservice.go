@@ -20,15 +20,14 @@
 package v1alpha1
 
 import (
-	"context"
-	"time"
+	context "context"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
-	rest "k8s.io/client-go/rest"
+	gentype "k8s.io/client-go/gentype"
 
-	v1alpha1 "github.com/apache/incubator-uniffle/deploy/kubernetes/operator/api/uniffle/v1alpha1"
+	unifflev1alpha1 "github.com/apache/incubator-uniffle/deploy/kubernetes/operator/api/uniffle/v1alpha1"
 	scheme "github.com/apache/incubator-uniffle/deploy/kubernetes/operator/pkg/generated/clientset/versioned/scheme"
 )
 
@@ -40,158 +39,34 @@ type RemoteShuffleServicesGetter interface {
 
 // RemoteShuffleServiceInterface has methods to work with RemoteShuffleService resources.
 type RemoteShuffleServiceInterface interface {
-	Create(ctx context.Context, remoteShuffleService *v1alpha1.RemoteShuffleService, opts v1.CreateOptions) (*v1alpha1.RemoteShuffleService, error)
-	Update(ctx context.Context, remoteShuffleService *v1alpha1.RemoteShuffleService, opts v1.UpdateOptions) (*v1alpha1.RemoteShuffleService, error)
-	UpdateStatus(ctx context.Context, remoteShuffleService *v1alpha1.RemoteShuffleService, opts v1.UpdateOptions) (*v1alpha1.RemoteShuffleService, error)
+	Create(ctx context.Context, remoteShuffleService *unifflev1alpha1.RemoteShuffleService, opts v1.CreateOptions) (*unifflev1alpha1.RemoteShuffleService, error)
+	Update(ctx context.Context, remoteShuffleService *unifflev1alpha1.RemoteShuffleService, opts v1.UpdateOptions) (*unifflev1alpha1.RemoteShuffleService, error)
+	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+	UpdateStatus(ctx context.Context, remoteShuffleService *unifflev1alpha1.RemoteShuffleService, opts v1.UpdateOptions) (*unifflev1alpha1.RemoteShuffleService, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.RemoteShuffleService, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.RemoteShuffleServiceList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*unifflev1alpha1.RemoteShuffleService, error)
+	List(ctx context.Context, opts v1.ListOptions) (*unifflev1alpha1.RemoteShuffleServiceList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.RemoteShuffleService, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *unifflev1alpha1.RemoteShuffleService, err error)
 	RemoteShuffleServiceExpansion
 }
 
 // remoteShuffleServices implements RemoteShuffleServiceInterface
 type remoteShuffleServices struct {
-	client rest.Interface
-	ns     string
+	*gentype.ClientWithList[*unifflev1alpha1.RemoteShuffleService, *unifflev1alpha1.RemoteShuffleServiceList]
 }
 
 // newRemoteShuffleServices returns a RemoteShuffleServices
 func newRemoteShuffleServices(c *UniffleV1alpha1Client, namespace string) *remoteShuffleServices {
 	return &remoteShuffleServices{
-		client: c.RESTClient(),
-		ns:     namespace,
+		gentype.NewClientWithList[*unifflev1alpha1.RemoteShuffleService, *unifflev1alpha1.RemoteShuffleServiceList](
+			"remoteshuffleservices",
+			c.RESTClient(),
+			scheme.ParameterCodec,
+			namespace,
+			func() *unifflev1alpha1.RemoteShuffleService { return &unifflev1alpha1.RemoteShuffleService{} },
+			func() *unifflev1alpha1.RemoteShuffleServiceList { return &unifflev1alpha1.RemoteShuffleServiceList{} },
+		),
 	}
-}
-
-// Get takes name of the remoteShuffleService, and returns the corresponding remoteShuffleService object, and an error if there is any.
-func (c *remoteShuffleServices) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.RemoteShuffleService, err error) {
-	result = &v1alpha1.RemoteShuffleService{}
-	err = c.client.Get().
-		Namespace(c.ns).
-		Resource("remoteshuffleservices").
-		Name(name).
-		VersionedParams(&options, scheme.ParameterCodec).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// List takes label and field selectors, and returns the list of RemoteShuffleServices that match those selectors.
-func (c *remoteShuffleServices) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.RemoteShuffleServiceList, err error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	result = &v1alpha1.RemoteShuffleServiceList{}
-	err = c.client.Get().
-		Namespace(c.ns).
-		Resource("remoteshuffleservices").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Watch returns a watch.Interface that watches the requested remoteShuffleServices.
-func (c *remoteShuffleServices) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	opts.Watch = true
-	return c.client.Get().
-		Namespace(c.ns).
-		Resource("remoteshuffleservices").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Watch(ctx)
-}
-
-// Create takes the representation of a remoteShuffleService and creates it.  Returns the server's representation of the remoteShuffleService, and an error, if there is any.
-func (c *remoteShuffleServices) Create(ctx context.Context, remoteShuffleService *v1alpha1.RemoteShuffleService, opts v1.CreateOptions) (result *v1alpha1.RemoteShuffleService, err error) {
-	result = &v1alpha1.RemoteShuffleService{}
-	err = c.client.Post().
-		Namespace(c.ns).
-		Resource("remoteshuffleservices").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(remoteShuffleService).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Update takes the representation of a remoteShuffleService and updates it. Returns the server's representation of the remoteShuffleService, and an error, if there is any.
-func (c *remoteShuffleServices) Update(ctx context.Context, remoteShuffleService *v1alpha1.RemoteShuffleService, opts v1.UpdateOptions) (result *v1alpha1.RemoteShuffleService, err error) {
-	result = &v1alpha1.RemoteShuffleService{}
-	err = c.client.Put().
-		Namespace(c.ns).
-		Resource("remoteshuffleservices").
-		Name(remoteShuffleService.Name).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(remoteShuffleService).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *remoteShuffleServices) UpdateStatus(ctx context.Context, remoteShuffleService *v1alpha1.RemoteShuffleService, opts v1.UpdateOptions) (result *v1alpha1.RemoteShuffleService, err error) {
-	result = &v1alpha1.RemoteShuffleService{}
-	err = c.client.Put().
-		Namespace(c.ns).
-		Resource("remoteshuffleservices").
-		Name(remoteShuffleService.Name).
-		SubResource("status").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(remoteShuffleService).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Delete takes name of the remoteShuffleService and deletes it. Returns an error if one occurs.
-func (c *remoteShuffleServices) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	return c.client.Delete().
-		Namespace(c.ns).
-		Resource("remoteshuffleservices").
-		Name(name).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *remoteShuffleServices) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	var timeout time.Duration
-	if listOpts.TimeoutSeconds != nil {
-		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
-	}
-	return c.client.Delete().
-		Namespace(c.ns).
-		Resource("remoteshuffleservices").
-		VersionedParams(&listOpts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// Patch applies the patch and returns the patched remoteShuffleService.
-func (c *remoteShuffleServices) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.RemoteShuffleService, err error) {
-	result = &v1alpha1.RemoteShuffleService{}
-	err = c.client.Patch(pt).
-		Namespace(c.ns).
-		Resource("remoteshuffleservices").
-		Name(name).
-		SubResource(subresources...).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(data).
-		Do(ctx).
-		Into(result)
-	return
 }

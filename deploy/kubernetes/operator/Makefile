@@ -110,18 +110,21 @@ docker-push: docker-build
 		docker push $$image; \
 	done
 
-CONTROLLER_GEN = $(LOCAL_DIR)/controller-gen
+CONTROLLER_GEN_VERSION = v0.20.0
+CONTROLLER_GEN = $(LOCAL_DIR)/controller-gen-$(CONTROLLER_GEN_VERSION)
 .PHONY: controller-gen
 controller-gen: ## Download controller-gen locally if necessary.
-	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.12.1)
+	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_VERSION))
 	./hack/update-codegen.sh
 
-KUSTOMIZE = $(LOCAL_DIR)/kustomize
+KUSTOMIZE_VERSION = v4.5.2
+KUSTOMIZE = $(LOCAL_DIR)/kustomize-$(KUSTOMIZE_VERSION)
 .PHONY: kustomize
 kustomize: ## Download kustomize locally if necessary.
-	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@v4.5.2)
+	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@$(KUSTOMIZE_VERSION))
 
-ENVTEST = $(LOCAL_DIR)/setup-envtest
+ENVTEST_VERSION = v0.0.0-20240812162837-9557f1031fe4
+ENVTEST = $(LOCAL_DIR)/setup-envtest-$(ENVTEST_VERSION)
 # Shared by the path lookup in the test target and by the --force hint it prints,
 # so the two can't drift apart. --use-deprecated-gcs=false makes setup-envtest
 # resolve the assets through the controller-tools release index instead of
@@ -129,32 +132,36 @@ ENVTEST = $(LOCAL_DIR)/setup-envtest
 ENVTEST_USE = use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCAL_DIR) --use-deprecated-gcs=false
 .PHONY: envtest
 envtest: ## Download envtest-setup locally if necessary.
-	$(call go-get-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.0.0-20240812162837-9557f1031fe4)
+	$(call go-get-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@$(ENVTEST_VERSION))
 
-GOIMPORTS = $(LOCAL_DIR)/goimports
+GOIMPORTS_VERSION = v0.41.0
+GOIMPORTS = $(LOCAL_DIR)/goimports-$(GOIMPORTS_VERSION)
 .PHONY: goimports
 goimports: ## Download goimports locally if necessary.
-	$(call go-get-tool,$(GOIMPORTS),golang.org/x/tools/cmd/goimports@v0.15.0)
+	$(call go-get-tool,$(GOIMPORTS),golang.org/x/tools/cmd/goimports@$(GOIMPORTS_VERSION))
 	$(GOIMPORTS) -local github.com/apache/incubator-uniffle/deploy/kubernetes/operator -w .
 
-REVIVE = $(LOCAL_DIR)/revive
+REVIVE_VERSION = v1.3.3
+REVIVE = $(LOCAL_DIR)/revive-$(REVIVE_VERSION)
 .PHONY: revive
 revive: ## Download revive locally if necessary.
-	$(call go-get-tool,$(REVIVE),github.com/mgechev/revive@v1.3.3)
+	$(call go-get-tool,$(REVIVE),github.com/mgechev/revive@$(REVIVE_VERSION))
 	files=$$(find . -name '*.go' | egrep -v './vendor|zz_generated|./pkg/generated|./api|./hack'); \
     $(REVIVE) -config hack/revive.toml -formatter friendly $$files
 
 
-# go-get-tool will 'go get' any package $2 and install it to $1.
-PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
+# go-get-tool installs package $2 and saves the binary as $1. $1 carries the
+# version, so a binary left in local/ by another version is not reused.
 define go-get-tool
 @[ -f $(1) ] || { \
 set -e ;\
+mkdir -p $(dir $(1)) ;\
 TMP_DIR=$$(mktemp -d) ;\
 cd $$TMP_DIR ;\
 go mod init tmp ;\
 echo "Downloading $(2)" ;\
-GOBIN=$(PROJECT_DIR)/local go install $(2) ;\
+GOBIN=$$TMP_DIR/bin go install $(2) ;\
+mv $$TMP_DIR/bin/* $(1) ;\
 rm -rf $$TMP_DIR ;\
 }
 endef

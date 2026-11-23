@@ -16,7 +16,7 @@
 #
 
 # Build the binary
-FROM golang:1.17 as builder
+FROM golang:1.27 as builder
 
 ARG MODULE
 WORKDIR /workspace

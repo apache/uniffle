@@ -31,7 +31,7 @@ type FakeUniffleV1alpha1 struct {
 }
 
 func (c *FakeUniffleV1alpha1) RemoteShuffleServices(namespace string) v1alpha1.RemoteShuffleServiceInterface {
-	return &FakeRemoteShuffleServices{c, namespace}
+	return newFakeRemoteShuffleServices(c, namespace)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

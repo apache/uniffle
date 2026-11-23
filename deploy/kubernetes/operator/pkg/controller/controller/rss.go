@@ -308,7 +308,7 @@ func (r *rssController) getExcludeNodesCM(rss *unifflev1alpha1.RemoteShuffleServ
 	name := utils.GenerateCoordinatorName(rss)
 	cm, err := r.cmLister.ConfigMaps(namespace).Get(name)
 	if err != nil {
-		klog.Errorf("get configMap (%v) for rss failed: %v", name, utils.UniqueName(rss), err)
+		klog.Errorf("get configMap (%v) for rss (%v) failed: %v", name, utils.UniqueName(rss), err)
 		return nil, err
 	}
 	return cm, nil
@@ -547,7 +547,7 @@ func (r *rssController) handleTargetPods(targetNames []string, rss *unifflev1alp
 	if len(targetNames) == 0 {
 		if err := r.clearExcludeNodes(rss); err != nil {
 			klog.Errorf("clear exclude nodes for finished upgrade of rss (%v) failed: %v",
-				utils.UniqueName(rss))
+				utils.UniqueName(rss), err)
 			return true, err
 		}
 		return false, r.updateRssStatus(rss,
@@ -618,7 +618,7 @@ func (r *rssController) syncShuffleServer(rss *unifflev1alpha1.RemoteShuffleServ
 	// The HPA object is independent of the StatefulSet and can be modified directly, ignoring the sync field.
 	hpa, enableHPA := shuffleserver.GenerateHPA(rss)
 	if err := kubeutil.SyncHPA(r.kubeClient, hpa, enableHPA); err != nil {
-		klog.Errorf("failed to sync hpa for rss (%v)", utils.UniqueName(rss), err)
+		klog.Errorf("failed to sync hpa for rss (%v): %v", utils.UniqueName(rss), err)
 		return err
 	}
 
@@ -792,7 +792,7 @@ func (r *rssController) processRollingUpgrade(rss *unifflev1alpha1.RemoteShuffle
 	if finished {
 		if err = r.clearExcludeNodes(rss); err != nil {
 			klog.Errorf("clear exclude nodes for finished upgrade of rss (%v) failed: %v",
-				utils.UniqueName(rss))
+				utils.UniqueName(rss), err)
 			return true, err
 		}
 		return false, r.updateRssStatus(rss,
