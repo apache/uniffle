@@ -46,6 +46,8 @@ public class HybridStorageManagerTest {
     ShuffleServerConf conf = new ShuffleServerConf();
     conf.setLong(ShuffleServerConf.FLUSH_COLD_STORAGE_THRESHOLD_SIZE, 2000L);
     conf.set(ShuffleServerConf.RSS_STORAGE_BASE_PATH, Arrays.asList("test"));
+    conf.set(
+        ShuffleServerConf.SERVER_REMOTE_STORAGE_ALLOWED_PATHS, Lists.newArrayList("hdfs://test"));
     conf.setLong(ShuffleServerConf.DISK_CAPACITY, 1024L * 1024L * 1024L);
     conf.setString(
         ShuffleServerConf.RSS_STORAGE_TYPE.key(), StorageType.MEMORY_LOCALFILE_HDFS.name());
@@ -63,7 +65,7 @@ public class HybridStorageManagerTest {
     LocalStorageManager localStorageManager = (LocalStorageManager) manager.getWarmStorageManager();
     localStorageManager.getStorages().get(0).markCorrupted();
 
-    String remoteStorage = "test";
+    String remoteStorage = "hdfs://test";
     String appId = "selectStorageManagerWithSelectorAndFallbackStrategy_appId";
     manager.registerRemoteStorage(appId, new RemoteStorageInfo(remoteStorage));
     List<ShufflePartitionedBlock> blocks =
@@ -89,11 +91,13 @@ public class HybridStorageManagerTest {
     ShuffleServerConf conf = new ShuffleServerConf();
     conf.setLong(ShuffleServerConf.FLUSH_COLD_STORAGE_THRESHOLD_SIZE, 2000L);
     conf.set(ShuffleServerConf.RSS_STORAGE_BASE_PATH, Arrays.asList("test"));
+    conf.set(
+        ShuffleServerConf.SERVER_REMOTE_STORAGE_ALLOWED_PATHS, Lists.newArrayList("hdfs://test"));
     conf.setLong(ShuffleServerConf.DISK_CAPACITY, 1024L * 1024L * 1024L);
     conf.setString(
         ShuffleServerConf.RSS_STORAGE_TYPE.key(), StorageType.MEMORY_LOCALFILE_HDFS.name());
     HybridStorageManager manager = new HybridStorageManager(conf);
-    String remoteStorage = "test";
+    String remoteStorage = "hdfs://test";
     String appId = "selectStorageManagerTest_appId";
     manager.registerRemoteStorage(appId, new RemoteStorageInfo(remoteStorage));
     List<ShufflePartitionedBlock> blocks =
@@ -110,6 +114,8 @@ public class HybridStorageManagerTest {
     ShuffleServerConf conf = new ShuffleServerConf();
     conf.setLong(ShuffleServerConf.FLUSH_COLD_STORAGE_THRESHOLD_SIZE, 10000L);
     conf.set(ShuffleServerConf.RSS_STORAGE_BASE_PATH, Arrays.asList("test"));
+    conf.set(
+        ShuffleServerConf.SERVER_REMOTE_STORAGE_ALLOWED_PATHS, Lists.newArrayList("hdfs://test"));
     conf.setLong(ShuffleServerConf.DISK_CAPACITY, 10000L);
     conf.setString(
         ShuffleServerConf.RSS_STORAGE_TYPE.key(), StorageType.MEMORY_LOCALFILE_HDFS.name());
@@ -120,7 +126,7 @@ public class HybridStorageManagerTest {
         ShuffleServerConf.HYBRID_STORAGE_MANAGER_SELECTOR_CLASS,
         "org.apache.uniffle.server.storage.hybrid.HugePartitionSensitiveStorageManagerSelector");
     HybridStorageManager manager = new HybridStorageManager(conf);
-    String remoteStorage = "test";
+    String remoteStorage = "hdfs://test";
     String appId = "selectStorageManagerIfCanNotWriteTest_appId";
     manager.registerRemoteStorage(appId, new RemoteStorageInfo(remoteStorage));
 
@@ -148,6 +154,8 @@ public class HybridStorageManagerTest {
     ShuffleServerConf conf = new ShuffleServerConf();
     conf.setLong(ShuffleServerConf.FLUSH_COLD_STORAGE_THRESHOLD_SIZE, 10000L);
     conf.set(ShuffleServerConf.RSS_STORAGE_BASE_PATH, Arrays.asList("test"));
+    conf.set(
+        ShuffleServerConf.SERVER_REMOTE_STORAGE_ALLOWED_PATHS, Lists.newArrayList("hdfs://test"));
     conf.setLong(ShuffleServerConf.DISK_CAPACITY, 10000L);
     conf.setString(
         ShuffleServerConf.RSS_STORAGE_TYPE.key(), StorageType.MEMORY_LOCALFILE_HDFS.name());
@@ -155,7 +163,7 @@ public class HybridStorageManagerTest {
         ShuffleServerConf.HYBRID_STORAGE_FALLBACK_STRATEGY_CLASS,
         RotateStorageManagerFallbackStrategy.class.getCanonicalName());
     HybridStorageManager manager = new HybridStorageManager(conf);
-    String remoteStorage = "test";
+    String remoteStorage = "hdfs://test";
     String appId = "selectStorageManagerIfCanNotWriteTest_appId";
     manager.registerRemoteStorage(appId, new RemoteStorageInfo(remoteStorage));
 

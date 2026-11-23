@@ -52,6 +52,12 @@ public interface StorageManager {
 
   void stop();
 
+  /**
+   * Registers the remote storage that is used by the application.
+   *
+   * @throws org.apache.uniffle.common.exception.InvalidRequestException if the remote storage is
+   *     not allowed to be used on this shuffle server
+   */
   void registerRemoteStorage(String appId, RemoteStorageInfo remoteStorageInfo);
 
   Checker getStorageChecker();

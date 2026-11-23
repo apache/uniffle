@@ -22,6 +22,7 @@ import java.io.FileWriter;
 import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -180,6 +181,10 @@ public abstract class IntegrationTestBase extends HadoopTestBase {
     ShuffleServerConf serverConf = new ShuffleServerConf();
     serverConf.setInteger("rss.rpc.server.port", 0);
     serverConf.setString("rss.storage.type", StorageType.MEMORY_LOCALFILE_HDFS.name());
+    // the shuffle server only accesses the remote storage under the allowed paths, here it's
+    // the whole test cluster
+    serverConf.set(
+        ShuffleServerConf.SERVER_REMOTE_STORAGE_ALLOWED_PATHS, Collections.singletonList(HDFS_URI));
     serverConf.setString("rss.storage.basePath", tempDir.getAbsolutePath());
     serverConf.setString("rss.server.buffer.capacity", "671088640");
     serverConf.setString("rss.server.memory.shuffle.highWaterMark", "50.0");

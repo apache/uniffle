@@ -221,6 +221,8 @@ Deploy Steps:
      rss.rpc.executor.size 2000
      # it should be configured the same as in coordinator
      rss.storage.type MEMORY_LOCALFILE_HDFS
+     # the remote storage paths that the shuffle server is allowed to access, separated by ','
+     rss.server.remote.storage.allowed.paths hdfs://cluster1/path,hdfs://cluster2/path
      rss.coordinator.quorum <coordinatorIp1>:19999,<coordinatorIp2>:19999
      # local storage path for shuffle server
      rss.storage.basePath /data1/rssdata,/data2/rssdata....

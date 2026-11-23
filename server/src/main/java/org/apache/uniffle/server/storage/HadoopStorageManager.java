@@ -17,15 +17,20 @@
 
 package org.apache.uniffle.server.storage;
 
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.CharMatcher;
 import com.google.common.collect.Maps;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -34,6 +39,7 @@ import org.slf4j.LoggerFactory;
 
 import org.apache.uniffle.common.AuditType;
 import org.apache.uniffle.common.RemoteStorageInfo;
+import org.apache.uniffle.common.exception.InvalidRequestException;
 import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.filesystem.HadoopFilesystemProvider;
 import org.apache.uniffle.common.storage.StorageInfo;
@@ -64,12 +70,115 @@ public class HadoopStorageManager extends SingleStorageManager {
   private Map<String, HadoopStorage> appIdToStorages = JavaUtils.newConcurrentMap();
   private Map<String, HadoopStorage> pathToStorages = JavaUtils.newConcurrentMap();
   private final boolean isStorageAuditLogEnabled;
+  private final List<Path> allowedRemoteStoragePaths;
 
   HadoopStorageManager(ShuffleServerConf conf) {
     super(conf);
     hadoopConf = conf.getHadoopConf();
     shuffleServerId = conf.getString(ShuffleServerConf.SHUFFLE_SERVER_ID, "shuffleServerId");
     isStorageAuditLogEnabled = conf.getBoolean(ShuffleServerConf.SERVER_STORAGE_AUDIT_LOG_ENABLED);
+    allowedRemoteStoragePaths = getAllowedRemoteStoragePaths(conf);
+    if (allowedRemoteStoragePaths.isEmpty()) {
+      LOG.warn(
+          "No remote storage path is allowed, because {} is not configured. "
+              + "Any register request with a remote storage will be rejected",
+          ShuffleServerConf.SERVER_REMOTE_STORAGE_ALLOWED_PATHS.key());
+    }
+  }
+
+  private static List<Path> getAllowedRemoteStoragePaths(ShuffleServerConf conf) {
+    List<String> paths = conf.get(ShuffleServerConf.SERVER_REMOTE_STORAGE_ALLOWED_PATHS);
+    if (paths == null) {
+      return Collections.emptyList();
+    }
+    List<Path> allowedPaths = new ArrayList<>(paths.size());
+    for (String path : paths) {
+      try {
+        allowedPaths.add(checkRemoteStoragePath(path));
+      } catch (InvalidRequestException e) {
+        throw new IllegalArgumentException(
+            "Invalid value of "
+                + ShuffleServerConf.SERVER_REMOTE_STORAGE_ALLOWED_PATHS.key()
+                + ": "
+                + e.getMessage(),
+            e);
+      }
+    }
+    return Collections.unmodifiableList(allowedPaths);
+  }
+
+  /**
+   * Converts a remote storage path into a qualified one, and refuses any path whose location is not
+   * explicit in the path itself.
+   *
+   * <p>A path without scheme is resolved against fs.defaultFS of the hadoop configuration in use,
+   * and a path of a non local file system without authority depends on it as well, so both of them
+   * have to be rejected.
+   */
+  private static Path checkRemoteStoragePath(String path) {
+    String reason = null;
+    Path qualifiedPath = null;
+    if (StringUtils.isBlank(path)) {
+      reason = "it is blank";
+    } else if (CharMatcher.javaIsoControl().countIn(path) > 0) {
+      reason = "it contains control characters";
+    } else if (containsDotSegment(path)) {
+      // Path resolves the dot segments silently, so they have to be refused beforehand
+      reason = "it must not contain \".\" or \"..\" segments";
+    } else {
+      try {
+        qualifiedPath = new Path(path);
+        URI uri = qualifiedPath.toUri();
+        if (uri.getScheme() == null) {
+          reason = "it must be a fully qualified path with a scheme";
+        } else if (!"file".equals(uri.getScheme()) && StringUtils.isEmpty(uri.getAuthority())) {
+          reason = "it must contain the authority, such as hdfs://nameservice1/rss";
+        }
+      } catch (IllegalArgumentException e) {
+        reason = "it is not a valid uri";
+      }
+    }
+    if (reason != null) {
+      throw new InvalidRequestException(
+          String.format("Remote storage path [%s] is invalid, %s", path, reason));
+    }
+    return qualifiedPath;
+  }
+
+  private static boolean containsDotSegment(String dir) {
+    for (String segment : dir.split(Path.SEPARATOR, -1)) {
+      if (segment.equals(".") || segment.equals("..")) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** Whether the path is the allowed one itself or is located under it. */
+  private static boolean isUnderAllowedPath(Path path, Path allowedPath) {
+    URI pathUri = path.toUri();
+    URI allowedUri = allowedPath.toUri();
+    if (!pathUri.getScheme().equals(allowedUri.getScheme())
+        || !Objects.equals(pathUri.getAuthority(), allowedUri.getAuthority())) {
+      return false;
+    }
+    String allowedDir = toDir(allowedUri.getPath());
+    String pathDir = toDir(pathUri.getPath());
+    return pathDir.equals(allowedDir)
+        || pathDir.startsWith(allowedDir.equals("/") ? "/" : allowedDir + "/");
+  }
+
+  private static String toDir(String dir) {
+    return dir == null || dir.isEmpty() ? Path.SEPARATOR : dir;
+  }
+
+  private boolean isAllowedRemoteStorage(Path path) {
+    for (Path allowedPath : allowedRemoteStoragePaths) {
+      if (isUnderAllowedPath(path, allowedPath)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   @Override
@@ -161,24 +270,51 @@ public class HadoopStorageManager extends SingleStorageManager {
     throw new RssException("Not support storage checker");
   }
 
+  /**
+   * Registers the remote storage of an application. The remote storage comes with the register
+   * request of a client, so it is only accepted when it is located under one of the allowed paths.
+   *
+   * @throws InvalidRequestException if the remote storage is not allowed on this server
+   */
   @Override
   public void registerRemoteStorage(String appId, RemoteStorageInfo remoteStorageInfo) {
     String remoteStorage = remoteStorageInfo.getPath();
+    Path remoteStoragePath = checkRemoteStoragePath(remoteStorage);
+    if (!isAllowedRemoteStorage(remoteStoragePath)) {
+      String reason =
+          allowedRemoteStoragePaths.isEmpty()
+              ? String.format(
+                  "no remote storage is allowed by %s",
+                  ShuffleServerConf.SERVER_REMOTE_STORAGE_ALLOWED_PATHS.key())
+              : String.format(
+                  "it must be under one of the paths configured by %s",
+                  ShuffleServerConf.SERVER_REMOTE_STORAGE_ALLOWED_PATHS.key());
+      LOG.warn("Reject the remote storage [{}] of appId[{}], {}", remoteStorage, appId, reason);
+      throw new InvalidRequestException(
+          String.format("Remote storage path [%s] is rejected, %s", remoteStorage, reason));
+    }
     pathToStorages.computeIfAbsent(
         remoteStorage,
-        key -> {
-          Map<String, String> remoteStorageConf = remoteStorageInfo.getConfItems();
-          Configuration remoteStorageHadoopConf = new Configuration(hadoopConf);
-          if (remoteStorageConf != null && remoteStorageConf.size() > 0) {
-            for (Map.Entry<String, String> entry : remoteStorageConf.entrySet()) {
-              remoteStorageHadoopConf.setStrings(entry.getKey(), entry.getValue());
-            }
-          }
-          HadoopStorage hadoopStorage = new HadoopStorage(remoteStorage, remoteStorageHadoopConf);
-          return hadoopStorage;
-        });
+        key -> new HadoopStorage(remoteStorage, createHadoopConf(remoteStorageInfo)));
     appIdToStorages.computeIfAbsent(appId, key -> pathToStorages.get(remoteStorage));
     LOG.info("register remote storage {} successfully for appId {}", remoteStorageInfo, appId);
+  }
+
+  private Configuration createHadoopConf(RemoteStorageInfo remoteStorageInfo) {
+    Configuration remoteStorageHadoopConf = new Configuration(hadoopConf);
+    Map<String, String> remoteStorageConf = remoteStorageInfo.getConfItems();
+    if (remoteStorageConf != null && remoteStorageConf.size() > 0) {
+      for (Map.Entry<String, String> entry : remoteStorageConf.entrySet()) {
+        // The implementation of a file system is decided by this server, a client must not be
+        // able to replace it, otherwise an allowed path could be redirected to another file system
+        if (entry.getKey().startsWith("fs.") && entry.getKey().endsWith(".impl")) {
+          LOG.warn("Ignore the conf [{}] of the remote storage", entry.getKey());
+          continue;
+        }
+        remoteStorageHadoopConf.setStrings(entry.getKey(), entry.getValue());
+      }
+    }
+    return remoteStorageHadoopConf;
   }
 
   @Override

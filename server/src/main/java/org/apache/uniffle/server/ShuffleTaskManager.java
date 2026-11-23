@@ -326,6 +326,11 @@ public class ShuffleTaskManager {
     if (isAppRemoving(appId)) {
       return StatusCode.INVALID_REQUEST;
     }
+    // The remote storage is registered before anything else of the application, so that a
+    // request with a remote storage that is not allowed leaves nothing behind.
+    if (!remoteStorageInfo.isEmpty()) {
+      storageManager.registerRemoteStorage(appId, remoteStorageInfo);
+    }
     refreshAppId(appId);
     ShuffleTaskInfo taskInfo = shuffleTaskInfos.get(appId);
     taskInfo.setProperties(properties);
@@ -341,9 +346,6 @@ public class ShuffleTaskManager {
     for (PartitionRange partitionRange : partitionRanges) {
       shuffleBufferManager.registerBuffer(
           appId, shuffleId, partitionRange.getStart(), partitionRange.getEnd());
-    }
-    if (!remoteStorageInfo.isEmpty()) {
-      storageManager.registerRemoteStorage(appId, remoteStorageInfo);
     }
     return StatusCode.SUCCESS;
   }

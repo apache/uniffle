@@ -116,6 +116,8 @@ public class ShuffleFlushManagerTest extends HadoopTestBase {
     ShuffleServerMetrics.register();
     shuffleServerConf.set(ShuffleServerConf.RSS_STORAGE_BASE_PATH, Collections.emptyList());
     shuffleServerConf.setString(ShuffleServerConf.RSS_STORAGE_TYPE.key(), StorageType.HDFS.name());
+    shuffleServerConf.set(
+        ShuffleServerConf.SERVER_REMOTE_STORAGE_ALLOWED_PATHS, Collections.singletonList(HDFS_URI));
     shuffleServerConf.setInteger(ShuffleServerConf.SERVER_MAX_CONCURRENCY_OF_ONE_PARTITION, 1);
     LogManager.getRootLogger().setLevel(Level.INFO);
   }
@@ -144,6 +146,8 @@ public class ShuffleFlushManagerTest extends HadoopTestBase {
   @Test
   public void concurrentWrite2HdfsWriteOneByOne() throws Exception {
     ShuffleServerConf shuffleServerConf = new ShuffleServerConf();
+    shuffleServerConf.set(
+        ShuffleServerConf.SERVER_REMOTE_STORAGE_ALLOWED_PATHS, Collections.singletonList(HDFS_URI));
     shuffleServerConf.set(ShuffleServerConf.RSS_STORAGE_BASE_PATH, Collections.emptyList());
     shuffleServerConf.setString(ShuffleServerConf.RSS_STORAGE_TYPE.key(), StorageType.HDFS.name());
     int maxConcurrency = 3;
@@ -179,6 +183,8 @@ public class ShuffleFlushManagerTest extends HadoopTestBase {
   @Test
   public void concurrentWrite2HdfsWriteOfSinglePartition() throws Exception {
     ShuffleServerConf shuffleServerConf = new ShuffleServerConf();
+    shuffleServerConf.set(
+        ShuffleServerConf.SERVER_REMOTE_STORAGE_ALLOWED_PATHS, Collections.singletonList(HDFS_URI));
     shuffleServerConf.set(ShuffleServerConf.RSS_STORAGE_BASE_PATH, Collections.emptyList());
     shuffleServerConf.setString(shuffleServerConf.RSS_STORAGE_TYPE.key(), StorageType.HDFS.name());
     int maxConcurrency = 3;
@@ -307,6 +313,8 @@ public class ShuffleFlushManagerTest extends HadoopTestBase {
         .setPermissions(perms);
 
     ShuffleServerConf shuffleServerConf = new ShuffleServerConf();
+    shuffleServerConf.set(
+        ShuffleServerConf.SERVER_REMOTE_STORAGE_ALLOWED_PATHS, Collections.singletonList(HDFS_URI));
     shuffleServerConf.set(
         ShuffleServerConf.HYBRID_STORAGE_FALLBACK_STRATEGY_CLASS,
         RotateStorageManagerFallbackStrategy.class.getCanonicalName());

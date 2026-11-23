@@ -19,6 +19,7 @@ package org.apache.uniffle.server;
 
 import java.io.File;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
 
@@ -80,6 +81,21 @@ public class ShuffleServerGrpcServiceTest {
     outside = new File(tempDir, "outside");
     assertTrue(outside.mkdirs());
 
+    shuffleServer = createShuffleServer(StorageType.LOCALFILE, Collections.emptyList());
+    service = new ShuffleServerGrpcService(shuffleServer);
+  }
+
+  @AfterEach
+  public void afterEach() throws Exception {
+    if (shuffleServer != null) {
+      shuffleServer.stopServer();
+      shuffleServer = null;
+    }
+    ShuffleServerMetrics.clear();
+  }
+
+  private ShuffleServer createShuffleServer(
+      StorageType storageType, List<String> allowedRemotePaths) throws Exception {
     ShuffleServerConf conf =
         new ShuffleServerConf(ClassLoader.getSystemResource("server.conf").getFile());
     conf.set(ShuffleServerConf.RPC_SERVER_PORT, 1234);
@@ -92,21 +108,72 @@ public class ShuffleServerGrpcServiceTest {
     conf.set(ShuffleServerConf.SERVER_COMMIT_TIMEOUT, 10000L);
     conf.set(ShuffleServerConf.SERVER_APP_EXPIRED_WITHOUT_HEARTBEAT, 100000L);
     conf.set(ShuffleServerConf.HEALTH_CHECK_ENABLE, false);
-    conf.setString(ShuffleServerConf.RSS_STORAGE_TYPE.key(), StorageType.LOCALFILE.name());
+    conf.setString(ShuffleServerConf.RSS_STORAGE_TYPE.key(), storageType.name());
     conf.set(ShuffleServerConf.RSS_TEST_MODE_ENABLE, true);
     conf.setString(ShuffleServerConf.RSS_STORAGE_BASE_PATH.key(), storageBase.getAbsolutePath());
+    if (!allowedRemotePaths.isEmpty()) {
+      conf.set(ShuffleServerConf.SERVER_REMOTE_STORAGE_ALLOWED_PATHS, allowedRemotePaths);
+    }
+    return new ShuffleServer(conf);
+  }
 
-    shuffleServer = new ShuffleServer(conf);
+  /** Replaces the server with one that writes the shuffle data to a remote storage as well. */
+  private void useRemoteStorage(List<String> allowedRemotePaths) throws Exception {
+    shuffleServer.stopServer();
+    shuffleServer = createShuffleServer(StorageType.MEMORY_LOCALFILE_HDFS, allowedRemotePaths);
     service = new ShuffleServerGrpcService(shuffleServer);
   }
 
-  @AfterEach
-  public void afterEach() throws Exception {
-    if (shuffleServer != null) {
-      shuffleServer.stopServer();
-      shuffleServer = null;
+  @Test
+  public void testRegisterShuffleRejectsRemoteStorageByDefault() throws Exception {
+    useRemoteStorage(Collections.emptyList());
+    ResponseRecorder<ShuffleRegisterResponse> recorder = new ResponseRecorder<>();
+    service.registerShuffle(registerRequest(VALID_APP_ID, "hdfs://path1/rss"), recorder);
+
+    assertNull(recorder.error);
+    assertNotNull(recorder.response);
+    assertEquals(StatusCode.INVALID_REQUEST, StatusCode.fromProto(recorder.response.getStatus()));
+    // the reason is told to the client, so that the missing configuration is easy to find
+    assertTrue(
+        recorder
+            .response
+            .getRetMsg()
+            .contains(ShuffleServerConf.SERVER_REMOTE_STORAGE_ALLOWED_PATHS.key()));
+    // nothing is registered for the app, neither the buffers nor the remote storage
+    assertFalse(shuffleServer.getShuffleTaskManager().getAppIds().contains(VALID_APP_ID));
+  }
+
+  @Test
+  public void testRegisterShuffleRejectsRemoteStorageOutsideAllowedPaths() throws Exception {
+    useRemoteStorage(Collections.singletonList("hdfs://path1/rss"));
+    for (String remoteStorage :
+        new String[] {
+          "hdfs://path2/rss",
+          "hdfs://path1/rss2",
+          "hdfs://path1/rss/../other",
+          "hdfs://path1",
+          "file:///tmp/rss",
+          "/rss"
+        }) {
+      ResponseRecorder<ShuffleRegisterResponse> recorder = new ResponseRecorder<>();
+      service.registerShuffle(registerRequest(VALID_APP_ID, remoteStorage), recorder);
+      assertEquals(
+          StatusCode.INVALID_REQUEST,
+          StatusCode.fromProto(recorder.response.getStatus()),
+          "remoteStorage[" + remoteStorage + "]");
+      assertFalse(shuffleServer.getShuffleTaskManager().getAppIds().contains(VALID_APP_ID));
     }
-    ShuffleServerMetrics.clear();
+  }
+
+  @Test
+  public void testRegisterShuffleAcceptsRemoteStorageUnderAllowedPaths() throws Exception {
+    useRemoteStorage(Collections.singletonList("hdfs://path1/rss"));
+    assertEquals(StatusCode.SUCCESS, registerShuffle(VALID_APP_ID, "hdfs://path1/rss"));
+    assertTrue(shuffleServer.getShuffleTaskManager().getAppIds().contains(VALID_APP_ID));
+
+    // a request without remote storage is not affected
+    assertEquals(StatusCode.SUCCESS, registerShuffle(VALID_APP_ID + "2", ""));
+    assertTrue(shuffleServer.getShuffleTaskManager().getAppIds().contains(VALID_APP_ID + "2"));
   }
 
   @Test
@@ -349,16 +416,22 @@ public class ShuffleServerGrpcServiceTest {
   }
 
   private StatusCode registerShuffle(String appId) {
+    return registerShuffle(appId, "");
+  }
+
+  private StatusCode registerShuffle(String appId, String remoteStorage) {
     return call(
-        o ->
-            service.registerShuffle(
-                ShuffleRegisterRequest.newBuilder()
-                    .setAppId(appId)
-                    .setShuffleId(0)
-                    .addPartitionRanges(ShufflePartitionRange.newBuilder().setStart(0).setEnd(1))
-                    .build(),
-                o),
+        o -> service.registerShuffle(registerRequest(appId, remoteStorage), o),
         ShuffleRegisterResponse::getStatus);
+  }
+
+  private static ShuffleRegisterRequest registerRequest(String appId, String remoteStorage) {
+    return ShuffleRegisterRequest.newBuilder()
+        .setAppId(appId)
+        .setShuffleId(0)
+        .addPartitionRanges(ShufflePartitionRange.newBuilder().setStart(0).setEnd(1))
+        .setRemoteStorage(RssProtos.RemoteStorage.newBuilder().setPath(remoteStorage))
+        .build();
   }
 
   private StatusCode appHeartbeat(String appId) {

@@ -297,18 +297,26 @@ public class ShuffleServerGrpcService extends ShuffleServerImplBase {
           partitionRanges.size(),
           user);
 
-      StatusCode result =
-          shuffleServer
-              .getShuffleTaskManager()
-              .registerShuffle(
-                  appId,
-                  shuffleId,
-                  partitionRanges,
-                  new RemoteStorageInfo(remoteStoragePath, remoteStorageConf),
-                  user,
-                  shuffleDataDistributionType,
-                  maxConcurrencyPerPartitionToWrite,
-                  req.getPropertiesMap());
+      StatusCode result;
+      String retMsg = "";
+      try {
+        result =
+            shuffleServer
+                .getShuffleTaskManager()
+                .registerShuffle(
+                    appId,
+                    shuffleId,
+                    partitionRanges,
+                    new RemoteStorageInfo(remoteStoragePath, remoteStorageConf),
+                    user,
+                    shuffleDataDistributionType,
+                    maxConcurrencyPerPartitionToWrite,
+                    req.getPropertiesMap());
+      } catch (InvalidRequestException e) {
+        // Nothing has been registered for the app, tell the client why it is refused
+        result = StatusCode.INVALID_REQUEST;
+        retMsg = e.getMessage();
+      }
       if (StatusCode.SUCCESS == result
           && shuffleServer.isRemoteMergeEnable()
           && req.hasMergeContext()) {
@@ -335,7 +343,10 @@ public class ShuffleServerGrpcService extends ShuffleServerImplBase {
       }
       auditContext.withStatusCode(result);
       ShuffleRegisterResponse reply =
-          ShuffleRegisterResponse.newBuilder().setStatus(result.toProto()).build();
+          ShuffleRegisterResponse.newBuilder()
+              .setStatus(result.toProto())
+              .setRetMsg(retMsg)
+              .build();
       responseObserver.onNext(reply);
       responseObserver.onCompleted();
     }

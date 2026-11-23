@@ -176,6 +176,16 @@ public class ShuffleServerConf extends RssBaseConf {
                   + "removing all associated files and recording the deletion of the entire application ID or shuffle ID. "
                   + "For a write operation, it includes the size of the data written, the storage type and the specific disk to which it is written "
                   + "(for instance, in scenarios where multiple local disks are mounted).");
+  public static final ConfigOption<List<String>> SERVER_REMOTE_STORAGE_ALLOWED_PATHS =
+      ConfigOptions.key("rss.server.remote.storage.allowed.paths")
+          .stringType()
+          .asList()
+          .noDefaultValue()
+          .withDescription(
+              "The remote storage paths that the shuffle server is allowed to access, separated by ','. "
+                  + "Each of them must be a fully qualified path with scheme and authority, such as hdfs://nameservice1/rss. "
+                  + "A register request whose remote storage path is not located under one of them is rejected, "
+                  + "so it's usually set to the same value as rss.coordinator.remote.storage.path of the coordinator.");
   public static final ConfigOption<Boolean> SERVER_RPC_AUDIT_LOG_ENABLED =
       ConfigOptions.key("rss.server.rpc.audit.log.enabled")
           .booleanType()
