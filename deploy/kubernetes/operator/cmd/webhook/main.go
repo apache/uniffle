@@ -21,6 +21,7 @@ import (
 	"flag"
 
 	"k8s.io/klog/v2"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/apache/incubator-uniffle/deploy/kubernetes/operator/pkg/webhook"
 	"github.com/apache/incubator-uniffle/deploy/kubernetes/operator/pkg/webhook/config"
@@ -31,6 +32,7 @@ func main() {
 	cfg := &config.Config{}
 	cfg.AddFlags()
 	flag.Parse()
+	ctrl.SetLogger(klog.NewKlogr())
 
 	cfg.Complete()
 	klog.Infof("run config: %+v", cfg)

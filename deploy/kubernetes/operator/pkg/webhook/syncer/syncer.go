@@ -145,17 +145,19 @@ func (cs *configSyncer) generateWebhookCfg() (
 	*admissionv1.ValidatingWebhookConfiguration, *admissionv1.MutatingWebhookConfiguration) {
 	validatingWebhooks := cs.generateValidatingWebhooks()
 	mutatingWebhooks := cs.generateMutatingWebhooks()
-	return &admissionv1.ValidatingWebhookConfiguration{
+	validatingCfg := &admissionv1.ValidatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: webhookconstants.ComponentName,
 		},
 		Webhooks: validatingWebhooks,
-	}, &admissionv1.MutatingWebhookConfiguration{
+	}
+	mutatingCfg := &admissionv1.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: webhookconstants.ComponentName,
 		},
 		Webhooks: mutatingWebhooks,
 	}
+	return validatingCfg, mutatingCfg
 }
 
 // generateValidatingWebhooks generates validatingWebhooks of validatingWebhookConfiguration.

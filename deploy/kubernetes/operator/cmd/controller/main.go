@@ -32,6 +32,7 @@ func main() {
 	cfg := &config.Config{}
 	cfg.AddFlags()
 	flag.Parse()
+	ctrl.SetLogger(klog.NewKlogr())
 
 	cfg.Complete()
 	klog.Infof("run config: %+v", cfg)
