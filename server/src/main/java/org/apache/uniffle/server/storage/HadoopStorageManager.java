@@ -37,7 +37,6 @@ import org.apache.uniffle.common.RemoteStorageInfo;
 import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.filesystem.HadoopFilesystemProvider;
 import org.apache.uniffle.common.storage.StorageInfo;
-import org.apache.uniffle.common.util.Constants;
 import org.apache.uniffle.common.util.JavaUtils;
 import org.apache.uniffle.server.Checker;
 import org.apache.uniffle.server.ShuffleDataFlushEvent;
@@ -198,7 +197,9 @@ public class HadoopStorageManager extends SingleStorageManager {
         try {
           List<Path> appStoragePath =
               pathToStorages.keySet().stream()
-                  .map(basePath -> new Path(basePath + Constants.KEY_SPLIT_CHAR + appId))
+                  .map(
+                      basePath ->
+                          new Path(ShuffleStorageUtils.getFullShuffleDataFolder(basePath, appId)))
                   .collect(Collectors.toList());
           for (Path path : appStoragePath) {
             fs = HadoopFilesystemProvider.getFilesystem(path, hadoopConf);

@@ -415,19 +415,26 @@ public class LocalStorageManager extends SingleStorageManager {
 
     Collection<String> appIds = appIdsSupplier.get();
     for (String appId : appIdsOnStorages) {
-      if (!appIds.contains(appId)) {
-        ShuffleDeleteHandler deleteHandler =
-            ShuffleHandlerFactory.getInstance()
-                .createShuffleDeleteHandler(
-                    new CreateShuffleDeleteHandlerRequest(
-                        StorageType.LOCALFILE.name(), new Configuration()));
-        String[] deletePaths = new String[storageBasePaths.size()];
-        for (int i = 0; i < storageBasePaths.size(); i++) {
-          deletePaths[i] =
-              ShuffleStorageUtils.getFullShuffleDataFolder(storageBasePaths.get(i), appId);
-        }
-        deleteHandler.delete(deletePaths, appId, UNKNOWN_USER_NAME);
+      if (appIds.contains(appId)) {
+        continue;
       }
+      // The name is read from the storage base directory. Anything that can not be an appId is
+      // not shuffle data of an application, so leave it alone instead of failing the whole check.
+      if (!RssUtils.isValidAppId(appId)) {
+        LOG.warn("Skip the unexpected directory [{}] under the storage base path", appId);
+        continue;
+      }
+      ShuffleDeleteHandler deleteHandler =
+          ShuffleHandlerFactory.getInstance()
+              .createShuffleDeleteHandler(
+                  new CreateShuffleDeleteHandlerRequest(
+                      StorageType.LOCALFILE.name(), new Configuration()));
+      String[] deletePaths = new String[storageBasePaths.size()];
+      for (int i = 0; i < storageBasePaths.size(); i++) {
+        deletePaths[i] =
+            ShuffleStorageUtils.getFullShuffleDataFolder(storageBasePaths.get(i), appId);
+      }
+      deleteHandler.delete(deletePaths, appId, UNKNOWN_USER_NAME);
     }
   }
 

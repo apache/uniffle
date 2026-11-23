@@ -33,8 +33,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.uniffle.common.BufferSegment;
+import org.apache.uniffle.common.exception.InvalidRequestException;
 import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.util.Constants;
+import org.apache.uniffle.common.util.RssUtils;
 import org.apache.uniffle.storage.common.FileBasedShuffleSegment;
 import org.apache.uniffle.storage.handler.impl.DataFileSegment;
 import org.apache.uniffle.storage.handler.impl.HadoopFileWriter;
@@ -118,10 +120,12 @@ public class ShuffleStorageUtils {
   }
 
   public static String getShuffleDataPath(String appId, int shuffleId) {
+    checkAppId(appId);
     return String.join(HADOOP_PATH_SEPARATOR, appId, String.valueOf(shuffleId));
   }
 
   public static String getShuffleDataPath(String appId, int shuffleId, int start, int end) {
+    checkAppId(appId);
     return String.join(
         HADOOP_PATH_SEPARATOR,
         appId,
@@ -130,11 +134,31 @@ public class ShuffleStorageUtils {
   }
 
   public static String getCombineDataPath(String appId, int shuffleId) {
+    checkAppId(appId);
     return String.join(HADOOP_PATH_SEPARATOR, appId, String.valueOf(shuffleId), "combine");
   }
 
   public static String getFullShuffleDataFolder(String basePath, String subPath) {
+    // The sub path is made of the appId, the shuffle id and the partition range, so every
+    // segment has to be a plain name as well.
+    if (subPath == null) {
+      throw new InvalidRequestException("Sub path of the shuffle data folder is null");
+    }
+    for (String segment : subPath.split(HADOOP_PATH_SEPARATOR, -1)) {
+      checkAppId(segment);
+    }
     return String.join(HADOOP_PATH_SEPARATOR, basePath, subPath);
+  }
+
+  /**
+   * The appId is used as a directory name under the storage base path, so it must be a plain name
+   * before it reaches any file system. The rpc services reject such requests, this is the last line
+   * of defense for the callers behind them.
+   */
+  private static void checkAppId(String appId) {
+    if (!RssUtils.isValidAppId(appId)) {
+      throw new InvalidRequestException("Invalid appId of the shuffle data path");
+    }
   }
 
   public static String getShuffleDataPathWithRange(

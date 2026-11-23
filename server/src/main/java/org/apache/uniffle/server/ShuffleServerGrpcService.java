@@ -116,6 +116,8 @@ public class ShuffleServerGrpcService extends ShuffleServerImplBase {
   private static final Logger LOG = LoggerFactory.getLogger(ShuffleServerGrpcService.class);
   private static final Logger AUDIT_LOGGER =
       LoggerFactory.getLogger("SHUFFLE_SERVER_RPC_AUDIT_LOG");
+  private static final String INVALID_APP_ID_RET_MSG =
+      "appId is blank or contains illegal characters";
   private final ShuffleServer shuffleServer;
   private boolean isRpcAuditLogEnabled;
   private List<String> rpcAuditExcludeOpList;
@@ -257,6 +259,22 @@ public class ShuffleServerGrpcService extends ShuffleServerImplBase {
       String user = req.getUser();
       auditContext.withAppId(appId).withShuffleId(shuffleId);
       auditContext.withArgs("remoteStoragePath=" + remoteStoragePath + ", user=" + user);
+
+      StatusCode appIdStatus = checkAppId(appId);
+      if (appIdStatus != StatusCode.SUCCESS) {
+        // The malformed appId is not echoed, it may carry characters that fake log lines.
+        LOG.warn("Reject the register shuffle request with a malformed appId");
+        auditContext.withStatusCode(appIdStatus);
+        ShuffleRegisterResponse reply =
+            ShuffleRegisterResponse.newBuilder()
+                .setStatus(appIdStatus.toProto())
+                .setRetMsg(INVALID_APP_ID_RET_MSG)
+                .build();
+        responseObserver.onNext(reply);
+        responseObserver.onCompleted();
+        return;
+      }
+
       ShuffleDataDistributionType shuffleDataDistributionType =
           ShuffleDataDistributionType.valueOf(
               Optional.ofNullable(req.getShuffleDataDistribution())
@@ -682,7 +700,8 @@ public class ShuffleServerGrpcService extends ShuffleServerImplBase {
             ", partitionIds=" + OutputUtils.listToSegment(request.getPartitionIdsList(), 1, 10);
       }
       auditContext.withArgs(auditArgs);
-      StatusCode status = verifyRequest(appId);
+      // An empty appId means the client is of an old version, which is only accepted here.
+      StatusCode status = StringUtils.isEmpty(appId) ? StatusCode.SUCCESS : verifyRequest(appId);
       if (status != StatusCode.SUCCESS) {
         auditContext.withStatusCode(status);
         RequireBufferResponse response =
@@ -1486,6 +1505,19 @@ public class ShuffleServerGrpcService extends ShuffleServerImplBase {
           .withShuffleId(shuffleId)
           .withArgs(String.format("partitionId=%d", partitionId));
 
+      StatusCode appIdStatus = checkAppId(appId);
+      if (appIdStatus != StatusCode.SUCCESS) {
+        auditContext.withStatusCode(appIdStatus);
+        RssProtos.StartSortMergeResponse rejectedReply =
+            RssProtos.StartSortMergeResponse.newBuilder()
+                .setStatus(appIdStatus.toProto())
+                .setRetMsg(INVALID_APP_ID_RET_MSG)
+                .build();
+        responseObserver.onNext(rejectedReply);
+        responseObserver.onCompleted();
+        return;
+      }
+
       StatusCode status = StatusCode.SUCCESS;
       String msg = "OK";
       RssProtos.StartSortMergeResponse reply;
@@ -1536,6 +1568,19 @@ public class ShuffleServerGrpcService extends ShuffleServerImplBase {
           .withAppId(appId)
           .withShuffleId(shuffleId)
           .withArgs(String.format("partitionId=%d, blockId=%d", partitionId, blockId));
+
+      StatusCode appIdStatus = checkAppId(appId);
+      if (appIdStatus != StatusCode.SUCCESS) {
+        auditContext.withStatusCode(appIdStatus);
+        RssProtos.GetSortedShuffleDataResponse reply =
+            RssProtos.GetSortedShuffleDataResponse.newBuilder()
+                .setStatus(appIdStatus.toProto())
+                .setRetMsg(INVALID_APP_ID_RET_MSG)
+                .build();
+        responseObserver.onNext(reply);
+        responseObserver.onCompleted();
+        return;
+      }
 
       if (timestamp > 0) {
         long transportTime = System.currentTimeMillis() - timestamp;
@@ -1772,11 +1817,22 @@ public class ShuffleServerGrpcService extends ShuffleServerImplBase {
   }
 
   private StatusCode verifyRequest(String appId) {
-    if (StringUtils.isNotBlank(appId)
-        && shuffleServer.getShuffleTaskManager().isAppExpired(appId)) {
+    StatusCode status = checkAppId(appId);
+    if (status != StatusCode.SUCCESS) {
+      return status;
+    }
+    if (shuffleServer.getShuffleTaskManager().isAppExpired(appId)) {
       return StatusCode.NO_REGISTER;
     }
     return StatusCode.SUCCESS;
+  }
+
+  /**
+   * The appId becomes a directory name of the shuffle data, so a request with a malformed one is
+   * rejected before anything is looked up or registered for it.
+   */
+  private StatusCode checkAppId(String appId) {
+    return RssUtils.isValidAppId(appId) ? StatusCode.SUCCESS : StatusCode.INVALID_REQUEST;
   }
 
   /**

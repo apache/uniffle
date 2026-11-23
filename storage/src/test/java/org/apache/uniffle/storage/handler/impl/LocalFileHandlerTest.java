@@ -31,10 +31,12 @@ import org.junit.jupiter.api.io.TempDir;
 import org.apache.uniffle.common.ShuffleDataResult;
 import org.apache.uniffle.common.ShuffleIndexResult;
 import org.apache.uniffle.common.config.RssBaseConf;
+import org.apache.uniffle.common.exception.InvalidRequestException;
 import org.apache.uniffle.storage.util.ShuffleStorageUtils;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class LocalFileHandlerTest {
@@ -155,4 +157,23 @@ public class LocalFileHandlerTest {
 
   @Test
   public void testReadIndex() {}
+
+  @Test
+  public void testWriteHandlerRejectsMalformedAppId(@TempDir File tmpDir) throws Exception {
+    File storageBase = new File(tmpDir, "storage");
+    assertTrue(storageBase.mkdirs());
+    File outside = new File(tmpDir, "outside");
+    assertTrue(outside.mkdirs());
+
+    for (String appId :
+        new String[] {"..", "../outside", "../outside/victim", ".", "", "a/../../outside"}) {
+      assertThrows(
+          InvalidRequestException.class,
+          () -> new LocalFileWriteHandler(appId, 1, 0, 1, storageBase.getAbsolutePath(), "pre"));
+    }
+
+    // no directory was created, neither outside of nor inside the storage base directory
+    assertEquals(0, outside.list().length);
+    assertEquals(0, storageBase.list().length);
+  }
 }

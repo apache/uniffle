@@ -36,10 +36,13 @@ import javax.net.ServerSocketFactory;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.roaringbitmap.longlong.Roaring64NavigableMap;
 
 import org.apache.uniffle.common.ShuffleServerInfo;
@@ -278,6 +281,52 @@ public class RssUtilsTest {
     assertEquals(serverToPartitions.get(server2), Sets.newHashSet(1, 3));
     assertEquals(serverToPartitions.get(server3), Sets.newHashSet(2, 4));
     assertEquals(serverToPartitions.get(server4), Sets.newHashSet(2, 4));
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "application_1699999999999_0001",
+        "app-1",
+        "local-1699999999999",
+        "job_1699999999999_0001",
+        "app@RemoteMerge",
+        "app with space"
+      })
+  public void testValidAppId(String appId) {
+    assertTrue(RssUtils.isValidAppId(appId));
+  }
+
+  @ParameterizedTest
+  @NullSource
+  @ValueSource(
+      strings = {
+        "",
+        " ",
+        ".",
+        "..",
+        "...",
+        ".. ",
+        ".hidden",
+        "../app",
+        "a/../../app",
+        "/app",
+        "app/",
+        "a/b",
+        "a\\b",
+        "app\n",
+        "app\r\nfake log line",
+        "app\t",
+        "app\u0000"
+      })
+  public void testInvalidAppId(String appId) {
+    assertFalse(RssUtils.isValidAppId(appId));
+  }
+
+  @Test
+  public void testAppIdLengthLimit() {
+    assertTrue(RssUtils.isValidAppId(StringUtils.repeat('a', RssUtils.MAX_APP_ID_LENGTH)));
+    assertFalse(RssUtils.isValidAppId(StringUtils.repeat('a', RssUtils.MAX_APP_ID_LENGTH + 1)));
   }
 
   @Test

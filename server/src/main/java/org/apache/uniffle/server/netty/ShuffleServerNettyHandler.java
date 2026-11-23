@@ -29,7 +29,6 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.collections4.MapUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -64,6 +63,7 @@ import org.apache.uniffle.common.netty.protocol.RpcResponse;
 import org.apache.uniffle.common.netty.protocol.SendShuffleDataRequest;
 import org.apache.uniffle.common.netty.protocol.SendShuffleDataRequestV1;
 import org.apache.uniffle.common.rpc.StatusCode;
+import org.apache.uniffle.common.util.RssUtils;
 import org.apache.uniffle.server.ShuffleDataReadEvent;
 import org.apache.uniffle.server.ShuffleServer;
 import org.apache.uniffle.server.ShuffleServerConf;
@@ -816,6 +816,18 @@ public class ShuffleServerNettyHandler implements BaseMessageHandler {
             + "], blockId["
             + blockId
             + "]";
+    if (!RssUtils.isValidAppId(appId)) {
+      response =
+          new GetSortedShuffleDataResponse(
+              requestId,
+              StatusCode.INVALID_REQUEST,
+              "appId is blank or contains illegal characters",
+              -1,
+              MergeState.INTERNAL_ERROR.code(),
+              Unpooled.EMPTY_BUFFER);
+      client.getChannel().writeAndFlush(response);
+      return;
+    }
     if (!shuffleServer.isRemoteMergeEnable()) {
       msg = "Remote merge is disabled";
       status = StatusCode.INTERNAL_ERROR;
@@ -917,8 +929,12 @@ public class ShuffleServerNettyHandler implements BaseMessageHandler {
   }
 
   private StatusCode verifyRequest(String appId) {
-    if (StringUtils.isNotBlank(appId)
-        && shuffleServer.getShuffleTaskManager().isAppExpired(appId)) {
+    // The appId becomes a directory name of the shuffle data, so a malformed one is rejected
+    // before anything is looked up or read for it.
+    if (!RssUtils.isValidAppId(appId)) {
+      return StatusCode.INVALID_REQUEST;
+    }
+    if (shuffleServer.getShuffleTaskManager().isAppExpired(appId)) {
       return StatusCode.NO_REGISTER;
     }
     return StatusCode.SUCCESS;
