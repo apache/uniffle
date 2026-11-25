@@ -325,8 +325,28 @@ public class RssUtilsTest {
 
   @Test
   public void testAppIdLengthLimit() {
-    assertTrue(RssUtils.isValidAppId(StringUtils.repeat('a', RssUtils.MAX_APP_ID_LENGTH)));
-    assertFalse(RssUtils.isValidAppId(StringUtils.repeat('a', RssUtils.MAX_APP_ID_LENGTH + 1)));
+    // the limit is the one of a directory name of the file systems, which is counted in bytes
+    assertTrue(RssUtils.isValidAppId(StringUtils.repeat('a', 255)));
+    assertFalse(RssUtils.isValidAppId(StringUtils.repeat('a', 256)));
+    // 85 CJK chars are 255 bytes in UTF-8, and one more is over the limit
+    assertTrue(RssUtils.isValidAppId(StringUtils.repeat('中', 85)));
+    assertFalse(RssUtils.isValidAppId(StringUtils.repeat('中', 86)));
+    // 127 chars of two bytes are 254 bytes, and one more is over the limit
+    assertTrue(RssUtils.isValidAppId(StringUtils.repeat('é', 127)));
+    assertFalse(RssUtils.isValidAppId(StringUtils.repeat('é', 128)));
+    // a surrogate pair takes four bytes: 63 pairs with 3 ASCII chars are 255 bytes
+    String surrogatePairs = StringUtils.repeat(new String(Character.toChars(0x1F600)), 63);
+    assertTrue(RssUtils.isValidAppId(surrogatePairs + "abc"));
+    assertFalse(RssUtils.isValidAppId(surrogatePairs + "abcd"));
+    // an unpaired surrogate takes the three bytes of the replacement char: 86 of them with 83
+    // ASCII chars are 341 bytes, although they are only 169 chars
+    String unpairedSurrogates = StringUtils.repeat((char) 0xD83D, 86);
+    assertFalse(RssUtils.isValidAppId(unpairedSurrogates + StringUtils.repeat('a', 83)));
+    // 85 of them are 255 bytes, and a low surrogate before a high one is not a pair either
+    assertTrue(RssUtils.isValidAppId(StringUtils.repeat((char) 0xD83D, 85)));
+    assertFalse(
+        RssUtils.isValidAppId(
+            StringUtils.repeat((char) 0xDC00, 43) + StringUtils.repeat((char) 0xD83D, 43)));
   }
 
   @Test

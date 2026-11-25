@@ -94,6 +94,17 @@ public class TestLoggerExtension implements BeforeEachCallback, AfterEachCallbac
     return appender.logCount(Pattern.compile("[\\s\\S]*" + pattern + "[\\s\\S]*"));
   }
 
+  /**
+   * Count the number of times a log message with a specific pattern is logged with an exception,
+   * which is printed as its stack.
+   *
+   * @param pattern Pattern to search for in log events
+   * @return The number of log messages which match the pattern and carry an exception
+   */
+  public int logCountWithThrowable(String pattern) {
+    return appender.logCountWithThrowable(Pattern.compile("[\\s\\S]*" + pattern + "[\\s\\S]*"));
+  }
+
   public class TestAppender extends AbstractAppender {
     @GuardedBy("this") private final List<LogEvent> events = new ArrayList<>();
 
@@ -127,6 +138,18 @@ public class TestLoggerExtension implements BeforeEachCallback, AfterEachCallbac
       int logCount = 0;
       for (LogEvent e : events) {
         if (pattern.matcher(e.getMessage().getFormattedMessage()).matches()) {
+          logCount++;
+        }
+      }
+      return logCount;
+    }
+
+    /** Counts the number of log message with a given pattern that carry an exception. */
+    public synchronized int logCountWithThrowable(Pattern pattern) {
+      int logCount = 0;
+      for (LogEvent e : events) {
+        if (e.getThrown() != null
+            && pattern.matcher(e.getMessage().getFormattedMessage()).matches()) {
           logCount++;
         }
       }

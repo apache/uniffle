@@ -17,6 +17,7 @@
 
 package org.apache.uniffle.server.storage;
 
+import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -24,16 +25,18 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentMap;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.CharMatcher;
 import com.google.common.collect.Maps;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.LocalFileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.RawLocalFileSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,6 +47,7 @@ import org.apache.uniffle.common.exception.RssException;
 import org.apache.uniffle.common.filesystem.HadoopFilesystemProvider;
 import org.apache.uniffle.common.storage.StorageInfo;
 import org.apache.uniffle.common.util.JavaUtils;
+import org.apache.uniffle.common.util.RssUtils;
 import org.apache.uniffle.server.Checker;
 import org.apache.uniffle.server.ShuffleDataFlushEvent;
 import org.apache.uniffle.server.ShuffleDataReadEvent;
@@ -71,6 +75,9 @@ public class HadoopStorageManager extends SingleStorageManager {
   private Map<String, HadoopStorage> pathToStorages = JavaUtils.newConcurrentMap();
   private final boolean isStorageAuditLogEnabled;
   private final List<Path> allowedRemoteStoragePaths;
+  // The failure of loading the file system of a scheme that was logged with its stack, so that
+  // the stack is not logged again for every registration while the server stays broken
+  private final ConcurrentMap<String, Throwable> loggedLoadFailures = JavaUtils.newConcurrentMap();
 
   HadoopStorageManager(ShuffleServerConf conf) {
     super(conf);
@@ -80,7 +87,7 @@ public class HadoopStorageManager extends SingleStorageManager {
     allowedRemoteStoragePaths = getAllowedRemoteStoragePaths(conf);
     if (allowedRemoteStoragePaths.isEmpty()) {
       LOG.warn(
-          "No remote storage path is allowed, because {} is not configured. "
+          "No remote storage path is allowed, because {} is not configured or is empty. "
               + "Any register request with a remote storage will be rejected",
           ShuffleServerConf.SERVER_REMOTE_STORAGE_ALLOWED_PATHS.key());
     }
@@ -93,8 +100,16 @@ public class HadoopStorageManager extends SingleStorageManager {
     }
     List<Path> allowedPaths = new ArrayList<>(paths.size());
     for (String path : paths) {
+      // A comma that is followed by nothing or by a space is a common slip of the hand, and a
+      // blank entry never denotes a location, so it is skipped instead of failing the server
+      if (StringUtils.isBlank(path)) {
+        LOG.warn(
+            "Ignore the blank entry of {}",
+            ShuffleServerConf.SERVER_REMOTE_STORAGE_ALLOWED_PATHS.key());
+        continue;
+      }
       try {
-        allowedPaths.add(checkRemoteStoragePath(path));
+        allowedPaths.add(checkRemoteStoragePath(path.trim()));
       } catch (InvalidRequestException e) {
         throw new IllegalArgumentException(
             "Invalid value of "
@@ -104,6 +119,7 @@ public class HadoopStorageManager extends SingleStorageManager {
             e);
       }
     }
+    LOG.info("The allowed remote storage paths are {}", allowedPaths);
     return Collections.unmodifiableList(allowedPaths);
   }
 
@@ -113,15 +129,18 @@ public class HadoopStorageManager extends SingleStorageManager {
    *
    * <p>A path without scheme is resolved against fs.defaultFS of the hadoop configuration in use,
    * and a path of a non local file system without authority depends on it as well, so both of them
-   * have to be rejected.
+   * have to be rejected. A local path must not carry an authority either, because `file://tmp/rss`
+   * reads like `/tmp/rss` but denotes `/rss` of the local file system.
    */
   private static Path checkRemoteStoragePath(String path) {
     String reason = null;
     Path qualifiedPath = null;
     if (StringUtils.isBlank(path)) {
       reason = "it is blank";
-    } else if (CharMatcher.javaIsoControl().countIn(path) > 0) {
+    } else if (RssUtils.containsIsoControl(path)) {
       reason = "it contains control characters";
+    } else if (path.indexOf('\\') >= 0) {
+      reason = "it must not contain \"\\\"";
     } else if (containsDotSegment(path)) {
       // Path resolves the dot segments silently, so they have to be refused beforehand
       reason = "it must not contain \".\" or \"..\" segments";
@@ -131,7 +150,11 @@ public class HadoopStorageManager extends SingleStorageManager {
         URI uri = qualifiedPath.toUri();
         if (uri.getScheme() == null) {
           reason = "it must be a fully qualified path with a scheme";
-        } else if (!"file".equals(uri.getScheme()) && StringUtils.isEmpty(uri.getAuthority())) {
+        } else if ("file".equals(uri.getScheme())) {
+          if (StringUtils.isNotEmpty(uri.getAuthority())) {
+            reason = "a local path must be written without authority, such as file:///rss";
+          }
+        } else if (StringUtils.isEmpty(uri.getAuthority())) {
           reason = "it must contain the authority, such as hdfs://nameservice1/rss";
         }
       } catch (IllegalArgumentException e) {
@@ -289,29 +312,114 @@ public class HadoopStorageManager extends SingleStorageManager {
               : String.format(
                   "it must be under one of the paths configured by %s",
                   ShuffleServerConf.SERVER_REMOTE_STORAGE_ALLOWED_PATHS.key());
+      // Both have passed their checks, which refuse the control characters, so they can not fake
+      // log lines: the path in checkRemoteStoragePath above, the appId in the rpc service
       LOG.warn("Reject the remote storage [{}] of appId[{}], {}", remoteStorage, appId, reason);
       throw new InvalidRequestException(
           String.format("Remote storage path [%s] is rejected, %s", remoteStorage, reason));
     }
     pathToStorages.computeIfAbsent(
         remoteStorage,
-        key -> new HadoopStorage(remoteStorage, createHadoopConf(remoteStorageInfo)));
+        key -> {
+          Configuration remoteStorageHadoopConf = createHadoopConf(remoteStorageInfo);
+          checkFileSystemScheme(remoteStoragePath.toUri().getScheme(), remoteStorageHadoopConf);
+          return new HadoopStorage(remoteStorage, remoteStorageHadoopConf);
+        });
     appIdToStorages.computeIfAbsent(appId, key -> pathToStorages.get(remoteStorage));
-    LOG.info("register remote storage {} successfully for appId {}", remoteStorageInfo, appId);
+    // Only the path is logged, the conf items come from the client and may carry credentials or
+    // characters that fake log lines
+    Map<String, String> remoteStorageConf = remoteStorageInfo.getConfItems();
+    LOG.info(
+        "register remote storage [{}] with {} conf item(s) successfully for appId {}",
+        remoteStorage,
+        remoteStorageConf == null ? 0 : remoteStorageConf.size(),
+        appId);
+  }
+
+  /**
+   * Refuses a remote storage whose file system can not be found on this server, so that a client
+   * which relied on the ignored fs.<scheme>.impl is told at registration instead of at the first
+   * write.
+   *
+   * <p>A local file system is only accepted with the scheme file. An operator can map another
+   * scheme to the local file system, and such a scheme takes an authority, so a path like
+   * raw://host/rss would read like another location than the local /rss it denotes. Only the two
+   * local file system classes of Hadoop and their subclasses are told apart here.
+   */
+  private void checkFileSystemScheme(String scheme, Configuration hadoopConf) {
+    Class<? extends FileSystem> fileSystemClass;
+    try {
+      fileSystemClass = FileSystem.getFileSystemClass(scheme, hadoopConf);
+    } catch (IOException | RuntimeException | LinkageError e) {
+      // A class of a file system that can not be loaded is reported by a RuntimeException or a
+      // LinkageError. That's a problem of this server, so it's logged for the operator, while the
+      // client is only told that the scheme is not supported. Every registration of such a path
+      // ends up here while the server stays broken, so the stack is logged for the first failure
+      // of a scheme only, unless a later failure carries the reason the first one lacked: the
+      // threads that wait for a failing class initialization get an error without a cause.
+      if (recordLoadFailure(scheme, e)) {
+        LOG.warn("This shuffle server can not load the file system of the scheme [{}]", scheme, e);
+      } else {
+        LOG.warn(
+            "The file system of the scheme [{}] can not be loaded, the request is refused", scheme);
+      }
+      throw new InvalidRequestException(
+          String.format(
+              "This shuffle server has no file system for the scheme [%s], the implementation of a "
+                  + "file system is decided by the server and fs.%s.impl of a request is ignored",
+              scheme, scheme),
+          e);
+    }
+    loggedLoadFailures.remove(scheme);
+    boolean isLocal =
+        LocalFileSystem.class.isAssignableFrom(fileSystemClass)
+            || RawLocalFileSystem.class.isAssignableFrom(fileSystemClass);
+    if (isLocal && !"file".equals(scheme)) {
+      throw new InvalidRequestException(
+          String.format(
+              "The scheme [%s] is a local file system, a local path must be written as "
+                  + "file:///path",
+              scheme));
+    }
+  }
+
+  /**
+   * Remembers a failure of loading the file system of a scheme, and tells whether this failure is
+   * worth logging with its stack: it's the first failure of the scheme, or the failure logged
+   * before came without a reason while this one carries it.
+   */
+  @VisibleForTesting
+  boolean recordLoadFailure(String scheme, Throwable failure) {
+    Throwable logged = loggedLoadFailures.putIfAbsent(scheme, failure);
+    return logged == null
+        || (logged.getCause() == null
+            && failure.getCause() != null
+            && loggedLoadFailures.replace(scheme, logged, failure));
   }
 
   private Configuration createHadoopConf(RemoteStorageInfo remoteStorageInfo) {
     Configuration remoteStorageHadoopConf = new Configuration(hadoopConf);
     Map<String, String> remoteStorageConf = remoteStorageInfo.getConfItems();
     if (remoteStorageConf != null && remoteStorageConf.size() > 0) {
+      int ignored = 0;
       for (Map.Entry<String, String> entry : remoteStorageConf.entrySet()) {
-        // The implementation of a file system is decided by this server, a client must not be
-        // able to replace it, otherwise an allowed path could be redirected to another file system
-        if (entry.getKey().startsWith("fs.") && entry.getKey().endsWith(".impl")) {
-          LOG.warn("Ignore the conf [{}] of the remote storage", entry.getKey());
+        // The classes of a file system are decided by this server, a client must not be able to
+        // replace them, otherwise an allowed path could be redirected to another file system.
+        // Configuration trims the name of a key when it's set, so the key is matched trimmed too.
+        String key = entry.getKey().trim();
+        if (key.startsWith("fs.") && key.endsWith(".impl")) {
+          ignored++;
           continue;
         }
-        remoteStorageHadoopConf.setStrings(entry.getKey(), entry.getValue());
+        remoteStorageHadoopConf.setStrings(key, entry.getValue());
+      }
+      // The keys are not logged, they come from the client and may carry characters that fake
+      // log lines
+      if (ignored > 0) {
+        LOG.warn(
+            "Ignore {} conf key(s) of the remote storage that select the classes of a file system, "
+                + "such as fs.<scheme>.impl, they are decided by this shuffle server",
+            ignored);
       }
     }
     return remoteStorageHadoopConf;

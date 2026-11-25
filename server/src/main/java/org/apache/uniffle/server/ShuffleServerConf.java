@@ -185,7 +185,9 @@ public class ShuffleServerConf extends RssBaseConf {
               "The remote storage paths that the shuffle server is allowed to access, separated by ','. "
                   + "Each of them must be a fully qualified path with scheme and authority, such as hdfs://nameservice1/rss. "
                   + "A register request whose remote storage path is not located under one of them is rejected, "
-                  + "so it's usually set to the same value as rss.coordinator.remote.storage.path of the coordinator.");
+                  + "so it's usually set to the same value as rss.coordinator.remote.storage.path of the coordinator. "
+                  + "The implementation of a file system is decided by the hadoop conf of the server, "
+                  + "fs.*.impl sent by a request is ignored.");
   public static final ConfigOption<Boolean> SERVER_RPC_AUDIT_LOG_ENABLED =
       ConfigOptions.key("rss.server.rpc.audit.log.enabled")
           .booleanType()

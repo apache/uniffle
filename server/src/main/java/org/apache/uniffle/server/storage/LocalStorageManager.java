@@ -17,6 +17,7 @@
 
 package org.apache.uniffle.server.storage;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -415,26 +416,21 @@ public class LocalStorageManager extends SingleStorageManager {
 
     Collection<String> appIds = appIdsSupplier.get();
     for (String appId : appIdsOnStorages) {
-      if (appIds.contains(appId)) {
-        continue;
+      if (!appIds.contains(appId)) {
+        ShuffleDeleteHandler deleteHandler =
+            ShuffleHandlerFactory.getInstance()
+                .createShuffleDeleteHandler(
+                    new CreateShuffleDeleteHandlerRequest(
+                        StorageType.LOCALFILE.name(), new Configuration()));
+        String[] deletePaths = new String[storageBasePaths.size()];
+        for (int i = 0; i < storageBasePaths.size(); i++) {
+          // The name is a directory of the storage base path itself, so every directory is
+          // deleted as before whatever the name is, instead of being refused by the check of
+          // an appId
+          deletePaths[i] = new File(storageBasePaths.get(i), appId).getPath();
+        }
+        deleteHandler.delete(deletePaths, appId, UNKNOWN_USER_NAME);
       }
-      // The name is read from the storage base directory. Anything that can not be an appId is
-      // not shuffle data of an application, so leave it alone instead of failing the whole check.
-      if (!RssUtils.isValidAppId(appId)) {
-        LOG.warn("Skip the unexpected directory [{}] under the storage base path", appId);
-        continue;
-      }
-      ShuffleDeleteHandler deleteHandler =
-          ShuffleHandlerFactory.getInstance()
-              .createShuffleDeleteHandler(
-                  new CreateShuffleDeleteHandlerRequest(
-                      StorageType.LOCALFILE.name(), new Configuration()));
-      String[] deletePaths = new String[storageBasePaths.size()];
-      for (int i = 0; i < storageBasePaths.size(); i++) {
-        deletePaths[i] =
-            ShuffleStorageUtils.getFullShuffleDataFolder(storageBasePaths.get(i), appId);
-      }
-      deleteHandler.delete(deletePaths, appId, UNKNOWN_USER_NAME);
     }
   }
 

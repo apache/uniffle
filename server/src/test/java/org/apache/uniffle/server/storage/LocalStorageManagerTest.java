@@ -429,21 +429,27 @@ public class LocalStorageManagerTest {
   }
 
   @Test
-  public void testCheckAndClearLeakedShuffleDataWithUnexpectedDirectory(@TempDir File tempDir)
+  public void testCheckAndClearLeakedShuffleDataDeletesEveryLeakedDirectory(@TempDir File tempDir)
       throws Exception {
     File storageBase = new File(tempDir, "storage");
     // the base directory is emptied when the storage is created, so create the directories after
-    LocalStorageManager localStorageManager = createLocalStorageManager(storageBase);
+    final LocalStorageManager localStorageManager = createLocalStorageManager(storageBase);
     File leaked = new File(storageBase, "leakedApp");
-    // a directory of the storage base path that can not belong to an application
+    // a directory of the storage base path whose name is not a valid appId, which is still
+    // shuffle data left on the disk
     File unexpected = new File(storageBase, "not\tan\tappId");
     assertTrue(leaked.mkdirs());
     assumeTrue(unexpected.mkdirs());
+    // the directory of an application that is still alive must survive
+    File liveApp = new File(storageBase, "liveApp");
+    assertTrue(liveApp.mkdirs());
 
-    localStorageManager.checkAndClearLeakedShuffleData(Collections::emptyList);
+    localStorageManager.checkAndClearLeakedShuffleData(() -> Collections.singletonList("liveApp"));
 
-    // the unexpected directory doesn't stop the cleanup, and it is left alone
+    // every leaked directory is deleted, whatever its name is, and none of them stops the others
     assertFalse(leaked.exists());
-    assertTrue(unexpected.isDirectory());
+    assertFalse(unexpected.exists());
+    assertTrue(storageBase.isDirectory());
+    assertTrue(liveApp.isDirectory());
   }
 }

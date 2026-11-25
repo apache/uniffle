@@ -85,6 +85,8 @@ public class ShuffleServerNettyHandler implements BaseMessageHandler {
   private static final Logger AUDIT_LOGGER =
       LoggerFactory.getLogger("SHUFFLE_SERVER_RPC_AUDIT_LOG");
   private static final int RPC_TIMEOUT = 60000;
+  private static final String INVALID_APP_ID_RET_MSG =
+      "appId is blank or contains illegal characters";
   private final ShuffleServer shuffleServer;
   private boolean isRpcAuditLogEnabled;
   private List<String> rpcAuditExcludeOpList;
@@ -177,6 +179,28 @@ public class ShuffleServerNettyHandler implements BaseMessageHandler {
               + stageAttemptNumber
               + ", partitionCount="
               + req.getPartitionToBlocks().size());
+
+      // The appId is checked here as on the other requests, although a malformed one can never
+      // be registered. The pre-allocated buffer has been taken above, so it's released the same
+      // way as the request of an unknown app.
+      if (!RssUtils.isValidAppId(appId)) {
+        // The malformed appId is not passed on, it may carry characters that fake log lines
+        LOG.warn("Reject the send shuffle data request with a malformed appId");
+        rpcResponse =
+            new RpcResponse(req.getRequestId(), StatusCode.INVALID_REQUEST, INVALID_APP_ID_RET_MSG);
+        releaseNettyBufferAndMetrics(
+            req,
+            "<malformed>",
+            shuffleId,
+            requireBufferId,
+            requireBlocksSize,
+            shuffleBufferManager,
+            info,
+            isPreAllocated);
+        auditContext.withStatusCode(rpcResponse.getStatusCode());
+        client.getChannel().writeAndFlush(rpcResponse);
+        return;
+      }
 
       ShuffleTaskInfo taskInfo = shuffleServer.getShuffleTaskManager().getShuffleTaskInfo(appId);
       if (taskInfo == null) {
@@ -821,7 +845,7 @@ public class ShuffleServerNettyHandler implements BaseMessageHandler {
           new GetSortedShuffleDataResponse(
               requestId,
               StatusCode.INVALID_REQUEST,
-              "appId is blank or contains illegal characters",
+              INVALID_APP_ID_RET_MSG,
               -1,
               MergeState.INTERNAL_ERROR.code(),
               Unpooled.EMPTY_BUFFER);

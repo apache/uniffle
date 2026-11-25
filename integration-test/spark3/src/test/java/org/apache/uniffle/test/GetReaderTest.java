@@ -19,6 +19,7 @@ package org.apache.uniffle.test;
 
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
@@ -58,6 +59,7 @@ import org.apache.uniffle.common.rpc.ServerType;
 import org.apache.uniffle.common.util.Constants;
 import org.apache.uniffle.coordinator.ApplicationManager;
 import org.apache.uniffle.coordinator.CoordinatorConf;
+import org.apache.uniffle.server.ShuffleServerConf;
 import org.apache.uniffle.storage.util.StorageType;
 
 import static org.apache.spark.shuffle.RssSparkConfig.toSparkConfKey;
@@ -102,7 +104,14 @@ public class GetReaderTest extends IntegrationTestBase {
     coordinatorConf.setInteger("rss.coordinator.remote.storage.schedule.access.times", 1);
     storeCoordinatorConf(coordinatorConf);
 
-    storeShuffleServerConf(shuffleServerConfWithoutPort(0, null, ServerType.GRPC_NETTY));
+    // the remote storages of the test are fake clusters, and the shuffle server only accesses the
+    // remote storage under the allowed paths
+    ShuffleServerConf shuffleServerConf =
+        shuffleServerConfWithoutPort(0, null, ServerType.GRPC_NETTY);
+    shuffleServerConf.set(
+        ShuffleServerConf.SERVER_REMOTE_STORAGE_ALLOWED_PATHS,
+        Arrays.asList(HDFS_URI, remoteStorage1, remoteStorage2));
+    storeShuffleServerConf(shuffleServerConf);
     startServersWithRandomPorts();
     Uninterruptibles.sleepUninterruptibly(2, TimeUnit.SECONDS);
     sparkConf.set(toSparkConfKey(RssBaseConf.RSS_COORDINATOR_QUORUM), getQuorum());

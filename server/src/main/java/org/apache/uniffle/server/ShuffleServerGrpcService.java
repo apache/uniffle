@@ -118,6 +118,9 @@ public class ShuffleServerGrpcService extends ShuffleServerImplBase {
       LoggerFactory.getLogger("SHUFFLE_SERVER_RPC_AUDIT_LOG");
   private static final String INVALID_APP_ID_RET_MSG =
       "appId is blank or contains illegal characters";
+  private static final String TOO_LONG_APP_ID_FOR_MERGE_RET_MSG =
+      "The appId is too long for the remote merge, which stores the merged blocks under the "
+          + "appId with a suffix";
   private final ShuffleServer shuffleServer;
   private boolean isRpcAuditLogEnabled;
   private List<String> rpcAuditExcludeOpList;
@@ -183,7 +186,9 @@ public class ShuffleServerGrpcService extends ShuffleServerImplBase {
           shuffleServer.sendHeartbeat();
         }
         shuffleServer.getShuffleTaskManager().removeShuffleDataAsync(appId);
-        if (shuffleServer.isRemoteMergeEnable()) {
+        // The app of the merged blocks can only exist when the appId fits with its suffix, the
+        // derived id is never registered otherwise
+        if (hasRemoteMergeApp(appId)) {
           shuffleServer.getShuffleTaskManager().removeShuffleDataAsync(appId + MERGE_APP_SUFFIX);
         }
       } catch (Exception e) {
@@ -228,7 +233,7 @@ public class ShuffleServerGrpcService extends ShuffleServerImplBase {
           shuffleServer.sendHeartbeat();
         }
         shuffleServer.getShuffleTaskManager().removeShuffleDataAsync(appId, shuffleId);
-        if (shuffleServer.isRemoteMergeEnable()) {
+        if (hasRemoteMergeApp(appId)) {
           shuffleServer
               .getShuffleTaskManager()
               .removeShuffleDataAsync(appId + MERGE_APP_SUFFIX, shuffleId);
@@ -269,6 +274,24 @@ public class ShuffleServerGrpcService extends ShuffleServerImplBase {
             ShuffleRegisterResponse.newBuilder()
                 .setStatus(appIdStatus.toProto())
                 .setRetMsg(INVALID_APP_ID_RET_MSG)
+                .build();
+        responseObserver.onNext(reply);
+        responseObserver.onCompleted();
+        return;
+      }
+
+      // The merged blocks of the remote merge are stored under the appId with a suffix, which
+      // has to be a valid one as well, so it's checked before anything gets registered
+      if (shuffleServer.isRemoteMergeEnable()
+          && req.hasMergeContext()
+          && !RssUtils.isValidAppId(appId + MERGE_APP_SUFFIX)) {
+        LOG.warn(
+            "Reject the register shuffle request whose appId is too long for the remote merge");
+        auditContext.withStatusCode(StatusCode.INVALID_REQUEST);
+        ShuffleRegisterResponse reply =
+            ShuffleRegisterResponse.newBuilder()
+                .setStatus(StatusCode.INVALID_REQUEST.toProto())
+                .setRetMsg(TOO_LONG_APP_ID_FOR_MERGE_RET_MSG)
                 .build();
         responseObserver.onNext(reply);
         responseObserver.onCompleted();
@@ -373,6 +396,23 @@ public class ShuffleServerGrpcService extends ShuffleServerImplBase {
               + stageAttemptNumber
               + ", shuffleDataSize="
               + req.getShuffleDataCount());
+
+      // The appId is checked here as on the other requests, although a malformed one can never
+      // be registered. Nothing has been taken for the request so far, so it's simply refused.
+      StatusCode appIdStatus = checkAppId(appId);
+      if (appIdStatus != StatusCode.SUCCESS) {
+        // The malformed appId is not echoed, it may carry characters that fake log lines
+        LOG.warn("Reject the send shuffle data request with a malformed appId");
+        auditContext.withStatusCode(appIdStatus);
+        reply =
+            SendShuffleDataResponse.newBuilder()
+                .setStatus(appIdStatus.toProto())
+                .setRetMsg(INVALID_APP_ID_RET_MSG)
+                .build();
+        responseObserver.onNext(reply);
+        responseObserver.onCompleted();
+        return;
+      }
 
       ShuffleTaskInfo taskInfo = shuffleServer.getShuffleTaskManager().getShuffleTaskInfo(appId);
       if (taskInfo == null) {
@@ -815,7 +855,7 @@ public class ShuffleServerGrpcService extends ShuffleServerImplBase {
       LOG.info("Get heartbeat from {}", appId);
       auditContext.withStatusCode(StatusCode.SUCCESS);
       shuffleServer.getShuffleTaskManager().refreshAppId(appId);
-      if (shuffleServer.isRemoteMergeEnable()) {
+      if (hasRemoteMergeApp(appId)) {
         shuffleServer.getShuffleMergeManager().refreshAppId(appId);
       }
       AppHeartBeatResponse response =
@@ -1844,6 +1884,14 @@ public class ShuffleServerGrpcService extends ShuffleServerImplBase {
    */
   private StatusCode checkAppId(String appId) {
     return RssUtils.isValidAppId(appId) ? StatusCode.SUCCESS : StatusCode.INVALID_REQUEST;
+  }
+
+  /**
+   * Whether the remote merge keeps the merged blocks of the application, which is only the case
+   * when the remote merge is enabled and the appId also fits with the suffix of that app.
+   */
+  private boolean hasRemoteMergeApp(String appId) {
+    return shuffleServer.isRemoteMergeEnable() && RssUtils.isValidAppId(appId + MERGE_APP_SUFFIX);
   }
 
   /**

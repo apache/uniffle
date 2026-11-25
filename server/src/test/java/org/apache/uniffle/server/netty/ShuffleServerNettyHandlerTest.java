@@ -20,25 +20,33 @@ package org.apache.uniffle.server.netty;
 import java.io.File;
 import java.net.InetSocketAddress;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
 
+import org.apache.uniffle.common.ShufflePartitionedBlock;
 import org.apache.uniffle.common.netty.client.TransportClient;
 import org.apache.uniffle.common.netty.protocol.GetLocalShuffleDataRequest;
 import org.apache.uniffle.common.netty.protocol.GetLocalShuffleIndexRequest;
 import org.apache.uniffle.common.netty.protocol.GetMemoryShuffleDataRequest;
 import org.apache.uniffle.common.netty.protocol.GetSortedShuffleDataRequest;
 import org.apache.uniffle.common.netty.protocol.RpcResponse;
+import org.apache.uniffle.common.netty.protocol.SendShuffleDataRequestV1;
 import org.apache.uniffle.common.rpc.StatusCode;
 import org.apache.uniffle.server.ShuffleServer;
 import org.apache.uniffle.server.ShuffleServerConf;
 import org.apache.uniffle.server.ShuffleServerMetrics;
+import org.apache.uniffle.server.ShuffleTaskManager;
+import org.apache.uniffle.server.buffer.ShuffleBufferManager;
 import org.apache.uniffle.storage.util.StorageType;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -80,6 +88,7 @@ public class ShuffleServerNettyHandlerTest {
     conf.set(ShuffleServerConf.HEALTH_CHECK_ENABLE, false);
     conf.setString(ShuffleServerConf.RSS_STORAGE_TYPE.key(), StorageType.LOCALFILE.name());
     conf.set(ShuffleServerConf.RSS_TEST_MODE_ENABLE, true);
+    conf.set(ShuffleServerConf.SERVER_MERGE_ENABLE, false);
     conf.setString(
         ShuffleServerConf.RSS_STORAGE_BASE_PATH.key(),
         new File(tempDir, "storage").getAbsolutePath());
@@ -124,6 +133,57 @@ public class ShuffleServerNettyHandlerTest {
     }
 
     assertAllResponsesAre(StatusCode.INVALID_REQUEST, MALFORMED_APP_IDS.size());
+  }
+
+  @Test
+  public void testSendShuffleDataRejectsMalformedAppId() {
+    ShuffleTaskManager taskManager = shuffleServer.getShuffleTaskManager();
+    ShuffleBufferManager bufferManager = shuffleServer.getShuffleBufferManager();
+    // A second pre-allocation is kept for the whole test. The counters of the memory stop at
+    // zero, so without it a release of too much memory would look the same as the right one.
+    long keptRequireBufferId = taskManager.requireBuffer(64);
+    for (String appId : MALFORMED_APP_IDS) {
+      // every request carries a pre-allocated buffer and a block, both have to be released
+      long requireBufferId = taskManager.requireBuffer(16);
+      // the memory of the pre-allocation is counted as used and as pre-allocated
+      final long preAllocatedSize = bufferManager.getPreAllocatedSize();
+      final long usedMemory = bufferManager.getUsedMemory();
+      ByteBuf data = Unpooled.buffer(32).writeZero(32);
+      SendShuffleDataRequestV1 req = mock(SendShuffleDataRequestV1.class);
+      when(req.getRequestId()).thenReturn(1L);
+      when(req.getAppId()).thenReturn(appId);
+      when(req.getRequireId()).thenReturn(requireBufferId);
+      when(req.getPartitionToBlocks())
+          .thenReturn(
+              Collections.singletonMap(
+                  0,
+                  Collections.singletonList(new ShufflePartitionedBlock(32, 32, 0, 1, 1, data))));
+
+      handler.handleSendShuffleDataRequest(client, req);
+
+      ArgumentCaptor<Object> responses = ArgumentCaptor.forClass(Object.class);
+      verify(channel).writeAndFlush(responses.capture());
+      assertEquals(
+          StatusCode.INVALID_REQUEST,
+          ((RpcResponse) responses.getValue()).getStatusCode(),
+          "appId[" + appId + "]");
+      // the reply is a fixed text, the malformed appId is not echoed back
+      assertEquals(
+          "appId is blank or contains illegal characters",
+          ((RpcResponse) responses.getValue()).getRetMessage());
+      // the pre-allocated buffer is taken and its memory is given back, the block is released
+      // too, and nothing of the request is kept
+      assertEquals(0, taskManager.getRequireBufferSize(requireBufferId), "appId[" + appId + "]");
+      assertEquals(
+          preAllocatedSize - 16,
+          bufferManager.getPreAllocatedSize(),
+          "pre-allocated memory, appId[" + appId + "]");
+      assertEquals(
+          usedMemory - 16, bufferManager.getUsedMemory(), "used memory, appId[" + appId + "]");
+      assertEquals(0, data.refCnt(), "block buffer, appId[" + appId + "]");
+      assertEquals(64, taskManager.getRequireBufferSize(keptRequireBufferId));
+      Mockito.clearInvocations(channel);
+    }
   }
 
   @Test
