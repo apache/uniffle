@@ -353,15 +353,18 @@ public class HadoopStorageManagerTest {
                 "fs.hdfs.impl",
                 "org.apache.hadoop.fs.LocalFileSystem",
                 // every key that selects a class of a file system is refused, not only the
-                // one of the file system itself
+                // one of the file system itself. The value is not the default of any Hadoop
+                // version of this build, Hadoop 3.2 defaults it to NullMetadataStore.
                 "fs.s3a.metadatastore.impl",
-                "org.apache.hadoop.fs.s3a.s3guard.NullMetadataStore")));
+                "org.apache.hadoop.fs.s3a.s3guard.LocalMetadataStore")));
 
     HadoopStorage storage = hadoopStorageManager.getAppIdToStorages().get("app1");
     assertEquals("v1", storage.getConf().get("k1"));
     // the implementation stays the one of the server, it can not be replaced by the client
     assertEquals(new Configuration().get("fs.hdfs.impl"), storage.getConf().get("fs.hdfs.impl"));
-    assertNull(storage.getConf().get("fs.s3a.metadatastore.impl"));
+    assertEquals(
+        new Configuration().get("fs.s3a.metadatastore.impl"),
+        storage.getConf().get("fs.s3a.metadatastore.impl"));
   }
 
   @Test
