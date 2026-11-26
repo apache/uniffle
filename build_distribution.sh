@@ -35,38 +35,26 @@ function exit_with_usage() {
   echo ""
   echo "Usage:"
   echo "+------------------------------------------------------------------------------------------------------+"
-  echo "| ./build_distribution.sh [--spark2-profile <spark2 profile id>] [--spark2-mvn <custom maven options>] |"
-  echo "|                         [--spark3-profile <spark3 profile id>] [--spark3-mvn <custom maven options>] |"
+  echo "| ./build_distribution.sh [--spark3-profile <spark3 profile id>] [--spark3-mvn <custom maven options>] |"
   echo "|                         [--hadoop-profile <hadoop profile id>] [--without-mr] [--without-tez]        |"
-  echo "|                         [--without-spark] [--without-spark2] [--without-spark3] [--without-dashboard]|"
+  echo "|                         [--without-spark] [--without-spark3] [--without-dashboard]                   |"
   echo "|                         [--name <custom name>]                                                       |"
   echo "|                         <maven build options>                                                        |"
   echo "+------------------------------------------------------------------------------------------------------+"
   exit 1
 }
 
-SPARK2_PROFILE_ID="spark2"
-SPARK2_MVN_OPTS=""
 SPARK3_PROFILE_ID="spark3"
 SPARK3_MVN_OPTS=""
 HADOOP_PROFILE_ID="hadoop2.8"
 WITH_MR="true"
 WITH_TEZ="true"
 WITH_SPARK="true"
-WITH_SPARK2="true"
 WITH_SPARK3="true"
 WITH_DASHBOARD="true"
 NAME=none
 while (( "$#" )); do
   case $1 in
-    --spark2-profile)
-      SPARK2_PROFILE_ID="$2"
-      shift
-      ;;
-    --spark2-mvn)
-      SPARK2_MVN_OPTS=$2
-      shift
-      ;;
     --spark3-profile)
       SPARK3_PROFILE_ID="$2"
       shift
@@ -86,11 +74,7 @@ while (( "$#" )); do
       WITH_TEZ="false"
       ;;
     --without-spark)
-      WITH_SPARK2="false"
       WITH_SPARK3="false"
-      ;;
-    --without-spark2)
-      WITH_SPARK2="false"
       ;;
     --without-spark3)
       WITH_SPARK3="false"
@@ -145,10 +129,6 @@ HADOOP_VERSION=$("$MVN" help:evaluate -Dexpression=hadoop.version -P$HADOOP_PROF
     | grep -v "INFO"\
     | grep -v "WARNING"\
     | tail -n 1)
-SPARK2_VERSION=$("$MVN" help:evaluate -Dexpression=spark.version -P$SPARK2_PROFILE_ID $@ $SPARK2_MVN_OPTS 2>/dev/null\
-    | grep -v "INFO"\
-    | grep -v "WARNING"\
-    | tail -n 1)
 SPARK3_VERSION=$("$MVN" help:evaluate -Dexpression=spark.version -P$SPARK3_PROFILE_ID $@ $SPARK3_MVN_OPTS 2>/dev/null\
     | grep -v "INFO"\
     | grep -v "WARNING"\
@@ -178,8 +158,8 @@ echo -e "\$ ${BUILD_COMMAND[@]}\n"
 DISTDIR="rss-$VERSION-$NAME"
 rm -rf "$DISTDIR"
 mkdir -p "${DISTDIR}/jars"
-echo "RSS ${VERSION}${GITREVSTRING} built for Hadoop ${HADOOP_VERSION} Spark2 ${SPARK2_VERSION} Spark3 ${SPARK3_VERSION}" >"${DISTDIR}/RELEASE"
-echo "Build flags: --spark2-profile '$SPARK2_PROFILE_ID' --spark2-mvn '$SPARK2_MVN_OPTS' --spark3-profile '$SPARK3_PROFILE_ID' --spark3-mvn '$SPARK3_MVN_OPTS' --hadoop-profile '$HADOOP_PROFILE_ID' $@" >>"$DISTDIR/RELEASE"
+echo "RSS ${VERSION}${GITREVSTRING} built for Hadoop ${HADOOP_VERSION} Spark3 ${SPARK3_VERSION}" >"${DISTDIR}/RELEASE"
+echo "Build flags: --spark3-profile '$SPARK3_PROFILE_ID' --spark3-mvn '$SPARK3_MVN_OPTS' --hadoop-profile '$HADOOP_PROFILE_ID' $@" >>"$DISTDIR/RELEASE"
 mkdir -p "${DISTDIR}/logs"
 
 SERVER_JAR_DIR="${DISTDIR}/jars/server"
@@ -208,20 +188,6 @@ mkdir -p $CLIENT_JAR_DIR
 
 
 # Actually build the jar
-if [ "$WITH_SPARK2" == "true" ]; then
-  BUILD_COMMAND_SPARK2=("$MVN" clean package -P$SPARK2_PROFILE_ID,$HADOOP_PROFILE_ID -pl client-spark/spark2-shaded -DskipTests -am $@ $SPARK2_MVN_OPTS)
-
-  echo -e "\nBuilding with..."
-  echo -e "\$ ${BUILD_COMMAND_SPARK2[@]}\n"
-  "${BUILD_COMMAND_SPARK2[@]}"
-
-  SPARK_CLIENT2_JAR_DIR="${CLIENT_JAR_DIR}/spark2"
-  mkdir -p $SPARK_CLIENT2_JAR_DIR
-  SPARK_CLIENT2_JAR="${RSS_HOME}/client-spark/spark2-shaded/target/rss-client-spark2-shaded-${VERSION}.jar"
-  echo "copy $SPARK_CLIENT2_JAR to ${SPARK_CLIENT2_JAR_DIR}"
-  cp $SPARK_CLIENT2_JAR ${SPARK_CLIENT2_JAR_DIR}
-fi
-
 if [ "$WITH_SPARK3" == "true" ]; then
   BUILD_COMMAND_SPARK3=("$MVN" clean package -P$SPARK3_PROFILE_ID,$HADOOP_PROFILE_ID -pl client-spark/spark3-shaded -DskipTests -am $@ $SPARK3_MVN_OPTS)
 
