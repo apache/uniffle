@@ -35,6 +35,7 @@ import org.apache.uniffle.common.StorageType;
 import org.apache.uniffle.common.config.RssBaseConf;
 import org.apache.uniffle.storage.common.LocalStorage;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 public class LocalStorageCheckerTest {
@@ -94,6 +95,28 @@ public class LocalStorageCheckerTest {
     SlowDiskStorageChecker checker =
         new SlowDiskStorageChecker(conf, Arrays.asList(localStorage), 600);
     assertFalse(checker.checkIsHealthy());
+    assertEquals(1, ShuffleServerMetrics.gaugeLocalStorageIsTimeout.labels(basePath).get());
+    assertEquals(1, ShuffleServerMetrics.gaugeLocalStorageIsHealthy.labels(basePath).get());
+  }
+
+  @Test
+  public void testCorruptedStorageIsUnhealthy(@TempDir File tempDir) {
+    String basePath = tempDir.getAbsolutePath();
+
+    ShuffleServerConf conf = new ShuffleServerConf();
+    conf.set(RssBaseConf.RSS_STORAGE_BASE_PATH, Arrays.asList(basePath));
+    conf.set(RssBaseConf.RSS_STORAGE_TYPE, StorageType.LOCALFILE);
+
+    LocalStorage localStorage =
+        LocalStorage.newBuilder().basePath(basePath).capacity(100000L).build();
+    LocalStorageChecker checker = new LocalStorageChecker(conf, Arrays.asList(localStorage));
+
+    checker.checkIsHealthy();
+    assertEquals(0, ShuffleServerMetrics.gaugeLocalStorageIsHealthy.labels(basePath).get());
+
+    localStorage.markCorrupted();
+    checker.checkIsHealthy();
+    assertEquals(1, ShuffleServerMetrics.gaugeLocalStorageIsHealthy.labels(basePath).get());
   }
 
   @Test
