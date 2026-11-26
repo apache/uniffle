@@ -17,6 +17,7 @@
 
 package org.apache.uniffle.server;
 
+import java.util.Collections;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -93,6 +94,9 @@ public class KerberizedShuffleTaskManagerTest extends KerberizedHadoopBase {
     String confFile = ClassLoader.getSystemResource("server.conf").getFile();
     ShuffleServerConf conf = new ShuffleServerConf(confFile);
     String storageBasePath = hdfsUri + "/rss/removeShuffleDataWithHdfsTest";
+    conf.set(
+        ShuffleServerConf.SERVER_REMOTE_STORAGE_ALLOWED_PATHS,
+        Collections.singletonList(storageBasePath));
     conf.set(ShuffleServerConf.RSS_TEST_MODE_ENABLE, true);
     conf.set(ShuffleServerConf.RPC_SERVER_PORT, 1234);
     conf.set(ShuffleServerConf.RSS_COORDINATOR_QUORUM, "localhost:9527");

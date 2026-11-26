@@ -17,6 +17,7 @@
 
 package org.apache.uniffle.storage.util;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
@@ -25,10 +26,12 @@ import com.google.common.collect.Sets;
 import org.junit.jupiter.api.Test;
 
 import org.apache.uniffle.common.BufferSegment;
+import org.apache.uniffle.common.exception.InvalidRequestException;
 import org.apache.uniffle.storage.common.FileBasedShuffleSegment;
 import org.apache.uniffle.storage.handler.impl.DataFileSegment;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -318,5 +321,60 @@ public class ShuffleStorageUtilsTest {
     assertEquals(13, range[1]);
     range = ShuffleStorageUtils.getPartitionRange(12, 7, 12);
     assertEquals(null, range);
+  }
+
+  private static final List<String> MALFORMED_APP_IDS =
+      Arrays.asList(null, "", " ", ".", "..", "../other", "a/../../other", "/other", "a\\other");
+
+  @Test
+  public void shuffleDataPathTest() {
+    assertEquals("app/1", ShuffleStorageUtils.getShuffleDataPath("app", 1));
+    assertEquals("app/1/0-9", ShuffleStorageUtils.getShuffleDataPath("app", 1, 0, 9));
+    assertEquals("app/1/combine", ShuffleStorageUtils.getCombineDataPath("app", 1));
+    assertEquals(
+        "hdfs://nn/base/app/1/0-9",
+        ShuffleStorageUtils.getFullShuffleDataFolder("hdfs://nn/base", "app/1/0-9"));
+  }
+
+  @Test
+  public void testGetShuffleDataPathWithMalformedAppId() {
+    for (String appId : MALFORMED_APP_IDS) {
+      assertThrows(
+          InvalidRequestException.class, () -> ShuffleStorageUtils.getShuffleDataPath(appId, 1));
+      assertThrows(
+          InvalidRequestException.class,
+          () -> ShuffleStorageUtils.getShuffleDataPath(appId, 1, 0, 9));
+      assertThrows(
+          InvalidRequestException.class, () -> ShuffleStorageUtils.getCombineDataPath(appId, 1));
+      assertThrows(
+          InvalidRequestException.class,
+          () -> ShuffleStorageUtils.getShuffleDataPathWithRange(appId, 1, 0, 10, 20));
+    }
+  }
+
+  @Test
+  public void testGetFullShuffleDataFolderWithMalformedSubPath() {
+    List<String> malformedSubPaths =
+        Arrays.asList(
+            null,
+            "",
+            " ",
+            ".",
+            "..",
+            "../other",
+            "app/..",
+            "app/../other",
+            "/app",
+            "app//1",
+            "app/1/",
+            "app\\other");
+    for (String subPath : malformedSubPaths) {
+      assertThrows(
+          InvalidRequestException.class,
+          () -> ShuffleStorageUtils.getFullShuffleDataFolder("/base", subPath));
+    }
+    assertEquals("/base/app", ShuffleStorageUtils.getFullShuffleDataFolder("/base", "app"));
+    assertEquals(
+        "/base/app/1/0-9", ShuffleStorageUtils.getFullShuffleDataFolder("/base", "app/1/0-9"));
   }
 }

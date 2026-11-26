@@ -33,8 +33,10 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.ExtensionContext;
+import org.junit.jupiter.api.io.TempDir;
 
 import org.apache.uniffle.common.ShufflePartitionedBlock;
+import org.apache.uniffle.common.exception.InvalidRequestException;
 import org.apache.uniffle.common.log.TestLoggerExtension;
 import org.apache.uniffle.common.log.TestLoggerParamResolver;
 import org.apache.uniffle.common.storage.StorageInfo;
@@ -46,17 +48,21 @@ import org.apache.uniffle.server.ShuffleDataReadEvent;
 import org.apache.uniffle.server.ShuffleServerConf;
 import org.apache.uniffle.server.ShuffleServerMetrics;
 import org.apache.uniffle.server.ShuffleTaskInfo;
+import org.apache.uniffle.server.event.AppPurgeEvent;
 import org.apache.uniffle.storage.common.DefaultStorageMediaProvider;
 import org.apache.uniffle.storage.common.LocalStorage;
 import org.apache.uniffle.storage.common.Storage;
 import org.apache.uniffle.storage.util.StorageType;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
@@ -379,5 +385,71 @@ public class LocalStorageManagerTest {
     TestLoggerExtension testLogger = TestLoggerExtension.getTestLogger(context);
     assertTrue(testLogger.wasLogged("Delete shuffle data for appId\\[app3\\]"));
     System.out.println();
+  }
+
+  private LocalStorageManager createLocalStorageManager(File storageBase) {
+    ShuffleServerConf conf = new ShuffleServerConf();
+    conf.set(
+        ShuffleServerConf.RSS_STORAGE_BASE_PATH,
+        Collections.singletonList(storageBase.getAbsolutePath()));
+    conf.setLong(ShuffleServerConf.DISK_CAPACITY, 1024L);
+    conf.setString(
+        ShuffleServerConf.RSS_STORAGE_TYPE.key(),
+        org.apache.uniffle.storage.util.StorageType.LOCALFILE.name());
+    return new LocalStorageManager(conf);
+  }
+
+  @Test
+  public void testRemoveResourcesWithMalformedAppId(@TempDir File tempDir) throws Exception {
+    File storageBase = new File(tempDir, "storage");
+    // a directory beside the storage base directory, it is only reachable by leaving the base
+    File victim = new File(tempDir, "outside/victim");
+    File victimFile = new File(victim, "keep");
+    assertTrue(victimFile.getParentFile().mkdirs());
+    assertTrue(victimFile.createNewFile());
+    LocalStorageManager localStorageManager = createLocalStorageManager(storageBase);
+
+    // an ordinary application is purged as before
+    assertTrue(new File(storageBase, "app1/0/0-1").mkdirs());
+    localStorageManager.removeResources(new AppPurgeEvent("app1", "user", Collections.emptyList()));
+    assertFalse(new File(storageBase, "app1").exists());
+
+    for (String appId : new String[] {"..", "../outside/victim", ".", ""}) {
+      assertThrows(
+          InvalidRequestException.class,
+          () ->
+              localStorageManager.removeResources(
+                  new AppPurgeEvent(appId, "user", Collections.emptyList())));
+    }
+
+    // neither the directory outside of the storage base directory nor the base directory
+    // itself is touched
+    assertTrue(victimFile.exists());
+    assertTrue(storageBase.isDirectory());
+  }
+
+  @Test
+  public void testCheckAndClearLeakedShuffleDataDeletesEveryLeakedDirectory(@TempDir File tempDir)
+      throws Exception {
+    File storageBase = new File(tempDir, "storage");
+    // the base directory is emptied when the storage is created, so create the directories after
+    final LocalStorageManager localStorageManager = createLocalStorageManager(storageBase);
+    File leaked = new File(storageBase, "leakedApp");
+    // a directory of the storage base path whose name is not a valid appId, which is still
+    // shuffle data left on the disk
+    File unexpected = new File(storageBase, "not\tan\tappId");
+    assertTrue(leaked.mkdirs());
+    assumeTrue(unexpected.mkdirs());
+    // the directory of an application that is still alive must survive
+    File liveApp = new File(storageBase, "liveApp");
+    assertTrue(liveApp.mkdirs());
+
+    localStorageManager.checkAndClearLeakedShuffleData(() -> Collections.singletonList("liveApp"));
+
+    // every leaked directory is deleted, whatever its name is, and none of them stops the others
+    assertFalse(leaked.exists());
+    assertFalse(unexpected.exists());
+    assertTrue(storageBase.isDirectory());
+    assertTrue(liveApp.isDirectory());
   }
 }

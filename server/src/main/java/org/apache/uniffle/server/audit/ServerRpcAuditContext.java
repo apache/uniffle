@@ -20,6 +20,7 @@ package org.apache.uniffle.server.audit;
 import org.slf4j.Logger;
 
 import org.apache.uniffle.common.audit.RpcAuditContext;
+import org.apache.uniffle.common.util.RssUtils;
 
 /** An audit context for shuffle server rpc. */
 public class ServerRpcAuditContext extends RpcAuditContext {
@@ -41,7 +42,13 @@ public class ServerRpcAuditContext extends RpcAuditContext {
   }
 
   public ServerRpcAuditContext withAppId(String appId) {
-    this.appId = appId;
+    // A malformed appId may carry a line break, which would fake a record of the audit log. It's
+    // recorded with the control characters replaced, so that the attempt can still be told from
+    // the others.
+    this.appId =
+        appId != null && RssUtils.containsIsoControl(appId)
+            ? RssUtils.replaceIsoControl(appId, '?')
+            : appId;
     return this;
   }
 

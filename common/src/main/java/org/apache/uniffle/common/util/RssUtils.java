@@ -51,6 +51,7 @@ import com.google.common.net.InetAddresses;
 import io.netty.channel.unix.Errors;
 import io.netty.util.internal.PlatformDependent;
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.eclipse.jetty.util.MultiException;
 import org.roaringbitmap.longlong.Roaring64NavigableMap;
 import org.slf4j.Logger;
@@ -67,6 +68,8 @@ public class RssUtils {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(RssUtils.class);
   public static final String RSS_LOCAL_DIR_KEY = "RSS_LOCAL_DIRS";
+  // The upper limit of a directory name on most file systems, which is counted in bytes
+  public static final int MAX_APP_ID_LENGTH = 255;
 
   @FunctionalInterface
   public interface ServiceStarter {
@@ -304,6 +307,77 @@ public class RssUtils {
   public static String generatePartitionKey(String appId, Integer shuffleId, Integer partition) {
     return String.join(
         Constants.KEY_SPLIT_CHAR, appId, String.valueOf(shuffleId), String.valueOf(partition));
+  }
+
+  /**
+   * Checks whether an appId can be used as a directory name of the shuffle data path.
+   *
+   * <p>The appId comes with every request and is joined into the local and remote storage paths as
+   * it is, so it has to be a single ordinary path segment. A blank one resolves to the storage base
+   * directory itself, while separators and dot segments would leave the storage directory.
+   *
+   * @param appId the appId sent by a client
+   * @return true only if the appId is safe to be used as a path segment
+   */
+  public static boolean isValidAppId(String appId) {
+    if (StringUtils.isBlank(appId) || appId.length() > MAX_APP_ID_LENGTH) {
+      return false;
+    }
+    // A leading dot is rejected as well, because some file systems drop trailing dots and
+    // spaces and would turn an id like ".. " into "..".
+    if (appId.startsWith(".")
+        || appId.indexOf('/') >= 0
+        || appId.indexOf('\\') >= 0
+        || containsIsoControl(appId)) {
+      return false;
+    }
+    // A char takes at least one byte, so the check of the length above already covers the ids
+    // made of one byte chars. The limit of a directory name is counted in bytes, so the longer
+    // ones are counted char by char: one byte below U+0080, two below U+0800, four for a
+    // surrogate pair, and three otherwise. An unpaired surrogate is written as the replacement
+    // char by an encoder, which takes three bytes as well.
+    int bytes = 0;
+    for (int i = 0; i < appId.length(); i++) {
+      char c = appId.charAt(i);
+      if (c < 0x80) {
+        bytes += 1;
+      } else if (c < 0x800) {
+        bytes += 2;
+      } else if (isSurrogatePairAt(appId, i)) {
+        bytes += 4;
+        i++;
+      } else {
+        bytes += 3;
+      }
+    }
+    return bytes <= MAX_APP_ID_LENGTH;
+  }
+
+  private static boolean isSurrogatePairAt(String s, int i) {
+    char c = s.charAt(i);
+    return Character.isHighSurrogate(c)
+        && i + 1 < s.length()
+        && Character.isLowSurrogate(s.charAt(i + 1));
+  }
+
+  /** Checks whether the string carries an ISO control character, such as a line break. */
+  public static boolean containsIsoControl(String s) {
+    for (int i = 0; i < s.length(); i++) {
+      if (Character.isISOControl(s.charAt(i))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** Replaces every ISO control character of the string, such as a line break, by the given one. */
+  public static String replaceIsoControl(String s, char replacement) {
+    StringBuilder replaced = new StringBuilder(s.length());
+    for (int i = 0; i < s.length(); i++) {
+      char c = s.charAt(i);
+      replaced.append(Character.isISOControl(c) ? replacement : c);
+    }
+    return replaced.toString();
   }
 
   public static <T> T loadExtension(Class<T> extCls, String clsPackage, Object obj) {

@@ -127,6 +127,10 @@ public class ShuffleServerGrpcTest extends IntegrationTestBase {
     shuffleServerConf.set(ShuffleServerConf.SERVER_PRE_ALLOCATION_EXPIRED, 5000L);
     shuffleServerConf.set(ShuffleServerConf.SERVER_BUFFER_CAPACITY, 1024 * 1024 * 50L);
     shuffleServerConf.set(ShuffleServerConf.HUGE_PARTITION_SIZE_THRESHOLD, 1024 * 1024 * 10L);
+    // registerTest registers a remote storage of a fake cluster, which is never accessed
+    shuffleServerConf.set(
+        ShuffleServerConf.SERVER_REMOTE_STORAGE_ALLOWED_PATHS,
+        Lists.newArrayList(HDFS_URI, "hdfs://cluster1"));
     return shuffleServerConf;
   }
 
@@ -655,7 +659,7 @@ public class ShuffleServerGrpcTest extends IntegrationTestBase {
     // appId -> remote storage won't change if register again with the different remote storage
     grpcShuffleServerClient.registerShuffle(
         new RssRegisterShuffleRequest(
-            appId1, 0, Lists.newArrayList(new PartitionRange(0, 1)), remoteStorage + "another"));
+            appId1, 0, Lists.newArrayList(new PartitionRange(0, 1)), remoteStorage + "/another"));
     assertEquals(
         remoteStorage,
         grpcShuffleServers.get(0).getStorageManager().selectStorage(event1).getStoragePath());

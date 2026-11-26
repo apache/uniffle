@@ -29,7 +29,6 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.collections4.MapUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -64,6 +63,7 @@ import org.apache.uniffle.common.netty.protocol.RpcResponse;
 import org.apache.uniffle.common.netty.protocol.SendShuffleDataRequest;
 import org.apache.uniffle.common.netty.protocol.SendShuffleDataRequestV1;
 import org.apache.uniffle.common.rpc.StatusCode;
+import org.apache.uniffle.common.util.RssUtils;
 import org.apache.uniffle.server.ShuffleDataReadEvent;
 import org.apache.uniffle.server.ShuffleServer;
 import org.apache.uniffle.server.ShuffleServerConf;
@@ -85,6 +85,8 @@ public class ShuffleServerNettyHandler implements BaseMessageHandler {
   private static final Logger AUDIT_LOGGER =
       LoggerFactory.getLogger("SHUFFLE_SERVER_RPC_AUDIT_LOG");
   private static final int RPC_TIMEOUT = 60000;
+  private static final String INVALID_APP_ID_RET_MSG =
+      "appId is blank or contains illegal characters";
   private final ShuffleServer shuffleServer;
   private boolean isRpcAuditLogEnabled;
   private List<String> rpcAuditExcludeOpList;
@@ -177,6 +179,28 @@ public class ShuffleServerNettyHandler implements BaseMessageHandler {
               + stageAttemptNumber
               + ", partitionCount="
               + req.getPartitionToBlocks().size());
+
+      // The appId is checked here as on the other requests, although a malformed one can never
+      // be registered. The pre-allocated buffer has been taken above, so it's released the same
+      // way as the request of an unknown app.
+      if (!RssUtils.isValidAppId(appId)) {
+        // The malformed appId is not passed on, it may carry characters that fake log lines
+        LOG.warn("Reject the send shuffle data request with a malformed appId");
+        rpcResponse =
+            new RpcResponse(req.getRequestId(), StatusCode.INVALID_REQUEST, INVALID_APP_ID_RET_MSG);
+        releaseNettyBufferAndMetrics(
+            req,
+            "<malformed>",
+            shuffleId,
+            requireBufferId,
+            requireBlocksSize,
+            shuffleBufferManager,
+            info,
+            isPreAllocated);
+        auditContext.withStatusCode(rpcResponse.getStatusCode());
+        client.getChannel().writeAndFlush(rpcResponse);
+        return;
+      }
 
       ShuffleTaskInfo taskInfo = shuffleServer.getShuffleTaskManager().getShuffleTaskInfo(appId);
       if (taskInfo == null) {
@@ -816,6 +840,18 @@ public class ShuffleServerNettyHandler implements BaseMessageHandler {
             + "], blockId["
             + blockId
             + "]";
+    if (!RssUtils.isValidAppId(appId)) {
+      response =
+          new GetSortedShuffleDataResponse(
+              requestId,
+              StatusCode.INVALID_REQUEST,
+              INVALID_APP_ID_RET_MSG,
+              -1,
+              MergeState.INTERNAL_ERROR.code(),
+              Unpooled.EMPTY_BUFFER);
+      client.getChannel().writeAndFlush(response);
+      return;
+    }
     if (!shuffleServer.isRemoteMergeEnable()) {
       msg = "Remote merge is disabled";
       status = StatusCode.INTERNAL_ERROR;
@@ -917,8 +953,12 @@ public class ShuffleServerNettyHandler implements BaseMessageHandler {
   }
 
   private StatusCode verifyRequest(String appId) {
-    if (StringUtils.isNotBlank(appId)
-        && shuffleServer.getShuffleTaskManager().isAppExpired(appId)) {
+    // The appId becomes a directory name of the shuffle data, so a malformed one is rejected
+    // before anything is looked up or read for it.
+    if (!RssUtils.isValidAppId(appId)) {
+      return StatusCode.INVALID_REQUEST;
+    }
+    if (shuffleServer.getShuffleTaskManager().isAppExpired(appId)) {
       return StatusCode.NO_REGISTER;
     }
     return StatusCode.SUCCESS;

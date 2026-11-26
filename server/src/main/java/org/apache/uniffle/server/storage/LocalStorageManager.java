@@ -17,6 +17,7 @@
 
 package org.apache.uniffle.server.storage;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -423,8 +424,10 @@ public class LocalStorageManager extends SingleStorageManager {
                         StorageType.LOCALFILE.name(), new Configuration()));
         String[] deletePaths = new String[storageBasePaths.size()];
         for (int i = 0; i < storageBasePaths.size(); i++) {
-          deletePaths[i] =
-              ShuffleStorageUtils.getFullShuffleDataFolder(storageBasePaths.get(i), appId);
+          // The name is a directory of the storage base path itself, so every directory is
+          // deleted as before whatever the name is, instead of being refused by the check of
+          // an appId
+          deletePaths[i] = new File(storageBasePaths.get(i), appId).getPath();
         }
         deleteHandler.delete(deletePaths, appId, UNKNOWN_USER_NAME);
       }
