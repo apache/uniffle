@@ -17,6 +17,7 @@
 
 package org.apache.spark.shuffle;
 
+import java.util.Arrays;
 import java.util.List;
 
 import com.google.common.collect.Lists;
@@ -49,15 +50,19 @@ public class RssShuffleManagerTestBase {
     mockedStaticRssShuffleUtils.close();
   }
 
-  protected CoordinatorClient createCoordinatorClient(StatusCode status) {
+  protected CoordinatorClient createCoordinatorClient(StatusCode first, StatusCode... rest) {
     CoordinatorClient mockedCoordinatorClient = mock(CoordinatorClient.class);
     when(mockedCoordinatorClient.accessCluster(any()))
-        .thenReturn(new RssAccessClusterResponse(status, ""));
+        .thenReturn(
+            new RssAccessClusterResponse(first, ""),
+            Arrays.stream(rest)
+                .map(status -> new RssAccessClusterResponse(status, ""))
+                .toArray(RssAccessClusterResponse[]::new));
     return mockedCoordinatorClient;
   }
 
-  CoordinatorClient setupMockedRssShuffleUtils(StatusCode status) {
-    CoordinatorClient mockCoordinatorClient = createCoordinatorClient(status);
+  CoordinatorClient setupMockedRssShuffleUtils(StatusCode first, StatusCode... rest) {
+    CoordinatorClient mockCoordinatorClient = createCoordinatorClient(first, rest);
     List<CoordinatorClient> coordinatorClients = Lists.newArrayList();
     coordinatorClients.add(mockCoordinatorClient);
     CoordinatorGrpcRetryableClient client =

@@ -55,10 +55,6 @@ jobs:
       matrix:
         include:
           # Pay attention! Don't use profile with character ':'!
-          - profile: spark2
-            java-version: 8
-          - profile: spark2.3
-            java-version: 8
           - profile: spark3.0
             java-version: 8
           - profile: spark3
