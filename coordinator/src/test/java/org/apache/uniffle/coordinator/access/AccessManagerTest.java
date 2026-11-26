@@ -35,6 +35,7 @@ import org.apache.uniffle.coordinator.metric.CoordinatorMetrics;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class AccessManagerTest {
@@ -54,21 +55,20 @@ public class AccessManagerTest {
     CoordinatorConf conf = new CoordinatorConf();
     conf.setString(CoordinatorConf.COORDINATOR_ACCESS_CHECKERS.key(), " , ");
     try (ApplicationManager applicationManager = new ApplicationManager(conf)) {
-      try {
-        new AccessManager(conf, null, applicationManager.getQuotaManager(), new Configuration());
-      } catch (RuntimeException e) {
-        String expectedMessage = "Empty classes";
-        assertTrue(e.getMessage().startsWith(expectedMessage));
-      }
+      AccessManager blankAccessManager =
+          new AccessManager(conf, null, applicationManager.getQuotaManager(), new Configuration());
+      assertTrue(blankAccessManager.getAccessCheckers().isEmpty());
+      blankAccessManager.close();
       conf.setString(
           CoordinatorConf.COORDINATOR_ACCESS_CHECKERS.key(),
           "com.Dummy,org.apache.uniffle.coordinator.access.AccessManagerTest$MockAccessChecker");
-      try {
-        new AccessManager(conf, null, applicationManager.getQuotaManager(), new Configuration());
-      } catch (RuntimeException e) {
-        String expectedMessage = "java.lang.ClassNotFoundException: com.Dummy";
-        assertTrue(e.getMessage().startsWith(expectedMessage));
-      }
+      RuntimeException e =
+          assertThrows(
+              RuntimeException.class,
+              () ->
+                  new AccessManager(
+                      conf, null, applicationManager.getQuotaManager(), new Configuration()));
+      assertTrue(e.getMessage().startsWith("java.lang.ClassNotFoundException: com.Dummy"));
       // test empty checkers
       conf.setString(CoordinatorConf.COORDINATOR_ACCESS_CHECKERS.key(), "");
       AccessManager accessManager =
