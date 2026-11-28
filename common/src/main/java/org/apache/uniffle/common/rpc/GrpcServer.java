@@ -46,6 +46,7 @@ import org.apache.uniffle.common.metrics.GRPCMetrics;
 import org.apache.uniffle.common.util.Constants;
 import org.apache.uniffle.common.util.ExitUtils;
 import org.apache.uniffle.common.util.GrpcNettyUtils;
+import org.apache.uniffle.common.util.GrpcSharedBufferAllocator;
 import org.apache.uniffle.common.util.RssUtils;
 import org.apache.uniffle.common.util.ThreadUtils;
 
@@ -120,12 +121,13 @@ public class GrpcServer implements ServerInterface {
             ? GrpcNettyUtils.createPooledByteBufAllocatorWithSmallCacheOnly(
                 true, 0, pageSize, maxOrder, smallCacheSize)
             : GrpcNettyUtils.createPooledByteBufAllocator(true, 0, 0, 0, 0);
+    GrpcSharedBufferAllocator sendAllocator = new GrpcSharedBufferAllocator(pooledByteBufAllocator);
     ServerBuilder<?> builder =
         NettyServerBuilder.forPort(serverPort)
             .executor(pool)
             .maxInboundMessageSize((int) maxInboundMessageSize)
             .withOption(ChannelOption.ALLOCATOR, pooledByteBufAllocator)
-            .withChildOption(ChannelOption.ALLOCATOR, pooledByteBufAllocator);
+            .withChildOption(ChannelOption.ALLOCATOR, sendAllocator);
     if (isMetricsEnabled) {
       builder.addTransportFilter(new MonitoringServerTransportFilter(grpcMetrics));
     }

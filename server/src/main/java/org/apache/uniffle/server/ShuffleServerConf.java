@@ -275,6 +275,13 @@ public class ShuffleServerConf extends RssBaseConf {
           .defaultValue(2 * 1024L * 1024L)
           .withDescription("The index file size hint");
 
+  public static final ConfigOption<Long> SERVER_SHUFFLE_INDEX_CACHE_EXPIRE_MS =
+      ConfigOptions.key("rss.server.index.cache.expire.ms")
+          .longType()
+          .checkValue(ConfigUtils.POSITIVE_LONG_VALIDATOR, "Index cache expiry must be positive")
+          .defaultValue(60_000L)
+          .withDescription("Idle expiry in milliseconds for shared gRPC index snapshots.");
+
   public static final ConfigOption<Boolean> SERVER_UNHEALTHY_ONCE_STORAGE_CORRUPTION =
       ConfigOptions.key("rss.server.health.markUnhealthyOnceStorageCorruption")
           .booleanType()
