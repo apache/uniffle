@@ -57,6 +57,10 @@ The important configuration of client is listed as following. These configuratio
 | <client_type>.rss.client.max.concurrency.of.per-partition.write | -                                      | The maximum number of files that can be written concurrently to a single partition is determined. This value will only be respected by the remote shuffle server if it is greater than 0.                                                                                                                                                                                                                                                                                                    |
 | <client_type>.rss.client.rpc.timeout.ms                         | 60000                                  | The timeout value in milliseconds for gRPC and Netty Type RPC Clients, including ShuffleServerClient and ShuffleManagerClient.                                                                                                                                                                                                                                                                                                                                                               |
 | <client_type>.rss.client.rpc.maxAttempts                        | 3                                      | When we fail to send RPC calls, we will retry for maxAttempts times.                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| <client_type>.rss.client.retry.max                  | 50                                     | Maximum number of retries for shuffle operations. |
+| <client_type>.rss.client.retry.interval.max         | 10000                                  | Maximum backoff interval between retries, in milliseconds. |
+| <client_type>.rss.client.send.check.timeout.ms      | 600000                                 | Maximum time, in milliseconds, to wait for shuffle data sends to complete. |
+| <client_type>.rss.client.send.check.interval.ms     | 500                                    | Interval, in milliseconds, between checks for shuffle data send completion. |
 | <client_type>.rss.client.rpc.netty.pageSize                     | 4096                                   | The value of pageSize for PooledByteBufAllocator when using gRPC internal Netty on the client-side. This configuration will only take effect when rss.rpc.server.type is set to GRPC_NETTY.                                                                                                                                                                                                                                                                                                  |
 | <client_type>.rss.client.rpc.netty.maxOrder                     | 3                                      | The value of maxOrder for PooledByteBufAllocator when using gRPC internal Netty on the client-side. This configuration will only take effect when rss.rpc.server.type is set to GRPC_NETTY.                                                                                                                                                                                                                                                                                                  |
 | <client_type>.rss.client.rpc.netty.smallCacheSize               | 1024                                   | The value of smallCacheSize for PooledByteBufAllocator when using gRPC internal Netty on the client-side. This configuration will only take effect when rss.rpc.server.type is set to GRPC_NETTY.                                                                                                                                                                                                                                                                                            |
@@ -75,8 +79,30 @@ Notice:
 2. `<client_type>.rss.coordinator.quorum` is compulsory, and other configurations are optional when coordinator dynamic configuration is enabled.
 
 
-### Client Quorum Setting 
+### Client Timeout and Retry Configuration
 
+The client provides separate timeout and retry settings for RPC requests and shuffle data operations.
+
+- `rss.client.rpc.timeout.ms` specifies the timeout for an individual gRPC or Netty RPC request.
+- `rss.client.rpc.maxAttempts` specifies the maximum number of attempts for RPC calls when failures occur.
+- `rss.client.retry.max` specifies the maximum number of retries for shuffle operations.
+- `rss.client.retry.interval.max` specifies the maximum backoff interval between retries. The retry interval uses backoff and is capped by this value.
+- `rss.client.send.check.timeout.ms` specifies how long the client waits for shuffle data sends to complete.
+- `rss.client.send.check.interval.ms` specifies how frequently the client checks whether shuffle data sends have completed.
+
+The client validates the relationship between the retry settings and the send-check timeout:
+
+`rss.client.retry.max * rss.client.retry.interval.max <= rss.client.send.check.timeout.ms`
+
+With the default values, the retry budget check is:
+
+`50 * 10000 ms = 500000 ms (8 minutes 20 seconds)`
+
+This is within the default send-check timeout of `600000 ms (10 minutes)`.
+
+When tuning these settings, ensure that the retry interval and retry count remain within the send-check timeout. Increasing timeout or retry values can delay failure detection, so adjust them according to the workload and network conditions.
+
+### Client Quorum Setting
 Uniffle supports client-side quorum protocol to tolerant shuffle server crash. 
 This feature is client-side behaviour, in which shuffle writer sends each block to multiple servers, and shuffle readers could fetch block data from one of server.
 Since sending multiple replicas of blocks can reduce the shuffle performance and resource consumption, we designed it as an optional feature.
