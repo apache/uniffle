@@ -577,9 +577,10 @@ public class ShuffleServerNettyHandler implements BaseMessageHandler {
       if (storage != null) {
         storage.updateReadMetrics(new StorageReadMetrics(appId, shuffleId));
       }
-      // Index file is expected small size and won't cause oom problem with the assumed size. An
-      // index segment is 40B,
-      // with the default size - 2MB, it can support 50k blocks for shuffle data.
+      // The encoder sends index files as FileRegion(s), without materializing their contents in
+      // heap arrays. Keep this path separate from the gRPC index snapshot cache. The size hint is
+      // an admission-control charge per outstanding transfer, not its actual heap footprint;
+      // ReleaseMemoryAndRecordReadTimeListener returns the charge when the write future completes.
       long assumedFileSize =
           shuffleServer
               .getShuffleServerConf()

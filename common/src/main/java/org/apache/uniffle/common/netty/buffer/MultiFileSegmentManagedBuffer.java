@@ -19,6 +19,7 @@ package org.apache.uniffle.common.netty.buffer;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import io.netty.buffer.ByteBuf;
@@ -37,6 +38,10 @@ public class MultiFileSegmentManagedBuffer extends ManagedBuffer {
 
   public MultiFileSegmentManagedBuffer(List<ManagedBuffer> managedBuffers) {
     this.managedBuffers = managedBuffers;
+  }
+
+  public List<ManagedBuffer> getManagedBuffers() {
+    return Collections.unmodifiableList(managedBuffers);
   }
 
   @Override

@@ -53,6 +53,14 @@ public class FileSegmentManagedBuffer extends ManagedBuffer {
     return length;
   }
 
+  public File getFile() {
+    return file;
+  }
+
+  public long getOffset() {
+    return offset;
+  }
+
   @Override
   public ByteBuf byteBuf() {
     return Unpooled.wrappedBuffer(this.nioByteBuffer());

@@ -125,6 +125,8 @@ public class ShuffleTaskManager {
   private final long storageRemoveOperationTimeoutSec;
   private ShuffleMergeManager shuffleMergeManager;
   private ShuffleBlockIdManager shuffleBlockIdManager;
+  private final ShuffleIndexCache shuffleIndexCache;
+  private final ScheduledExecutorService indexCacheCleanupExecutor;
 
   public ShuffleTaskManager(
       ShuffleServerConf conf,
@@ -143,6 +145,29 @@ public class ShuffleTaskManager {
     this.conf = conf;
     this.shuffleFlushManager = shuffleFlushManager;
     this.shuffleBufferManager = shuffleBufferManager;
+    this.shuffleIndexCache =
+        new ShuffleIndexCache(
+            conf.getLong(ShuffleServerConf.SERVER_SHUFFLE_INDEX_CACHE_EXPIRE_MS),
+            size -> {
+              if (!shuffleBufferManager.requireReadMemory(size)) {
+                return false;
+              }
+              ShuffleServerMetrics.gaugeReadLocalIndexFileBufferSize.inc(size);
+              return true;
+            },
+            size -> {
+              shuffleBufferManager.releaseReadMemory(size);
+              ShuffleServerMetrics.gaugeReadLocalIndexFileBufferSize.dec(size);
+            });
+    this.indexCacheCleanupExecutor =
+        ThreadUtils.getDaemonSingleThreadScheduledExecutor("shuffleIndexCacheCleaner");
+    long indexCacheCleanupMs =
+        Math.min(10_000L, conf.getLong(ShuffleServerConf.SERVER_SHUFFLE_INDEX_CACHE_EXPIRE_MS));
+    indexCacheCleanupExecutor.scheduleWithFixedDelay(
+        shuffleIndexCache::cleanUp,
+        indexCacheCleanupMs,
+        indexCacheCleanupMs,
+        TimeUnit.MILLISECONDS);
     this.storageManager = storageManager;
     this.shuffleMergeManager = shuffleMergeManager;
     org.apache.uniffle.common.StorageType storageType =
@@ -794,6 +819,35 @@ public class ShuffleTaskManager {
     return result;
   }
 
+  /** Materialize one shared snapshot, while excluding app/shuffle deletion during the load. */
+  public ShuffleIndexCache.Lease getCachedShuffleIndex(
+      String appId, int shuffleId, int partitionId, int partitionNumPerRange, int partitionNum)
+      throws IOException {
+    Lock readLock = getAppReadLock(appId);
+    readLock.lock();
+    ShuffleIndexResult result = null;
+    try {
+      if (isAppExpired(appId)) {
+        throw new FileNotFoundException(
+            "Application expired while reading shuffle index: " + appId);
+      }
+      result = getShuffleIndex(appId, shuffleId, partitionId, partitionNumPerRange, partitionNum);
+      int rangeStart =
+          ShuffleStorageUtils.getPartitionRange(partitionId, partitionNumPerRange, partitionNum)[0];
+      return shuffleIndexCache.acquire(appId, shuffleId, rangeStart, result);
+    } finally {
+      if (result != null) {
+        result.release();
+      }
+      readLock.unlock();
+    }
+  }
+
+  @VisibleForTesting
+  ShuffleIndexCache getShuffleIndexCache() {
+    return shuffleIndexCache;
+  }
+
   public void checkResourceStatus() {
     try {
       Set<String> appNames = Sets.newHashSet(shuffleTaskInfos.keySet());
@@ -846,6 +900,7 @@ public class ShuffleTaskManager {
       }
 
       LOG.info("Start remove resource for appId[{}], shuffleIds[{}]", appId, shuffleIds);
+      shuffleIndexCache.invalidate(appId, shuffleIds);
       final long start = System.currentTimeMillis();
       final ShuffleTaskInfo taskInfo = shuffleTaskInfos.get(appId);
       if (taskInfo != null) {
@@ -914,6 +969,7 @@ public class ShuffleTaskManager {
       }
       final long start = System.currentTimeMillis();
       removingApps.put(appId, start);
+      shuffleIndexCache.invalidate(appId, null);
       ShuffleTaskInfo shuffleTaskInfo = shuffleTaskInfos.remove(appId);
       if (shuffleTaskInfo == null) {
         LOG.info("Resource for appId[" + appId + "] had been removed before.");
@@ -1107,6 +1163,8 @@ public class ShuffleTaskManager {
   }
 
   public void stop() {
+    indexCacheCleanupExecutor.shutdownNow();
+    shuffleIndexCache.close();
     topNShuffleDataSizeOfAppCalcTask.stop();
   }
 
